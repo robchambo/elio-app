@@ -37,6 +37,9 @@ class RecipeGenerationRequest {
   /// Titles of recently generated recipes — used to prevent duplicates
   final List<String> recentTitles;
 
+  /// Pantry items flagged as running low — Gemini will avoid or treat as optional
+  final List<String> runningLowItems;
+
   const RecipeGenerationRequest({
     required this.perishables,
     required this.alwaysHave,
@@ -48,6 +51,7 @@ class RecipeGenerationRequest {
     this.servings = 2,
     this.excludedIngredients = const [],
     this.recentTitles = const [],
+    this.runningLowItems = const [],
   });
 }
 

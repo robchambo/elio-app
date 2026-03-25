@@ -191,6 +191,12 @@ class GeminiService {
     if (request.moodPreference != null) buffer.writeln('Mood: ${request.moodPreference}');
     buffer.writeln('Servings: ${request.servings}');
 
+    if (request.runningLowItems.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('## RUNNING LOW (use sparingly or avoid — user is nearly out of these):');
+      buffer.writeln(request.runningLowItems.join(', '));
+    }
+
     if (request.excludedIngredients.isNotEmpty) {
       buffer.writeln();
       buffer.writeln('## EXCLUDED INGREDIENTS (do NOT use these — user has run out or does not want them):');

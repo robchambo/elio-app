@@ -57,25 +57,33 @@ enum KitchenPreset {
 class InventoryItem {
   final String name;
   final String tier; // 'alwaysHave' | 'almostAlwaysHave'
+  final bool isRunningLow;
 
-  const InventoryItem({required this.name, required this.tier});
+  const InventoryItem({
+    required this.name,
+    required this.tier,
+    this.isRunningLow = false,
+  });
 
   Map<String, dynamic> toFirestore() => {
     'name': name,
     'tier': tier,
+    'runningLow': isRunningLow,
   };
 
   factory InventoryItem.fromFirestore(Map<String, dynamic> data) {
     return InventoryItem(
       name: data['name'] as String? ?? '',
       tier: data['tier'] as String? ?? 'almostAlwaysHave',
+      isRunningLow: data['runningLow'] as bool? ?? false,
     );
   }
 
-  InventoryItem copyWith({String? name, String? tier}) {
+  InventoryItem copyWith({String? name, String? tier, bool? isRunningLow}) {
     return InventoryItem(
       name: name ?? this.name,
       tier: tier ?? this.tier,
+      isRunningLow: isRunningLow ?? this.isRunningLow,
     );
   }
 }

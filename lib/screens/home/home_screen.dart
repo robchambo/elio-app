@@ -47,10 +47,11 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _selectedStyle;
   String? _selectedMood;
 
-  // ── User data ──────────────────────────────────────────────────────
+  // ── User data ──────────────────────────────────────────────────────────
   List<String> _stylePreferences = [];
   List<String> _alwaysHave = [];
   List<String> _almostAlwaysHave = [];
+  List<String> _runningLowItems = []; // items flagged as running low
   bool _isLoading = true;
   bool _isGenerating = false;
 
@@ -116,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
           _alwaysHave = List<String>.from(data['alwaysHave'] ?? []);
           _almostAlwaysHave = List<String>.from(data['almostAlwaysHave'] ?? []);
+          _runningLowItems = List<String>.from(data['runningLowItems'] ?? []);
           _householdProfiles = List<Map<String, dynamic>>.from(
             (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
           );
@@ -239,6 +241,7 @@ class _HomeScreenState extends State<HomeScreen> {
         moodPreference: _selectedMood,
         servings: 2,
         recentTitles: List.from(_recentTitles),
+        runningLowItems: List.from(_runningLowItems),
       );
 
       final recipe = await GeminiService.generateRecipe(request);
@@ -478,7 +481,9 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    if (activeConstraints.isEmpty && deactivatedProfiles.isEmpty) {
+    final hasRunningLow = _runningLowItems.isNotEmpty;
+
+    if (activeConstraints.isEmpty && deactivatedProfiles.isEmpty && !hasRunningLow) {
       return const SizedBox.shrink();
     }
 
@@ -514,6 +519,30 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
               );
             }),
+            // Running low warning pills
+            ..._runningLowItems.map((item) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFFFB300), width: 1),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, size: 12, color: Color(0xFFE65100)),
+                  const SizedBox(width: 4),
+                  Text(
+                    item,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFE65100),
+                    ),
+                  ),
+                ],
+              ),
+            )),
             // Deactivated profile restore chips
             ...deactivatedProfiles.map((p) {
               final name = p['name'] as String;

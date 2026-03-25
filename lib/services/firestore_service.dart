@@ -115,19 +115,25 @@ class FirestoreService {
     );
     final dietaryRequirements = List<String>.from(ownerProfile['dietaryRequirements'] ?? []);
 
-    // Separate inventory by tier
+    // Separate inventory by tier, tracking running low items
     final alwaysHave = <String>[];
     final almostAlwaysHave = <String>[];
+    final runningLowItems = <String>[]; // items flagged as running low
+    // Also store inventory with doc IDs for profile screen editing
+    final inventoryWithIds = <Map<String, dynamic>>[];
 
     for (final doc in inventorySnapshot.docs) {
       final data = doc.data() as Map<String, dynamic>;
       final name = data['name'] as String? ?? '';
       final tier = data['tier'] as String? ?? '';
+      final isRunningLow = data['runningLow'] as bool? ?? false;
+      inventoryWithIds.add({'id': doc.id, 'name': name, 'tier': tier, 'runningLow': isRunningLow});
       if (tier == 'alwaysHave') {
         alwaysHave.add(name);
       } else if (tier == 'almostAlwaysHave') {
         almostAlwaysHave.add(name);
       }
+      if (isRunningLow) runningLowItems.add(name);
     }
 
     return {
@@ -136,6 +142,8 @@ class FirestoreService {
       'householdProfiles': householdProfiles,
       'alwaysHave': alwaysHave,
       'almostAlwaysHave': almostAlwaysHave,
+      'runningLowItems': runningLowItems,
+      'inventoryWithIds': inventoryWithIds,
       'subscription': userData['subscription'] as Map<String, dynamic>? ?? {},
     };
   }
@@ -194,6 +202,52 @@ class FirestoreService {
     final recipeRef = _db.collection('users').doc(_uid).collection('recipes').doc();
     await recipeRef.set(recipe.toFirestore());
     return recipeRef.id;
+  }
+
+  // ─── Toggle running low flag on an inventory item ─────────────────
+
+  Future<void> toggleRunningLow(String itemId, bool isRunningLow) async {
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('inventory')
+        .doc(itemId)
+        .update({'runningLow': isRunningLow});
+  }
+
+  // ─── Update an inventory item ────────────────────────────────────
+
+  Future<void> updateInventoryItem(String itemId, {String? name, String? tier, bool? runningLow}) async {
+    final updates = <String, dynamic>{};
+    if (name != null) updates['name'] = name;
+    if (tier != null) updates['tier'] = tier;
+    if (runningLow != null) updates['runningLow'] = runningLow;
+    if (updates.isEmpty) return;
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('inventory')
+        .doc(itemId)
+        .update(updates);
+  }
+
+  // ─── Add a new inventory item ────────────────────────────────────
+
+  Future<String> addInventoryItem(String name, String tier) async {
+    final ref = _db.collection('users').doc(_uid).collection('inventory').doc();
+    await ref.set({'name': name, 'tier': tier, 'runningLow': false});
+    return ref.id;
+  }
+
+  // ─── Delete an inventory item ────────────────────────────────────
+
+  Future<void> deleteInventoryItem(String itemId) async {
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('inventory')
+        .doc(itemId)
+        .delete();
   }
 
   // ─── Get remaining daily generations ────────────────────────────
