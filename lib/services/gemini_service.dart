@@ -226,6 +226,18 @@ class GeminiService {
       }
     }
 
+    // Taste profile is injected by caller via request fields
+    if (request.likedRecipes.isNotEmpty || request.dislikedRecipes.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('## TASTE PROFILE (adapt suggestions based on this):');
+      if (request.likedRecipes.isNotEmpty) {
+        buffer.writeln('User has LIKED recipes similar to: ${request.likedRecipes.take(5).join(', ')} — lean into similar styles, flavours, and techniques.');
+      }
+      if (request.dislikedRecipes.isNotEmpty) {
+        buffer.writeln('User has DISLIKED recipes similar to: ${request.dislikedRecipes.take(5).join(', ')} — avoid similar styles and flavour profiles.');
+      }
+    }
+
     buffer.writeln();
     buffer.writeln('## RULES:');
     buffer.writeln('- Keep steps SHORT (1-2 sentences each). Max 8 steps total.');

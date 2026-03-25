@@ -46,6 +46,12 @@ class RecipeGenerationRequest {
   /// Leftover items the user wants to use up
   final List<String> leftoverItems;
 
+  /// Titles of recipes the user has liked — used for adaptive learning
+  final List<String> likedRecipes;
+
+  /// Titles of recipes the user has disliked — used for adaptive learning
+  final List<String> dislikedRecipes;
+
   const RecipeGenerationRequest({
     required this.perishables,
     required this.alwaysHave,
@@ -60,6 +66,8 @@ class RecipeGenerationRequest {
     this.runningLowItems = const [],
     this.isLeftoverMode = false,
     this.leftoverItems = const [],
+    this.likedRecipes = const [],
+    this.dislikedRecipes = const [],
   });
 }
 

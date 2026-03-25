@@ -243,6 +243,19 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isGenerating = true);
 
     try {
+      // Load taste profile for adaptive learning (non-blocking, best-effort)
+      List<String> likedRecipes = [];
+      List<String> dislikedRecipes = [];
+      if (!widget.isGuest) {
+        try {
+          final tasteProfile = await _firestore.getTasteProfile();
+          likedRecipes = tasteProfile['liked'] ?? [];
+          dislikedRecipes = tasteProfile['disliked'] ?? [];
+        } catch (_) {
+          // Non-critical — proceed without taste profile
+        }
+      }
+
       final request = RecipeGenerationRequest(
         perishables: _isLeftoverMode ? [] : _selectedPerishables.toList(),
         alwaysHave: _alwaysHave,
@@ -256,6 +269,8 @@ class _HomeScreenState extends State<HomeScreen> {
         runningLowItems: List.from(_runningLowItems),
         isLeftoverMode: _isLeftoverMode,
         leftoverItems: _isLeftoverMode ? _leftoverItems.toList() : [],
+        likedRecipes: likedRecipes,
+        dislikedRecipes: dislikedRecipes,
       );
 
       final recipe = await GeminiService.generateRecipe(request);

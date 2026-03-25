@@ -250,7 +250,48 @@ class FirestoreService {
         .delete();
   }
 
-  // ─── Get remaining daily generations ────────────────────────────
+  // ─── Rate a recipe (thumbs up / thumbs down) ──────────────────────────────────────────────
+
+  Future<void> rateRecipe({
+    required String recipeTitle,
+    required bool liked,
+    required List<String> cuisineTags,
+    required List<String> dietaryTags,
+  }) async {
+    final batch = _db.batch();
+    final userRef = _db.collection('users').doc(_uid);
+    final ratingRef = userRef.collection('ratings').doc();
+    batch.set(ratingRef, {
+      'recipeTitle': recipeTitle,
+      'liked': liked,
+      'cuisineTags': cuisineTags,
+      'dietaryTags': dietaryTags,
+      'ratedAt': FieldValue.serverTimestamp(),
+    });
+    if (liked) {
+      batch.update(userRef, {
+        'tasteProfile.likedTitles': FieldValue.arrayUnion([recipeTitle]),
+        'tasteProfile.dislikedTitles': FieldValue.arrayRemove([recipeTitle]),
+      });
+    } else {
+      batch.update(userRef, {
+        'tasteProfile.dislikedTitles': FieldValue.arrayUnion([recipeTitle]),
+        'tasteProfile.likedTitles': FieldValue.arrayRemove([recipeTitle]),
+      });
+    }
+    await batch.commit();
+  }
+
+  Future<Map<String, List<String>>> getTasteProfile() async {
+    final doc = await _db.collection('users').doc(_uid).get();
+    if (!doc.exists) return {'liked': [], 'disliked': []};
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final profile = data['tasteProfile'] as Map<String, dynamic>? ?? {};
+    return {
+      'liked': List<String>.from(profile['likedTitles'] ?? []),
+      'disliked': List<String>.from(profile['dislikedTitles'] ?? []),
+    };
+  }
 
   Future<int> getRemainingGenerations() async {
     final doc = await _db.collection('users').doc(_uid).get();

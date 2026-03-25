@@ -40,10 +40,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
   int _currentStep = 0;
   final Set<int> _expandedSubstitutions = {};
 
-  // ── Regeneration state ────────────────────────────────────────────────────
+  // ── Regeneration state ──────────────────────────────────────────────────────────────────────────────
   bool _isRegenerating = false;
   final Set<String> _excludedIngredients = {};
   final FirestoreService _firestore = FirestoreService();
+
+  // ── Rating state ──────────────────────────────────────────────────────────────────────────────
+  bool? _userRating; // true = liked, false = disliked, null = not rated
+  bool _isRating = false;
 
   @override
   void initState() {
@@ -136,6 +140,76 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
   }
 
+  Future<void> _rateRecipe(bool liked) async {
+    if (_isRating || widget.isGuest) return;
+    setState(() {
+      _userRating = liked;
+      _isRating = true;
+    });
+    try {
+      await _firestore.rateRecipe(
+        recipeTitle: widget.recipe.title,
+        liked: liked,
+        cuisineTags: widget.recipe.dietaryTags,
+        dietaryTags: widget.recipe.dietaryTags,
+      );
+    } catch (_) {
+      // Rating failure is non-critical — silently ignore
+    } finally {
+      if (mounted) setState(() => _isRating = false);
+    }
+  }
+
+  Widget _buildRatingRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: ElioColors.offWhite,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ElioColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              _userRating == null
+                  ? 'How was this recipe?'
+                  : _userRating == true
+                      ? 'Glad you liked it! Elio will remember.'
+                      : 'Noted. Elio will improve next time.',
+              style: ElioText.bodyMedium.copyWith(
+                color: _userRating == null ? ElioColors.textSecondary : ElioColors.navy,
+                fontWeight: _userRating == null ? FontWeight.w400 : FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          if (!widget.isGuest) ...[
+            _RatingButton(
+              icon: Icons.thumb_up_outlined,
+              iconFilled: Icons.thumb_up_rounded,
+              isSelected: _userRating == true,
+              color: const Color(0xFF2E7D32),
+              onTap: () => _rateRecipe(true),
+            ),
+            const SizedBox(width: 8),
+            _RatingButton(
+              icon: Icons.thumb_down_outlined,
+              iconFilled: Icons.thumb_down_rounded,
+              isSelected: _userRating == false,
+              color: const Color(0xFFC62828),
+              onTap: () => _rateRecipe(false),
+            ),
+          ] else
+            Text(
+              'Sign in to rate',
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+            ),
+        ],
+      ),
+    );
+  }
+
   void _shareRecipe() {
     final r = widget.recipe;
     final buffer = StringBuffer();
@@ -205,7 +279,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     const SizedBox(height: 28),
                     _buildSubstitutionsSection(),
                   ],
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 28),
+                  _buildRatingRow(),
+                  const SizedBox(height: 16),
                   _buildActionButtons(),
                 ],
               ),
@@ -843,6 +919,47 @@ class _MetaBadge extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _RatingButton extends StatelessWidget {
+  final IconData icon;
+  final IconData iconFilled;
+  final bool isSelected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _RatingButton({
+    required this.icon,
+    required this.iconFilled,
+    required this.isSelected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.12) : ElioColors.white,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: isSelected ? color : ElioColors.border,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Icon(
+          isSelected ? iconFilled : icon,
+          size: 20,
+          color: isSelected ? color : ElioColors.textSecondary,
+        ),
       ),
     );
   }
