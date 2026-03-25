@@ -82,22 +82,38 @@ class FirestoreService {
   //   subscription: Map
 
   Future<Map<String, dynamic>> getUserData() async {
-    // Fetch user doc and inventory in parallel
+    // Fetch user doc, all profiles, and inventory in parallel
     final userDocFuture = _db.collection('users').doc(_uid).get();
-    final ownerProfileFuture = _db.collection('users').doc(_uid).collection('profiles').doc('owner').get();
+    final profilesFuture = _db.collection('users').doc(_uid).collection('profiles').get();
     final inventoryFuture = _db.collection('users').doc(_uid).collection('inventory').get();
 
-    final results = await Future.wait([userDocFuture, ownerProfileFuture, inventoryFuture]);
+    final results = await Future.wait([userDocFuture, profilesFuture, inventoryFuture]);
 
     final userDoc = results[0] as DocumentSnapshot;
-    final ownerProfile = results[1] as DocumentSnapshot;
+    final profilesSnapshot = results[1] as QuerySnapshot;
     final inventorySnapshot = results[2] as QuerySnapshot;
 
     final userData = userDoc.data() as Map<String, dynamic>? ?? {};
-    final profileData = ownerProfile.data() as Map<String, dynamic>? ?? {};
 
-    // Extract dietary requirements from owner profile
-    final dietaryRequirements = List<String>.from(profileData['dietaryRequirements'] ?? []);
+    // Build list of all household profiles with their dietary requirements
+    // Each entry: { 'id': String, 'name': String, 'dietaryRequirements': List<String>, 'isOwner': bool }
+    final householdProfiles = <Map<String, dynamic>>[];
+    for (final doc in profilesSnapshot.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      householdProfiles.add({
+        'id': doc.id,
+        'name': data['name'] as String? ?? 'Member',
+        'dietaryRequirements': List<String>.from(data['dietaryRequirements'] ?? []),
+        'isOwner': data['isOwner'] as bool? ?? false,
+      });
+    }
+
+    // Owner's dietary requirements (for backwards compatibility)
+    final ownerProfile = householdProfiles.firstWhere(
+      (p) => p['isOwner'] == true,
+      orElse: () => householdProfiles.isNotEmpty ? householdProfiles.first : {'dietaryRequirements': <String>[]},
+    );
+    final dietaryRequirements = List<String>.from(ownerProfile['dietaryRequirements'] ?? []);
 
     // Separate inventory by tier
     final alwaysHave = <String>[];
@@ -117,6 +133,7 @@ class FirestoreService {
     return {
       'stylePreferences': List<String>.from(userData['stylePreferences'] ?? []),
       'dietaryRequirements': dietaryRequirements,
+      'householdProfiles': householdProfiles,
       'alwaysHave': alwaysHave,
       'almostAlwaysHave': almostAlwaysHave,
       'subscription': userData['subscription'] as Map<String, dynamic>? ?? {},

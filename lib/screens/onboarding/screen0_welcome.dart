@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/elio_theme.dart';
@@ -91,11 +92,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         builder: (_) => OnboardingFlow(
           displayName: 'there',
           isGuest: true,
-          onComplete: () {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const HomeScreen(isGuest: true)),
-            );
-          },
+          onComplete: () {},
         ),
       ),
     );
@@ -242,22 +239,24 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               ),
               const SizedBox(height: 12),
 
-              // ── Guest bypass ──────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                height: 48,
+              // ── Guest bypass (de-emphasised) ───────────────────
+              Center(
                 child: TextButton(
                   onPressed: _handleGuestMode,
                   style: TextButton.styleFrom(
-                    foregroundColor: ElioColors.textSecondary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    foregroundColor: ElioColors.textMuted,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   child: Text(
-                    'Explore without an account →',
+                    'Try without an account',
                     style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: ElioColors.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: ElioColors.textMuted,
+                      decoration: TextDecoration.underline,
+                      decorationColor: ElioColors.textMuted,
                     ),
                   ),
                 ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
 import '../../services/firestore_service.dart';
@@ -10,16 +11,15 @@ import '../history/history_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
-// HomeScreen — Sprint 2
+// HomeScreen
 // Design philosophy: approachable utility.
 // Single-purpose screen: tell Elio what's fresh,
 // optionally set a mood, then tap Generate.
 //
 // Layout:
 //   • Elio wordmark header + profile avatar
+//   • Active dietary filter strip (household union)
 //   • "What's fresh today?" dual-mode input
-//     - Quick-tap chips (common perishables)
-//     - Free-text field with tag conversion
 //   • Mood chips (Time / Style / Mood rows)
 //   • Large amber Generate button
 //   • Recent recipes list (below fold)
@@ -50,14 +50,19 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _stylePreferences = [];
   List<String> _alwaysHave = [];
   List<String> _almostAlwaysHave = [];
-  List<String> _dietaryRequirements = [];
   bool _isLoading = true;
   bool _isGenerating = false;
+
+  // ── Household profiles for dietary filter strip ────────────────────
+  // Each entry: { 'id': String, 'name': String, 'dietaryRequirements': List<String>, 'isOwner': bool }
+  List<Map<String, dynamic>> _householdProfiles = [];
+  // Set of profile IDs that are currently DEACTIVATED for this session
+  final Set<String> _deactivatedProfileIds = {};
 
   // ── Recent history ─────────────────────────────────────────────────
   List<SavedRecipe> _recentRecipes = [];
 
-  // ── Session deduplication memory (last 5 recipe titles) ──────────────
+  // ── Session deduplication memory (last 10 recipe titles) ─────────────
   final List<String> _recentTitles = [];
 
   // ── Common quick-tap perishables ───────────────────────────────────
@@ -110,7 +115,9 @@ class _HomeScreenState extends State<HomeScreen> {
           _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
           _alwaysHave = List<String>.from(data['alwaysHave'] ?? []);
           _almostAlwaysHave = List<String>.from(data['almostAlwaysHave'] ?? []);
-          _dietaryRequirements = List<String>.from(data['dietaryRequirements'] ?? []);
+          _householdProfiles = List<Map<String, dynamic>>.from(
+            (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
+          );
           _isLoading = false;
         });
       }
@@ -119,12 +126,44 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ── Compute union of dietary requirements from all ACTIVE profiles ──
+  List<String> get _activeDietaryRequirements {
+    final union = <String>{};
+    for (final profile in _householdProfiles) {
+      final id = profile['id'] as String;
+      if (_deactivatedProfileIds.contains(id)) continue;
+      final reqs = List<String>.from(profile['dietaryRequirements'] ?? []);
+      union.addAll(reqs);
+    }
+    return union.toList();
+  }
+
+  // ── All dietary constraints across all profiles (for display) ──────
+  // Returns a list of { 'label': String, 'profileName': String, 'profileId': String }
+  List<Map<String, String>> get _allDietaryConstraints {
+    final seen = <String>{};
+    final result = <Map<String, String>>[];
+    for (final profile in _householdProfiles) {
+      final id = profile['id'] as String;
+      final name = profile['name'] as String;
+      final reqs = List<String>.from(profile['dietaryRequirements'] ?? []);
+      for (final req in reqs) {
+        final key = '${id}_$req';
+        if (!seen.contains(key)) {
+          seen.add(key);
+          result.add({'label': req, 'profileName': name, 'profileId': id});
+        }
+      }
+    }
+    return result;
+  }
+
   // ── Style chips: user's preferences + Surprise me ─────────────────
   List<String> get _styleChips {
     final chips = List<String>.from(_stylePreferences);
     if (!chips.contains('Surprise me')) chips.add('Surprise me');
-    // Cap at 6 for readability
-    return chips.take(6).toList();
+    // Cap at 8 for readability
+    return chips.take(8).toList();
   }
 
   // ── Add item from text field ───────────────────────────────────────
@@ -142,12 +181,43 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _selectedPerishables.remove(item));
   }
 
+  // ── Guest cap: device-local daily counter ─────────────────────────
+  static const String _guestCapKey = 'guest_daily_generations';
+  static const String _guestCapDateKey = 'guest_daily_generations_date';
+
+  Future<bool> _canGuestGenerate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toUtc();
+    final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+    final savedDate = prefs.getString(_guestCapDateKey) ?? '';
+    if (savedDate != todayStr) {
+      // New day — reset counter
+      await prefs.setInt(_guestCapKey, 0);
+      await prefs.setString(_guestCapDateKey, todayStr);
+      return true;
+    }
+    final count = prefs.getInt(_guestCapKey) ?? 0;
+    return count < 3;
+  }
+
+  Future<void> _incrementGuestGenerations() async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getInt(_guestCapKey) ?? 0;
+    await prefs.setInt(_guestCapKey, current + 1);
+  }
+
   // ── Generate recipe ────────────────────────────────────────────────
   Future<void> _generateRecipe() async {
     if (_isGenerating) return;
 
-    // Check free tier cap (skip for guest)
-    if (!widget.isGuest) {
+    // Check free tier cap
+    if (widget.isGuest) {
+      final canGenerate = await _canGuestGenerate();
+      if (!canGenerate && mounted) {
+        _showUpgradeDialog();
+        return;
+      }
+    } else {
       final canGenerate = await _firestore.canGenerateRecipe();
       if (!canGenerate && mounted) {
         _showUpgradeDialog();
@@ -162,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen> {
         perishables: _selectedPerishables.toList(),
         alwaysHave: _alwaysHave,
         almostAlwaysHave: _almostAlwaysHave,
-        dietaryRequirements: _dietaryRequirements,
+        dietaryRequirements: _activeDietaryRequirements,
         timePreference: _selectedTime,
         stylePreference: _selectedStyle,
         moodPreference: _selectedMood,
@@ -172,7 +242,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final recipe = await GeminiService.generateRecipe(request);
 
-      if (!widget.isGuest) {
+      if (widget.isGuest) {
+        // Increment device-local guest cap
+        await _incrementGuestGenerations();
+      } else {
         // Increment daily cap and save to Firestore in parallel
         await Future.wait([
           _firestore.incrementDailyGenerations(),
@@ -186,9 +259,9 @@ class _HomeScreenState extends State<HomeScreen> {
         savedAt: DateTime.now().toUtc().toIso8601String(),
       ));
 
-      // Track title for deduplication (keep last 5)
+      // Track title for deduplication (keep last 10)
       _recentTitles.add(recipe.title);
-      if (_recentTitles.length > 5) _recentTitles.removeAt(0);
+      if (_recentTitles.length > 10) _recentTitles.removeAt(0);
 
       _loadRecentHistory();
 
@@ -254,12 +327,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(ctx).pop();
-                    // TODO: Navigate to subscription screen
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Subscription coming soon!')),
                     );
                   },
-                  child: const Text('Upgrade to Pro — \$2.99/mo'),
+                  child: const Text('Upgrade to Pro — £2.99/mo'),
                 ),
               ),
               const SizedBox(height: 8),
@@ -296,11 +368,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const SizedBox(height: 16),
+                          // ── Active dietary filter strip ──────────
+                          if (!widget.isGuest && _allDietaryConstraints.isNotEmpty)
+                            _buildDietaryFilterStrip(),
                           const SizedBox(height: 20),
                           _buildPerishablesSection(),
                           const SizedBox(height: 24),
                           _buildMoodChipsSection(),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 24),
                           _buildGenerateButton(),
                           const SizedBox(height: 32),
                           _buildRecentSection(),
@@ -352,7 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: ElioColors.navy,
                 shape: BoxShape.circle,
               ),
@@ -369,6 +445,108 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ─── Active dietary filter strip ─────────────────────────────────────────────
+  // Shows each dietary constraint as a pill with the profile name as a tooltip.
+  // Tapping ✕ on a profile deactivates ALL of that profile's constraints for the session.
+  Widget _buildDietaryFilterStrip() {
+    // Group constraints by profile for display
+    final activeProfiles = _householdProfiles
+        .where((p) => !_deactivatedProfileIds.contains(p['id'] as String))
+        .toList();
+    final deactivatedProfiles = _householdProfiles
+        .where((p) => _deactivatedProfileIds.contains(p['id'] as String))
+        .toList();
+
+    // Collect unique active constraints
+    final activeConstraints = <Map<String, String>>[];
+    final seen = <String>{};
+    for (final profile in activeProfiles) {
+      final id = profile['id'] as String;
+      final name = profile['name'] as String;
+      final reqs = List<String>.from(profile['dietaryRequirements'] ?? []);
+      for (final req in reqs) {
+        if (!seen.contains(req)) {
+          seen.add(req);
+          activeConstraints.add({'label': req, 'profileName': name, 'profileId': id});
+        }
+      }
+    }
+
+    if (activeConstraints.isEmpty && deactivatedProfiles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.shield_outlined, size: 13, color: ElioColors.textSecondary),
+            const SizedBox(width: 4),
+            Text(
+              'Active filters',
+              style: ElioText.label.copyWith(color: ElioColors.textSecondary, fontSize: 11),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            // Active constraint pills
+            ...activeConstraints.map((c) {
+              final profileId = c['profileId']!;
+              // Find if this profile has other members with same constraint
+              final profileName = c['profileName']!;
+              return _DietaryPill(
+                label: c['label']!,
+                profileName: profileName,
+                isActive: true,
+                onDeactivate: () {
+                  setState(() => _deactivatedProfileIds.add(profileId));
+                },
+              );
+            }),
+            // Deactivated profile restore chips
+            ...deactivatedProfiles.map((p) {
+              final name = p['name'] as String;
+              final reqs = List<String>.from(p['dietaryRequirements'] ?? []);
+              if (reqs.isEmpty) return const SizedBox.shrink();
+              return GestureDetector(
+                onTap: () => setState(() => _deactivatedProfileIds.remove(p['id'] as String)),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: ElioColors.border, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_circle_outline, size: 12, color: ElioColors.textMuted),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$name\'s filters',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: ElioColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+        const SizedBox(height: 4),
+      ],
     );
   }
 
@@ -439,7 +617,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: const TextStyle(fontSize: 15),
                 decoration: InputDecoration(
                   hintText: 'Add anything else...',
-                  hintStyle: TextStyle(color: ElioColors.textMuted,),
+                  hintStyle: TextStyle(color: ElioColors.textMuted),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 onSubmitted: (_) => _addFromText(),
@@ -502,7 +680,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Style row
+        // Style row — populated from onboarding preferences
         if (_styleChips.isNotEmpty) ...[
           _buildChipRow(
             label: 'Style',
@@ -620,96 +798,114 @@ class _HomeScreenState extends State<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text('Recent recipes', style: ElioText.headingMedium),
-            if (_recentRecipes.isNotEmpty)
-              GestureDetector(
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
-                ).then((_) => _loadRecentHistory()),
-                child: Text(
-                  'View all',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: ElioColors.sky,
-                  ),
-                ),
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const HistoryScreen()),
               ),
+              child: Text(
+                'View all',
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.sky, fontWeight: FontWeight.w600),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
         if (_recentRecipes.isEmpty)
           Container(
-            padding: const EdgeInsets.all(20),
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: ElioColors.offWhite,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: ElioColors.border),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Row(
+            child: Column(
               children: [
-                const Icon(Icons.auto_awesome_outlined, color: ElioColors.textMuted, size: 22),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Your generated recipes will appear here.',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                  ),
+                Text('🍳', style: const TextStyle(fontSize: 32)),
+                const SizedBox(height: 8),
+                Text(
+                  'Your recipes will appear here',
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  textAlign: TextAlign.center,
                 ),
               ],
             ),
           )
         else
-          ...(_recentRecipes.map((saved) => GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => RecipeScreen(recipe: saved.recipe)),
-            ),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: BoxDecoration(
-                color: ElioColors.offWhite,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: ElioColors.border),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          saved.recipe.title,
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: ElioColors.textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          '${saved.recipe.totalTimeMinutes} min  •  ${saved.recipe.servings} servings',
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            color: ElioColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
+          Column(
+            children: _recentRecipes.map((saved) => _RecentRecipeCard(
+              saved: saved,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RecipeScreen(
+                    recipe: saved.recipe,
+                    isGuest: widget.isGuest,
                   ),
-                  const Icon(Icons.chevron_right_rounded, color: ElioColors.border, size: 20),
-                ],
+                ),
               ),
-            ),
-          ))),
+            )).toList(),
+          ),
       ],
     );
   }
 }
 
-// ─── Selected tag widget ──────────────────────────────────────────────────────
+// ─── Dietary filter pill widget ───────────────────────────────────────────────
+class _DietaryPill extends StatelessWidget {
+  final String label;
+  final String profileName;
+  final bool isActive;
+  final VoidCallback onDeactivate;
 
+  const _DietaryPill({
+    required this.label,
+    required this.profileName,
+    required this.isActive,
+    required this.onDeactivate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: '$profileName\'s requirement',
+      child: Container(
+        padding: const EdgeInsets.only(left: 10, right: 4, top: 5, bottom: 5),
+        decoration: BoxDecoration(
+          color: ElioColors.navy.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: ElioColors.navy.withValues(alpha: 0.2), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: ElioColors.navy,
+              ),
+            ),
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: onDeactivate,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: ElioColors.navy.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 10, color: ElioColors.navy),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Selected perishable tag ──────────────────────────────────────────────────
 class _SelectedTag extends StatelessWidget {
   final String label;
   final VoidCallback onRemove;
@@ -721,26 +917,75 @@ class _SelectedTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(left: 12, right: 6, top: 6, bottom: 6),
       decoration: BoxDecoration(
-        color: ElioColors.navy.withValues(alpha: 0.08),
+        color: ElioColors.amber.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: ElioColors.navy.withValues(alpha: 0.3)),
+        border: Border.all(color: ElioColors.amber.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
-            style: GoogleFonts.outfit(fontSize: 13,
+            style: const TextStyle(
+              fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: ElioColors.navy,
+              color: ElioColors.amber,
             ),
           ),
           const SizedBox(width: 4),
           GestureDetector(
             onTap: onRemove,
-            child: const Icon(Icons.close_rounded, size: 16, color: ElioColors.navy),
+            child: const Icon(Icons.close, size: 14, color: ElioColors.amber),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Recent recipe card ───────────────────────────────────────────────────────
+class _RecentRecipeCard extends StatelessWidget {
+  final SavedRecipe saved;
+  final VoidCallback onTap;
+
+  const _RecentRecipeCard({required this.saved, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final recipe = saved.recipe;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: ElioColors.offWhite,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: ElioColors.border),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    recipe.title,
+                    style: ElioText.bodyLarge.copyWith(fontWeight: FontWeight.w700),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${recipe.prepTimeMinutes} min · ${recipe.servings} servings',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: ElioColors.textMuted, size: 20),
+          ],
+        ),
       ),
     );
   }
