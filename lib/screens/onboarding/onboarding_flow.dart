@@ -82,16 +82,16 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Future<void> _onStyleComplete(OnboardingState updated) async {
     setState(() { _state = updated; _isSaving = true; });
 
-    // Guest mode: skip Firestore, go straight to home
+    // Guest mode: skip Firestore, navigate immediately
     if (widget.isGuest) {
-      await Future.delayed(const Duration(milliseconds: 400));
       widget.onComplete();
       return;
     }
 
+    // Signed-in mode: save to Firestore then navigate
     try {
       await _firestore.completeOnboarding(_state, widget.displayName);
-      widget.onComplete();
+      if (mounted) widget.onComplete();
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
@@ -99,8 +99,6 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           SnackBar(content: Text('Something went wrong: ${e.toString()}')),
         );
       }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
     }
   }
 
