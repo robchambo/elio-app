@@ -17,7 +17,7 @@ import '../models/recipe_models.dart';
 
 class GeminiService {
   static const String _apiKey = 'AIzaSyCZvDMHsOI3NZjNaAes84LJvyg6yLrfKuU';
-  static const String _model = 'gemini-2.0-flash-001';
+  static const String _model = 'gemini-flash-latest';
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';
 
