@@ -5,14 +5,13 @@ import '../models/recipe_models.dart';
 // ─────────────────────────────────────────────
 // GeminiService
 // Calls the Gemini 2.0 Flash API to generate recipes.
-// Uses structured JSON output for reliable parsing.
-// Cost: ~$0.0004 per recipe generation.
 //
-// Design decisions:
-//   • Dietary requirements are hard constraints — always enforced.
-//   • Style/mood/time chips are soft preferences — guide but don't restrict.
-//   • Full inventory context is passed so the AI can use what the user has.
-//   • Response is parsed into GeneratedRecipe model.
+// Key fixes (Sprint 4 patch):
+//   • maxOutputTokens raised to 4096 — prevents truncated JSON
+//   • Prompt instructs model to keep steps concise to stay within limit
+//   • JSON extraction is more robust: handles missing fences, extra text
+//   • Up to 2 automatic retries on parse failure
+//   • Daily cap is only incremented AFTER a successful parse (in home_screen)
 // ─────────────────────────────────────────────
 
 class GeminiService {
@@ -22,6 +21,31 @@ class GeminiService {
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';
 
   static Future<GeneratedRecipe> generateRecipe(RecipeGenerationRequest request) async {
+    Exception? lastError;
+
+    // Up to 2 attempts — Gemini occasionally produces malformed JSON
+    for (int attempt = 1; attempt <= 2; attempt++) {
+      try {
+        return await _attemptGeneration(request);
+      } catch (e) {
+        lastError = e is Exception ? e : Exception(e.toString());
+        // Only retry on parse errors, not on HTTP/auth errors
+        if (e.toString().contains('rate limit') ||
+            e.toString().contains('access denied') ||
+            e.toString().contains('Invalid request')) {
+          rethrow;
+        }
+        // Brief pause before retry
+        if (attempt < 2) {
+          await Future.delayed(const Duration(milliseconds: 500));
+        }
+      }
+    }
+
+    throw lastError ?? Exception('Recipe generation failed. Please try again.');
+  }
+
+  static Future<GeneratedRecipe> _attemptGeneration(RecipeGenerationRequest request) async {
     final prompt = _buildPrompt(request);
 
     final response = await http.post(
@@ -39,7 +63,8 @@ class GeminiService {
           'temperature': 0.8,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 2048,
+          'maxOutputTokens': 4096,
+          'responseMimeType': 'application/json',
         },
       }),
     );
@@ -58,9 +83,16 @@ class GeminiService {
     }
 
     final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+
+    // Check for finish reason — STOP is good, MAX_TOKENS means truncation
     final candidates = responseData['candidates'] as List<dynamic>?;
     if (candidates == null || candidates.isEmpty) {
       throw Exception('No recipe generated. Please try again.');
+    }
+
+    final finishReason = candidates[0]['finishReason'] as String? ?? 'STOP';
+    if (finishReason == 'MAX_TOKENS') {
+      throw Exception('Response was too long and got cut off. Retrying with a shorter recipe...');
     }
 
     final content = candidates[0]['content'] as Map<String, dynamic>?;
@@ -69,111 +101,118 @@ class GeminiService {
       throw Exception('Empty response from AI. Please try again.');
     }
 
-    String jsonText = parts[0]['text'] as String? ?? '';
-    // Strip markdown code fences if the model wraps the JSON
-    jsonText = jsonText.trim();
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replaceAll(RegExp(r'^```[a-z]*\n?', multiLine: false), '');
-      jsonText = jsonText.replaceAll(RegExp(r'```\s*$', multiLine: false), '');
-      jsonText = jsonText.trim();
-    }
-    // Find the first { and last } to extract pure JSON
-    final start = jsonText.indexOf('{');
-    final end = jsonText.lastIndexOf('}');
-    if (start == -1 || end == -1) {
-      throw Exception('Could not find JSON in response. Raw: ${jsonText.substring(0, jsonText.length.clamp(0, 200))}');
-    }
-    jsonText = jsonText.substring(start, end + 1);
-    final recipeJson = jsonDecode(jsonText) as Map<String, dynamic>;
+    String rawText = parts[0]['text'] as String? ?? '';
+    final recipeJson = _extractJson(rawText);
     return GeneratedRecipe.fromJson(recipeJson);
+  }
+
+  /// Robustly extract a JSON object from a string that may contain
+  /// markdown fences, leading/trailing prose, or other noise.
+  static Map<String, dynamic> _extractJson(String text) {
+    text = text.trim();
+
+    // 1. If responseMimeType worked, the whole body IS the JSON
+    if (text.startsWith('{')) {
+      try {
+        return jsonDecode(text) as Map<String, dynamic>;
+      } catch (_) {
+        // Fall through to fence stripping
+      }
+    }
+
+    // 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
+    final fencePattern = RegExp(r'```(?:json)?\s*([\s\S]*?)```', multiLine: true);
+    final fenceMatch = fencePattern.firstMatch(text);
+    if (fenceMatch != null) {
+      final inner = fenceMatch.group(1)?.trim() ?? '';
+      if (inner.isNotEmpty) {
+        try {
+          return jsonDecode(inner) as Map<String, dynamic>;
+        } catch (_) {
+          // Fall through to brace extraction
+        }
+      }
+    }
+
+    // 3. Find outermost { ... } braces
+    final start = text.indexOf('{');
+    final end = text.lastIndexOf('}');
+    if (start != -1 && end != -1 && end > start) {
+      final candidate = text.substring(start, end + 1);
+      try {
+        return jsonDecode(candidate) as Map<String, dynamic>;
+      } catch (e) {
+        throw Exception('Could not parse recipe JSON: ${e.toString().substring(0, 80)}');
+      }
+    }
+
+    throw Exception('No JSON object found in AI response. Please try again.');
   }
 
   static String _buildPrompt(RecipeGenerationRequest request) {
     final buffer = StringBuffer();
 
-    buffer.writeln('You are Elio, a friendly AI cooking assistant. Generate a single recipe based on the user\'s kitchen inventory and preferences.');
+    buffer.writeln('You are Elio, a friendly AI cooking assistant. Generate ONE recipe as valid JSON.');
     buffer.writeln();
-    buffer.writeln('## HARD CONSTRAINTS (must be respected — never override):');
+    buffer.writeln('IMPORTANT: Your ENTIRE response must be a single valid JSON object. No prose before or after. No markdown fences.');
+    buffer.writeln();
+    buffer.writeln('## HARD CONSTRAINTS (never override):');
 
     if (request.dietaryRequirements.isNotEmpty) {
-      buffer.writeln('Dietary requirements: ${request.dietaryRequirements.join(', ')}');
-      buffer.writeln('These are non-negotiable. Do not include any ingredients that violate these requirements.');
+      buffer.writeln('Dietary: ${request.dietaryRequirements.join(', ')} — strictly enforced.');
     } else {
       buffer.writeln('No dietary restrictions.');
     }
 
     buffer.writeln();
-    buffer.writeln('## INVENTORY (what the user has):');
+    buffer.writeln('## INVENTORY:');
 
     if (request.perishables.isNotEmpty) {
-      buffer.writeln('Fresh/perishable items (prioritise using these): ${request.perishables.join(', ')}');
+      buffer.writeln('Fresh items (use these): ${request.perishables.join(', ')}');
     } else {
-      buffer.writeln('No fresh items specified today — generate from pantry staples.');
+      buffer.writeln('No fresh items — use pantry staples.');
     }
 
     if (request.alwaysHave.isNotEmpty) {
-      buffer.writeln('Always have (pantry staples): ${request.alwaysHave.join(', ')}');
+      buffer.writeln('Pantry staples: ${request.alwaysHave.join(', ')}');
     }
-
     if (request.almostAlwaysHave.isNotEmpty) {
-      buffer.writeln('Almost always have: ${request.almostAlwaysHave.join(', ')}');
+      buffer.writeln('Usually have: ${request.almostAlwaysHave.join(', ')}');
     }
 
     buffer.writeln();
-    buffer.writeln('## SOFT PREFERENCES (guide the recipe, but don\'t restrict):');
-
-    if (request.timePreference != null) {
-      buffer.writeln('Time: ${request.timePreference}');
+    buffer.writeln('## PREFERENCES:');
+    if (request.timePreference != null) buffer.writeln('Time: ${request.timePreference}');
+    if (request.stylePreference != null) {
+      buffer.writeln(request.stylePreference == 'Surprise me'
+          ? 'Style: Be creative — any cuisine.'
+          : 'Style: ${request.stylePreference}');
     }
-    if (request.stylePreference != null && request.stylePreference != 'Surprise me') {
-      buffer.writeln('Style: ${request.stylePreference}');
-    } else if (request.stylePreference == 'Surprise me') {
-      buffer.writeln('Style: Be creative and surprising — choose any cuisine or style.');
-    }
-    if (request.moodPreference != null) {
-      buffer.writeln('Mood: ${request.moodPreference}');
-    }
-
-    buffer.writeln();
+    if (request.moodPreference != null) buffer.writeln('Mood: ${request.moodPreference}');
     buffer.writeln('Servings: ${request.servings}');
 
     buffer.writeln();
-    buffer.writeln('## INSTRUCTIONS:');
-    buffer.writeln('1. Generate a practical, delicious recipe using primarily what the user has.');
-    buffer.writeln('2. If a minor ingredient is missing, suggest a substitution from their inventory.');
-    buffer.writeln('3. Keep instructions clear and friendly — this is for everyday home cooking.');
-    buffer.writeln('4. Mark ingredients that came from the user\'s perishables as fromInventory: true.');
-    buffer.writeln('5. Be realistic about cooking times.');
+    buffer.writeln('## RULES:');
+    buffer.writeln('- Keep steps SHORT (1-2 sentences each). Max 8 steps total.');
+    buffer.writeln('- Max 10 ingredients.');
+    buffer.writeln('- substitutions array may be empty [].');
+    buffer.writeln('- dietaryTags array may be empty [].');
 
     buffer.writeln();
-    buffer.writeln('## RESPONSE FORMAT:');
-    buffer.writeln('Return ONLY valid JSON matching this exact schema:');
-    buffer.writeln('''
-{
-  "title": "Recipe name",
-  "description": "One or two sentence description of the dish",
+    buffer.writeln('## JSON SCHEMA (return exactly this structure):');
+    buffer.writeln('''{
+  "title": "string",
+  "description": "string (1-2 sentences)",
   "prepTimeMinutes": 10,
   "cookTimeMinutes": 20,
   "servings": 2,
-  "dietaryTags": ["vegetarian", "gluten-free"],
+  "dietaryTags": ["string"],
   "ingredients": [
-    {
-      "name": "chicken breast",
-      "quantity": "2",
-      "unit": "pieces",
-      "fromInventory": true
-    }
+    {"name": "string", "quantity": "string", "unit": "string", "fromInventory": true}
   ],
-  "steps": [
-    "Step 1 instruction.",
-    "Step 2 instruction."
-  ],
+  "steps": ["string"],
   "substitutions": [
-    {
-      "original": "sour cream",
-      "substitute": "Greek yoghurt",
-      "tradeOff": "Slightly tangier but works well here."
-    }
+    {"original": "string", "substitute": "string", "tradeOff": "string"}
   ]
 }''');
 
