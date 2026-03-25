@@ -31,6 +31,8 @@ class MealPlanService {
     required List<String> alwaysHave,
     required List<String> almostAlwaysHave,
     required List<String> stylePreferences,
+    List<String>? selectedDays,
+    List<MealType>? selectedMealTypes,
     int servings = 2,
   }) async {
     Exception? lastError;
@@ -42,6 +44,8 @@ class MealPlanService {
           alwaysHave: alwaysHave,
           almostAlwaysHave: almostAlwaysHave,
           stylePreferences: stylePreferences,
+          selectedDays: selectedDays ?? _days,
+          selectedMealTypes: selectedMealTypes ?? MealType.values,
           servings: servings,
         );
       } catch (e) {
@@ -64,6 +68,8 @@ class MealPlanService {
     required List<String> alwaysHave,
     required List<String> almostAlwaysHave,
     required List<String> stylePreferences,
+    required List<String> selectedDays,
+    required List<MealType> selectedMealTypes,
     required int servings,
   }) async {
     final prompt = _buildWeeklyPrompt(
@@ -71,6 +77,8 @@ class MealPlanService {
       alwaysHave: alwaysHave,
       almostAlwaysHave: almostAlwaysHave,
       stylePreferences: stylePreferences,
+      selectedDays: selectedDays,
+      selectedMealTypes: selectedMealTypes,
       servings: servings,
     );
 
@@ -271,11 +279,15 @@ class MealPlanService {
     required List<String> alwaysHave,
     required List<String> almostAlwaysHave,
     required List<String> stylePreferences,
+    required List<String> selectedDays,
+    required List<MealType> selectedMealTypes,
     required int servings,
   }) {
     final buffer = StringBuffer();
+    final mealNames = selectedMealTypes.map((m) => m.name).join(', ');
+    final totalMeals = selectedDays.length * selectedMealTypes.length;
 
-    buffer.writeln('You are Elio, an AI cooking assistant. Generate a FULL 7-day meal plan (breakfast, lunch, dinner for each day) as valid JSON.');
+    buffer.writeln('You are Elio, an AI cooking assistant. Generate a meal plan for ${selectedDays.length} days ($totalMeals meals total: $mealNames for each day) as valid JSON.');
     buffer.writeln('Your ENTIRE response must be a single valid JSON object. No prose, no markdown fences.');
     buffer.writeln();
     buffer.writeln('## HARD CONSTRAINTS:');
@@ -304,6 +316,8 @@ class MealPlanService {
     buffer.writeln('- Breakfast should be quick (under 15 min). Lunch moderate. Dinner can be more involved.');
     buffer.writeln('- Each meal: max 8 ingredients, description 1 sentence.');
     buffer.writeln('- Keep ingredient quantities realistic for $servings servings.');
+    buffer.writeln('- ONLY generate meals for the following days: ${selectedDays.join(', ')}.');
+    buffer.writeln('- ONLY generate the following meal types per day: $mealNames.');
 
     buffer.writeln();
     buffer.writeln('## JSON SCHEMA (return EXACTLY this structure with all 7 days):');

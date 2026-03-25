@@ -40,6 +40,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   // Track which individual slots are regenerating
   final Set<String> _regeneratingSlots = {}; // "dayIndex_mealType"
 
+  // ── Plan configuration (set on empty state) ────────────────────────
+  final Set<String> _selectedDays = {'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'};
+  final Set<MealType> _selectedMealTypes = {MealType.breakfast, MealType.lunch, MealType.dinner};
+
   // ── User data (loaded once) ────────────────────────────────────────
   List<String> _dietaryRequirements = [];
   List<String> _alwaysHave = [];
@@ -94,11 +98,19 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     setState(() => _isGenerating = true);
 
     try {
+      final orderedDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+          .where((d) => _selectedDays.contains(d))
+          .toList();
+      final orderedTypes = MealType.values
+          .where((t) => _selectedMealTypes.contains(t))
+          .toList();
       final plan = await MealPlanService.generateWeeklyPlan(
         dietaryRequirements: _dietaryRequirements,
         alwaysHave: _alwaysHave,
         almostAlwaysHave: _almostAlwaysHave,
         stylePreferences: _stylePreferences,
+        selectedDays: orderedDays,
+        selectedMealTypes: orderedTypes,
       );
       if (mounted) {
         setState(() {
@@ -306,53 +318,177 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       ),
     );
   }
-
-  // ─── Empty state ──────────────────────────────────────────────────────────────
+  // ─── Empty state ───────────────────────────────────────────────────────────────
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: ElioColors.amber.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
+    final totalMeals = _selectedDays.length * _selectedMealTypes.length;
+    final mealTypeLabel = _selectedMealTypes.length == 3
+        ? 'breakfast, lunch & dinner'
+        : _selectedMealTypes.map((t) => t.displayName.toLowerCase()).join(' & ');
+    final dayLabel = _selectedDays.length == 7
+        ? 'every day'
+        : '${_selectedDays.length} days';
+    final summaryText = _selectedDays.isEmpty || _selectedMealTypes.isEmpty
+        ? 'Select at least one day and one meal type'
+        : 'Elio will generate $totalMeals meals — $mealTypeLabel for $dayLabel — tailored to your pantry and dietary needs.';
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Meal types ──────────────────────────────────────────────
+          Text('Meal types', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
+          const SizedBox(height: 10),
+          Row(
+            children: MealType.values.map((type) {
+              final isOn = _selectedMealTypes.contains(type);
+              return Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: GestureDetector(
+                  onTap: () => setState(() {
+                    if (isOn && _selectedMealTypes.length > 1) {
+                      _selectedMealTypes.remove(type);
+                    } else if (!isOn) {
+                      _selectedMealTypes.add(type);
+                    }
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isOn ? ElioColors.navy : ElioColors.offWhite,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isOn ? ElioColors.navy : ElioColors.border,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(type.emoji, style: const TextStyle(fontSize: 14)),
+                        const SizedBox(width: 6),
+                        Text(
+                          type.displayName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: isOn ? Colors.white : ElioColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 28),
+
+          // ── Days ────────────────────────────────────────────────────
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Days', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
+              GestureDetector(
+                onTap: () => setState(() {
+                  if (_selectedDays.length == 7) {
+                    _selectedDays.clear();
+                    _selectedDays.add('Monday'); // keep at least one
+                  } else {
+                    _selectedDays.addAll(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']);
+                  }
+                }),
+                child: Text(
+                  _selectedDays.length == 7 ? 'Clear all' : 'Select all',
+                  style: ElioText.label.copyWith(color: ElioColors.sky, fontWeight: FontWeight.w600),
+                ),
               ),
-              child: const Icon(Icons.calendar_month_outlined, color: ElioColors.amber, size: 40),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final entry in [
+                ('Mon', 'Monday'), ('Tue', 'Tuesday'), ('Wed', 'Wednesday'),
+                ('Thu', 'Thursday'), ('Fri', 'Friday'), ('Sat', 'Saturday'), ('Sun', 'Sunday'),
+              ])
+                GestureDetector(
+                  onTap: () => setState(() {
+                    if (_selectedDays.contains(entry.$2)) {
+                      if (_selectedDays.length > 1) _selectedDays.remove(entry.$2);
+                    } else {
+                      _selectedDays.add(entry.$2);
+                    }
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _selectedDays.contains(entry.$2) ? ElioColors.amber : ElioColors.offWhite,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _selectedDays.contains(entry.$2) ? ElioColors.amber : ElioColors.border,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        entry.$1,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: _selectedDays.contains(entry.$2) ? Colors.white : ElioColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 28),
+
+          // ── Summary ─────────────────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: ElioColors.offWhite,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: ElioColors.border),
             ),
-            const SizedBox(height: 24),
-            Text(
-              'Plan your whole week',
-              style: ElioText.headingMedium,
+            child: Text(
+              summaryText,
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Elio will generate 21 meals — breakfast, lunch, and dinner for every day — tailored to your pantry and dietary needs.',
-              style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
-              textAlign: TextAlign.center,
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Generate button ──────────────────────────────────────────
+          SizedBox(
+            width: double.infinity,
+            height: 52,
+            child: ElevatedButton(
+              onPressed: (_isGenerating || _selectedDays.isEmpty || _selectedMealTypes.isEmpty)
+                  ? null
+                  : _generateWeeklyPlan,
+              child: _isGenerating
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                    )
+                  : Text('Generate ${_selectedDays.length == 7 ? 'My Week' : '${_selectedDays.length} Days'} →'),
             ),
-            const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _isGenerating ? null : _generateWeeklyPlan,
-                child: _isGenerating
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                      )
-                    : const Text('Generate My Week →'),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
