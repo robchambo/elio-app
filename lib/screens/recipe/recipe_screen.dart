@@ -3,23 +3,32 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
+import '../../services/gemini_service.dart';
+import '../../services/history_service.dart';
+import '../../services/firestore_service.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
-// RecipeScreen — Sprint 2
+// RecipeScreen — Sprint 4 patch
 // Design philosophy: approachable utility.
-// Shows the generated recipe with:
-//   • Title, description, time, serving scaler
-//   • Ingredients list (amber highlight for perishables)
-//   • Step-by-step method
-//   • Substitution notes (collapsible)
-//   • Hands-Free Mode button
+//
+// New in this patch:
+//   • ✕ button on each ingredient row → adds to session exclusion list
+//   • "Generate Another" button → regenerates with same inputs + exclusions
+//   • Recent title memory passed through to prevent duplicates
 // ─────────────────────────────────────────────
 
 class RecipeScreen extends StatefulWidget {
   final GeneratedRecipe recipe;
+  final RecipeGenerationRequest? originalRequest;
+  final bool isGuest;
 
-  const RecipeScreen({super.key, required this.recipe});
+  const RecipeScreen({
+    super.key,
+    required this.recipe,
+    this.originalRequest,
+    this.isGuest = false,
+  });
 
   @override
   State<RecipeScreen> createState() => _RecipeScreenState();
@@ -31,6 +40,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
   int _currentStep = 0;
   final Set<int> _expandedSubstitutions = {};
 
+  // ── Regeneration state ────────────────────────────────────────────────────
+  bool _isRegenerating = false;
+  final Set<String> _excludedIngredients = {};
+  final FirestoreService _firestore = FirestoreService();
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +53,89 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   double get _scaleFactor => _servings / widget.recipe.servings;
 
+  void _toggleExclude(String ingredientName) {
+    setState(() {
+      if (_excludedIngredients.contains(ingredientName)) {
+        _excludedIngredients.remove(ingredientName);
+      } else {
+        _excludedIngredients.add(ingredientName);
+      }
+    });
+  }
+
+  Future<void> _generateAnother() async {
+    if (_isRegenerating) return;
+    final request = widget.originalRequest;
+    if (request == null) {
+      // No original request context — just pop back to home screen
+      if (mounted) Navigator.of(context).pop();
+      return;
+    }
+
+    setState(() => _isRegenerating = true);
+
+    try {
+      // Build updated request with exclusions and current recipe title as "recent"
+      final newRequest = RecipeGenerationRequest(
+        perishables: request.perishables,
+        alwaysHave: request.alwaysHave,
+        almostAlwaysHave: request.almostAlwaysHave,
+        dietaryRequirements: request.dietaryRequirements,
+        timePreference: request.timePreference,
+        stylePreference: request.stylePreference,
+        moodPreference: request.moodPreference,
+        servings: request.servings,
+        excludedIngredients: [
+          ...request.excludedIngredients,
+          ..._excludedIngredients,
+        ],
+        recentTitles: [
+          ...request.recentTitles,
+          widget.recipe.title,
+        ],
+      );
+
+      final newRecipe = await GeminiService.generateRecipe(newRequest);
+
+      if (!widget.isGuest) {
+        await Future.wait([
+          _firestore.incrementDailyGenerations(),
+          _firestore.saveRecipe(newRecipe),
+        ]);
+      }
+
+      await HistoryService.saveRecipe(SavedRecipe(
+        recipe: newRecipe,
+        savedAt: DateTime.now().toUtc().toIso8601String(),
+      ));
+
+      if (mounted) {
+        // Replace current recipe screen with the new one
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => RecipeScreen(
+              recipe: newRecipe,
+              originalRequest: newRequest,
+              isGuest: widget.isGuest,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isRegenerating = false);
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: ElioColors.navy,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
+    }
+  }
+
   void _shareRecipe() {
     final r = widget.recipe;
     final buffer = StringBuffer();
@@ -46,7 +143,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     buffer.writeln();
     buffer.writeln(r.description);
     buffer.writeln();
-    buffer.writeln('⏱ ${r.totalTimeMinutes} min  •  ${_servings} servings');
+    buffer.writeln('⏱ ${r.totalTimeMinutes} min  •  $_servings servings');
     buffer.writeln();
     buffer.writeln('INGREDIENTS');
     for (final ing in r.ingredients) {
@@ -70,7 +167,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
     final num = double.tryParse(quantity);
     if (num == null) return quantity;
     final scaled = num * _scaleFactor;
-    // Format nicely: no trailing zeros for whole numbers
     if (scaled == scaled.roundToDouble()) {
       return scaled.toInt().toString();
     }
@@ -98,31 +194,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Meta row ──────────────────────────────────
                   _buildMetaRow(),
                   const SizedBox(height: 20),
-
-                  // ── Serving scaler ────────────────────────────
                   _buildServingScaler(),
                   const SizedBox(height: 28),
-
-                  // ── Ingredients ───────────────────────────────
                   _buildIngredientsSection(),
                   const SizedBox(height: 28),
-
-                  // ── Method ────────────────────────────────────
                   _buildMethodSection(),
-
-                  // ── Substitutions ─────────────────────────────
                   if (widget.recipe.substitutions.isNotEmpty) ...[
                     const SizedBox(height: 28),
                     _buildSubstitutionsSection(),
                   ],
-
                   const SizedBox(height: 32),
-
-                  // ── Hands-Free button ─────────────────────────
-                  _buildHandsFreeButton(),
+                  _buildActionButtons(),
                 ],
               ),
             ),
@@ -153,7 +237,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
       expandedHeight: 0,
       title: Text(
         widget.recipe.title,
-        style: GoogleFonts.outfit(fontSize: 17,
+        style: GoogleFonts.outfit(
+          fontSize: 17,
           fontWeight: FontWeight.w700,
           color: ElioColors.navy,
         ),
@@ -212,7 +297,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
           const SizedBox(width: 10),
           Text('Servings', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
           const Spacer(),
-          // Decrease
           GestureDetector(
             onTap: _servings > 1 ? () => setState(() => _servings--) : null,
             child: Container(
@@ -229,13 +313,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               '$_servings',
-              style: const TextStyle(fontSize: 20,
+              style: const TextStyle(
+                fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: ElioColors.navy,
               ),
             ),
           ),
-          // Increase
           GestureDetector(
             onTap: _servings < 12 ? () => setState(() => _servings++) : null,
             child: Container(
@@ -276,70 +360,117 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   const SizedBox(width: 4),
                   Text(
                     'from your fridge',
-                    style: ElioText.label.copyWith(color: ElioColors.textSecondary)),
+                    style: ElioText.label.copyWith(color: ElioColors.textSecondary),
+                  ),
                 ],
               ),
           ],
         ),
-        const SizedBox(height: 12),
-        ...widget.recipe.ingredients.asMap().entries.map((entry) {
-          final ingredient = entry.value;
-          final isFromInventory = ingredient.fromInventory;
-          return Container(
+        if (_excludedIngredients.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Tap ✕ to exclude an ingredient from the next generation.',
+            style: ElioText.label.copyWith(color: ElioColors.textMuted),
+          ),
+        ] else ...[
+          const SizedBox(height: 4),
+          Text(
+            'Tap ✕ on any ingredient to exclude it.',
+            style: ElioText.label.copyWith(color: ElioColors.textMuted),
+          ),
+        ],
+        const SizedBox(height: 10),
+        ...widget.recipe.ingredients.map((ingredient) {
+          final isExcluded = _excludedIngredients.contains(ingredient.name);
+          final isFromInventory = ingredient.fromInventory && !isExcluded;
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: isFromInventory
-                  ? ElioColors.amber.withValues(alpha: 0.07)
-                  : ElioColors.offWhite,
+              color: isExcluded
+                  ? const Color(0xFFF5F5F5)
+                  : isFromInventory
+                      ? ElioColors.amber.withValues(alpha: 0.07)
+                      : ElioColors.offWhite,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isFromInventory ? ElioColors.amber.withValues(alpha: 0.4) : ElioColors.border,
+                color: isExcluded
+                    ? ElioColors.border
+                    : isFromInventory
+                        ? ElioColors.amber.withValues(alpha: 0.4)
+                        : ElioColors.border,
               ),
             ),
             child: Row(
               children: [
-                if (isFromInventory)
-                  Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.only(right: 10),
-                    decoration: const BoxDecoration(
-                      color: ElioColors.amber,
-                      shape: BoxShape.circle,
-                    ),
-                  )
-                else
-                  Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.only(right: 10),
-                    decoration: BoxDecoration(
-                      color: ElioColors.border,
-                      shape: BoxShape.circle,
-                    ),
+                // Colour dot
+                Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(
+                    color: isExcluded
+                        ? ElioColors.border
+                        : isFromInventory
+                            ? ElioColors.amber
+                            : ElioColors.border,
+                    shape: BoxShape.circle,
                   ),
+                ),
+                // Name
                 Expanded(
                   child: Text(
                     ingredient.name,
                     style: ElioText.bodyMedium.copyWith(
                       fontWeight: isFromInventory ? FontWeight.w600 : FontWeight.w400,
+                      color: isExcluded ? ElioColors.textMuted : ElioColors.textPrimary,
+                      decoration: isExcluded ? TextDecoration.lineThrough : null,
                     ),
                   ),
                 ),
-                Text(
-                  ingredient.unit.isEmpty
-                      ? _scaleQuantity(ingredient.quantity)
-                      : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
-                  style: ElioText.bodyMedium.copyWith(
-                    color: ElioColors.textSecondary,
-                    fontWeight: FontWeight.w600,
+                // Quantity
+                if (!isExcluded)
+                  Text(
+                    ingredient.unit.isEmpty
+                        ? _scaleQuantity(ingredient.quantity)
+                        : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
+                    style: ElioText.bodyMedium.copyWith(
+                      color: ElioColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                // ✕ exclude button
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _toggleExclude(ingredient.name),
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: isExcluded
+                          ? ElioColors.navy.withValues(alpha: 0.08)
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isExcluded ? Icons.add_rounded : Icons.close_rounded,
+                      size: 16,
+                      color: isExcluded ? ElioColors.navy : ElioColors.textMuted,
+                    ),
                   ),
                 ),
               ],
             ),
           );
         }),
+        if (_excludedIngredients.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            '${_excludedIngredients.length} ingredient${_excludedIngredients.length == 1 ? '' : 's'} excluded — tap "Generate Another" to apply.',
+            style: ElioText.label.copyWith(color: ElioColors.amber),
+          ),
+        ],
       ],
     );
   }
@@ -361,14 +492,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 Container(
                   width: 28,
                   height: 28,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: ElioColors.navy,
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       '$stepNum',
-                      style: GoogleFonts.outfit(fontSize: 13,
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
@@ -455,27 +587,58 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
-  Widget _buildHandsFreeButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: () {
-          setState(() {
-            _handsFreeMode = true;
-            _currentStep = 0;
-          });
-          // Keep screen awake
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        },
-        icon: const Icon(Icons.visibility_outlined, size: 20),
-        label: const Text('Start Hands-Free Mode'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: ElioColors.navy,
-          side: const BorderSide(color: ElioColors.navy, width: 1.5),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        // Generate Another — primary action
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: widget.originalRequest != null ? _generateAnother : null,
+            icon: _isRegenerating
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.refresh_rounded, size: 20),
+            label: Text(_isRegenerating ? 'Generating...' : 'Generate Another'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ElioColors.amber,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              textStyle: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700),
+              elevation: 0,
+            ),
+          ),
         ),
-      ),
+        const SizedBox(height: 12),
+        // Hands-Free Mode — secondary action
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _handsFreeMode = true;
+                _currentStep = 0;
+              });
+              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+            },
+            icon: const Icon(Icons.visibility_outlined, size: 20),
+            label: const Text('Start Hands-Free Mode'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: ElioColors.navy,
+              side: const BorderSide(color: ElioColors.navy, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -490,7 +653,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Top bar ───────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Row(
@@ -536,8 +698,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 ],
               ),
             ),
-
-            // ── Progress dots ─────────────────────────────────
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
               child: Row(
@@ -555,8 +715,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 }),
               ),
             ),
-
-            // ── Step content ──────────────────────────────────
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(28, 0, 28, 0),
@@ -566,7 +724,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   children: [
                     Text(
                       'Step ${_currentStep + 1}',
-                      style: GoogleFonts.outfit(fontSize: 14,
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: ElioColors.amber,
                         letterSpacing: 1.0,
@@ -575,7 +734,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     const SizedBox(height: 16),
                     Text(
                       steps[_currentStep],
-                      style: const TextStyle(fontSize: 26,
+                      style: const TextStyle(
+                        fontSize: 26,
                         fontWeight: FontWeight.w500,
                         color: ElioColors.textPrimary,
                         height: 1.45,
@@ -585,37 +745,32 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 ),
               ),
             ),
-
-            // ── Navigation buttons ────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               child: Row(
                 children: [
-                  // Previous
                   Expanded(
                     child: SizedBox(
                       height: 60,
                       child: OutlinedButton(
-                        onPressed: isFirst ? null : () => setState(() => _currentStep--),
+                        onPressed: isFirst
+                            ? null
+                            : () => setState(() => _currentStep--),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: ElioColors.navy,
                           side: BorderSide(
                             color: isFirst ? ElioColors.border : ElioColors.navy,
                             width: 1.5,
                           ),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        ),
-                        child: const Text(
-                          '← Prev',
-                          style: TextStyle(fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
+                        child: const Text('← Back'),
                       ),
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Next / Done
                   Expanded(
                     flex: 2,
                     child: SizedBox(
@@ -624,20 +779,23 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         onPressed: isLast
                             ? () {
                                 setState(() => _handsFreeMode = false);
-                                SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                                Navigator.of(context).pop();
+                                SystemChrome.setEnabledSystemUIMode(
+                                    SystemUiMode.edgeToEdge);
                               }
                             : () => setState(() => _currentStep++),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isLast ? ElioColors.amber : ElioColors.navy,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          backgroundColor: ElioColors.amber,
+                          foregroundColor: Colors.white,
                           elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         child: Text(
-                          isLast ? 'Done! 🎉' : 'Next →',
-                          style: const TextStyle(fontSize: 18,
+                          isLast ? 'Done ✓' : 'Next →',
+                          style: GoogleFonts.outfit(
+                            fontSize: 17,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
                           ),
                         ),
                       ),
@@ -653,36 +811,35 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 }
 
-// ─── Meta badge widget ────────────────────────────────────────────────────────
+// ─── Supporting widgets ───────────────────────────────────────────────────────
 
 class _MetaBadge extends StatelessWidget {
   final IconData icon;
   final String label;
-  final Color color;
+  final Color? color;
 
-  const _MetaBadge({
-    required this.icon,
-    required this.label,
-    this.color = ElioColors.navy,
-  });
+  const _MetaBadge({required this.icon, required this.label, this.color});
 
   @override
   Widget build(BuildContext context) {
+    final c = color ?? ElioColors.navy;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20)),
+        color: c.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
+          Icon(icon, size: 14, color: c),
+          const SizedBox(width: 5),
           Text(
             label,
-            style: GoogleFonts.outfit(fontSize: 12,
+            style: TextStyle(
+              fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: color,
+              color: c,
             ),
           ),
         ],

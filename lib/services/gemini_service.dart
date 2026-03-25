@@ -191,6 +191,20 @@ class GeminiService {
     if (request.moodPreference != null) buffer.writeln('Mood: ${request.moodPreference}');
     buffer.writeln('Servings: ${request.servings}');
 
+    if (request.excludedIngredients.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('## EXCLUDED INGREDIENTS (do NOT use these — user has run out or does not want them):');
+      buffer.writeln(request.excludedIngredients.join(', '));
+    }
+
+    if (request.recentTitles.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('## RECENTLY GENERATED (do NOT repeat these recipes — generate something different):');
+      for (final title in request.recentTitles) {
+        buffer.writeln('- $title');
+      }
+    }
+
     buffer.writeln();
     buffer.writeln('## RULES:');
     buffer.writeln('- Keep steps SHORT (1-2 sentences each). Max 8 steps total.');

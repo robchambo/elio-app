@@ -57,6 +57,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Recent history ─────────────────────────────────────────────────
   List<SavedRecipe> _recentRecipes = [];
 
+  // ── Session deduplication memory (last 5 recipe titles) ──────────────
+  final List<String> _recentTitles = [];
+
   // ── Common quick-tap perishables ───────────────────────────────────
   static const List<String> _commonPerishables = [
     'Chicken breast', 'Eggs', 'Spinach', 'Tomatoes', 'Bell peppers',
@@ -164,6 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
         stylePreference: _selectedStyle,
         moodPreference: _selectedMood,
         servings: 2,
+        recentTitles: List.from(_recentTitles),
       );
 
       final recipe = await GeminiService.generateRecipe(request);
@@ -181,12 +185,21 @@ class _HomeScreenState extends State<HomeScreen> {
         recipe: recipe,
         savedAt: DateTime.now().toUtc().toIso8601String(),
       ));
+
+      // Track title for deduplication (keep last 5)
+      _recentTitles.add(recipe.title);
+      if (_recentTitles.length > 5) _recentTitles.removeAt(0);
+
       _loadRecentHistory();
 
       if (mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => RecipeScreen(recipe: recipe),
+            builder: (_) => RecipeScreen(
+              recipe: recipe,
+              originalRequest: request,
+              isGuest: widget.isGuest,
+            ),
           ),
         );
       }

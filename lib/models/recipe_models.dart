@@ -31,6 +31,12 @@ class RecipeGenerationRequest {
   /// Number of servings to generate for
   final int servings;
 
+  /// Ingredients the user has explicitly excluded (ran out / don't want)
+  final List<String> excludedIngredients;
+
+  /// Titles of recently generated recipes — used to prevent duplicates
+  final List<String> recentTitles;
+
   const RecipeGenerationRequest({
     required this.perishables,
     required this.alwaysHave,
@@ -40,6 +46,8 @@ class RecipeGenerationRequest {
     this.stylePreference,
     this.moodPreference,
     this.servings = 2,
+    this.excludedIngredients = const [],
+    this.recentTitles = const [],
   });
 }
 
