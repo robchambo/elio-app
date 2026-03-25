@@ -16,7 +16,7 @@ import '../models/recipe_models.dart';
 // ─────────────────────────────────────────────
 
 class GeminiService {
-  static const String _apiKey = 'AIzaSyDGY-Gf-kb1deC6yZ5o8pq8rYaa-hGmxYM';
+  static const String _apiKey = 'AIzaSyCZvDMHsOI3NZjNaAes84LJvyg6yLrfKuU';
   static const String _model = 'gemini-2.0-flash';
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';
@@ -45,8 +45,17 @@ class GeminiService {
       }),
     );
 
+    if (response.statusCode == 429) {
+      throw Exception('Recipe generation is temporarily unavailable (rate limit reached). Please wait a minute and try again.');
+    }
+    if (response.statusCode == 400) {
+      throw Exception('Invalid request to recipe service. Please try again.');
+    }
+    if (response.statusCode == 403) {
+      throw Exception('Recipe service access denied. Please check your API key.');
+    }
     if (response.statusCode != 200) {
-      throw Exception('Gemini API error ${response.statusCode}: ${response.body}');
+      throw Exception('Recipe service error (${response.statusCode}). Please try again.');
     }
 
     final responseData = jsonDecode(response.body) as Map<String, dynamic>;
