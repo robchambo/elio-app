@@ -1,0 +1,20 @@
+# flutter_launcher_icons configuration
+# Run: flutter pub run flutter_launcher_icons
+# Requires: place a 1024x1024 PNG at assets/icon/app_icon.png before running
+#
+# Sprint 7 task: replace assets/icon/app_icon.png with the final Elio brand icon,
+# then run the command above to generate all platform icon sizes automatically.
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 23
+  web:
+    generate: false
+  windows:
+    generate: false
+  macos:
+    generate: false
+  adaptive_icon_background: "#1A2744"   # ElioColors.navy
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
