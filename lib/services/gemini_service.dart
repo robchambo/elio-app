@@ -164,21 +164,36 @@ class GeminiService {
       buffer.writeln('No dietary restrictions.');
     }
 
-    buffer.writeln();
-    buffer.writeln('## INVENTORY:');
-
-    if (request.perishables.isNotEmpty) {
-      buffer.writeln('Fresh items (use these): ${request.perishables.join(', ')}');
+    // ── Leftover mode: completely different framing ──────────────────
+    if (request.isLeftoverMode && request.leftoverItems.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('## LEFTOVER MODE:');
+      buffer.writeln('The user has these leftovers and wants to use them up creatively. Build the recipe AROUND these items.');
+      buffer.writeln('Leftovers to use: ${request.leftoverItems.join(', ')}');
+      buffer.writeln('Goal: transform these leftovers into something delicious. Minimise food waste.');
+      if (request.alwaysHave.isNotEmpty) {
+        buffer.writeln('Pantry staples available: ${request.alwaysHave.join(', ')}');
+      }
+      if (request.almostAlwaysHave.isNotEmpty) {
+        buffer.writeln('Usually have: ${request.almostAlwaysHave.join(', ')}');
+      }
     } else {
-      buffer.writeln('No fresh items — use pantry staples.');
-    }
+      buffer.writeln();
+      buffer.writeln('## INVENTORY:');
 
-    if (request.alwaysHave.isNotEmpty) {
-      buffer.writeln('Pantry staples: ${request.alwaysHave.join(', ')}');
-    }
-    if (request.almostAlwaysHave.isNotEmpty) {
-      buffer.writeln('Usually have: ${request.almostAlwaysHave.join(', ')}');
-    }
+      if (request.perishables.isNotEmpty) {
+        buffer.writeln('Fresh items (use these): ${request.perishables.join(', ')}');
+      } else {
+        buffer.writeln('No fresh items — use pantry staples.');
+      }
+
+      if (request.alwaysHave.isNotEmpty) {
+        buffer.writeln('Pantry staples: ${request.alwaysHave.join(', ')}');
+      }
+      if (request.almostAlwaysHave.isNotEmpty) {
+        buffer.writeln('Usually have: ${request.almostAlwaysHave.join(', ')}');
+      }
+    } // end else (normal mode)
 
     buffer.writeln();
     buffer.writeln('## PREFERENCES:');

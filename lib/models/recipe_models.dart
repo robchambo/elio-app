@@ -40,6 +40,12 @@ class RecipeGenerationRequest {
   /// Pantry items flagged as running low — Gemini will avoid or treat as optional
   final List<String> runningLowItems;
 
+  /// Whether the user is in leftover mode
+  final bool isLeftoverMode;
+
+  /// Leftover items the user wants to use up
+  final List<String> leftoverItems;
+
   const RecipeGenerationRequest({
     required this.perishables,
     required this.alwaysHave,
@@ -52,6 +58,8 @@ class RecipeGenerationRequest {
     this.excludedIngredients = const [],
     this.recentTitles = const [],
     this.runningLowItems = const [],
+    this.isLeftoverMode = false,
+    this.leftoverItems = const [],
   });
 }
 

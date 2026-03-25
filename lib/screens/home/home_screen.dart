@@ -68,6 +68,16 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Session deduplication memory (last 10 recipe titles) ─────────────
   final List<String> _recentTitles = [];
 
+  // ── Leftover mode ─────────────────────────────────────────────────
+  bool _isLeftoverMode = false;
+  final Set<String> _leftoverItems = {};
+  final TextEditingController _leftoverController = TextEditingController();
+  static const List<String> _commonLeftovers = [
+    'Roast chicken', 'Cooked rice', 'Pasta', 'Roast vegetables',
+    'Mashed potato', 'Cooked salmon', 'Bread', 'Cooked lentils',
+    'Bolognese', 'Soup', 'Steak', 'Cooked beans',
+  ];
+
   // ── Common quick-tap perishables ───────────────────────────────────
   static const List<String> _commonPerishables = [
     'Chicken breast', 'Eggs', 'Spinach', 'Tomatoes', 'Bell peppers',
@@ -102,6 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _textController.dispose();
     _textFocus.dispose();
+    _leftoverController.dispose();
     super.dispose();
   }
 
@@ -233,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final request = RecipeGenerationRequest(
-        perishables: _selectedPerishables.toList(),
+        perishables: _isLeftoverMode ? [] : _selectedPerishables.toList(),
         alwaysHave: _alwaysHave,
         almostAlwaysHave: _almostAlwaysHave,
         dietaryRequirements: _activeDietaryRequirements,
@@ -243,6 +254,8 @@ class _HomeScreenState extends State<HomeScreen> {
         servings: 2,
         recentTitles: List.from(_recentTitles),
         runningLowItems: List.from(_runningLowItems),
+        isLeftoverMode: _isLeftoverMode,
+        leftoverItems: _isLeftoverMode ? _leftoverItems.toList() : [],
       );
 
       final recipe = await GeminiService.generateRecipe(request);
@@ -585,20 +598,161 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ─── Perishables section ──────────────────────────────────────────────────────
+  //   // ─── Perishables section ────────────────────────────────────────────
   Widget _buildPerishablesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("What's fresh today?", style: ElioText.displayMedium),
+        // ── Mode toggle row ─────────────────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _isLeftoverMode ? 'Use up leftovers' : "What's fresh today?",
+                style: ElioText.displayMedium,
+              ),
+            ),
+            GestureDetector(
+              onTap: () => setState(() {
+                _isLeftoverMode = !_isLeftoverMode;
+                _leftoverItems.clear();
+                _leftoverController.clear();
+              }),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _isLeftoverMode ? ElioColors.amber.withValues(alpha: 0.15) : ElioColors.offWhite,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _isLeftoverMode ? ElioColors.amber : ElioColors.border,
+                    width: 1.5,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('🍱', style: const TextStyle(fontSize: 13)),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Leftovers',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _isLeftoverMode ? ElioColors.amber : ElioColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
         const SizedBox(height: 4),
         Text(
-          'Tap what you have, or type anything else.',
+          _isLeftoverMode
+              ? 'Tell Elio what you have left over to use up.'
+              : 'Tap what you have, or type anything else.',
           style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
         ),
         const SizedBox(height: 16),
 
-        // ── Quick-tap chips ──────────────────────────────────────
+        if (_isLeftoverMode) ...[
+          // ── Leftover quick-tap chips ─────────────────────────────────────────────────
+          SizedBox(
+            height: 38,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _commonLeftovers.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) {
+                final item = _commonLeftovers[i];
+                final isSelected = _leftoverItems.contains(item);
+                return GestureDetector(
+                  onTap: () => setState(() {
+                    if (isSelected) _leftoverItems.remove(item);
+                    else _leftoverItems.add(item);
+                  }),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? ElioColors.amber : ElioColors.offWhite,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isSelected ? ElioColors.amber : ElioColors.border,
+                      ),
+                    ),
+                    child: Text(
+                      item,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? Colors.white : ElioColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Free-text input for leftovers
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _leftoverController,
+                  textCapitalization: TextCapitalization.sentences,
+                  style: const TextStyle(fontSize: 15),
+                  decoration: InputDecoration(
+                    hintText: 'Add a leftover...',
+                    hintStyle: TextStyle(color: ElioColors.textMuted),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  ),
+                  onSubmitted: (v) {
+                    final trimmed = v.trim();
+                    if (trimmed.isNotEmpty) {
+                      setState(() => _leftoverItems.add(trimmed));
+                      _leftoverController.clear();
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {
+                  final trimmed = _leftoverController.text.trim();
+                  if (trimmed.isNotEmpty) {
+                    setState(() => _leftoverItems.add(trimmed));
+                    _leftoverController.clear();
+                  }
+                },
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: ElioColors.navy,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.add, color: Colors.white, size: 22),
+                ),
+              ),
+            ],
+          ),
+          if (_leftoverItems.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _leftoverItems.map((item) => _SelectedTag(
+                label: item,
+                onRemove: () => setState(() => _leftoverItems.remove(item)),
+              )).toList(),
+            ),
+          ],
+        ] else ...[
+        // ── Quick-tap chips (normal mode) ─────────────────────────────────────────────────
         SizedBox(
           height: 38,
           child: ListView.separated(
@@ -674,7 +828,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
 
-        // ── Selected perishable tags ─────────────────────────────
+        // ── Selected perishable tags ───────────────────────────────────────────────
         if (_selectedPerishables.isNotEmpty) ...[
           const SizedBox(height: 12),
           Wrap(
@@ -686,6 +840,7 @@ class _HomeScreenState extends State<HomeScreen> {
             )).toList(),
           ),
         ],
+        ], // end else (normal mode)
       ],
     );
   }
@@ -814,9 +969,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   strokeWidth: 2.5,
                 ),
               )
-            : const Text(
-                'Generate Recipe →',
-                style: TextStyle(fontSize: 17,
+            : Text(
+                _isLeftoverMode ? 'Use These Leftovers →' : 'Generate Recipe →',
+                style: const TextStyle(fontSize: 17,
                   fontWeight: FontWeight.w700,
                   color: Colors.white),
               ),
