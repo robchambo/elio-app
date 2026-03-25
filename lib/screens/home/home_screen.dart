@@ -8,6 +8,7 @@ import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
 import '../recipe/recipe_screen.dart';
 import '../history/history_screen.dart';
+import '../meal_plan/meal_plan_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
@@ -378,7 +379,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildMoodChipsSection(),
                           const SizedBox(height: 24),
                           _buildGenerateButton(),
-                          const SizedBox(height: 32),
+                          const SizedBox(height: 16),
+                          _buildMealPlannerBanner(),
+                          const SizedBox(height: 24),
                           _buildRecentSection(),
                         ],
                       ),
@@ -785,6 +788,63 @@ class _HomeScreenState extends State<HomeScreen> {
                   fontWeight: FontWeight.w700,
                   color: Colors.white),
               ),
+      ),
+    );
+  }
+
+  // ─── Meal planner banner ─────────────────────────────────────────────────────
+  Widget _buildMealPlannerBanner() {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const MealPlanScreen()),
+      ),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: ElioColors.navy,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Plan your week',
+                    style: ElioText.bodyLarge.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '21 meals generated in one tap',
+                    style: ElioText.bodyMedium.copyWith(
+                      color: Colors.white.withValues(alpha: 0.65),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: ElioColors.amber,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Text(
+                'Open →',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
