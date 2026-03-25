@@ -1,0 +1,169 @@
+// ─────────────────────────────────────────────
+// Recipe Models
+// Data structures for recipe generation requests and responses.
+// Mirrors the Firestore schema in the design document.
+// ─────────────────────────────────────────────
+
+// ─── Generation request ───────────────────────────────────────────────────────
+
+class RecipeGenerationRequest {
+  /// Perishables the user just added for this session
+  final List<String> perishables;
+
+  /// Items from the Always Have tier
+  final List<String> alwaysHave;
+
+  /// Items from the Almost Always Have tier
+  final List<String> almostAlwaysHave;
+
+  /// Dietary requirements (hard constraints)
+  final List<String> dietaryRequirements;
+
+  /// Time chip selection (soft preference)
+  final String? timePreference; // e.g. "Quick (under 20 min)", "30 minutes", "No rush"
+
+  /// Style chip selection (soft preference)
+  final String? stylePreference; // e.g. "Asian", "Mediterranean"
+
+  /// Mood chip selection (soft preference)
+  final String? moodPreference; // e.g. "Something hearty", "Light bite"
+
+  /// Number of servings to generate for
+  final int servings;
+
+  const RecipeGenerationRequest({
+    required this.perishables,
+    required this.alwaysHave,
+    required this.almostAlwaysHave,
+    required this.dietaryRequirements,
+    this.timePreference,
+    this.stylePreference,
+    this.moodPreference,
+    this.servings = 2,
+  });
+}
+
+// ─── Generated recipe ─────────────────────────────────────────────────────────
+
+class GeneratedRecipe {
+  final String title;
+  final int prepTimeMinutes;
+  final int cookTimeMinutes;
+  final int servings;
+  final String description;
+  final List<RecipeIngredient> ingredients;
+  final List<String> steps;
+  final List<RecipeSubstitution> substitutions;
+  final List<String> dietaryTags;
+
+  const GeneratedRecipe({
+    required this.title,
+    required this.prepTimeMinutes,
+    required this.cookTimeMinutes,
+    required this.servings,
+    required this.description,
+    required this.ingredients,
+    required this.steps,
+    required this.substitutions,
+    required this.dietaryTags,
+  });
+
+  int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
+
+  factory GeneratedRecipe.fromJson(Map<String, dynamic> json) {
+    return GeneratedRecipe(
+      title: json['title'] as String? ?? 'Recipe',
+      prepTimeMinutes: (json['prepTimeMinutes'] as num?)?.toInt() ?? 10,
+      cookTimeMinutes: (json['cookTimeMinutes'] as num?)?.toInt() ?? 20,
+      servings: (json['servings'] as num?)?.toInt() ?? 2,
+      description: json['description'] as String? ?? '',
+      ingredients: (json['ingredients'] as List<dynamic>? ?? [])
+          .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      steps: (json['steps'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      substitutions: (json['substitutions'] as List<dynamic>? ?? [])
+          .map((e) => RecipeSubstitution.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      dietaryTags: (json['dietaryTags'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+    'title': title,
+    'prepTimeMinutes': prepTimeMinutes,
+    'cookTimeMinutes': cookTimeMinutes,
+    'servings': servings,
+    'description': description,
+    'ingredients': ingredients.map((i) => i.toMap()).toList(),
+    'steps': steps,
+    'substitutions': substitutions.map((s) => s.toMap()).toList(),
+    'dietaryTags': dietaryTags,
+    'generatedAt': DateTime.now(),
+  };
+}
+
+class RecipeIngredient {
+  final String name;
+  final String quantity;
+  final String unit;
+  final bool fromInventory; // true if this came from the user's perishables
+
+  const RecipeIngredient({
+    required this.name,
+    required this.quantity,
+    required this.unit,
+    required this.fromInventory,
+  });
+
+  factory RecipeIngredient.fromJson(Map<String, dynamic> json) {
+    return RecipeIngredient(
+      name: json['name'] as String? ?? '',
+      quantity: json['quantity']?.toString() ?? '',
+      unit: json['unit'] as String? ?? '',
+      fromInventory: json['fromInventory'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'name': name,
+    'quantity': quantity,
+    'unit': unit,
+    'fromInventory': fromInventory,
+  };
+
+  String get displayString {
+    if (quantity.isEmpty && unit.isEmpty) return name;
+    if (unit.isEmpty) return '$quantity $name';
+    return '$quantity $unit $name';
+  }
+}
+
+class RecipeSubstitution {
+  final String original;
+  final String substitute;
+  final String tradeOff;
+
+  const RecipeSubstitution({
+    required this.original,
+    required this.substitute,
+    required this.tradeOff,
+  });
+
+  factory RecipeSubstitution.fromJson(Map<String, dynamic> json) {
+    return RecipeSubstitution(
+      original: json['original'] as String? ?? '',
+      substitute: json['substitute'] as String? ?? '',
+      tradeOff: json['tradeOff'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'original': original,
+    'substitute': substitute,
+    'tradeOff': tradeOff,
+  };
+}

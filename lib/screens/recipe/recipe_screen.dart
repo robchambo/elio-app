@@ -1,0 +1,685 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../theme/elio_theme.dart';
+import '../../models/recipe_models.dart';
+
+// ─────────────────────────────────────────────
+// RecipeScreen — Sprint 2
+// Design philosophy: approachable utility.
+// Shows the generated recipe with:
+//   • Title, description, time, serving scaler
+//   • Ingredients list (amber highlight for perishables)
+//   • Step-by-step method
+//   • Substitution notes (collapsible)
+//   • Hands-Free Mode button
+// ─────────────────────────────────────────────
+
+class RecipeScreen extends StatefulWidget {
+  final GeneratedRecipe recipe;
+
+  const RecipeScreen({super.key, required this.recipe});
+
+  @override
+  State<RecipeScreen> createState() => _RecipeScreenState();
+}
+
+class _RecipeScreenState extends State<RecipeScreen> {
+  late int _servings;
+  bool _handsFreeMode = false;
+  int _currentStep = 0;
+  final Set<int> _expandedSubstitutions = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _servings = widget.recipe.servings;
+  }
+
+  double get _scaleFactor => _servings / widget.recipe.servings;
+
+  String _scaleQuantity(String quantity) {
+    if (quantity.isEmpty) return quantity;
+    final num = double.tryParse(quantity);
+    if (num == null) return quantity;
+    final scaled = num * _scaleFactor;
+    // Format nicely: no trailing zeros for whole numbers
+    if (scaled == scaled.roundToDouble()) {
+      return scaled.toInt().toString();
+    }
+    return scaled.toStringAsFixed(1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_handsFreeMode) {
+      return _buildHandsFreeMode();
+    }
+    return _buildNormalMode();
+  }
+
+  // ─── Normal mode ─────────────────────────────────────────────────────────────
+  Widget _buildNormalMode() {
+    return Scaffold(
+      backgroundColor: ElioColors.white,
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Meta row ──────────────────────────────────
+                  _buildMetaRow(),
+                  const SizedBox(height: 20),
+
+                  // ── Serving scaler ────────────────────────────
+                  _buildServingScaler(),
+                  const SizedBox(height: 28),
+
+                  // ── Ingredients ───────────────────────────────
+                  _buildIngredientsSection(),
+                  const SizedBox(height: 28),
+
+                  // ── Method ────────────────────────────────────
+                  _buildMethodSection(),
+
+                  // ── Substitutions ─────────────────────────────
+                  if (widget.recipe.substitutions.isNotEmpty) ...[
+                    const SizedBox(height: 28),
+                    _buildSubstitutionsSection(),
+                  ],
+
+                  const SizedBox(height: 32),
+
+                  // ── Hands-Free button ─────────────────────────
+                  _buildHandsFreeButton(),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      backgroundColor: ElioColors.white,
+      surfaceTintColor: Colors.transparent,
+      pinned: true,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.navy, size: 20),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.bookmark_border_rounded, color: ElioColors.navy, size: 22),
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Save to favourites coming soon!')),
+            );
+          },
+        ),
+        const SizedBox(width: 4),
+      ],
+      expandedHeight: 0,
+      title: Text(
+        widget.recipe.title,
+        style: const TextStyle(
+          fontFamily: 'Outfit',
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          color: ElioColors.navy,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _buildMetaRow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.recipe.title, style: ElioText.displayMedium),
+        const SizedBox(height: 8),
+        if (widget.recipe.description.isNotEmpty) ...[
+          Text(widget.recipe.description, style: ElioText.bodyLarge),
+          const SizedBox(height: 12),
+        ],
+        Row(
+          children: [
+            _MetaBadge(
+              icon: Icons.timer_outlined,
+              label: '${widget.recipe.totalTimeMinutes} min',
+            ),
+            const SizedBox(width: 8),
+            _MetaBadge(
+              icon: Icons.restaurant_outlined,
+              label: '${widget.recipe.prepTimeMinutes} min prep',
+            ),
+            if (widget.recipe.dietaryTags.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              _MetaBadge(
+                icon: Icons.local_dining_outlined,
+                label: widget.recipe.dietaryTags.first,
+                color: ElioColors.sky,
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildServingScaler() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: ElioColors.offWhite,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ElioColors.border),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.people_outline, color: ElioColors.navy, size: 20),
+          const SizedBox(width: 10),
+          Text('Servings', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
+          const Spacer(),
+          // Decrease
+          GestureDetector(
+            onTap: _servings > 1 ? () => setState(() => _servings--) : null,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: _servings > 1 ? ElioColors.navy : ElioColors.border,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.remove, color: Colors.white, size: 16),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              '$_servings',
+              style: const TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+                color: ElioColors.navy,
+              ),
+            ),
+          ),
+          // Increase
+          GestureDetector(
+            onTap: _servings < 12 ? () => setState(() => _servings++) : null,
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: _servings < 12 ? ElioColors.navy : ElioColors.border,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 16),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIngredientsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text('Ingredients', style: ElioText.headingMedium),
+            const Spacer(),
+            if (widget.recipe.ingredients.any((i) => i.fromInventory))
+              Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: ElioColors.amber.withValues(alpha: 0.4),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: ElioColors.amber, width: 1.5),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'from your fridge',
+                    style: ElioText.label.copyWith(color: ElioColors.textSecondary),
+                  ),
+                ],
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ...widget.recipe.ingredients.asMap().entries.map((entry) {
+          final ingredient = entry.value;
+          final isFromInventory = ingredient.fromInventory;
+          return Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: isFromInventory
+                  ? ElioColors.amber.withValues(alpha: 0.07)
+                  : ElioColors.offWhite,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isFromInventory ? ElioColors.amber.withValues(alpha: 0.4) : ElioColors.border,
+              ),
+            ),
+            child: Row(
+              children: [
+                if (isFromInventory)
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: const BoxDecoration(
+                      color: ElioColors.amber,
+                      shape: BoxShape.circle,
+                    ),
+                  )
+                else
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: ElioColors.border,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                Expanded(
+                  child: Text(
+                    ingredient.name,
+                    style: ElioText.bodyMedium.copyWith(
+                      fontWeight: isFromInventory ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                Text(
+                  ingredient.unit.isEmpty
+                      ? _scaleQuantity(ingredient.quantity)
+                      : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
+                  style: ElioText.bodyMedium.copyWith(
+                    color: ElioColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildMethodSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Method', style: ElioText.headingMedium),
+        const SizedBox(height: 12),
+        ...widget.recipe.steps.asMap().entries.map((entry) {
+          final stepNum = entry.key + 1;
+          final step = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: ElioColors.navy,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$stepNum',
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(step, style: ElioText.bodyLarge),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildSubstitutionsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Substitution tips', style: ElioText.headingMedium),
+        const SizedBox(height: 12),
+        ...widget.recipe.substitutions.asMap().entries.map((entry) {
+          final i = entry.key;
+          final sub = entry.value;
+          final isExpanded = _expandedSubstitutions.contains(i);
+          return GestureDetector(
+            onTap: () => setState(() {
+              if (isExpanded) {
+                _expandedSubstitutions.remove(i);
+              } else {
+                _expandedSubstitutions.add(i);
+              }
+            }),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: ElioColors.sky.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ElioColors.sky.withValues(alpha: 0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.swap_horiz_rounded, color: ElioColors.sky, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Instead of ${sub.original} → ${sub.substitute}',
+                          style: ElioText.bodyMedium.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: ElioColors.navy,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        isExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: ElioColors.textSecondary,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                  if (isExpanded && sub.tradeOff.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      sub.tradeOff,
+                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildHandsFreeButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () {
+          setState(() {
+            _handsFreeMode = true;
+            _currentStep = 0;
+          });
+          // Keep screen awake
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        },
+        icon: const Icon(Icons.visibility_outlined, size: 20),
+        label: const Text('Start Hands-Free Mode'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: ElioColors.navy,
+          side: const BorderSide(color: ElioColors.navy, width: 1.5),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      ),
+    );
+  }
+
+  // ─── Hands-Free Mode ─────────────────────────────────────────────────────────
+  Widget _buildHandsFreeMode() {
+    final steps = widget.recipe.steps;
+    final isFirst = _currentStep == 0;
+    final isLast = _currentStep == steps.length - 1;
+
+    return Scaffold(
+      backgroundColor: ElioColors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Top bar ───────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      setState(() => _handsFreeMode = false);
+                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: ElioColors.offWhite,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: ElioColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.close, size: 16, color: ElioColors.navy),
+                          const SizedBox(width: 4),
+                          Text('Exit', style: ElioText.label.copyWith(color: ElioColors.navy)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Text(
+                    widget.recipe.title,
+                    style: ElioText.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: ElioColors.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    '${_currentStep + 1} / ${steps.length}',
+                    style: ElioText.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: ElioColors.navy,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Progress dots ─────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+              child: Row(
+                children: List.generate(steps.length, (i) {
+                  return Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: i <= _currentStep ? ElioColors.amber : ElioColors.border,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+            // ── Step content ──────────────────────────────────
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(28, 0, 28, 0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Step ${_currentStep + 1}',
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: ElioColors.amber,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      steps[_currentStep],
+                      style: const TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 26,
+                        fontWeight: FontWeight.w500,
+                        color: ElioColors.textPrimary,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Navigation buttons ────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+              child: Row(
+                children: [
+                  // Previous
+                  Expanded(
+                    child: SizedBox(
+                      height: 60,
+                      child: OutlinedButton(
+                        onPressed: isFirst ? null : () => setState(() => _currentStep--),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: ElioColors.navy,
+                          side: BorderSide(
+                            color: isFirst ? ElioColors.border : ElioColors.navy,
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        child: const Text(
+                          '← Prev',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Next / Done
+                  Expanded(
+                    flex: 2,
+                    child: SizedBox(
+                      height: 60,
+                      child: ElevatedButton(
+                        onPressed: isLast
+                            ? () {
+                                setState(() => _handsFreeMode = false);
+                                SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+                                Navigator.of(context).pop();
+                              }
+                            : () => setState(() => _currentStep++),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isLast ? ElioColors.amber : ElioColors.navy,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          isLast ? 'Done! 🎉' : 'Next →',
+                          style: const TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Meta badge widget ────────────────────────────────────────────────────────
+
+class _MetaBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _MetaBadge({
+    required this.icon,
+    required this.label,
+    this.color = ElioColors.navy,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
