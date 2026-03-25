@@ -167,10 +167,12 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final msg = e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Couldn\'t generate a recipe right now. Try again?'),
+            content: Text(msg),
             backgroundColor: ElioColors.navy,
+            duration: const Duration(seconds: 8),
           ),
         );
       }

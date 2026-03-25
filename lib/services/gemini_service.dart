@@ -40,7 +40,6 @@ class GeminiService {
           'topK': 40,
           'topP': 0.95,
           'maxOutputTokens': 2048,
-          'responseMimeType': 'application/json',
         },
       }),
     );
@@ -70,7 +69,21 @@ class GeminiService {
       throw Exception('Empty response from AI. Please try again.');
     }
 
-    final jsonText = parts[0]['text'] as String? ?? '';
+    String jsonText = parts[0]['text'] as String? ?? '';
+    // Strip markdown code fences if the model wraps the JSON
+    jsonText = jsonText.trim();
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replaceAll(RegExp(r'^```[a-z]*\n?', multiLine: false), '');
+      jsonText = jsonText.replaceAll(RegExp(r'```\s*$', multiLine: false), '');
+      jsonText = jsonText.trim();
+    }
+    // Find the first { and last } to extract pure JSON
+    final start = jsonText.indexOf('{');
+    final end = jsonText.lastIndexOf('}');
+    if (start == -1 || end == -1) {
+      throw Exception('Could not find JSON in response. Raw: ${jsonText.substring(0, jsonText.length.clamp(0, 200))}');
+    }
+    jsonText = jsonText.substring(start, end + 1);
     final recipeJson = jsonDecode(jsonText) as Map<String, dynamic>;
     return GeneratedRecipe.fromJson(recipeJson);
   }
