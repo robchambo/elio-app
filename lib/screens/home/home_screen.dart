@@ -4,7 +4,9 @@ import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
+import '../../services/history_service.dart';
 import '../recipe/recipe_screen.dart';
+import '../history/history_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
@@ -52,6 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoading = true;
   bool _isGenerating = false;
 
+  // ── Recent history ─────────────────────────────────────────────────
+  List<SavedRecipe> _recentRecipes = [];
+
   // ── Common quick-tap perishables ───────────────────────────────────
   static const List<String> _commonPerishables = [
     'Chicken breast', 'Eggs', 'Spinach', 'Tomatoes', 'Bell peppers',
@@ -74,6 +79,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserData();
+    _loadRecentHistory();
+  }
+
+  Future<void> _loadRecentHistory() async {
+    final all = await HistoryService.getHistory();
+    if (mounted) setState(() => _recentRecipes = all.take(3).toList());
   }
 
   @override
@@ -157,6 +168,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final recipe = await GeminiService.generateRecipe(request);
       if (!widget.isGuest) await _firestore.incrementDailyGenerations();
+
+      // Auto-save to local history
+      await HistoryService.saveRecipe(SavedRecipe(
+        recipe: recipe,
+        savedAt: DateTime.now().toUtc().toIso8601String(),
+      ));
+      _loadRecentHistory();
 
       if (mounted) {
         Navigator.of(context).push(
@@ -578,28 +596,93 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Recent recipes', style: ElioText.headingMedium),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: ElioColors.offWhite,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: ElioColors.border),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.auto_awesome_outlined, color: ElioColors.textMuted, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Recent recipes', style: ElioText.headingMedium),
+            if (_recentRecipes.isNotEmpty)
+              GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const HistoryScreen()),
+                ).then((_) => _loadRecentHistory()),
                 child: Text(
-                  'Your generated recipes will appear here.',
-                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  'View all',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: ElioColors.sky,
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
+        const SizedBox(height: 12),
+        if (_recentRecipes.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: ElioColors.offWhite,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: ElioColors.border),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome_outlined, color: ElioColors.textMuted, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Your generated recipes will appear here.',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          ...(_recentRecipes.map((saved) => GestureDetector(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => RecipeScreen(recipe: saved.recipe)),
+            ),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: ElioColors.offWhite,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: ElioColors.border),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          saved.recipe.title,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: ElioColors.textPrimary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${saved.recipe.totalTimeMinutes} min  •  ${saved.recipe.servings} servings',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: ElioColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, color: ElioColors.border, size: 20),
+                ],
+              ),
+            ),
+          ))),
       ],
     );
   }

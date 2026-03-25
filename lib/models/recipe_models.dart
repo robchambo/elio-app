@@ -142,6 +142,42 @@ class RecipeIngredient {
   }
 }
 
+// ─── Saved recipe (local history) ───────────────────────────────────────────
+
+class SavedRecipe {
+  final GeneratedRecipe recipe;
+  final String savedAt; // ISO8601 string, used as unique ID
+
+  const SavedRecipe({required this.recipe, required this.savedAt});
+
+  factory SavedRecipe.fromJson(Map<String, dynamic> json) {
+    return SavedRecipe(
+      recipe: GeneratedRecipe.fromJson(json['recipe'] as Map<String, dynamic>),
+      savedAt: json['savedAt'] as String? ?? DateTime.now().toIso8601String(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'recipe': {
+      'title': recipe.title,
+      'description': recipe.description,
+      'prepTimeMinutes': recipe.prepTimeMinutes,
+      'cookTimeMinutes': recipe.cookTimeMinutes,
+      'servings': recipe.servings,
+      'dietaryTags': recipe.dietaryTags,
+      'ingredients': recipe.ingredients.map((i) => i.toMap()).toList(),
+      'steps': recipe.steps,
+      'substitutions': recipe.substitutions.map((s) => s.toMap()).toList(),
+    },
+    'savedAt': savedAt,
+  };
+
+  static SavedRecipe fromRecipe(GeneratedRecipe recipe) => SavedRecipe(
+    recipe: recipe,
+    savedAt: DateTime.now().toIso8601String(),
+  );
+}
+
 class RecipeSubstitution {
   final String original;
   final String substitute;
