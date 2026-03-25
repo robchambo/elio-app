@@ -28,6 +28,8 @@ class StylePreferencesScreen extends StatefulWidget {
 
 class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
   late Set<String> _selected;
+  final ScrollController _scrollController = ScrollController();
+  bool _showScrollHint = true;
 
   static const List<_StyleOption> _options = [
     _StyleOption('Asian', '🍜'),
@@ -52,6 +54,21 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
   void initState() {
     super.initState();
     _selected = Set.from(widget.state.stylePreferences);
+    _scrollController.addListener(() {
+      final atBottom = _scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 40;
+      if (atBottom && _showScrollHint) {
+        setState(() => _showScrollHint = false);
+      } else if (!atBottom && !_showScrollHint) {
+        setState(() => _showScrollHint = true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _toggle(String style) {
@@ -122,28 +139,72 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Style grid ────────────────────────────────────────
+            // ── Style grid with scroll indicator ──────────────
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: GridView.builder(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: 2.6,
+              child: Stack(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: GridView.builder(
+                      controller: _scrollController,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 2.6,
+                      ),
+                      itemCount: _options.length,
+                      itemBuilder: (context, i) {
+                        final opt = _options[i];
+                        final isSelected = _selected.contains(opt.label);
+                        return _StyleChip(
+                          option: opt,
+                          isSelected: isSelected,
+                          onTap: () => _toggle(opt.label),
+                        );
+                      },
+                    ),
                   ),
-                  itemCount: _options.length,
-                  itemBuilder: (context, i) {
-                    final opt = _options[i];
-                    final isSelected = _selected.contains(opt.label);
-                    return _StyleChip(
-                      option: opt,
-                      isSelected: isSelected,
-                      onTap: () => _toggle(opt.label),
-                    );
-                  },
-                ),
+                  // Fade gradient + scroll hint at bottom
+                  AnimatedOpacity(
+                    opacity: _showScrollHint ? 1.0 : 0.0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Align(
+                      alignment: Alignment.bottomCenter,
+                      child: IgnorePointer(
+                        child: Container(
+                          height: 72,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                ElioColors.white.withOpacity(0.0),
+                                ElioColors.white.withOpacity(0.95),
+                              ],
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              Icon(Icons.keyboard_arrow_down_rounded,
+                                  color: ElioColors.textSecondary, size: 22),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Scroll for more',
+                                style: ElioText.bodyMedium.copyWith(
+                                  color: ElioColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 

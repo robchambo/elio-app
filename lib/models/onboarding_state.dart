@@ -22,16 +22,21 @@ class OnboardingState {
   // Screen 5: Food style preferences (optional)
   List<String> stylePreferences;
 
+  // Screen 1 extra: custom allergens entered as free text
+  List<String> customAllergens;
+
   OnboardingState({
     List<DietaryRequirement>? dietaryRequirements,
     this.kitchenPreset,
     List<InventoryItem>? inventory,
     List<HouseholdProfile>? additionalMembers,
     List<String>? stylePreferences,
+    List<String>? customAllergens,
   })  : dietaryRequirements = dietaryRequirements ?? [],
         inventory = inventory ?? [],
         additionalMembers = additionalMembers ?? [],
-        stylePreferences = stylePreferences ?? [];
+        stylePreferences = stylePreferences ?? [],
+        customAllergens = customAllergens ?? [];
 
   OnboardingState copyWith({
     List<DietaryRequirement>? dietaryRequirements,
@@ -39,6 +44,7 @@ class OnboardingState {
     List<InventoryItem>? inventory,
     List<HouseholdProfile>? additionalMembers,
     List<String>? stylePreferences,
+    List<String>? customAllergens,
   }) {
     return OnboardingState(
       dietaryRequirements: dietaryRequirements ?? this.dietaryRequirements,
@@ -46,6 +52,7 @@ class OnboardingState {
       inventory: inventory ?? this.inventory,
       additionalMembers: additionalMembers ?? this.additionalMembers,
       stylePreferences: stylePreferences ?? this.stylePreferences,
+      customAllergens: customAllergens ?? this.customAllergens,
     );
   }
 }

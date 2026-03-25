@@ -44,11 +44,13 @@ class FirestoreService {
 
     // 2. Create the owner's household profile
     final ownerProfileRef = userRef.collection('profiles').doc('owner');
-    batch.set(ownerProfileRef, HouseholdProfile(
+    final ownerProfileData = HouseholdProfile(
       name: displayName,
       dietaryRequirements: state.dietaryRequirements,
       isOwner: true,
-    ).toFirestore());
+    ).toFirestore();
+    ownerProfileData['customAllergens'] = state.customAllergens;
+    batch.set(ownerProfileRef, ownerProfileData);
 
     // 3. Write inventory items
     for (final item in state.inventory) {
@@ -104,6 +106,7 @@ class FirestoreService {
         'id': doc.id,
         'name': data['name'] as String? ?? 'Member',
         'dietaryRequirements': List<String>.from(data['dietaryRequirements'] ?? []),
+        'customAllergens': List<String>.from(data['customAllergens'] ?? []),
         'isOwner': data['isOwner'] as bool? ?? false,
       });
     }
@@ -136,9 +139,13 @@ class FirestoreService {
       if (isRunningLow) runningLowItems.add(name);
     }
 
+    // Owner's custom allergens
+    final customAllergens = List<String>.from(ownerProfile['customAllergens'] ?? []);
+
     return {
       'stylePreferences': List<String>.from(userData['stylePreferences'] ?? []),
       'dietaryRequirements': dietaryRequirements,
+      'customAllergens': customAllergens,
       'householdProfiles': householdProfiles,
       'alwaysHave': alwaysHave,
       'almostAlwaysHave': almostAlwaysHave,

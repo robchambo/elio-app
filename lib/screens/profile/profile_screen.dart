@@ -10,12 +10,7 @@ import '../onboarding/screen0_welcome.dart';
 // ─────────────────────────────────────────────
 // ProfileScreen
 // Design philosophy: approachable utility.
-// Lets the user edit everything set during onboarding:
-//   • Pantry (Always Have / Almost Always Have) with running-low toggles
-//   • Dietary requirements
-//   • Household members
-//   • Style preferences
-//   • Sign out
+// Tabs: Pantry (drag-to-move tiers, running-low) | Dietary & Allergens | Household | Style
 // ─────────────────────────────────────────────
 
 class ProfileScreen extends StatefulWidget {
@@ -32,16 +27,15 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   bool _isLoading = true;
 
   // ── Pantry state ───────────────────────────────────────────────────
-  // Each entry: { 'id': String, 'name': String, 'tier': String, 'runningLow': bool }
   List<Map<String, dynamic>> _inventoryItems = [];
 
   // ── Dietary requirements ───────────────────────────────────────────
-  // Owner profile dietary requirements
   List<String> _dietaryRequirements = [];
+  List<String> _customAllergens = [];
   String? _ownerProfileId;
+  final TextEditingController _customAllergenController = TextEditingController();
 
   // ── Household members ──────────────────────────────────────────────
-  // Each entry: { 'id': String, 'name': String, 'dietaryRequirements': List<String>, 'isOwner': bool }
   List<Map<String, dynamic>> _householdProfiles = [];
 
   // ── Style preferences ──────────────────────────────────────────────
@@ -71,6 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   void dispose() {
     _tabController.dispose();
+    _customAllergenController.dispose();
     super.dispose();
   }
 
@@ -86,7 +81,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         _householdProfiles = List<Map<String, dynamic>>.from(
           (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
         );
-        // Find owner profile
         final owner = _householdProfiles.firstWhere(
           (p) => p['isOwner'] == true,
           orElse: () => {},
@@ -94,6 +88,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         if (owner.isNotEmpty) {
           _ownerProfileId = owner['id'] as String?;
           _dietaryRequirements = List<String>.from(owner['dietaryRequirements'] ?? []);
+          _customAllergens = List<String>.from(owner['customAllergens'] ?? []);
         }
         _isLoading = false;
       });
@@ -110,6 +105,27 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   List<Map<String, dynamic>> get _almostAlwaysHaveItems =>
       _inventoryItems.where((i) => i['tier'] == 'almostAlwaysHave').toList();
 
+  Future<void> _moveItemToTier(String itemId, String newTier) async {
+    final idx = _inventoryItems.indexWhere((i) => i['id'] == itemId);
+    if (idx == -1) return;
+    final oldTier = _inventoryItems[idx]['tier'] as String;
+    if (oldTier == newTier) return;
+    setState(() => _inventoryItems[idx]['tier'] = newTier);
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .collection('inventory')
+          .doc(itemId)
+          .update({'tier': newTier});
+    } catch (_) {
+      if (mounted) {
+        setState(() => _inventoryItems[idx]['tier'] = oldTier);
+        _showSnack('Could not move item. Please try again.');
+      }
+    }
+  }
+
   Future<void> _toggleRunningLow(String itemId, bool current) async {
     final newValue = !current;
     setState(() {
@@ -119,7 +135,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     try {
       await _firestore.toggleRunningLow(itemId, newValue);
     } catch (_) {
-      // Revert on failure
       if (mounted) {
         setState(() {
           final idx = _inventoryItems.indexWhere((i) => i['id'] == itemId);
@@ -179,6 +194,43 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             .update({'dietaryRequirements': updated});
       } catch (_) {
         _showSnack('Could not save dietary change. Please try again.');
+      }
+    }
+  }
+
+  Future<void> _addCustomAllergen(String allergen) async {
+    final trimmed = allergen.trim();
+    if (trimmed.isEmpty || _customAllergens.contains(trimmed)) return;
+    final updated = List<String>.from(_customAllergens)..add(trimmed);
+    setState(() => _customAllergens = updated);
+    _customAllergenController.clear();
+    if (_ownerProfileId != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(FirebaseAuth.instance.currentUser!.uid)
+            .collection('profiles')
+            .doc(_ownerProfileId)
+            .update({'customAllergens': updated});
+      } catch (_) {
+        _showSnack('Could not save allergen. Please try again.');
+      }
+    }
+  }
+
+  Future<void> _removeCustomAllergen(String allergen) async {
+    final updated = List<String>.from(_customAllergens)..remove(allergen);
+    setState(() => _customAllergens = updated);
+    if (_ownerProfileId != null) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(FirebaseAuth.instance.currentUser!.uid)
+            .collection('profiles')
+            .doc(_ownerProfileId)
+            .update({'customAllergens': updated});
+      } catch (_) {
+        _showSnack('Could not remove allergen. Please try again.');
       }
     }
   }
@@ -261,7 +313,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Sign out?', style: ElioText.headingMedium),
-        content: Text('You will need to sign in again to access your recipes and meal plans.', style: ElioText.bodyMedium),
+        content: Text(
+          'You will need to sign in again to access your recipes and meal plans.',
+          style: ElioText.bodyMedium,
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           TextButton(
@@ -327,8 +382,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               unselectedLabelColor: ElioColors.textMuted,
               indicatorColor: ElioColors.amber,
               indicatorWeight: 2.5,
-              labelStyle: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w400),
+              labelStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w400),
               tabs: const [
                 Tab(text: 'Pantry'),
                 Tab(text: 'Dietary'),
@@ -362,143 +417,218 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Text(
-          'Your pantry',
-          style: ElioText.headingMedium,
-        ),
+        Text('Your pantry', style: ElioText.headingMedium),
         const SizedBox(height: 4),
         Text(
-          'Tap ⚠ to flag items you\'re running low on. Elio will avoid them in recipes.',
+          'Long-press any item and drag it to move it between tiers. Tap ⚠ to flag items running low.',
           style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
         ),
         const SizedBox(height: 20),
-        _buildInventorySection(
+        _buildDraggableTierSection(
           title: 'Always Have',
           subtitle: 'Staples you always keep stocked',
           items: _alwaysHaveItems,
           tier: 'alwaysHave',
           icon: Icons.inventory_2_outlined,
+          targetTierLabel: 'Move to "Almost Always Have"',
         ),
         const SizedBox(height: 24),
-        _buildInventorySection(
+        _buildDraggableTierSection(
           title: 'Almost Always Have',
           subtitle: 'Items you usually have but sometimes run out of',
           items: _almostAlwaysHaveItems,
           tier: 'almostAlwaysHave',
           icon: Icons.kitchen_outlined,
+          targetTierLabel: 'Move to "Always Have"',
         ),
       ],
     );
   }
 
-  Widget _buildInventorySection({
+  Widget _buildDraggableTierSection({
     required String title,
     required String subtitle,
     required List<Map<String, dynamic>> items,
     required String tier,
     required IconData icon,
+    required String targetTierLabel,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: ElioColors.navy),
-            const SizedBox(width: 6),
-            Text(title, style: ElioText.headingMedium),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(subtitle, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13)),
-        const SizedBox(height: 12),
-        if (items.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text('No items yet. Add some below.', style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted)),
-          ),
-        ...items.map((item) => _buildInventoryRow(item)),
-        const SizedBox(height: 8),
-        _buildAddItemRow(tier),
-      ],
-    );
-  }
+    final otherTier = tier == 'alwaysHave' ? 'almostAlwaysHave' : 'alwaysHave';
 
-  Widget _buildInventoryRow(Map<String, dynamic> item) {
-    final isRunningLow = item['runningLow'] as bool? ?? false;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: isRunningLow ? const Color(0xFFFFF8F0) : ElioColors.offWhite,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isRunningLow ? const Color(0xFFFFB300) : ElioColors.border,
-                  width: isRunningLow ? 1.5 : 1,
-                ),
-              ),
-              child: Row(
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) {
+        // Accept items from the other tier
+        final itemId = details.data;
+        final item = _inventoryItems.firstWhere((i) => i['id'] == itemId, orElse: () => {});
+        return item.isNotEmpty && item['tier'] != tier;
+      },
+      onAcceptWithDetails: (details) {
+        _moveItemToTier(details.data, tier);
+      },
+      builder: (context, candidateData, rejectedData) {
+        final isDragOver = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          decoration: BoxDecoration(
+            color: isDragOver ? ElioColors.amber.withOpacity(0.06) : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            border: isDragOver
+                ? Border.all(color: ElioColors.amber, width: 2)
+                : Border.all(color: Colors.transparent, width: 2),
+          ),
+          padding: const EdgeInsets.all(8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Expanded(
-                    child: Text(
-                      item['name'] as String? ?? '',
-                      style: ElioText.bodyMedium.copyWith(
-                        color: isRunningLow ? const Color(0xFFE65100) : ElioColors.textPrimary,
-                        fontWeight: isRunningLow ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                  if (isRunningLow) ...[
-                    const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFE65100)),
-                    const SizedBox(width: 4),
-                    Text('Low', style: TextStyle(fontSize: 11, color: const Color(0xFFE65100), fontWeight: FontWeight.w600)),
+                  Icon(icon, size: 16, color: ElioColors.navy),
+                  const SizedBox(width: 6),
+                  Text(title, style: ElioText.headingMedium),
+                  if (isDragOver) ...[
                     const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: ElioColors.amber,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text('Drop here', style: ElioText.label.copyWith(color: Colors.white, fontSize: 11)),
+                    ),
                   ],
                 ],
               ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Running low toggle
-          GestureDetector(
-            onTap: () => _toggleRunningLow(item['id'] as String, isRunningLow),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: isRunningLow ? const Color(0xFFFFF3E0) : ElioColors.offWhite,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isRunningLow ? const Color(0xFFFFB300) : ElioColors.border,
+              const SizedBox(height: 2),
+              Text(subtitle, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13)),
+              const SizedBox(height: 12),
+              if (items.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    isDragOver ? 'Release to move here' : 'No items yet. Add some below.',
+                    style: ElioText.bodyMedium.copyWith(
+                      color: isDragOver ? ElioColors.amber : ElioColors.textMuted,
+                    ),
+                  ),
                 ),
-              ),
-              child: Icon(
-                Icons.warning_amber_rounded,
-                size: 18,
-                color: isRunningLow ? const Color(0xFFE65100) : ElioColors.textMuted,
-              ),
-            ),
+              ...items.map((item) => _buildDraggableInventoryRow(item, otherTier)),
+              const SizedBox(height: 8),
+              _buildAddItemRow(tier),
+            ],
           ),
-          const SizedBox(width: 6),
-          // Delete button
-          GestureDetector(
-            onTap: () => _deleteInventoryItem(item['id'] as String),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: ElioColors.offWhite,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: ElioColors.border),
-              ),
-              child: const Icon(Icons.close, size: 16, color: ElioColors.textMuted),
-            ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDraggableInventoryRow(Map<String, dynamic> item, String otherTier) {
+    final isRunningLow = item['runningLow'] as bool? ?? false;
+    final itemId = item['id'] as String;
+
+    return LongPressDraggable<String>(
+      data: itemId,
+      delay: const Duration(milliseconds: 300),
+      feedback: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: ElioColors.navy,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))],
           ),
-        ],
+          child: Text(
+            item['name'] as String? ?? '',
+            style: ElioText.bodyMedium.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+          ),
+        ),
       ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _buildInventoryRowContent(item, isRunningLow, itemId),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: _buildInventoryRowContent(item, isRunningLow, itemId),
+      ),
+    );
+  }
+
+  Widget _buildInventoryRowContent(Map<String, dynamic> item, bool isRunningLow, String itemId) {
+    return Row(
+      children: [
+        // Drag handle hint
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Icon(Icons.drag_indicator, size: 18, color: ElioColors.textMuted.withOpacity(0.5)),
+        ),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isRunningLow ? const Color(0xFFFFF8F0) : ElioColors.offWhite,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isRunningLow ? const Color(0xFFFFB300) : ElioColors.border,
+                width: isRunningLow ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item['name'] as String? ?? '',
+                    style: ElioText.bodyMedium.copyWith(
+                      color: isRunningLow ? const Color(0xFFE65100) : ElioColors.textPrimary,
+                      fontWeight: isRunningLow ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                if (isRunningLow) ...[
+                  const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFE65100)),
+                  const SizedBox(width: 4),
+                  const Text('Low', style: TextStyle(fontSize: 11, color: Color(0xFFE65100), fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        // Running low toggle
+        GestureDetector(
+          onTap: () => _toggleRunningLow(itemId, isRunningLow),
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: isRunningLow ? const Color(0xFFFFF3E0) : ElioColors.offWhite,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: isRunningLow ? const Color(0xFFFFB300) : ElioColors.border),
+            ),
+            child: Icon(
+              Icons.warning_amber_rounded,
+              size: 16,
+              color: isRunningLow ? const Color(0xFFE65100) : ElioColors.textMuted,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // Delete button
+        GestureDetector(
+          onTap: () => _deleteInventoryItem(itemId),
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: ElioColors.offWhite,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: ElioColors.border),
+            ),
+            child: const Icon(Icons.close, size: 15, color: ElioColors.textMuted),
+          ),
+        ),
+      ],
     );
   }
 
@@ -560,7 +690,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Text('Your dietary needs', style: ElioText.headingMedium),
+        Text('Dietary requirements & Allergens', style: ElioText.headingMedium),
         const SizedBox(height: 4),
         Text(
           'Elio will never suggest recipes that don\'t work for you.',
@@ -595,6 +725,84 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
             );
           }).toList(),
+        ),
+        const SizedBox(height: 28),
+        // ── Custom allergens ──────────────────────────────────────────
+        Text('Custom allergens', style: ElioText.headingMedium.copyWith(fontSize: 16)),
+        const SizedBox(height: 4),
+        Text(
+          'Add any allergies or intolerances not listed above.',
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        if (_customAllergens.isNotEmpty) ...[
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _customAllergens.map((allergen) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFFFB300)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(allergen, style: ElioText.label.copyWith(color: const Color(0xFFE65100), fontWeight: FontWeight.w600)),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => _removeCustomAllergen(allergen),
+                    child: const Icon(Icons.close, size: 14, color: Color(0xFFE65100)),
+                  ),
+                ],
+              ),
+            )).toList(),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _customAllergenController,
+                decoration: InputDecoration(
+                  hintText: 'e.g. Sesame, Shellfish, Mustard...',
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: ElioColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: ElioColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: ElioColors.navy, width: 1.5),
+                  ),
+                  filled: true,
+                  fillColor: ElioColors.offWhite,
+                ),
+                style: ElioText.bodyMedium,
+                textCapitalization: TextCapitalization.words,
+                onSubmitted: (value) => _addCustomAllergen(value),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => _addCustomAllergen(_customAllergenController.text),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: ElioColors.navy,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.add, size: 20, color: Colors.white),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 24),
         Container(
@@ -851,4 +1059,3 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 }
-

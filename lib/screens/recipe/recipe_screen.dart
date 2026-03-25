@@ -160,6 +160,135 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
   }
 
+  void _showNutritionSheet() {
+    final n = widget.recipe.nutrition;
+    if (n == null) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: ElioColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Nutrition per serving', style: ElioText.headingMedium),
+            const SizedBox(height: 4),
+            Text(
+              'Based on ${_servings} serving${_servings == 1 ? '' : 's'}',
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+            ),
+            const SizedBox(height: 20),
+            // Calories — full width
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: ElioColors.amber.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: ElioColors.amber.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Calories', style: ElioText.headingMedium.copyWith(color: ElioColors.amber)),
+                  RichText(
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: '${(n.calories * _scaleFactor).round()}',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                            color: ElioColors.navy,
+                          ),
+                        ),
+                        const TextSpan(
+                          text: ' kcal',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: ElioColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Macros row
+            Row(
+              children: [
+                _NutritionTile(
+                  label: 'PROTEIN',
+                  value: '${(n.proteinG * _scaleFactor).round()}',
+                  unit: 'g',
+                  color: const Color(0xFF4CAF50),
+                ),
+                const SizedBox(width: 10),
+                _NutritionTile(
+                  label: 'CARBS',
+                  value: '${(n.carbsG * _scaleFactor).round()}',
+                  unit: 'g',
+                  color: const Color(0xFF2196F3),
+                ),
+                const SizedBox(width: 10),
+                _NutritionTile(
+                  label: 'FAT',
+                  value: '${(n.fatG * _scaleFactor).round()}',
+                  unit: 'g',
+                  color: const Color(0xFFFF9800),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Fibre
+            Row(
+              children: [
+                _NutritionTile(
+                  label: 'FIBRE',
+                  value: '${(n.fibreG * _scaleFactor).round()}',
+                  unit: 'g',
+                  color: const Color(0xFF9C27B0),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(child: SizedBox()),
+                const Expanded(child: SizedBox()),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Estimates only — actual values may vary.',
+              style: ElioText.bodyMedium.copyWith(
+                color: ElioColors.textMuted,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRatingRow() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -345,12 +474,21 @@ class _RecipeScreenState extends State<RecipeScreen> {
               icon: Icons.restaurant_outlined,
               label: '${widget.recipe.prepTimeMinutes} min prep',
             ),
-            if (widget.recipe.dietaryTags.isNotEmpty) ...[
-              const SizedBox(width: 8),
+            if (widget.recipe.dietaryTags.isNotEmpty) ...[              const SizedBox(width: 8),
               _MetaBadge(
                 icon: Icons.local_dining_outlined,
                 label: widget.recipe.dietaryTags.first,
                 color: ElioColors.sky,
+              ),
+            ],
+            if (widget.recipe.nutrition != null) ...[              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _showNutritionSheet,
+                child: _MetaBadge(
+                  icon: Icons.monitor_heart_outlined,
+                  label: '${widget.recipe.nutrition!.calories} kcal',
+                  color: const Color(0xFFFFF3E0),
+                ),
               ),
             ],
           ],
@@ -959,6 +1097,71 @@ class _RatingButton extends StatelessWidget {
           isSelected ? iconFilled : icon,
           size: 20,
           color: isSelected ? color : ElioColors.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
+class _NutritionTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final String unit;
+  final Color color;
+
+  const _NutritionTile({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: color,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const SizedBox(height: 4),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: value,
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: ElioColors.navy,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' $unit',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: ElioColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

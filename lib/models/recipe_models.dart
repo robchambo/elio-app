@@ -71,6 +71,42 @@ class RecipeGenerationRequest {
   });
 }
 
+// ─── Nutrition info ─────────────────────────────────────────────────────────
+
+class NutritionInfo {
+  final int calories;
+  final double proteinG;
+  final double carbsG;
+  final double fatG;
+  final double fibreG;
+
+  const NutritionInfo({
+    required this.calories,
+    required this.proteinG,
+    required this.carbsG,
+    required this.fatG,
+    required this.fibreG,
+  });
+
+  factory NutritionInfo.fromJson(Map<String, dynamic> json) {
+    return NutritionInfo(
+      calories: (json['calories'] as num?)?.toInt() ?? 0,
+      proteinG: (json['proteinG'] as num?)?.toDouble() ?? 0.0,
+      carbsG: (json['carbsG'] as num?)?.toDouble() ?? 0.0,
+      fatG: (json['fatG'] as num?)?.toDouble() ?? 0.0,
+      fibreG: (json['fibreG'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'calories': calories,
+    'proteinG': proteinG,
+    'carbsG': carbsG,
+    'fatG': fatG,
+    'fibreG': fibreG,
+  };
+}
+
 // ─── Generated recipe ─────────────────────────────────────────────────────────
 
 class GeneratedRecipe {
@@ -83,6 +119,7 @@ class GeneratedRecipe {
   final List<String> steps;
   final List<RecipeSubstitution> substitutions;
   final List<String> dietaryTags;
+  final NutritionInfo? nutrition; // per-serving, nullable for backwards compat
 
   const GeneratedRecipe({
     required this.title,
@@ -94,6 +131,7 @@ class GeneratedRecipe {
     required this.steps,
     required this.substitutions,
     required this.dietaryTags,
+    this.nutrition,
   });
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
@@ -117,6 +155,9 @@ class GeneratedRecipe {
       dietaryTags: (json['dietaryTags'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
+      nutrition: json['nutrition'] != null
+          ? NutritionInfo.fromJson(json['nutrition'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -131,6 +172,7 @@ class GeneratedRecipe {
     'substitutions': substitutions.map((s) => s.toMap()).toList(),
     'dietaryTags': dietaryTags,
     'generatedAt': DateTime.now(),
+    if (nutrition != null) 'nutrition': nutrition!.toMap(),
   };
 }
 

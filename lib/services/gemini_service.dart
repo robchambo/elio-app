@@ -247,6 +247,7 @@ class GeminiService {
 
     buffer.writeln();
     buffer.writeln('## JSON SCHEMA (return exactly this structure):');
+    buffer.writeln('Include estimated per-serving nutritional values in the "nutrition" field.');
     buffer.writeln('''{
   "title": "string",
   "description": "string (1-2 sentences)",
@@ -260,7 +261,14 @@ class GeminiService {
   "steps": ["string"],
   "substitutions": [
     {"original": "string", "substitute": "string", "tradeOff": "string"}
-  ]
+  ],
+  "nutrition": {
+    "calories": 450,
+    "proteinG": 35.0,
+    "carbsG": 42.0,
+    "fatG": 12.0,
+    "fibreG": 6.0
+  }
 }''');
 
     return buffer.toString();
