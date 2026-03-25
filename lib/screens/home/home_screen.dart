@@ -167,9 +167,16 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       final recipe = await GeminiService.generateRecipe(request);
-      if (!widget.isGuest) await _firestore.incrementDailyGenerations();
 
-      // Auto-save to local history
+      if (!widget.isGuest) {
+        // Increment daily cap and save to Firestore in parallel
+        await Future.wait([
+          _firestore.incrementDailyGenerations(),
+          _firestore.saveRecipe(recipe),
+        ]);
+      }
+
+      // Always save to local history (works offline and for guests)
       await HistoryService.saveRecipe(SavedRecipe(
         recipe: recipe,
         savedAt: DateTime.now().toUtc().toIso8601String(),

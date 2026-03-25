@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'firebase_options.dart';
 import 'theme/elio_theme.dart';
 import 'screens/onboarding/screen0_welcome.dart';
@@ -11,22 +12,35 @@ import 'services/firestore_service.dart';
 // Elio — AI Recipe Generator
 // "Already knows your kitchen."
 //
-// Entry point: initialises Firebase, then routes
-// to WelcomeScreen or HomeScreen based on auth state.
-// Guest mode bypasses Firebase entirely.
+// Entry point: initialises Firebase + Crashlytics,
+// then routes to WelcomeScreen or HomeScreen based
+// on auth state. Guest mode bypasses Firebase.
 // ─────────────────────────────────────────────
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  bool firebaseAvailable = false;
+
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    firebaseAvailable = true;
+
+    // Pass all uncaught Flutter framework errors to Crashlytics
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   } catch (_) {
     // Firebase init may fail with placeholder credentials — app still
     // functions in guest mode.
   }
-  runApp(const ElioApp());
+
+  // Catch async errors outside the Flutter framework
+  if (firebaseAvailable) {
+    runApp(const ElioApp());
+  } else {
+    runApp(const ElioApp());
+  }
 }
 
 class ElioApp extends StatelessWidget {
