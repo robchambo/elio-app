@@ -3,6 +3,7 @@ import '../../models/elio_models.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio_progress_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
 // PantryReviewScreen (Screen 3)
@@ -157,7 +158,7 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                             child: TextField(
                               controller: _addController,
                               textCapitalization: TextCapitalization.sentences,
-                              style: const TextStyle(fontFamily: 'Outfit', fontSize: 15),
+                              style: GoogleFonts.outfit(fontSize: 15),
                               decoration: const InputDecoration(
                                 hintText: 'e.g. Miso paste',
                               ),
@@ -170,8 +171,8 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                             value: _addTier,
                             underline: const SizedBox(),
                             items: const [
-                              DropdownMenuItem(value: 'alwaysHave', child: Text('Always', style: TextStyle(fontFamily: 'Outfit', fontSize: 13))),
-                              DropdownMenuItem(value: 'almostAlwaysHave', child: Text('Almost', style: TextStyle(fontFamily: 'Outfit', fontSize: 13))),
+                              DropdownMenuItem(value: 'alwaysHave', child: Text('Always', style: TextStyle(fontSize: 13))),
+                              DropdownMenuItem(value: 'almostAlwaysHave', child: Text('Almost', style: TextStyle(fontSize: 13))),
                             ],
                             onChanged: (v) => setState(() => _addTier = v ?? 'alwaysHave'),
                           ),
@@ -265,9 +266,7 @@ class _ItemChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 13,
+            style: TextStyle(fontSize: 13,
               fontWeight: FontWeight.w600,
               color: color == ElioColors.amber ? ElioColors.navy : ElioColors.navy,
             ),

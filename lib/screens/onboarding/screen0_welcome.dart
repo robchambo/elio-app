@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/elio_theme.dart';
@@ -15,6 +16,7 @@ import '../home/home_screen.dart';
 //   • Tagline
 //   • Three value props
 //   • Google Sign-In button
+//   • "Explore without an account" guest bypass
 //   • Privacy note
 // ─────────────────────────────────────────────
 
@@ -43,13 +45,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
       final user = credential.user;
       if (user == null) {
-        setState(() { _isLoading = false; _errorMessage = 'Sign-in failed. Please try again.'; });
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Sign-in failed. Please try again.';
+        });
         return;
       }
 
-      // Check if user has completed onboarding
       final isComplete = await _firestore.isOnboardingComplete();
-
       if (!mounted) return;
 
       if (isComplete) {
@@ -74,10 +77,26 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Something went wrong. Please try again.';
+          _errorMessage = 'Sign-in failed. Check your connection and try again.';
         });
       }
     }
+  }
+
+  void _handleGuestMode() {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => OnboardingFlow(
+          displayName: 'there',
+          isGuest: true,
+          onComplete: () {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (_) => const HomeScreen(isGuest: true)),
+            );
+          },
+        ),
+      ),
+    );
   }
 
   @override
@@ -94,12 +113,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
               // ── Wordmark ──────────────────────────────────────
               RichText(
-                text: const TextSpan(
+                text: TextSpan(
                   children: [
                     TextSpan(
                       text: 'EL',
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
+                      style: GoogleFonts.outfit(
                         fontSize: 52,
                         fontWeight: FontWeight.w800,
                         color: ElioColors.navy,
@@ -108,8 +126,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     ),
                     TextSpan(
                       text: 'i',
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
+                      style: GoogleFonts.outfit(
                         fontSize: 52,
                         fontWeight: FontWeight.w800,
                         color: ElioColors.amber,
@@ -118,8 +135,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     ),
                     TextSpan(
                       text: 'O',
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
+                      style: GoogleFonts.outfit(
                         fontSize: 52,
                         fontWeight: FontWeight.w800,
                         color: ElioColors.navy,
@@ -208,18 +224,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            // Google G logo
-                            Container(
-                              width: 22,
-                              height: 22,
-                              decoration: const BoxDecoration(shape: BoxShape.circle),
-                              child: const Icon(Icons.g_mobiledata, size: 22, color: Colors.red),
-                            ),
+                            const Icon(Icons.g_mobiledata, size: 24, color: Colors.red),
                             const SizedBox(width: 10),
-                            const Text(
+                            Text(
                               'Continue with Google',
-                              style: TextStyle(
-                                fontFamily: 'Outfit',
+                              style: GoogleFonts.outfit(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: ElioColors.navy,
@@ -229,7 +238,29 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+
+              // ── Guest bypass ──────────────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: TextButton(
+                  onPressed: _handleGuestMode,
+                  style: TextButton.styleFrom(
+                    foregroundColor: ElioColors.textSecondary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text(
+                    'Explore without an account →',
+                    style: GoogleFonts.outfit(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: ElioColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
 
               // ── Privacy note ──────────────────────────────────
               Center(

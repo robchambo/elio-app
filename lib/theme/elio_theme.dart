@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
 // Elio Design System
@@ -14,7 +15,7 @@ import 'package:flutter/material.dart';
 //   Off-white #F7F5F2 — card backgrounds
 //   Border #E8E4DF  — dividers, input borders
 //
-// Typography: Outfit (Google Fonts)
+// Typography: Outfit via google_fonts package
 // ─────────────────────────────────────────────
 
 class ElioColors {
@@ -33,69 +34,69 @@ class ElioColors {
   static const Color success = Color(0xFF3D9970);
 }
 
+// ─── Text styles using GoogleFonts.outfit() ──────────────────────────────────
+// These are functions (not constants) because GoogleFonts returns a new
+// TextStyle object each time — it cannot be a compile-time const.
+
 class ElioText {
   ElioText._();
 
-  static const TextStyle displayLarge = TextStyle(
-    fontFamily: 'Outfit',
-    fontSize: 32,
-    fontWeight: FontWeight.w800,
-    color: ElioColors.textPrimary,
-    height: 1.2,
-  );
+  static TextStyle get displayLarge => GoogleFonts.outfit(
+        fontSize: 32,
+        fontWeight: FontWeight.w800,
+        color: ElioColors.textPrimary,
+        height: 1.2,
+      );
 
-  static const TextStyle displayMedium = TextStyle(
-    fontFamily: 'Outfit',
-    fontSize: 24,
-    fontWeight: FontWeight.w700,
-    color: ElioColors.textPrimary,
-    height: 1.3,
-  );
+  static TextStyle get displayMedium => GoogleFonts.outfit(
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+        color: ElioColors.textPrimary,
+        height: 1.3,
+      );
 
-  static const TextStyle headingLarge = TextStyle(
-    fontFamily: 'Outfit',
-    fontSize: 20,
-    fontWeight: FontWeight.w700,
-    color: ElioColors.textPrimary,
-    height: 1.3,
-  );
+  static TextStyle get headingLarge => GoogleFonts.outfit(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        color: ElioColors.textPrimary,
+        height: 1.3,
+      );
 
-  static const TextStyle headingMedium = TextStyle(
-    fontFamily: 'Outfit',
-    fontSize: 17,
-    fontWeight: FontWeight.w700,
-    color: ElioColors.textPrimary,
-    height: 1.4,
-  );
+  static TextStyle get headingMedium => GoogleFonts.outfit(
+        fontSize: 17,
+        fontWeight: FontWeight.w700,
+        color: ElioColors.textPrimary,
+        height: 1.4,
+      );
 
-  static const TextStyle bodyLarge = TextStyle(
-    fontFamily: 'Outfit',
-    fontSize: 16,
-    fontWeight: FontWeight.w400,
-    color: ElioColors.textPrimary,
-    height: 1.55,
-  );
+  static TextStyle get bodyLarge => GoogleFonts.outfit(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+        color: ElioColors.textPrimary,
+        height: 1.55,
+      );
 
-  static const TextStyle bodyMedium = TextStyle(
-    fontFamily: 'Outfit',
-    fontSize: 14,
-    fontWeight: FontWeight.w400,
-    color: ElioColors.textPrimary,
-    height: 1.5,
-  );
+  static TextStyle get bodyMedium => GoogleFonts.outfit(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+        color: ElioColors.textPrimary,
+        height: 1.5,
+      );
 
-  static const TextStyle label = TextStyle(
-    fontFamily: 'Outfit',
-    fontSize: 12,
-    fontWeight: FontWeight.w600,
-    color: ElioColors.textPrimary,
-    letterSpacing: 0.3,
-  );
+  static TextStyle get label => GoogleFonts.outfit(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: ElioColors.textPrimary,
+        letterSpacing: 0.3,
+      );
 }
 
 ThemeData elioTheme() {
+  final outfitTextTheme = GoogleFonts.outfitTextTheme();
+
   return ThemeData(
     useMaterial3: true,
+    textTheme: outfitTextTheme,
     colorScheme: ColorScheme.fromSeed(
       seedColor: ElioColors.navy,
       brightness: Brightness.light,
@@ -107,18 +108,16 @@ ThemeData elioTheme() {
       onSecondary: ElioColors.white,
     ),
     scaffoldBackgroundColor: ElioColors.white,
-    fontFamily: 'Outfit',
-    appBarTheme: const AppBarTheme(
+    appBarTheme: AppBarTheme(
       backgroundColor: ElioColors.white,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      titleTextStyle: TextStyle(
-        fontFamily: 'Outfit',
+      titleTextStyle: GoogleFonts.outfit(
         fontSize: 18,
         fontWeight: FontWeight.w700,
         color: ElioColors.navy,
       ),
-      iconTheme: IconThemeData(color: ElioColors.navy),
+      iconTheme: const IconThemeData(color: ElioColors.navy),
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -126,8 +125,7 @@ ThemeData elioTheme() {
         foregroundColor: ElioColors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        textStyle: const TextStyle(
-          fontFamily: 'Outfit',
+        textStyle: GoogleFonts.outfit(
           fontSize: 16,
           fontWeight: FontWeight.w700,
         ),
@@ -140,8 +138,7 @@ ThemeData elioTheme() {
         side: const BorderSide(color: ElioColors.navy, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-        textStyle: const TextStyle(
-          fontFamily: 'Outfit',
+        textStyle: GoogleFonts.outfit(
           fontSize: 16,
           fontWeight: FontWeight.w600,
         ),
@@ -150,8 +147,7 @@ ThemeData elioTheme() {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
         foregroundColor: ElioColors.navy,
-        textStyle: const TextStyle(
-          fontFamily: 'Outfit',
+        textStyle: GoogleFonts.outfit(
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
@@ -177,8 +173,7 @@ ThemeData elioTheme() {
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: ElioColors.error),
       ),
-      hintStyle: const TextStyle(
-        fontFamily: 'Outfit',
+      hintStyle: GoogleFonts.outfit(
         color: ElioColors.textMuted,
         fontSize: 15,
       ),
@@ -198,8 +193,7 @@ ThemeData elioTheme() {
     ),
     snackBarTheme: SnackBarThemeData(
       backgroundColor: ElioColors.navy,
-      contentTextStyle: const TextStyle(
-        fontFamily: 'Outfit',
+      contentTextStyle: GoogleFonts.outfit(
         color: Colors.white,
         fontSize: 14,
       ),

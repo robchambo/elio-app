@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../models/onboarding_state.dart';
 import '../../services/firestore_service.dart';
 import 'screen1_dietary.dart';
@@ -12,7 +13,7 @@ import 'screen5_style.dart';
 // Coordinator widget that manages the five-screen onboarding sequence.
 // Uses a PageView for smooth horizontal transitions.
 // Accumulates OnboardingState across screens.
-// Writes to Firestore on completion.
+// Writes to Firestore on completion (skipped in guest mode).
 //
 // Screen order:
 //   1. Dietary requirements (mandatory)
@@ -25,11 +26,13 @@ import 'screen5_style.dart';
 class OnboardingFlow extends StatefulWidget {
   final String displayName;
   final VoidCallback onComplete;
+  final bool isGuest;
 
   const OnboardingFlow({
     super.key,
     required this.displayName,
     required this.onComplete,
+    this.isGuest = false,
   });
 
   @override
@@ -78,11 +81,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   Future<void> _onStyleComplete(OnboardingState updated) async {
     setState(() { _state = updated; _isSaving = true; });
+
+    // Guest mode: skip Firestore, go straight to home
+    if (widget.isGuest) {
+      await Future.delayed(const Duration(milliseconds: 400));
+      widget.onComplete();
+      return;
+    }
+
     try {
       await _firestore.completeOnboarding(_state, widget.displayName);
       widget.onComplete();
     } catch (e) {
       if (mounted) {
+        setState(() => _isSaving = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Something went wrong: ${e.toString()}')),
         );
@@ -95,21 +107,20 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   @override
   Widget build(BuildContext context) {
     if (_isSaving) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFFFFFFF),
+      return Scaffold(
+        backgroundColor: const Color(0xFFFFFFFF),
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Color(0xFFF08C14)),
-              SizedBox(height: 20),
+              const CircularProgressIndicator(color: Color(0xFFF08C14)),
+              const SizedBox(height: 20),
               Text(
-                'Setting up your kitchen...',
-                style: TextStyle(
-                  fontFamily: 'Outfit',
+                widget.isGuest ? 'Getting Elio ready...' : 'Setting up your kitchen...',
+                style: GoogleFonts.outfit(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: Color(0xFF6B6B6B),
+                  color: const Color(0xFF6B6B6B),
                 ),
               ),
             ],
@@ -120,7 +131,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
     return PageView(
       controller: _pageController,
-      physics: const NeverScrollableScrollPhysics(), // Navigation controlled programmatically
+      physics: const NeverScrollableScrollPhysics(),
       children: [
         DietaryScreen(
           state: _state,

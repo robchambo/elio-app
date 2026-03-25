@@ -3,6 +3,7 @@ import '../../models/elio_models.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio_progress_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
 // Screen 4 — Add Household Members (Optional)
@@ -139,9 +140,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                             const SizedBox(width: 8),
                             Text(
                               '+ Add a person',
-                              style: TextStyle(
-                                fontFamily: 'Outfit',
-                                fontSize: 15,
+                              style: GoogleFonts.outfit(fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: ElioColors.amber,
                               ),
@@ -217,7 +216,7 @@ class _MemberCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(profile.name, style: const TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.w700, fontSize: 15)),
+                Text(profile.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 2),
                 Text(
                   profile.dietaryRequirements.isEmpty
@@ -339,9 +338,7 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
                     ),
                     child: Text(
                       req.label,
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 13,
+                      style: TextStyle(fontSize: 13,
                         fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                         color: isSelected ? ElioColors.navy : ElioColors.textPrimary,
                       ),
@@ -360,8 +357,7 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
                 child: const Text('Add member'),
               ),
             ),
-          ],
-        ),
+          ]),
       ),
     );
   }

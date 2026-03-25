@@ -13,13 +13,19 @@ import 'services/firestore_service.dart';
 //
 // Entry point: initialises Firebase, then routes
 // to WelcomeScreen or HomeScreen based on auth state.
+// Guest mode bypasses Firebase entirely.
 // ─────────────────────────────────────────────
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (_) {
+    // Firebase init may fail with placeholder credentials — app still
+    // functions in guest mode.
+  }
   runApp(const ElioApp());
 }
 
@@ -39,6 +45,7 @@ class ElioApp extends StatelessWidget {
 
 // ─── Auth gate ────────────────────────────────────────────────────────────────
 // Listens to Firebase auth state and routes accordingly.
+// Falls back to WelcomeScreen if Firebase is not available.
 
 class _AuthGate extends StatelessWidget {
   const _AuthGate();
@@ -46,7 +53,7 @@ class _AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      stream: _safeAuthStream(),
       builder: (context, snapshot) {
         // Loading
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -58,7 +65,7 @@ class _AuthGate extends StatelessWidget {
           );
         }
 
-        // Not signed in
+        // Not signed in (or Firebase unavailable)
         if (!snapshot.hasData || snapshot.data == null) {
           return const WelcomeScreen();
         }
@@ -67,6 +74,15 @@ class _AuthGate extends StatelessWidget {
         return const _OnboardingGate();
       },
     );
+  }
+
+  Stream<User?> _safeAuthStream() {
+    try {
+      return FirebaseAuth.instance.authStateChanges();
+    } catch (_) {
+      // Firebase not available — emit null immediately so we show WelcomeScreen
+      return Stream.value(null);
+    }
   }
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
 // RecipeScreen — Sprint 2
@@ -128,9 +129,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       expandedHeight: 0,
       title: Text(
         widget.recipe.title,
-        style: const TextStyle(
-          fontFamily: 'Outfit',
-          fontSize: 17,
+        style: GoogleFonts.outfit(fontSize: 17,
           fontWeight: FontWeight.w700,
           color: ElioColors.navy,
         ),
@@ -206,9 +205,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               '$_servings',
-              style: const TextStyle(
-                fontFamily: 'Outfit',
-                fontSize: 20,
+              style: const TextStyle(fontSize: 20,
                 fontWeight: FontWeight.w800,
                 color: ElioColors.navy,
               ),
@@ -255,8 +252,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   const SizedBox(width: 4),
                   Text(
                     'from your fridge',
-                    style: ElioText.label.copyWith(color: ElioColors.textSecondary),
-                  ),
+                    style: ElioText.label.copyWith(color: ElioColors.textSecondary)),
                 ],
               ),
           ],
@@ -348,9 +344,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   child: Center(
                     child: Text(
                       '$stepNum',
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 13,
+                      style: GoogleFonts.outfit(fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
@@ -548,9 +542,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   children: [
                     Text(
                       'Step ${_currentStep + 1}',
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 14,
+                      style: GoogleFonts.outfit(fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: ElioColors.amber,
                         letterSpacing: 1.0,
@@ -559,9 +551,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     const SizedBox(height: 16),
                     Text(
                       steps[_currentStep],
-                      style: const TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 26,
+                      style: const TextStyle(fontSize: 26,
                         fontWeight: FontWeight.w500,
                         color: ElioColors.textPrimary,
                         height: 1.45,
@@ -593,9 +583,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         ),
                         child: const Text(
                           '← Prev',
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 16,
+                          style: TextStyle(fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -623,9 +611,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         ),
                         child: Text(
                           isLast ? 'Done! 🎉' : 'Next →',
-                          style: const TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 18,
+                          style: const TextStyle(fontSize: 18,
                             fontWeight: FontWeight.w700,
                             color: Colors.white,
                           ),
@@ -662,8 +648,7 @@ class _MetaBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(20),
-      ),
+        borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -671,9 +656,7 @@ class _MetaBadge extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 12,
+            style: GoogleFonts.outfit(fontSize: 12,
               fontWeight: FontWeight.w600,
               color: color,
             ),

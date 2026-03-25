@@ -5,6 +5,7 @@ import '../../models/recipe_models.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
 import '../recipe/recipe_screen.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
 // HomeScreen — Sprint 2
@@ -23,7 +24,8 @@ import '../recipe/recipe_screen.dart';
 // ─────────────────────────────────────────────
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final bool isGuest;
+  const HomeScreen({super.key, this.isGuest = false});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -82,6 +84,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadUserData() async {
+    // Guest mode: skip Firestore, use empty defaults
+    if (widget.isGuest) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
     try {
       final data = await _firestore.getUserData();
       if (mounted) {
@@ -125,11 +132,13 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _generateRecipe() async {
     if (_isGenerating) return;
 
-    // Check free tier cap
-    final canGenerate = await _firestore.canGenerateRecipe();
-    if (!canGenerate && mounted) {
-      _showUpgradeDialog();
-      return;
+    // Check free tier cap (skip for guest)
+    if (!widget.isGuest) {
+      final canGenerate = await _firestore.canGenerateRecipe();
+      if (!canGenerate && mounted) {
+        _showUpgradeDialog();
+        return;
+      }
     }
 
     setState(() => _isGenerating = true);
@@ -147,7 +156,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       final recipe = await GeminiService.generateRecipe(request);
-      await _firestore.incrementDailyGenerations();
+      if (!widget.isGuest) await _firestore.incrementDailyGenerations();
 
       if (mounted) {
         Navigator.of(context).push(
@@ -267,13 +276,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ─── App bar ─────────────────────────────────────────────────────────────────
   Widget _buildAppBar() {
-    final user = FirebaseAuth.instance.currentUser;
-    final initials = (user?.displayName ?? 'U')
-        .split(' ')
-        .map((w) => w.isNotEmpty ? w[0] : '')
-        .take(2)
-        .join()
-        .toUpperCase();
+    User? user;
+    try {
+      user = FirebaseAuth.instance.currentUser;
+    } catch (_) {}
+    final initials = widget.isGuest
+        ? 'G'
+        : (user?.displayName ?? 'U')
+            .split(' ')
+            .map((w) => w.isNotEmpty ? w[0] : '')
+            .take(2)
+            .join()
+            .toUpperCase();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
@@ -282,11 +296,11 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           // ELiO wordmark
           RichText(
-            text: const TextSpan(
+            text: TextSpan(
               children: [
-                TextSpan(text: 'EL', style: TextStyle(fontFamily: 'Outfit', fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
-                TextSpan(text: 'i', style: TextStyle(fontFamily: 'Outfit', fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.sky)),
-                TextSpan(text: 'O', style: TextStyle(fontFamily: 'Outfit', fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
+                TextSpan(text: 'EL', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
+                TextSpan(text: 'i', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.sky)),
+                TextSpan(text: 'O', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
               ],
             ),
           ),
@@ -305,9 +319,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Center(
                 child: Text(
                   initials,
-                  style: const TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 13,
+                  style: const TextStyle(fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
@@ -363,9 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Text(
                     item,
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 13,
+                    style: TextStyle(fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: isSelected ? Colors.white : ElioColors.textPrimary,
                     ),
@@ -386,10 +396,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 controller: _textController,
                 focusNode: _textFocus,
                 textCapitalization: TextCapitalization.sentences,
-                style: const TextStyle(fontFamily: 'Outfit', fontSize: 15),
+                style: const TextStyle(fontSize: 15),
                 decoration: InputDecoration(
                   hintText: 'Add anything else...',
-                  hintStyle: TextStyle(color: ElioColors.textMuted, fontFamily: 'Outfit'),
+                  hintStyle: TextStyle(color: ElioColors.textMuted,),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 onSubmitted: (_) => _addFromText(),
@@ -515,9 +525,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   child: Text(
                     chip,
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 13,
+                    style: TextStyle(fontSize: 13,
                       fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                       color: isSelected ? ElioColors.navy : ElioColors.textPrimary,
                     ),
@@ -555,12 +563,9 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             : const Text(
                 'Generate Recipe →',
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 17,
+                style: TextStyle(fontSize: 17,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
+                  color: Colors.white),
               ),
       ),
     );
@@ -620,9 +625,7 @@ class _SelectedTag extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 13,
+            style: GoogleFonts.outfit(fontSize: 13,
               fontWeight: FontWeight.w600,
               color: ElioColors.navy,
             ),

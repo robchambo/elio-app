@@ -3,6 +3,7 @@ import '../../models/elio_models.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio_progress_bar.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
 // DietaryScreen (Screen 1)
@@ -85,9 +86,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
                         ),
                         child: Text(
                           req.label,
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 14,
+                          style: GoogleFonts.outfit(fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: isSelected ? Colors.white : ElioColors.textPrimary,
                           ),
@@ -128,4 +127,3 @@ class _DietaryScreenState extends State<DietaryScreen> {
     );
   }
 }
-
