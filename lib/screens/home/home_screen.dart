@@ -9,6 +9,7 @@ import '../../services/history_service.dart';
 import '../recipe/recipe_screen.dart';
 import '../history/history_screen.dart';
 import '../meal_plan/meal_plan_screen.dart';
+import '../profile/profile_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
@@ -429,7 +430,9 @@ class _HomeScreenState extends State<HomeScreen> {
           // Profile avatar
           GestureDetector(
             onTap: () {
-              // TODO: Navigate to profile/settings
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              ).then((_) => _loadUserData()); // Refresh data when returning
             },
             child: Container(
               width: 36,
