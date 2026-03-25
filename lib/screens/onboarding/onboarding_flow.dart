@@ -94,10 +94,17 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       return;
     }
 
-    // Signed-in mode: save to Firestore then navigate
+    // Signed-in mode: save to Firestore then navigate directly
+    // (do NOT call widget.onComplete() — that callback captures the
+    // WelcomeScreen context which is already unmounted at this point)
     try {
       await _firestore.completeOnboarding(_state, widget.displayName);
-      if (mounted) widget.onComplete();
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
+        );
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);

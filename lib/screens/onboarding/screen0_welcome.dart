@@ -56,21 +56,23 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       if (!mounted) return;
 
       if (isComplete) {
-        Navigator.of(context).pushReplacement(
+        // Already onboarded — go straight to home
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
+          (route) => false,
         );
       } else {
-        Navigator.of(context).pushReplacement(
+        // New user — start onboarding.
+        // OnboardingFlow navigates to HomeScreen itself on completion
+        // so we do NOT pass an onComplete callback that captures this context.
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => OnboardingFlow(
               displayName: user.displayName ?? 'there',
-              onComplete: () {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                );
-              },
+              onComplete: () {}, // unused — OnboardingFlow navigates directly
             ),
           ),
+          (route) => false,
         );
       }
     } catch (e) {
