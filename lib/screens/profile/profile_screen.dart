@@ -196,6 +196,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       } catch (_) {
         _showSnack('Could not save dietary change. Please try again.');
       }
+    } else {
+      _showSnack('Complete onboarding to save your dietary preferences.');
     }
   }
 
@@ -738,6 +740,31 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   // ─── Dietary tab ──────────────────────────────────────────────────────────────
   Widget _buildDietaryTab() {
+    final user = FirebaseAuth.instance.currentUser;
+    final isGuest = user?.isAnonymous ?? true;
+
+    if (isGuest) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.no_meals_outlined, size: 56, color: ElioColors.textMuted),
+              const SizedBox(height: 16),
+              Text('Dietary preferences', style: ElioText.headingMedium),
+              const SizedBox(height: 8),
+              Text(
+                'Sign in with Google to set your dietary requirements and allergens.',
+                textAlign: TextAlign.center,
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [

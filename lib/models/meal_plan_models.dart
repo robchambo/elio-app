@@ -44,6 +44,15 @@ class MealSlot {
   final List<MealIngredient> ingredients;
   final List<String> steps;
 
+  /// Estimated calories per serving (nullable for backwards compat)
+  final int? caloriesPerServing;
+
+  /// Gemini-estimated cost per serving in USD (budget/own-brand tier)
+  final double? estimatedCostPerServingUSD;
+
+  /// Gemini-estimated cost per serving in GBP (budget/own-brand tier)
+  final double? estimatedCostPerServingGBP;
+
   const MealSlot({
     required this.title,
     required this.description,
@@ -52,6 +61,9 @@ class MealSlot {
     required this.dietaryTags,
     required this.ingredients,
     this.steps = const [],
+    this.caloriesPerServing,
+    this.estimatedCostPerServingUSD,
+    this.estimatedCostPerServingGBP,
   });
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
@@ -71,6 +83,9 @@ class MealSlot {
       steps: (json['steps'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
+      caloriesPerServing: (json['caloriesPerServing'] as num?)?.toInt(),
+      estimatedCostPerServingUSD: (json['estimatedCostPerServingUSD'] as num?)?.toDouble(),
+      estimatedCostPerServingGBP: (json['estimatedCostPerServingGBP'] as num?)?.toDouble(),
     );
   }
 
@@ -82,6 +97,9 @@ class MealSlot {
     'dietaryTags': dietaryTags,
     'ingredients': ingredients.map((i) => i.toJson()).toList(),
     'steps': steps,
+    if (caloriesPerServing != null) 'caloriesPerServing': caloriesPerServing,
+    if (estimatedCostPerServingUSD != null) 'estimatedCostPerServingUSD': estimatedCostPerServingUSD,
+    if (estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': estimatedCostPerServingGBP,
   };
 }
 

@@ -16,6 +16,18 @@ class FirestoreService {
 
   String get _uid => _auth.currentUser!.uid;
 
+  /// Converts a stored enum name (e.g. "glutenFree") to its human-readable
+  /// label (e.g. "Gluten-free") so Gemini can understand the constraint.
+  static String _decodeDietary(String raw) {
+    try {
+      return DietaryRequirement.values
+          .firstWhere((e) => e.name == raw)
+          .label;
+    } catch (_) {
+      return raw; // already a label or unknown — pass through unchanged
+    }
+  }
+
   // ─── Onboarding: write all data in a single batch ───────────────
 
   Future<void> completeOnboarding(OnboardingState state, String displayName) async {
@@ -105,7 +117,9 @@ class FirestoreService {
       householdProfiles.add({
         'id': doc.id,
         'name': data['name'] as String? ?? 'Member',
-        'dietaryRequirements': List<String>.from(data['dietaryRequirements'] ?? []),
+        'dietaryRequirements': (data['dietaryRequirements'] as List<dynamic>? ?? [])
+            .map((d) => _decodeDietary(d.toString()))
+            .toList(),
         'customAllergens': List<String>.from(data['customAllergens'] ?? []),
         'isOwner': data['isOwner'] as bool? ?? false,
       });

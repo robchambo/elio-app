@@ -320,7 +320,10 @@ class MealPlanService {
     buffer.writeln('- ONLY generate the following meal types per day: $mealNames.');
 
     buffer.writeln();
-    buffer.writeln('## JSON SCHEMA (return EXACTLY this structure with all 7 days):');    buffer.writeln('''
+    buffer.writeln('- Include caloriesPerServing (integer kcal), estimatedCostPerServingUSD, and estimatedCostPerServingGBP for each meal (budget/own-brand pricing).');
+    buffer.writeln();
+    buffer.writeln('## JSON SCHEMA (return EXACTLY this structure with all 7 days):');
+    buffer.writeln('''
 {
   "days": [
     {
@@ -332,7 +335,10 @@ class MealPlanService {
         "cookTimeMinutes": 10,
         "dietaryTags": ["string"],
         "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}],
-        "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."]
+        "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+        "caloriesPerServing": 400,
+        "estimatedCostPerServingUSD": 3.50,
+        "estimatedCostPerServingGBP": 2.80
       },
       "lunch": { ... same structure ... },
       "dinner": { ... same structure ... }
@@ -390,7 +396,10 @@ class MealPlanService {
   "cookTimeMinutes": 10,
   "dietaryTags": ["string"],
   "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}],
-  "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."]
+  "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
+  "caloriesPerServing": 400,
+  "estimatedCostPerServingUSD": 3.50,
+  "estimatedCostPerServingGBP": 2.80
 }''');
     return buffer.toString();
   }

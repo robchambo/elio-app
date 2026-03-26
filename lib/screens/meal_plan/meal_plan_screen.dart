@@ -774,6 +774,18 @@ class _MealDetailSheet extends StatelessWidget {
                         children: [
                           _TimeBadge(minutes: meal.totalTimeMinutes),
                           _TimeBadge(minutes: meal.prepTimeMinutes, label: 'prep'),
+                          if (meal.caloriesPerServing != null)
+                            _MetaBadge(
+                              icon: Icons.local_fire_department_outlined,
+                              label: '${meal.caloriesPerServing} kcal',
+                              color: const Color(0xFFE53935),
+                            ),
+                          if (meal.estimatedCostPerServingUSD != null)
+                            _MetaBadge(
+                              icon: Icons.attach_money,
+                              label: '\$${meal.estimatedCostPerServingUSD!.toStringAsFixed(2)} / serving',
+                              color: const Color(0xFF2E7D32),
+                            ),
                           ...meal.dietaryTags.map((tag) => _DietaryTag(label: tag)),
                         ],
                       ),
@@ -862,6 +874,40 @@ class _MealDetailSheet extends StatelessWidget {
 }
 
 // ─── Supporting widgets ───────────────────────────────────────────────────────
+
+class _MetaBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _MetaBadge({required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TimeBadge extends StatelessWidget {
   final int minutes;
   final String? label;
