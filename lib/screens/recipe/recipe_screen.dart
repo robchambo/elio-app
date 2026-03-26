@@ -481,25 +481,25 @@ class _RecipeScreenState extends State<RecipeScreen> {
           Text(widget.recipe.description, style: ElioText.bodyLarge),
           const SizedBox(height: 12),
         ],
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
             _MetaBadge(
               icon: Icons.timer_outlined,
               label: '${widget.recipe.totalTimeMinutes} min',
             ),
-            const SizedBox(width: 8),
             _MetaBadge(
               icon: Icons.restaurant_outlined,
               label: '${widget.recipe.prepTimeMinutes} min prep',
             ),
-            if (widget.recipe.dietaryTags.isNotEmpty) ...[              const SizedBox(width: 8),
+            if (widget.recipe.dietaryTags.isNotEmpty)
               _MetaBadge(
                 icon: Icons.local_dining_outlined,
                 label: widget.recipe.dietaryTags.first,
                 color: ElioColors.sky,
               ),
-            ],
-            if (widget.recipe.nutrition != null) ...[              const SizedBox(width: 8),
+            if (widget.recipe.nutrition != null)
               GestureDetector(
                 onTap: _showNutritionSheet,
                 child: _MetaBadge(
@@ -508,14 +508,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   color: const Color(0xFFFFF3E0),
                 ),
               ),
-            ],
-            if (_costLabel != null) ...[              const SizedBox(width: 8),
+            if (_costLabel != null)
               _MetaBadge(
                 icon: Icons.shopping_basket_outlined,
                 label: _costLabel!,
                 color: const Color(0xFFE8F5E9),
               ),
-            ],
           ],
         ),
       ],
