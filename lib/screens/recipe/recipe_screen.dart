@@ -497,14 +497,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 child: _MetaBadge(
                   icon: Icons.monitor_heart_outlined,
                   label: '${widget.recipe.nutrition!.calories} kcal',
-                  color: const Color(0xFFFFF3E0),
                 ),
               ),
             if (_costLabel != null)
               _MetaBadge(
                 icon: Icons.shopping_basket_outlined,
                 label: _costLabel!,
-                color: const Color(0xFFE8F5E9),
               ),
           ],
         ),
