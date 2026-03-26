@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -420,136 +421,161 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         Text('Your pantry', style: ElioText.headingMedium),
         const SizedBox(height: 4),
         Text(
-          'Long-press any item and drag it to move it between tiers. Tap ⚠ to flag items running low.',
+          'Long-press any item to move it between tiers. Tap ⚠ to flag items running low.',
           style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
         ),
         const SizedBox(height: 20),
-        _buildDraggableTierSection(
+        _buildTierSection(
           title: 'Always Have',
           subtitle: 'Staples you always keep stocked',
           items: _alwaysHaveItems,
           tier: 'alwaysHave',
           icon: Icons.inventory_2_outlined,
-          targetTierLabel: 'Move to "Almost Always Have"',
         ),
         const SizedBox(height: 24),
-        _buildDraggableTierSection(
+        _buildTierSection(
           title: 'Almost Always Have',
           subtitle: 'Items you usually have but sometimes run out of',
           items: _almostAlwaysHaveItems,
           tier: 'almostAlwaysHave',
           icon: Icons.kitchen_outlined,
-          targetTierLabel: 'Move to "Always Have"',
         ),
       ],
     );
   }
 
-  Widget _buildDraggableTierSection({
+  /// Shows a bottom sheet with move/delete options for the given inventory item.
+  void _showItemMoveMenu(Map<String, dynamic> item) {
+    HapticFeedback.selectionClick();
+    final itemId = item['id'] as String;
+    final itemName = item['name'] as String? ?? '';
+    final currentTier = item['tier'] as String? ?? 'alwaysHave';
+    final otherTier = currentTier == 'alwaysHave' ? 'almostAlwaysHave' : 'alwaysHave';
+    final otherTierLabel = currentTier == 'alwaysHave' ? 'Almost Always Have' : 'Always Have';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36, height: 4,
+                  decoration: BoxDecoration(
+                    color: ElioColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(itemName, style: ElioText.headingMedium),
+              const SizedBox(height: 4),
+              Text(
+                'Currently in: ${currentTier == 'alwaysHave' ? 'Always Have' : 'Almost Always Have'}',
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: ElioColors.navy.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.swap_vert_rounded, color: ElioColors.navy, size: 20),
+                ),
+                title: Text(
+                  'Move to "$otherTierLabel"',
+                  style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _moveItemToTier(itemId, otherTier);
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                ),
+                title: Text(
+                  'Remove from pantry',
+                  style: ElioText.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteInventoryItem(itemId);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTierSection({
     required String title,
     required String subtitle,
     required List<Map<String, dynamic>> items,
     required String tier,
     required IconData icon,
-    required String targetTierLabel,
   }) {
-    final otherTier = tier == 'alwaysHave' ? 'almostAlwaysHave' : 'alwaysHave';
-
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) {
-        // Accept items from the other tier
-        final itemId = details.data;
-        final item = _inventoryItems.firstWhere((i) => i['id'] == itemId, orElse: () => {});
-        return item.isNotEmpty && item['tier'] != tier;
-      },
-      onAcceptWithDetails: (details) {
-        _moveItemToTier(details.data, tier);
-      },
-      builder: (context, candidateData, rejectedData) {
-        final isDragOver = candidateData.isNotEmpty;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          decoration: BoxDecoration(
-            color: isDragOver ? ElioColors.amber.withOpacity(0.06) : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            border: isDragOver
-                ? Border.all(color: ElioColors.amber, width: 2)
-                : Border.all(color: Colors.transparent, width: 2),
-          ),
-          padding: const EdgeInsets.all(8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ElioColors.border),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Icon(icon, size: 16, color: ElioColors.navy),
-                  const SizedBox(width: 6),
-                  Text(title, style: ElioText.headingMedium),
-                  if (isDragOver) ...[
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: ElioColors.amber,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text('Drop here', style: ElioText.label.copyWith(color: Colors.white, fontSize: 11)),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 2),
-              Text(subtitle, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13)),
-              const SizedBox(height: 12),
-              if (items.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    isDragOver ? 'Release to move here' : 'No items yet. Add some below.',
-                    style: ElioText.bodyMedium.copyWith(
-                      color: isDragOver ? ElioColors.amber : ElioColors.textMuted,
-                    ),
-                  ),
-                ),
-              ...items.map((item) => _buildDraggableInventoryRow(item, otherTier)),
-              const SizedBox(height: 8),
-              _buildAddItemRow(tier),
+              Icon(icon, size: 16, color: ElioColors.navy),
+              const SizedBox(width: 6),
+              Text(title, style: ElioText.headingMedium),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDraggableInventoryRow(Map<String, dynamic> item, String otherTier) {
-    final isRunningLow = item['runningLow'] as bool? ?? false;
-    final itemId = item['id'] as String;
-
-    return LongPressDraggable<String>(
-      data: itemId,
-      delay: const Duration(milliseconds: 300),
-      feedback: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            color: ElioColors.navy,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))],
-          ),
-          child: Text(
-            item['name'] as String? ?? '',
-            style: ElioText.bodyMedium.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
-          ),
-        ),
-      ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _buildInventoryRowContent(item, isRunningLow, itemId),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: _buildInventoryRowContent(item, isRunningLow, itemId),
+          const SizedBox(height: 2),
+          Text(subtitle, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13)),
+          const SizedBox(height: 12),
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No items yet. Add some below.',
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+              ),
+            ),
+          ...items.map((item) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: GestureDetector(
+              onLongPress: () => _showItemMoveMenu(item),
+              child: _buildInventoryRowContent(item, item['runningLow'] as bool? ?? false, item['id'] as String),
+            ),
+          )),
+          const SizedBox(height: 8),
+          _buildAddItemRow(tier),
+        ],
       ),
     );
   }
@@ -557,10 +583,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   Widget _buildInventoryRowContent(Map<String, dynamic> item, bool isRunningLow, String itemId) {
     return Row(
       children: [
-        // Drag handle hint
+        // Long-press hint
         Padding(
           padding: const EdgeInsets.only(right: 8),
-          child: Icon(Icons.drag_indicator, size: 18, color: ElioColors.textMuted.withOpacity(0.5)),
+          child: Icon(Icons.more_vert_rounded, size: 18, color: ElioColors.textMuted.withValues(alpha: 0.5)),
         ),
         Expanded(
           child: Container(

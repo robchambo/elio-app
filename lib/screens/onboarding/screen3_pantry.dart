@@ -10,7 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 // PantryReviewScreen (Screen 3)
 // Design: approachable utility.
 // User reviews and adjusts the pre-populated pantry.
-// Long-press a chip to drag it between tiers.
+// Long-press a chip to move it between tiers via a context menu.
 // Step 3 of 5 in onboarding.
 // ─────────────────────────────────────────────
 
@@ -34,7 +34,6 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
   late List<InventoryItem> _items;
   final TextEditingController _addController = TextEditingController();
   String _addTier = 'alwaysHave';
-  String? _draggingItemName; // name of item being dragged
 
   @override
   void initState() {
@@ -53,12 +52,12 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
   }
 
   void _moveItemToTier(String name, String newTier) {
+    HapticFeedback.mediumImpact();
     setState(() {
       final idx = _items.indexWhere((i) => i.name == name);
       if (idx != -1 && _items[idx].tier != newTier) {
         _items[idx] = InventoryItem(name: name, tier: newTier);
       }
-      _draggingItemName = null;
     });
   }
 
@@ -69,6 +68,100 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
       _items.add(InventoryItem(name: name, tier: _addTier));
       _addController.clear();
     });
+  }
+
+  /// Shows a bottom sheet with move options for the given item.
+  void _showMoveMenu(BuildContext context, InventoryItem item) {
+    HapticFeedback.selectionClick();
+    final otherTier = item.tier == 'alwaysHave' ? 'almostAlwaysHave' : 'alwaysHave';
+    final otherTierLabel = item.tier == 'alwaysHave' ? 'Almost Always Have' : 'Always Have';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle bar
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: ElioColors.border,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                item.name,
+                style: ElioText.headingMedium,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Currently in: ${item.tier == 'alwaysHave' ? 'Always Have' : 'Almost Always Have'}',
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              // Move option
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: ElioColors.navy.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.swap_vert_rounded, color: ElioColors.navy, size: 20),
+                ),
+                title: Text(
+                  'Move to "$otherTierLabel"',
+                  style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _moveItemToTier(item.name, otherTier);
+                },
+              ),
+              // Remove option
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20),
+                ),
+                title: Text(
+                  'Remove from pantry',
+                  style: ElioText.bodyMedium.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.red,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _removeItem(item.name);
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   List<InventoryItem> get _alwaysHave =>
@@ -115,11 +208,11 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.drag_indicator_rounded,
+                  const Icon(Icons.touch_app_rounded,
                       size: 14, color: ElioColors.textMuted),
                   const SizedBox(width: 4),
                   Text(
-                    'Long-press a chip to drag it between sections.',
+                    'Long-press a chip to move it between sections.',
                     style: ElioText.label
                         .copyWith(color: ElioColors.textMuted),
                   ),
@@ -134,38 +227,27 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Always have section
-                      _DragTargetSection(
+                      _TierSection(
                         tier: 'alwaysHave',
                         title: 'Always have',
                         subtitle: 'These are your pantry staples.',
                         color: ElioColors.amber,
                         items: _alwaysHave,
-                        draggingItemName: _draggingItemName,
-                        onDrop: (name) => _moveItemToTier(name, 'alwaysHave'),
                         onRemove: _removeItem,
-                        onDragStarted: (name) =>
-                            setState(() => _draggingItemName = name),
-                        onDragEnd: () =>
-                            setState(() => _draggingItemName = null),
+                        onLongPress: (item) => _showMoveMenu(context, item),
                       ),
                       const SizedBox(height: 16),
 
                       // Almost always have section
-                      _DragTargetSection(
+                      _TierSection(
                         tier: 'almostAlwaysHave',
                         title: 'Almost always have',
                         subtitle:
                             'Things you usually have but might run out of.',
                         color: ElioColors.sky,
                         items: _almostAlwaysHave,
-                        draggingItemName: _draggingItemName,
-                        onDrop: (name) =>
-                            _moveItemToTier(name, 'almostAlwaysHave'),
                         onRemove: _removeItem,
-                        onDragStarted: (name) =>
-                            setState(() => _draggingItemName = name),
-                        onDragEnd: () =>
-                            setState(() => _draggingItemName = null),
+                        onLongPress: (item) => _showMoveMenu(context, item),
                       ),
                       const SizedBox(height: 16),
 
@@ -246,217 +328,91 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
   }
 }
 
-// ─── Drag-target section ──────────────────────────────────────────────────────
+// ─── Tier section ─────────────────────────────────────────────────────────────
 
-class _DragTargetSection extends StatefulWidget {
+class _TierSection extends StatelessWidget {
   final String tier;
   final String title;
   final String subtitle;
   final Color color;
   final List<InventoryItem> items;
-  final String? draggingItemName;
-  final void Function(String name) onDrop;
   final void Function(String name) onRemove;
-  final void Function(String name) onDragStarted;
-  final VoidCallback onDragEnd;
+  final void Function(InventoryItem item) onLongPress;
 
-  const _DragTargetSection({
+  const _TierSection({
     required this.tier,
     required this.title,
     required this.subtitle,
     required this.color,
     required this.items,
-    required this.draggingItemName,
-    required this.onDrop,
     required this.onRemove,
-    required this.onDragStarted,
-    required this.onDragEnd,
+    required this.onLongPress,
   });
-
-  @override
-  State<_DragTargetSection> createState() => _DragTargetSectionState();
-}
-
-class _DragTargetSectionState extends State<_DragTargetSection> {
-  bool _isHovering = false;
-
-  @override
-  Widget build(BuildContext context) {
-    // Only show as a drop target when something from the OTHER tier is being dragged
-    final isDragActive = widget.draggingItemName != null &&
-        !widget.items.any((i) => i.name == widget.draggingItemName);
-
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (details) {
-        // Only accept items not already in this tier
-        final alreadyHere =
-            widget.items.any((i) => i.name == details.data);
-        return !alreadyHere;
-      },
-      onAcceptWithDetails: (details) {
-        HapticFeedback.mediumImpact();
-        setState(() => _isHovering = false);
-        widget.onDrop(details.data);
-      },
-      onMove: (_) {
-        if (!_isHovering) setState(() => _isHovering = true);
-      },
-      onLeave: (_) {
-        if (_isHovering) setState(() => _isHovering = false);
-      },
-      builder: (context, candidateData, rejectedData) {
-        final hovering = _isHovering && isDragActive;
-        return AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: hovering
-                ? widget.color.withValues(alpha: 0.08)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            border: hovering
-                ? Border.all(
-                    color: widget.color.withValues(alpha: 0.5),
-                    width: 1.5,
-                  )
-                : Border.all(color: Colors.transparent),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Section header
-              Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                        color: widget.color, shape: BoxShape.circle),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.title,
-                          style: ElioText.bodyMedium
-                              .copyWith(fontWeight: FontWeight.w700)),
-                      Text(
-                        widget.subtitle,
-                        style: ElioText.label.copyWith(
-                          color: ElioColors.textSecondary,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (hovering) ...[
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: widget.color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        'Drop here',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: widget.color,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 10),
-              // Chips
-              if (widget.items.isEmpty && !hovering)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, bottom: 4),
-                  child: Text(
-                    'Drag items here to move them to this section.',
-                    style: ElioText.label
-                        .copyWith(color: ElioColors.textMuted),
-                  ),
-                )
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: widget.items.map((item) {
-                    return LongPressDraggable<String>(
-                      data: item.name,
-                      delay: const Duration(milliseconds: 300),
-                      onDragStarted: () {
-                        HapticFeedback.selectionClick();
-                        widget.onDragStarted(item.name);
-                      },
-                      onDragEnd: (_) => widget.onDragEnd(),
-                      onDraggableCanceled: (_, __) => widget.onDragEnd(),
-                      feedback: Material(
-                        color: Colors.transparent,
-                        child: _DragChip(
-                          label: item.name,
-                          color: widget.color,
-                        ),
-                      ),
-                      childWhenDragging: Opacity(
-                        opacity: 0.3,
-                        child: _ItemChip(
-                          label: item.name,
-                          color: widget.color,
-                          onRemove: () {},
-                        ),
-                      ),
-                      child: _ItemChip(
-                        label: item.name,
-                        color: widget.color,
-                        onRemove: () => widget.onRemove(item.name),
-                      ),
-                    );
-                  }).toList(),
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ─── Drag feedback chip ───────────────────────────────────────────────────────
-
-class _DragChip extends StatelessWidget {
-  final String label;
-  final Color color;
-
-  const _DragChip({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.6), width: 1.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+        color: color.withValues(alpha: 0.04),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: ElioColors.navy,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: ElioText.bodyMedium
+                          .copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    subtitle,
+                    style: ElioText.label.copyWith(
+                      color: ElioColors.textSecondary,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // Chips
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 4),
+              child: Text(
+                'No items yet. Add some below.',
+                style: ElioText.label.copyWith(color: ElioColors.textMuted),
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: items.map((item) {
+                return GestureDetector(
+                  onLongPress: () => onLongPress(item),
+                  child: _ItemChip(
+                    label: item.name,
+                    color: color,
+                    onRemove: () => onRemove(item.name),
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
       ),
     );
   }
@@ -488,7 +444,7 @@ class _ItemChip extends StatelessWidget {
         children: [
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: ElioColors.navy,

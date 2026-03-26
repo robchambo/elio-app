@@ -49,6 +49,24 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool? _userRating; // true = liked, false = disliked, null = not rated
   bool _isRating = false;
 
+  // ── Cost estimate label ────────────────────────────────────────────────────────────────────────
+  /// Returns a formatted cost-per-serving string based on device locale.
+  /// Uses GBP for en_GB locale, USD for everything else.
+  /// Returns null if neither estimate is available.
+  String? get _costLabel {
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    final isUK = locale.countryCode == 'GB' || locale.languageCode == 'en' && locale.countryCode == 'GB';
+    if (isUK) {
+      final gbp = widget.recipe.estimatedCostPerServingGBP;
+      if (gbp != null && gbp > 0) return '~£${gbp.toStringAsFixed(2)}/serving';
+    }
+    final usd = widget.recipe.estimatedCostPerServingUSD;
+    if (usd != null && usd > 0) return '~\$${usd.toStringAsFixed(2)}/serving';
+    final gbp = widget.recipe.estimatedCostPerServingGBP;
+    if (gbp != null && gbp > 0) return '~£${gbp.toStringAsFixed(2)}/serving';
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -192,7 +210,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             Text('Nutrition per serving', style: ElioText.headingMedium),
             const SizedBox(height: 4),
             Text(
-              'Based on ${_servings} serving${_servings == 1 ? '' : 's'}',
+              'Based on $_servings serving${_servings == 1 ? '' : 's'}',
               style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
             ),
             const SizedBox(height: 20),
@@ -489,6 +507,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   label: '${widget.recipe.nutrition!.calories} kcal',
                   color: const Color(0xFFFFF3E0),
                 ),
+              ),
+            ],
+            if (_costLabel != null) ...[              const SizedBox(width: 8),
+              _MetaBadge(
+                icon: Icons.shopping_basket_outlined,
+                label: _costLabel!,
+                color: const Color(0xFFE8F5E9),
               ),
             ],
           ],

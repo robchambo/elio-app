@@ -244,6 +244,12 @@ class GeminiService {
     buffer.writeln('- Max 10 ingredients.');
     buffer.writeln('- substitutions array may be empty [].');
     buffer.writeln('- dietaryTags array may be empty [].');
+    buffer.writeln('- estimatedCostPerServingUSD and estimatedCostPerServingGBP: estimate the cost per serving in USD and GBP respectively.');
+    buffer.writeln('  Use BUDGET/OWN-BRAND pricing (e.g. Kroger brand, Walmart Great Value, Tesco Everyday Value, Asda Smart Price).');
+    buffer.writeln('  Do NOT use organic, premium, or specialty variants. Choose the standard, most affordable option.');
+    buffer.writeln('  Account for the fact that users buy whole packs (e.g. a 1lb chicken pack, not just the exact grams used).');
+    buffer.writeln('  Exclude pantry staples (salt, pepper, oil, basic spices) from the estimate — assume the user already has these.');
+    buffer.writeln('  Provide a realistic low-end estimate. If uncertain, err on the lower side.');
 
     buffer.writeln();
     buffer.writeln('## JSON SCHEMA (return exactly this structure):');
@@ -268,7 +274,9 @@ class GeminiService {
     "carbsG": 42.0,
     "fatG": 12.0,
     "fibreG": 6.0
-  }
+  },
+  "estimatedCostPerServingUSD": 4.50,
+  "estimatedCostPerServingGBP": 3.50
 }''');
 
     return buffer.toString();

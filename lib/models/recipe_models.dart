@@ -121,6 +121,12 @@ class GeneratedRecipe {
   final List<String> dietaryTags;
   final NutritionInfo? nutrition; // per-serving, nullable for backwards compat
 
+  /// Gemini-estimated cost per serving in USD (budget/own-brand tier). Nullable for backwards compat.
+  final double? estimatedCostPerServingUSD;
+
+  /// Gemini-estimated cost per serving in GBP (budget/own-brand tier). Nullable for backwards compat.
+  final double? estimatedCostPerServingGBP;
+
   const GeneratedRecipe({
     required this.title,
     required this.prepTimeMinutes,
@@ -132,6 +138,8 @@ class GeneratedRecipe {
     required this.substitutions,
     required this.dietaryTags,
     this.nutrition,
+    this.estimatedCostPerServingUSD,
+    this.estimatedCostPerServingGBP,
   });
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
@@ -158,6 +166,8 @@ class GeneratedRecipe {
       nutrition: json['nutrition'] != null
           ? NutritionInfo.fromJson(json['nutrition'] as Map<String, dynamic>)
           : null,
+      estimatedCostPerServingUSD: (json['estimatedCostPerServingUSD'] as num?)?.toDouble(),
+      estimatedCostPerServingGBP: (json['estimatedCostPerServingGBP'] as num?)?.toDouble(),
     );
   }
 
@@ -173,6 +183,8 @@ class GeneratedRecipe {
     'dietaryTags': dietaryTags,
     'generatedAt': DateTime.now(),
     if (nutrition != null) 'nutrition': nutrition!.toMap(),
+    if (estimatedCostPerServingUSD != null) 'estimatedCostPerServingUSD': estimatedCostPerServingUSD,
+    if (estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': estimatedCostPerServingGBP,
   };
 }
 
