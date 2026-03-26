@@ -14,6 +14,7 @@ import '../shopping/shopping_list_screen.dart';
 //   • Horizontal day selector (Mon–Sun tabs)
 //   • 3-card column for Breakfast / Lunch / Dinner
 //   • Each card: title, time badge, regenerate ↺ button
+//   • Tap a card to open a detail bottom sheet
 //   • "Shopping List" FAB at bottom
 //
 // State machine:
@@ -141,7 +142,6 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     setState(() => _regeneratingSlots.add(slotKey));
 
     try {
-      // Collect existing titles to avoid repeats
       final existingTitles = <String>[];
       for (final day in _plan!.days) {
         for (final meal in day.meals.values) {
@@ -188,6 +188,18 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       MaterialPageRoute(
         builder: (_) => ShoppingListScreen(shoppingList: shoppingList),
       ),
+    );
+  }
+
+  void _openMealDetail(MealSlot meal) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _MealDetailSheet(meal: meal),
     );
   }
 
@@ -241,14 +253,13 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                 Text(
                   _plan == null
                       ? 'Generate your week in one tap'
-                      : 'Tap ↺ on any meal to swap it',
+                      : 'Tap a meal to view details',
                   style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
-          // Generate / Regenerate button
           _GenerateButton(
             isGenerating: _isGenerating,
             hasExistingPlan: _plan != null,
@@ -272,14 +283,8 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         indicatorSize: TabBarIndicatorSize.label,
         labelColor: ElioColors.navy,
         unselectedLabelColor: ElioColors.textMuted,
-        labelStyle: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-        ),
-        unselectedLabelStyle: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
+        labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+        unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         dividerColor: ElioColors.border,
         tabs: _dayAbbreviations.map((d) => Tab(text: d)).toList(),
       ),
@@ -296,7 +301,6 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       return _buildEmptyState();
     }
 
-    // Show the selected day's meals
     final day = _plan!.days[_selectedDayIndex];
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
@@ -312,12 +316,14 @@ class _MealPlanScreenState extends State<MealPlanScreen>
               meal: meal,
               isRegenerating: isRegenerating,
               onRegenerate: () => _regenerateMeal(_selectedDayIndex, type),
+              onTap: meal != null && !isRegenerating ? () => _openMealDetail(meal) : null,
             ),
           );
         }).toList(),
       ),
     );
   }
+
   // ─── Empty state ───────────────────────────────────────────────────────────────
   Widget _buildEmptyState() {
     final totalMeals = _selectedDays.length * _selectedMealTypes.length;
@@ -339,45 +345,44 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           // ── Meal types ──────────────────────────────────────────────
           Text('Meal types', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
             children: MealType.values.map((type) {
               final isOn = _selectedMealTypes.contains(type);
-              return Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: GestureDetector(
-                  onTap: () => setState(() {
-                    if (isOn && _selectedMealTypes.length > 1) {
-                      _selectedMealTypes.remove(type);
-                    } else if (!isOn) {
-                      _selectedMealTypes.add(type);
-                    }
-                  }),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isOn ? ElioColors.navy : ElioColors.offWhite,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isOn ? ElioColors.navy : ElioColors.border,
-                        width: 1.5,
-                      ),
+              return GestureDetector(
+                onTap: () => setState(() {
+                  if (isOn && _selectedMealTypes.length > 1) {
+                    _selectedMealTypes.remove(type);
+                  } else if (!isOn) {
+                    _selectedMealTypes.add(type);
+                  }
+                }),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isOn ? ElioColors.navy : ElioColors.offWhite,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isOn ? ElioColors.navy : ElioColors.border,
+                      width: 1.5,
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(type.emoji, style: const TextStyle(fontSize: 14)),
-                        const SizedBox(width: 6),
-                        Text(
-                          type.displayName,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: isOn ? Colors.white : ElioColors.textSecondary,
-                          ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(type.emoji, style: const TextStyle(fontSize: 14)),
+                      const SizedBox(width: 6),
+                      Text(
+                        type.displayName,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isOn ? Colors.white : ElioColors.textSecondary,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -395,7 +400,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                 onTap: () => setState(() {
                   if (_selectedDays.length == 7) {
                     _selectedDays.clear();
-                    _selectedDays.add('Monday'); // keep at least one
+                    _selectedDays.add('Monday');
                   } else {
                     _selectedDays.addAll(['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']);
                   }
@@ -530,9 +535,7 @@ class _GenerateButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: hasExistingPlan ? ElioColors.offWhite : ElioColors.amber,
           borderRadius: BorderRadius.circular(20),
-          border: hasExistingPlan
-              ? Border.all(color: ElioColors.border)
-              : null,
+          border: hasExistingPlan ? Border.all(color: ElioColors.border) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -564,75 +567,86 @@ class _MealCard extends StatelessWidget {
   final MealSlot? meal;
   final bool isRegenerating;
   final VoidCallback onRegenerate;
+  final VoidCallback? onTap;
 
   const _MealCard({
     required this.mealType,
     required this.meal,
     required this.isRegenerating,
     required this.onRegenerate,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      decoration: BoxDecoration(
-        color: ElioColors.offWhite,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ElioColors.border),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Meal type header ─────────────────────────────────
-            Row(
-              children: [
-                Text(mealType.emoji, style: const TextStyle(fontSize: 16)),
-                const SizedBox(width: 6),
-                Text(
-                  mealType.displayName,
-                  style: ElioText.label.copyWith(
-                    color: ElioColors.textSecondary,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const Spacer(),
-                // Regenerate button
-                GestureDetector(
-                  onTap: isRegenerating ? null : onRegenerate,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: ElioColors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: ElioColors.border),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        decoration: BoxDecoration(
+          color: ElioColors.offWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ElioColors.border),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ── Meal type header ─────────────────────────────────
+              Row(
+                children: [
+                  Text(mealType.emoji, style: const TextStyle(fontSize: 16)),
+                  const SizedBox(width: 6),
+                  Text(
+                    mealType.displayName.toUpperCase(),
+                    style: ElioText.label.copyWith(
+                      color: ElioColors.textSecondary,
+                      letterSpacing: 0.5,
                     ),
-                    child: isRegenerating
-                        ? const Padding(
-                            padding: EdgeInsets.all(7),
-                            child: CircularProgressIndicator(
-                              color: ElioColors.amber,
-                              strokeWidth: 2,
-                            ),
-                          )
-                        : const Icon(Icons.refresh, size: 16, color: ElioColors.textSecondary),
                   ),
-                ),
-              ],
-            ),
+                  const Spacer(),
+                  // Tap hint if meal exists
+                  if (meal != null && !isRegenerating)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: Icon(Icons.chevron_right, size: 16, color: ElioColors.textMuted),
+                    ),
+                  // Regenerate button
+                  GestureDetector(
+                    onTap: isRegenerating ? null : onRegenerate,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: ElioColors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: ElioColors.border),
+                      ),
+                      child: isRegenerating
+                          ? const Padding(
+                              padding: EdgeInsets.all(7),
+                              child: CircularProgressIndicator(
+                                color: ElioColors.amber,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Icon(Icons.refresh, size: 16, color: ElioColors.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
 
-            const SizedBox(height: 10),
+              const SizedBox(height: 10),
 
-            if (isRegenerating)
-              _buildLoadingState()
-            else if (meal == null)
-              _buildEmptySlot()
-            else
-              _buildMealContent(meal!),
-          ],
+              if (isRegenerating)
+                _buildLoadingState()
+              else if (meal == null)
+                _buildEmptySlot()
+              else
+                _buildMealContent(meal!),
+            ],
+          ),
         ),
       ),
     );
@@ -702,9 +716,156 @@ class _MealCard extends StatelessWidget {
   }
 }
 
+// ─── Meal detail bottom sheet ─────────────────────────────────────────────────
+class _MealDetailSheet extends StatelessWidget {
+  final MealSlot meal;
+
+  const _MealDetailSheet({required this.meal});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (_, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: ElioColors.border,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title
+                      Text(meal.title, style: ElioText.headingLarge),
+                      const SizedBox(height: 6),
+                      Text(
+                        meal.description,
+                        style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Meta badges
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _TimeBadge(minutes: meal.totalTimeMinutes),
+                          _TimeBadge(minutes: meal.prepTimeMinutes, label: 'prep'),
+                          ...meal.dietaryTags.map((tag) => _DietaryTag(label: tag)),
+                        ],
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Ingredients
+                      Text('Ingredients', style: ElioText.headingMedium),
+                      const SizedBox(height: 10),
+                      ...meal.ingredients.map((ing) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              margin: const EdgeInsets.only(top: 6),
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(
+                                color: ElioColors.amber,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                ing.displayString,
+                                style: ElioText.bodyMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+
+                      if (meal.steps.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        Text('Method', style: ElioText.headingMedium),
+                        const SizedBox(height: 10),
+                        ...meal.steps.asMap().entries.map((entry) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: ElioColors.navy,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${entry.key + 1}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 3),
+                                  child: Text(
+                                    entry.value,
+                                    style: ElioText.bodyMedium,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ─── Supporting widgets ───────────────────────────────────────────────────────
 class _TimeBadge extends StatelessWidget {
   final int minutes;
-  const _TimeBadge({required this.minutes});
+  final String? label;
+  const _TimeBadge({required this.minutes, this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -720,7 +881,7 @@ class _TimeBadge extends StatelessWidget {
           const Icon(Icons.timer_outlined, size: 11, color: ElioColors.amber),
           const SizedBox(width: 3),
           Text(
-            '$minutes min',
+            label != null ? '$minutes min $label' : '$minutes min',
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,

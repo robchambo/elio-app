@@ -10,7 +10,9 @@ import 'package:google_fonts/google_fonts.dart';
 // PantryReviewScreen (Screen 3)
 // Design: approachable utility.
 // User reviews and adjusts the pre-populated pantry.
-// Long-press a chip to move it between tiers via a context menu.
+// Drag a chip (hold 400ms then drag) to move between tiers.
+// Long-press also opens a context menu as fallback.
+// Scroll is always available — drag only activates after 400ms hold.
 // Step 3 of 5 in onboarding.
 // ─────────────────────────────────────────────
 
@@ -34,6 +36,7 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
   late List<InventoryItem> _items;
   final TextEditingController _addController = TextEditingController();
   String _addTier = 'alwaysHave';
+  String? _draggingItemName; // track which item is being dragged
 
   @override
   void initState() {
@@ -89,7 +92,6 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Handle bar
               Center(
                 child: Container(
                   width: 36,
@@ -101,17 +103,13 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              Text(
-                item.name,
-                style: ElioText.headingMedium,
-              ),
+              Text(item.name, style: ElioText.headingMedium),
               const SizedBox(height: 4),
               Text(
                 'Currently in: ${item.tier == 'alwaysHave' ? 'Always Have' : 'Almost Always Have'}',
                 style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
               ),
               const SizedBox(height: 16),
-              // Move option
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
@@ -132,7 +130,6 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                   _moveItemToTier(item.name, otherTier);
                 },
               ),
-              // Remove option
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
@@ -208,11 +205,11 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.touch_app_rounded,
+                  const Icon(Icons.drag_indicator_rounded,
                       size: 14, color: ElioColors.textMuted),
                   const SizedBox(width: 4),
                   Text(
-                    'Long-press a chip to move it between sections.',
+                    'Hold & drag a chip to move it between sections.',
                     style: ElioText.label
                         .copyWith(color: ElioColors.textMuted),
                   ),
@@ -233,8 +230,12 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                         subtitle: 'These are your pantry staples.',
                         color: ElioColors.amber,
                         items: _alwaysHave,
+                        draggingItemName: _draggingItemName,
                         onRemove: _removeItem,
                         onLongPress: (item) => _showMoveMenu(context, item),
+                        onDragStarted: (name) => setState(() => _draggingItemName = name),
+                        onDragEnd: () => setState(() => _draggingItemName = null),
+                        onAcceptDrag: (name) => _moveItemToTier(name, 'alwaysHave'),
                       ),
                       const SizedBox(height: 16),
 
@@ -246,8 +247,12 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                             'Things you usually have but might run out of.',
                         color: ElioColors.sky,
                         items: _almostAlwaysHave,
+                        draggingItemName: _draggingItemName,
                         onRemove: _removeItem,
                         onLongPress: (item) => _showMoveMenu(context, item),
+                        onDragStarted: (name) => setState(() => _draggingItemName = name),
+                        onDragEnd: () => setState(() => _draggingItemName = null),
+                        onAcceptDrag: (name) => _moveItemToTier(name, 'almostAlwaysHave'),
                       ),
                       const SizedBox(height: 16),
 
@@ -328,16 +333,20 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
   }
 }
 
-// ─── Tier section ─────────────────────────────────────────────────────────────
+// ─── Tier section with DragTarget ────────────────────────────────────────────
 
-class _TierSection extends StatelessWidget {
+class _TierSection extends StatefulWidget {
   final String tier;
   final String title;
   final String subtitle;
   final Color color;
   final List<InventoryItem> items;
+  final String? draggingItemName;
   final void Function(String name) onRemove;
   final void Function(InventoryItem item) onLongPress;
+  final void Function(String name) onDragStarted;
+  final VoidCallback onDragEnd;
+  final void Function(String name) onAcceptDrag;
 
   const _TierSection({
     required this.tier,
@@ -345,75 +354,158 @@ class _TierSection extends StatelessWidget {
     required this.subtitle,
     required this.color,
     required this.items,
+    required this.draggingItemName,
     required this.onRemove,
     required this.onLongPress,
+    required this.onDragStarted,
+    required this.onDragEnd,
+    required this.onAcceptDrag,
   });
 
   @override
+  State<_TierSection> createState() => _TierSectionState();
+}
+
+class _TierSectionState extends State<_TierSection> {
+  bool _isHovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
-        color: color.withValues(alpha: 0.04),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Section header
-          Row(
+    final isDraggingFromOtherTier = widget.draggingItemName != null &&
+        !widget.items.any((i) => i.name == widget.draggingItemName);
+
+    return DragTarget<String>(
+      onWillAcceptWithDetails: (details) {
+        // Only accept if the item is from a different tier
+        final isFromThisTier = widget.items.any((i) => i.name == details.data);
+        if (!isFromThisTier) {
+          setState(() => _isHovered = true);
+          return true;
+        }
+        return false;
+      },
+      onLeave: (_) => setState(() => _isHovered = false),
+      onAcceptWithDetails: (details) {
+        setState(() => _isHovered = false);
+        widget.onAcceptDrag(details.data);
+      },
+      builder: (context, candidateData, rejectedData) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _isHovered
+                  ? widget.color
+                  : isDraggingFromOtherTier
+                      ? widget.color.withValues(alpha: 0.5)
+                      : widget.color.withValues(alpha: 0.25),
+              width: _isHovered ? 2 : 1,
+            ),
+            color: _isHovered
+                ? widget.color.withValues(alpha: 0.08)
+                : widget.color.withValues(alpha: 0.04),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // Section header
+              Row(
                 children: [
-                  Text(title,
-                      style: ElioText.bodyMedium
-                          .copyWith(fontWeight: FontWeight.w700)),
-                  Text(
-                    subtitle,
-                    style: ElioText.label.copyWith(
-                      color: ElioColors.textSecondary,
-                      fontWeight: FontWeight.w400,
-                    ),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
                   ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(widget.title,
+                          style: ElioText.bodyMedium
+                              .copyWith(fontWeight: FontWeight.w700)),
+                      Text(
+                        widget.subtitle,
+                        style: ElioText.label.copyWith(
+                          color: ElioColors.textSecondary,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isDraggingFromOtherTier) ...[
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: widget.color.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Drop here',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: widget.color,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
+              const SizedBox(height: 10),
+              // Chips
+              if (widget.items.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4, bottom: 4),
+                  child: Text(
+                    'No items yet. Add some below.',
+                    style: ElioText.label.copyWith(color: ElioColors.textMuted),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: widget.items.map((item) {
+                    final isDraggingThis = widget.draggingItemName == item.name;
+                    return LongPressDraggable<String>(
+                      data: item.name,
+                      delay: const Duration(milliseconds: 400),
+                      onDragStarted: () => widget.onDragStarted(item.name),
+                      onDragEnd: (_) => widget.onDragEnd(),
+                      onDraggableCanceled: (_, __) => widget.onDragEnd(),
+                      feedback: Material(
+                        color: Colors.transparent,
+                        child: _DragFeedbackChip(
+                          label: item.name,
+                          color: widget.color,
+                        ),
+                      ),
+                      childWhenDragging: Opacity(
+                        opacity: 0.3,
+                        child: _ItemChip(
+                          label: item.name,
+                          color: widget.color,
+                          onRemove: () {},
+                        ),
+                      ),
+                      child: GestureDetector(
+                        onLongPress: isDraggingThis ? null : () => widget.onLongPress(item),
+                        child: _ItemChip(
+                          label: item.name,
+                          color: widget.color,
+                          onRemove: () => widget.onRemove(item.name),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
             ],
           ),
-          const SizedBox(height: 10),
-          // Chips
-          if (items.isEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, bottom: 4),
-              child: Text(
-                'No items yet. Add some below.',
-                style: ElioText.label.copyWith(color: ElioColors.textMuted),
-              ),
-            )
-          else
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: items.map((item) {
-                return GestureDetector(
-                  onLongPress: () => onLongPress(item),
-                  child: _ItemChip(
-                    label: item.name,
-                    color: color,
-                    onRemove: () => onRemove(item.name),
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -456,6 +548,42 @@ class _ItemChip extends StatelessWidget {
             child: Icon(Icons.close_rounded, size: 16, color: color),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Drag feedback chip ───────────────────────────────────────────────────────
+
+class _DragFeedbackChip extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _DragFeedbackChip({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.3),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }

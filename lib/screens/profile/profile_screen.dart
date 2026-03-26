@@ -415,6 +415,31 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   // ─── Pantry tab ───────────────────────────────────────────────────────────────
   Widget _buildPantryTab() {
+    final user = FirebaseAuth.instance.currentUser;
+    final isGuest = user?.isAnonymous ?? true;
+
+    if (isGuest) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.kitchen_outlined, size: 56, color: ElioColors.textMuted),
+              const SizedBox(height: 16),
+              Text('Your pantry is empty', style: ElioText.headingMedium),
+              const SizedBox(height: 8),
+              Text(
+                'Sign in with Google to complete setup and fill your pantry.',
+                textAlign: TextAlign.center,
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [

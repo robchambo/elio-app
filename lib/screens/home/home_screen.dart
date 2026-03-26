@@ -311,12 +311,26 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       if (mounted) {
-        final msg = e.toString().replaceFirst('Exception: ', '');
+        final raw = e.toString();
+        final String msg;
+        if (raw.contains('SocketException') ||
+            raw.contains('SocketFailed') ||
+            raw.contains('ClientException') ||
+            raw.contains('No address associated') ||
+            raw.contains('Failed host lookup')) {
+          msg = 'No internet connection. Please check your network and try again.';
+        } else if (raw.contains('429') || raw.contains('quota')) {
+          msg = 'Too many requests. Please wait a moment and try again.';
+        } else if (raw.contains('401') || raw.contains('403') || raw.contains('API key')) {
+          msg = 'Authentication error. Please restart the app.';
+        } else {
+          msg = 'Something went wrong. Please try again.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
             backgroundColor: ElioColors.navy,
-            duration: const Duration(seconds: 8),
+            duration: const Duration(seconds: 5),
           ),
         );
       }

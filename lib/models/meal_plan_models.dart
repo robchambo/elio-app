@@ -42,6 +42,7 @@ class MealSlot {
   final int cookTimeMinutes;
   final List<String> dietaryTags;
   final List<MealIngredient> ingredients;
+  final List<String> steps;
 
   const MealSlot({
     required this.title,
@@ -50,6 +51,7 @@ class MealSlot {
     required this.cookTimeMinutes,
     required this.dietaryTags,
     required this.ingredients,
+    this.steps = const [],
   });
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
@@ -66,6 +68,9 @@ class MealSlot {
       ingredients: (json['ingredients'] as List<dynamic>? ?? [])
           .map((e) => MealIngredient.fromJson(e as Map<String, dynamic>))
           .toList(),
+      steps: (json['steps'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
     );
   }
 
@@ -76,6 +81,7 @@ class MealSlot {
     'cookTimeMinutes': cookTimeMinutes,
     'dietaryTags': dietaryTags,
     'ingredients': ingredients.map((i) => i.toJson()).toList(),
+    'steps': steps,
   };
 }
 

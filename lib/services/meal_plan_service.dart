@@ -314,14 +314,14 @@ class MealPlanService {
     buffer.writeln('- Servings: $servings per meal.');
     buffer.writeln('- Vary meals across the week — no repeated dishes.');
     buffer.writeln('- Breakfast should be quick (under 15 min). Lunch moderate. Dinner can be more involved.');
-    buffer.writeln('- Each meal: max 8 ingredients, description 1 sentence.');
+    buffer.writeln('- Each meal: max 8 ingredients, description 1 sentence, 3-6 cooking steps.');
     buffer.writeln('- Keep ingredient quantities realistic for $servings servings.');
     buffer.writeln('- ONLY generate meals for the following days: ${selectedDays.join(', ')}.');
     buffer.writeln('- ONLY generate the following meal types per day: $mealNames.');
 
     buffer.writeln();
-    buffer.writeln('## JSON SCHEMA (return EXACTLY this structure with all 7 days):');
-    buffer.writeln('''{
+    buffer.writeln('## JSON SCHEMA (return EXACTLY this structure with all 7 days):');    buffer.writeln('''
+{
   "days": [
     {
       "dayName": "Monday",
@@ -331,7 +331,8 @@ class MealPlanService {
         "prepTimeMinutes": 5,
         "cookTimeMinutes": 10,
         "dietaryTags": ["string"],
-        "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}]
+        "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}],
+        "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."]
       },
       "lunch": { ... same structure ... },
       "dinner": { ... same structure ... }
@@ -381,15 +382,16 @@ class MealPlanService {
 
     buffer.writeln();
     buffer.writeln('JSON schema:');
-    buffer.writeln('''{
+    buffer.writeln('''
+{
   "title": "string",
   "description": "string",
   "prepTimeMinutes": 5,
   "cookTimeMinutes": 10,
   "dietaryTags": ["string"],
-  "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}]
+  "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}],
+  "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."]
 }''');
-
     return buffer.toString();
   }
 }
