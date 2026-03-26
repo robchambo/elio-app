@@ -6,6 +6,7 @@ import '../../models/recipe_models.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/region_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
@@ -49,23 +50,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool? _userRating; // true = liked, false = disliked, null = not rated
   bool _isRating = false;
 
-  // ── Cost estimate label ────────────────────────────────────────────────────────────────────────
+  // ── Cost estimate label ────────────────────────────────────────────────────────────────────────────────────────────────
   /// Returns a formatted cost-per-serving string based on device locale.
-  /// Uses GBP for en_GB locale, USD for everything else.
-  /// Returns null if neither estimate is available.
-  String? get _costLabel {
-    final locale = WidgetsBinding.instance.platformDispatcher.locale;
-    final isUK = locale.countryCode == 'GB' || locale.languageCode == 'en' && locale.countryCode == 'GB';
-    if (isUK) {
-      final gbp = widget.recipe.estimatedCostPerServingGBP;
-      if (gbp != null && gbp > 0) return '~£${gbp.toStringAsFixed(2)}/serving';
-    }
-    final usd = widget.recipe.estimatedCostPerServingUSD;
-    if (usd != null && usd > 0) return '~\$${usd.toStringAsFixed(2)}/serving';
-    final gbp = widget.recipe.estimatedCostPerServingGBP;
-    if (gbp != null && gbp > 0) return '~£${gbp.toStringAsFixed(2)}/serving';
-    return null;
-  }
+  /// Delegates to RegionUtils.formatCost() for locale-aware currency selection.
+  String? get _costLabel => RegionUtils.formatCost(
+    usd: widget.recipe.estimatedCostPerServingUSD,
+    gbp: widget.recipe.estimatedCostPerServingGBP,
+    suffix: '/serving',
+  );
 
   @override
   void initState() {

@@ -4,6 +4,7 @@ import '../../models/meal_plan_models.dart';
 import '../../services/meal_plan_service.dart';
 import '../../services/firestore_service.dart';
 import '../shopping/shopping_list_screen.dart';
+import '../../utils/region_utils.dart';
 
 // ─────────────────────────────────────────────
 // MealPlanScreen
@@ -780,10 +781,10 @@ class _MealDetailSheet extends StatelessWidget {
                               label: '${meal.caloriesPerServing} kcal',
                               color: const Color(0xFFE53935),
                             ),
-                          if (meal.estimatedCostPerServingUSD != null)
+                          if (RegionUtils.formatCost(usd: meal.estimatedCostPerServingUSD, gbp: meal.estimatedCostPerServingGBP) != null)
                             _MetaBadge(
                               icon: Icons.attach_money,
-                              label: '\$${meal.estimatedCostPerServingUSD!.toStringAsFixed(2)} / serving',
+                              label: RegionUtils.formatCost(usd: meal.estimatedCostPerServingUSD, gbp: meal.estimatedCostPerServingGBP)!,
                               color: const Color(0xFF2E7D32),
                             ),
                           ...meal.dietaryTags.map((tag) => _DietaryTag(label: tag)),
