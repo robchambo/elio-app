@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/elio_models.dart';
 import '../models/onboarding_state.dart';
 
 // ─────────────────────────────────────────────

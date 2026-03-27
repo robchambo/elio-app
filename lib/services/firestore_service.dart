@@ -308,7 +308,7 @@ class FirestoreService {
     final doc = await _db.collection('users').doc(_uid).get();
     if (!doc.exists) return {'liked': [], 'disliked': []};
     final data = doc.data() ?? {};
-    final profile = data['tasteProfile'] as Map<String, dynamic>? ?? {};
+    final profile = (data['tasteProfile'] as Map<String, dynamic>?) ?? {};
     return {
       'liked': List<String>.from(profile['likedTitles'] ?? []),
       'disliked': List<String>.from(profile['dislikedTitles'] ?? []),
