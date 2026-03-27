@@ -80,18 +80,31 @@ class _MealPlanScreenState extends State<MealPlanScreen>
 
   Future<void> _loadUserData() async {
     try {
-      final data = await _firestore.getUserData();
+      final dataFuture = _firestore.getUserData();
+      final planFuture = _firestore.loadMealPlan();
+      final data = await dataFuture;
+      final savedPlan = await planFuture;
       if (mounted) {
         setState(() {
           _dietaryRequirements = List<String>.from(data['dietaryRequirements'] ?? []);
           _alwaysHave = List<String>.from(data['alwaysHave'] ?? []);
           _almostAlwaysHave = List<String>.from(data['almostAlwaysHave'] ?? []);
           _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
+          _plan = savedPlan;
           _dataLoaded = true;
         });
       }
     } catch (_) {
       if (mounted) setState(() => _dataLoaded = true);
+    }
+  }
+
+  Future<void> _savePlan() async {
+    if (_plan == null) return;
+    try {
+      await _firestore.saveMealPlan(_plan!);
+    } catch (_) {
+      // Non-critical — plan is already in memory
     }
   }
 
@@ -120,6 +133,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _selectedDayIndex = 0;
           _tabController.animateTo(0);
         });
+        _savePlan();
       }
     } catch (e) {
       if (mounted) {
@@ -164,6 +178,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           final updatedDay = _plan!.days[dayIndex].copyWithMeal(mealType, newMeal);
           _plan = _plan!.copyWithDay(dayIndex, updatedDay);
         });
+        _savePlan();
       }
     } catch (e) {
       if (mounted) {

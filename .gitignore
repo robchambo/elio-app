@@ -46,3 +46,9 @@ lib/firebase_options.dart
 
 # Coverage
 coverage/
+
+# Claude Code
+.claude/
+
+# Java heap dumps
+*.hprof

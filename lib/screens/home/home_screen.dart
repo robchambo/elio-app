@@ -294,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Track title for deduplication (keep last 10)
       _recentTitles.add(recipe.title);
-      if (_recentTitles.length > 10) _recentTitles.removeAt(0);
+      if (_recentTitles.length > 20) _recentTitles.removeAt(0);
 
       _loadRecentHistory();
 

@@ -4,7 +4,7 @@ import '../models/meal_plan_models.dart';
 
 // ─────────────────────────────────────────────
 // MealPlanService
-// Calls Gemini 2.0 Flash to generate a full 7-day meal plan
+// Calls Gemini 2.5 Flash to generate a full 7-day meal plan
 // or a single replacement meal.
 //
 // The full-week prompt asks for all 21 meals in one call.
@@ -17,7 +17,7 @@ import '../models/meal_plan_models.dart';
 
 class MealPlanService {
   static const String _apiKey = 'AIzaSyCZvDMHsOI3NZjNaAes84LJvyg6yLrfKuU';
-  static const String _model = 'gemini-flash-latest';
+  static const String _model = 'gemini-2.5-flash';
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';
 

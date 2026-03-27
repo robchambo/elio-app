@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/elio_models.dart';
+import '../models/meal_plan_models.dart';
 import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
 
@@ -313,6 +314,39 @@ class FirestoreService {
       'disliked': List<String>.from(profile['dislikedTitles'] ?? []),
     };
   }
+
+  // ─── Meal plan persistence ───────────────────────────────────────
+
+  Future<void> saveMealPlan(MealPlan plan) async {
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('mealPlan')
+        .doc('current')
+        .set(plan.toJson());
+  }
+
+  Future<MealPlan?> loadMealPlan() async {
+    final doc = await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('mealPlan')
+        .doc('current')
+        .get();
+    if (!doc.exists) return null;
+    return MealPlan.fromJson(doc.data()!);
+  }
+
+  Future<void> deleteMealPlan() async {
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('mealPlan')
+        .doc('current')
+        .delete();
+  }
+
+  // ─── Daily generation count ──────────────────────────────────────
 
   Future<int> getRemainingGenerations() async {
     final doc = await _db.collection('users').doc(_uid).get();

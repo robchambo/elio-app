@@ -4,7 +4,7 @@ import '../models/recipe_models.dart';
 
 // ─────────────────────────────────────────────
 // GeminiService
-// Calls the Gemini 2.0 Flash API to generate recipes.
+// Calls the Gemini 2.5 Flash API to generate recipes.
 //
 // Key fixes (Sprint 4 patch):
 //   • maxOutputTokens raised to 4096 — prevents truncated JSON
@@ -16,7 +16,7 @@ import '../models/recipe_models.dart';
 
 class GeminiService {
   static const String _apiKey = 'AIzaSyCZvDMHsOI3NZjNaAes84LJvyg6yLrfKuU';
-  static const String _model = 'gemini-flash-latest';
+  static const String _model = 'gemini-2.5-flash';
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';
 
