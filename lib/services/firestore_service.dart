@@ -307,7 +307,7 @@ class FirestoreService {
   Future<Map<String, List<String>>> getTasteProfile() async {
     final doc = await _db.collection('users').doc(_uid).get();
     if (!doc.exists) return {'liked': [], 'disliked': []};
-    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final data = doc.data() ?? {};
     final profile = data['tasteProfile'] as Map<String, dynamic>? ?? {};
     return {
       'liked': List<String>.from(profile['likedTitles'] ?? []),
