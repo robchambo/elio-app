@@ -976,7 +976,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     children: reqs.map((r) => Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: ElioColors.navy.withOpacity(0.08),
+                        color: ElioColors.navy.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(r, style: ElioText.label.copyWith(fontSize: 11, color: ElioColors.navy)),
@@ -1057,8 +1057,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   final isSelected = selectedDietary.contains(req);
                   return GestureDetector(
                     onTap: () => setSheetState(() {
-                      if (isSelected) selectedDietary.remove(req);
-                      else selectedDietary.add(req);
+                      if (isSelected) { selectedDietary.remove(req); }
+                      else { selectedDietary.add(req); }
                     }),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),

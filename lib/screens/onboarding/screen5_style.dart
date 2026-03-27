@@ -179,8 +179,8 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                ElioColors.white.withOpacity(0.0),
-                                ElioColors.white.withOpacity(0.95),
+                                ElioColors.white.withValues(alpha: 0.0),
+                                ElioColors.white.withValues(alpha: 0.95),
                               ],
                             ),
                           ),

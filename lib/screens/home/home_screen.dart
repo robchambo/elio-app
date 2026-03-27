@@ -699,8 +699,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 final isSelected = _leftoverItems.contains(item);
                 return GestureDetector(
                   onTap: () => setState(() {
-                    if (isSelected) _leftoverItems.remove(item);
-                    else _leftoverItems.add(item);
+                    if (isSelected) { _leftoverItems.remove(item); }
+                    else { _leftoverItems.add(item); }
                   }),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 160),
