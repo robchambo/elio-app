@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/onboarding_state.dart';
 import '../../services/firestore_service.dart';
+import '../../services/guest_pantry_service.dart';
 import '../home/home_screen.dart';
 import 'screen1_dietary.dart';
 import 'screen2_preset.dart';
@@ -83,8 +84,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Future<void> _onStyleComplete(OnboardingState updated) async {
     setState(() { _state = updated; _isSaving = true; });
 
-    // Guest mode: navigate directly from here (avoids stale context in callback)
+    // Guest mode: persist pantry data locally then navigate
     if (widget.isGuest) {
+      await GuestPantryService.save(_state);
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen(isGuest: true)),

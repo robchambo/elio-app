@@ -6,6 +6,7 @@ import '../../models/recipe_models.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
+import '../../services/guest_pantry_service.dart';
 import '../recipe/recipe_screen.dart';
 import '../history/history_screen.dart';
 import '../meal_plan/meal_plan_screen.dart';
@@ -117,9 +118,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadUserData() async {
-    // Guest mode: skip Firestore, use empty defaults
+    // Guest mode: load from SharedPreferences
     if (widget.isGuest) {
-      if (mounted) setState(() => _isLoading = false);
+      final saved = await GuestPantryService.load();
+      if (mounted) {
+        setState(() {
+          if (saved != null) {
+            _alwaysHave = List<String>.from(saved['alwaysHave'] ?? []);
+            _almostAlwaysHave = List<String>.from(saved['almostAlwaysHave'] ?? []);
+            _stylePreferences = List<String>.from(saved['stylePreferences'] ?? []);
+          }
+          _isLoading = false;
+        });
+      }
       return;
     }
     try {
