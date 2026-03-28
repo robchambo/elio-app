@@ -31,10 +31,10 @@
 ### Not Yet Implemented
 - [ ] Firebase Analytics (event tracking, screen views)
 - [ ] Custom style input on Generate page (only via onboarding)
-- [ ] Menu plan UX: empty day tiles (currently shows error)
-- [ ] Post-generation editing: fill empty meal slots
-- [ ] Pantry deduplication logic
-- [ ] Shopping list ← Running Low integration
+- [x] Menu plan UX: empty day tiles — fixed 2026-03-27 (shows "not included" message)
+- [x] Post-generation editing: fill empty meal slots — already functional (↺ button on empty slots)
+- [x] Pantry deduplication logic — partial: onboarding guard added 2026-03-27, needs fuzzy matching
+- [x] Shopping list ← Running Low integration — done 2026-03-27 (restock items injected)
 - [ ] Apple Sign-In (required for App Store)
 - [ ] Email/password auth
 - [ ] Expiry date tracking + alerts
@@ -44,7 +44,7 @@
 - [ ] In-app purchases (actual payment flow)
 - [ ] Voice control for hands-free cooking
 - [ ] Three-tier persistent inventory (perishables as stored tier)
-- [ ] API key moved to secure location (currently hardcoded)
+- [x] API key moved to secure location — done 2026-03-27 (.env.local + run.ps1)
 
 ---
 
@@ -62,8 +62,8 @@
 | 7.3.6 | Branch protection on main (PRs required) | ✅ Done |
 | 7.3.7 | Fix .gitignore gaps (.claude/, *.hprof) | ✅ Done |
 | 7.3.8 | Add CONTRIBUTING.md (branching conventions) | ✅ Done |
-| 7.3.9 | Move Gemini API key out of source code | 🔲 TODO |
-| 7.3.10 | Fix remaining lint warnings (unused import, unnecessary cast) | 🔲 TODO |
+| 7.3.9 | Move Gemini API key out of source code | ✅ Done (`.env.local` + `run.ps1`) |
+| 7.3.10 | Fix remaining lint warnings (unused import, unnecessary cast) | ✅ Done |
 | 7.3.11 | Fix widget_test.dart (references non-existent MyApp) | ✅ Done |
 
 **Exit criteria:** Clean CI on main, no hardcoded secrets, all known bugs resolved.
@@ -121,23 +121,19 @@ Instrument cooking mode and upgrade flow:
 - Value passed to Gemini as an additional style constraint for that generation only
 - Persist as "recent custom styles" list (SharedPreferences, max 10) for quick re-use
 
-### 8.6 — Menu Plan: Empty Day Tiles (1–2 hours)
-- Days not yet generated show a friendly "Generate" tile instead of an error screen
-- Each tile shows: day name, "Tap to generate meals", amber generate button
-- Already-generated days show meal summaries as they do now
-- Consistent card styling across generated and ungenerated days
+### 8.6 — Menu Plan: Empty Day Tiles ✅ Done (2026-03-27)
+- Days not included in the plan now show a friendly message instead of crashing
+- Back arrow clears plan and returns to config screen for reconfiguration
 
-### 8.7 — Menu Plan: Fill Empty Meal Slots (1–2 hours)
-- After a plan is generated, any empty slots (e.g., skipped lunch) show a "+" button
-- Tapping generates just that one meal using the same day's context (dietary, pantry, style)
-- Single-tap, no extra configuration needed
-- Newly generated meal slots animate in and auto-save to Firestore
+### 8.7 — Menu Plan: Fill Empty Meal Slots ✅ Already Functional
+- Empty meal slots show "Tap ↺ to generate" with a regenerate button
+- Tapping generates just that one meal using the day's context
 
-### 8.8 — Pantry Deduplication (2–3 hours)
-- Add normalisation logic: lowercase, trim whitespace, strip plurals (eggs → egg), handle common variants (e.g., "olive oil" vs "extra virgin olive oil")
-- On pantry load, detect and merge duplicates (keep the one with more metadata)
-- Prevent duplicates on add: fuzzy match warning ("You already have 'Eggs' — add anyway?")
-- One-time cleanup migration for existing users on first load after update
+### 8.8 — Pantry Deduplication (2–3 hours) — Partially Done
+- ✅ Onboarding guard: checks for existing inventory before writing (prevents duplicate batches)
+- 🔲 Add normalisation logic: lowercase, trim whitespace, strip plurals (eggs → egg), handle common variants (e.g., "olive oil" vs "extra virgin olive oil")
+- 🔲 Prevent duplicates on add: fuzzy match warning ("You already have 'Eggs' — add anyway?")
+- 🔲 One-time cleanup migration for existing users on first load after update
 
 **Sprint 8 total estimate:** ~12–16 hours
 
@@ -155,11 +151,9 @@ Instrument cooking mode and upgrade flow:
 - Add email/password option to onboarding welcome screen alongside Google Sign-In and Guest Mode
 - Handle edge cases: weak password, email already in use, unverified email
 
-### 9.2 — Running Low → Shopping List Integration (2–3 hours)
-- When generating a shopping list (from meal plan or standalone), automatically include all items flagged "Running Low"
-- Group them in a separate "Restock" section at the top of the shopping list
-- After purchase (item checked off), prompt: "Remove Running Low flag?"
-- Works for both authenticated and guest users
+### 9.2 — Running Low → Shopping List Integration ✅ Done (2026-03-27, pulled forward)
+- Running low items automatically included in shopping list with "Restock" label
+- 🔲 Remaining: group as separate "Restock" section at top, prompt to remove flag after check-off
 
 ### 9.3 — Expiry Date Tracking (3–4 hours)
 - Add optional `expiryDate` field to inventory items (perishables and Almost Always Have)
