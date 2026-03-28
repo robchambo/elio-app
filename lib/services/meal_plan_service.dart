@@ -97,6 +97,7 @@ class MealPlanService {
           'topP': 0.95,
           'maxOutputTokens': 8192,
           'responseMimeType': 'application/json',
+          'thinkingConfig': {'thinkingBudget': 0},
         },
       }),
     );
@@ -208,6 +209,7 @@ class MealPlanService {
           'topP': 0.95,
           'maxOutputTokens': 1024,
           'responseMimeType': 'application/json',
+          'thinkingConfig': {'thinkingBudget': 0},
         },
       }),
     );
@@ -311,6 +313,8 @@ class MealPlanService {
 
     buffer.writeln();
     buffer.writeln('## RULES:');
+    buffer.writeln('- Meal titles must sound like home cooking, NOT pre-made products.');
+    buffer.writeln('- Ingredients must be raw/purchasable items, NOT pre-prepared dishes.');
     buffer.writeln('- Servings: $servings per meal.');
     buffer.writeln('- Vary meals across the week — no repeated dishes.');
     buffer.writeln('- Breakfast should be quick (under 15 min). Lunch moderate. Dinner can be more involved.');

@@ -241,9 +241,11 @@ class ShoppingList {
   });
 
   /// Build a shopping list from a meal plan, excluding items the user already has.
+  /// [runningLowItems] are always included regardless of pantry status — user needs to restock.
   factory ShoppingList.fromMealPlan(
     MealPlan plan, {
     List<String> alreadyHave = const [],
+    List<String> runningLowItems = const [],
   }) {
     // Aggregate ingredients across all meals
     final aggregated = <String, List<String>>{};
@@ -254,7 +256,9 @@ class ShoppingList {
           final key = ingredient.name.toLowerCase().trim();
           aggregated.putIfAbsent(key, () => []);
           if (ingredient.quantity.isNotEmpty) {
-            aggregated[key]!.add(ingredient.displayString);
+            // Store only quantity + unit, not the full name (name is already the key)
+            final qtyStr = '${ingredient.quantity} ${ingredient.unit}'.trim();
+            aggregated[key]!.add(qtyStr);
           }
         }
       }
@@ -265,9 +269,19 @@ class ShoppingList {
     final items = aggregated.entries
         .where((e) => !haveSet.any((h) => e.key.contains(h) || h.contains(e.key)))
         .map((e) => ShoppingItem(name: e.key, quantities: e.value))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+        .toList();
 
+    // Add running low items that aren't already in the list
+    final existingNames = items.map((i) => i.name.toLowerCase().trim()).toSet();
+    for (final item in runningLowItems) {
+      final key = item.toLowerCase().trim();
+      if (!existingNames.contains(key)) {
+        items.add(ShoppingItem(name: key, quantities: ['Restock']));
+        existingNames.add(key);
+      }
+    }
+
+    items.sort((a, b) => a.name.compareTo(b.name));
     return ShoppingList(items: items, generatedAt: DateTime.now());
   }
 }

@@ -65,10 +65,14 @@ class FirestoreService {
     ownerProfileData['customAllergens'] = state.customAllergens;
     batch.set(ownerProfileRef, ownerProfileData);
 
-    // 3. Write inventory items
-    for (final item in state.inventory) {
-      final itemRef = userRef.collection('inventory').doc();
-      batch.set(itemRef, item.toFirestore());
+    // 3. Write inventory items — only if inventory is empty (guards against
+    //    duplicate writes if completeOnboarding is somehow called more than once)
+    final existingInventory = await userRef.collection('inventory').limit(1).get();
+    if (existingInventory.docs.isEmpty) {
+      for (final item in state.inventory) {
+        final itemRef = userRef.collection('inventory').doc();
+        batch.set(itemRef, item.toFirestore());
+      }
     }
 
     // 4. Write additional household member profiles

@@ -65,6 +65,7 @@ class GeminiService {
           'topP': 0.95,
           'maxOutputTokens': 4096,
           'responseMimeType': 'application/json',
+          'thinkingConfig': {'thinkingBudget': 0},
         },
       }),
     );
@@ -240,6 +241,8 @@ class GeminiService {
 
     buffer.writeln();
     buffer.writeln('## RULES:');
+    buffer.writeln('- Recipe title must sound like home cooking, NOT a pre-made product. E.g. "Lemon Herb Chicken with Roasted Vegetables", not "Cooked Mediterranean Chicken".');
+    buffer.writeln('- Ingredients must be raw/purchasable items, NOT pre-prepared dishes. Never list a cooked dish as an ingredient.');
     buffer.writeln('- Keep steps SHORT (1-2 sentences each). Max 8 steps total.');
     buffer.writeln('- Max 10 ingredients.');
     buffer.writeln('- substitutions array may be empty [].');

@@ -47,6 +47,9 @@ lib/firebase_options.dart
 # Coverage
 coverage/
 
+# Local environment (API keys — never commit)
+.env.local
+
 # Claude Code
 .claude/
 

@@ -50,6 +50,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   List<String> _dietaryRequirements = [];
   List<String> _alwaysHave = [];
   List<String> _almostAlwaysHave = [];
+  List<String> _runningLowItems = [];
   List<String> _stylePreferences = [];
   bool _dataLoaded = false;
 
@@ -89,6 +90,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _dietaryRequirements = List<String>.from(data['dietaryRequirements'] ?? []);
           _alwaysHave = List<String>.from(data['alwaysHave'] ?? []);
           _almostAlwaysHave = List<String>.from(data['almostAlwaysHave'] ?? []);
+          _runningLowItems = List<String>.from(data['runningLowItems'] ?? []);
           _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
           _plan = savedPlan;
           _dataLoaded = true;
@@ -199,6 +201,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     final shoppingList = ShoppingList.fromMealPlan(
       _plan!,
       alreadyHave: [..._alwaysHave, ..._almostAlwaysHave],
+      runningLowItems: _runningLowItems,
     );
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -257,7 +260,15 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       child: Row(
         children: [
           GestureDetector(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () {
+              if (_plan != null) {
+                // Clear plan and return to config screen
+                setState(() => _plan = null);
+                _firestore.deleteMealPlan();
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
             child: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
           ),
           const SizedBox(width: 12),
@@ -269,7 +280,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                 Text(
                   _plan == null
                       ? 'Generate your week in one tap'
-                      : 'Tap a meal to view details',
+                      : 'Tap a meal to view · ← to reconfigure',
                   style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
                 ),
               ],
@@ -317,7 +328,22 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       return _buildEmptyState();
     }
 
-    final day = _plan!.days[_selectedDayIndex];
+    // Map tab index → full day name → find in plan (plan may not include all 7 days)
+    const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final selectedDayName = fullDayNames[_selectedDayIndex];
+    final dayOrNull = _plan!.days.where((d) => d.dayName == selectedDayName).firstOrNull;
+
+    if (dayOrNull == null) {
+      return Center(
+        child: Text(
+          '$selectedDayName is not included\nin this meal plan.',
+          textAlign: TextAlign.center,
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+        ),
+      );
+    }
+
+    final day = dayOrNull;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
       child: Column(
