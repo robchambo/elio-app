@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../theme/elio_theme.dart';
 import '../../services/firestore_service.dart';
 import '../../services/auth_service.dart';
+import '../../utils/pantry_utils.dart';
 import '../onboarding/screen0_welcome.dart';
 
 // ─────────────────────────────────────────────
@@ -160,6 +161,22 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   Future<void> _addInventoryItem(String name, String tier) async {
     if (name.trim().isEmpty) return;
+
+    // Check for fuzzy duplicates against existing inventory
+    final existingNames = _inventoryItems
+        .map((item) => item['name'] as String? ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+    final duplicates = PantryUtils.findDuplicates(name.trim(), existingNames);
+    if (duplicates.isNotEmpty && mounted) {
+      final addAnyway = await PantryUtils.showDuplicateWarning(
+        context,
+        name.trim(),
+        duplicates,
+      );
+      if (!addAnyway) return;
+    }
+
     try {
       final id = await _firestore.addInventoryItem(name.trim(), tier);
       if (mounted) {

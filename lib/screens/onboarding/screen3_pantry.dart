@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../models/elio_models.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
+import '../../utils/pantry_utils.dart';
 import '../../widgets/elio_progress_bar.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -64,9 +65,22 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
     });
   }
 
-  void _addItem() {
+  Future<void> _addItem() async {
     final name = _addController.text.trim();
     if (name.isEmpty) return;
+
+    // Check for fuzzy duplicates against current items
+    final existingNames = _items.map((i) => i.name).toList();
+    final duplicates = PantryUtils.findDuplicates(name, existingNames);
+    if (duplicates.isNotEmpty && mounted) {
+      final addAnyway = await PantryUtils.showDuplicateWarning(
+        context,
+        name,
+        duplicates,
+      );
+      if (!addAnyway) return;
+    }
+
     setState(() {
       _items.add(InventoryItem(name: name, tier: _addTier));
       _addController.clear();

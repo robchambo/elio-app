@@ -1,9 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/elio_models.dart';
 import '../models/meal_plan_models.dart';
 import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
+import '../utils/pantry_utils.dart';
 
 // ─────────────────────────────────────────────
 // FirestoreService
@@ -101,6 +103,9 @@ class FirestoreService {
   //   subscription: Map
 
   Future<Map<String, dynamic>> getUserData() async {
+    // Run one-time deduplication if needed (fire-and-forget, non-blocking)
+    deduplicateInventory();
+
     // Fetch user doc, all profiles, and inventory in parallel
     final userDocFuture = _db.collection('users').doc(_uid).get();
     final profilesFuture = _db.collection('users').doc(_uid).collection('profiles').get();
@@ -375,5 +380,73 @@ class FirestoreService {
     }
 
     return (3 - dailyGenerations).clamp(0, 3);
+  }
+
+  // ─── Get all inventory item names ─────────────────────────────────
+
+  Future<List<String>> getInventoryNames() async {
+    final snapshot = await _db
+        .collection('users')
+        .doc(_uid)
+        .collection('inventory')
+        .get();
+    return snapshot.docs
+        .map((doc) => (doc.data()['name'] as String?) ?? '')
+        .where((name) => name.isNotEmpty)
+        .toList();
+  }
+
+  // ─── One-time deduplication of inventory ──────────────────────────
+  // Removes exact-duplicate inventory items (same normalised name + same tier).
+  // Keeps the first occurrence, deletes the rest.
+
+  Future<int> deduplicateInventory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool('inventory_deduped_v1') == true) return 0;
+
+      final snapshot = await _db
+          .collection('users')
+          .doc(_uid)
+          .collection('inventory')
+          .get();
+
+      // Track seen items by normalised name + tier
+      final seen = <String>{};
+      final toDelete = <String>[];
+
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final name = data['name'] as String? ?? '';
+        final tier = data['tier'] as String? ?? '';
+        final key = '${PantryUtils.normalise(name)}|$tier';
+
+        if (seen.contains(key)) {
+          toDelete.add(doc.id);
+        } else {
+          seen.add(key);
+        }
+      }
+
+      // Delete duplicates in batches of 500 (Firestore batch limit)
+      for (var i = 0; i < toDelete.length; i += 500) {
+        final batch = _db.batch();
+        final end = (i + 500).clamp(0, toDelete.length);
+        for (var j = i; j < end; j++) {
+          batch.delete(_db
+              .collection('users')
+              .doc(_uid)
+              .collection('inventory')
+              .doc(toDelete[j]));
+        }
+        await batch.commit();
+      }
+
+      await prefs.setBool('inventory_deduped_v1', true);
+      return toDelete.length;
+    } catch (_) {
+      // Migration must not block the user — silently fail
+      return 0;
+    }
   }
 }
