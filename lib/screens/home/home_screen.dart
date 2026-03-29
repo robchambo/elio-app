@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -66,8 +67,14 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Recent history ─────────────────────────────────────────────────
   List<SavedRecipe> _recentRecipes = [];
 
+  // ── Saved meal plan ──────────────────────────────────────────────
+  bool _hasSavedMealPlan = false;
+
   // ── Session deduplication memory (last 10 recipe titles) ─────────────
   final List<String> _recentTitles = [];
+
+  // ── Recent custom styles (persisted in SharedPreferences) ────────
+  List<String> _recentCustomStyles = [];
 
   // ── Leftover mode ─────────────────────────────────────────────────
   bool _isLeftoverMode = false;
@@ -102,11 +109,21 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadUserData();
     _loadRecentHistory();
+    _checkSavedMealPlan();
+    _loadRecentCustomStyles();
   }
 
   Future<void> _loadRecentHistory() async {
     final all = await HistoryService.getHistory();
     if (mounted) setState(() => _recentRecipes = all.take(3).toList());
+  }
+
+  Future<void> _checkSavedMealPlan() async {
+    if (widget.isGuest) return;
+    try {
+      final plan = await _firestore.loadMealPlan();
+      if (mounted) setState(() => _hasSavedMealPlan = plan != null);
+    } catch (_) {}
   }
 
   @override
@@ -184,12 +201,175 @@ class _HomeScreenState extends State<HomeScreen> {
     return result;
   }
 
-  // ── Style chips: user's preferences + Surprise me ─────────────────
+  // ── Recent custom styles persistence ──────────────────────────────
+  static const String _recentCustomStylesKey = 'recent_custom_styles';
+
+  Future<void> _loadRecentCustomStyles() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_recentCustomStylesKey);
+    if (raw != null) {
+      final list = List<String>.from(jsonDecode(raw) as List);
+      if (mounted) setState(() => _recentCustomStyles = list);
+    }
+  }
+
+  Future<void> _saveCustomStyle(String style) async {
+    final trimmed = style.trim();
+    if (trimmed.isEmpty) return;
+    // Remove duplicate if exists, then prepend
+    _recentCustomStyles.remove(trimmed);
+    _recentCustomStyles.insert(0, trimmed);
+    // Cap at 10
+    if (_recentCustomStyles.length > 10) {
+      _recentCustomStyles = _recentCustomStyles.sublist(0, 10);
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_recentCustomStylesKey, jsonEncode(_recentCustomStyles));
+  }
+
+  void _showCustomStyleSheet() {
+    final controller = TextEditingController();
+
+    void submitStyle(String value, StateSetter setSheetState) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return;
+      Navigator.of(context).pop();
+      setState(() => _selectedStyle = trimmed);
+      _saveCustomStyle(trimmed);
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 12,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Drag handle
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text('Custom style', style: ElioText.headingMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Describe what you\'re in the mood for',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    textCapitalization: TextCapitalization.sentences,
+                    style: const TextStyle(fontSize: 15),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Korean street food, comfort pasta...',
+                      hintStyle: TextStyle(color: ElioColors.textMuted),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                    onSubmitted: (v) => submitStyle(v, setSheetState),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton(
+                      onPressed: () => submitStyle(controller.text, setSheetState),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ElioColors.amber,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
+                      child: const Text(
+                        'Use this style →',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Recent custom styles as quick-reuse chips
+                  if (_recentCustomStyles.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Recent',
+                      style: ElioText.label.copyWith(color: ElioColors.textSecondary),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _recentCustomStyles.map((style) {
+                        return GestureDetector(
+                          onTap: () {
+                            controller.text = style;
+                            submitStyle(style, setSheetState);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: ElioColors.offWhite,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(color: ElioColors.border),
+                            ),
+                            child: Text(
+                              style,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: ElioColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ── Style chips: user's preferences + recent custom + Custom... ──
   List<String> get _styleChips {
     final chips = List<String>.from(_stylePreferences);
     if (!chips.contains('Surprise me')) chips.add('Surprise me');
-    // Cap at 8 for readability
-    return chips.take(8).toList();
+    // Cap base styles at 8 for readability
+    final base = chips.take(8).toList();
+    // Add recent custom styles that aren't already in the list
+    for (final custom in _recentCustomStyles) {
+      if (!base.contains(custom)) base.add(custom);
+    }
+    // Always end with "Custom..."
+    base.add('Custom...');
+    return base;
   }
 
   // ── Add item from text field ───────────────────────────────────────
@@ -910,13 +1090,19 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: 12),
 
-        // Style row — populated from onboarding preferences
+        // Style row — populated from onboarding preferences + custom
         if (_styleChips.isNotEmpty) ...[
           _buildChipRow(
             label: 'Style',
             chips: _styleChips,
             selected: _selectedStyle,
-            onSelect: (v) => setState(() => _selectedStyle = _selectedStyle == v ? null : v),
+            onSelect: (v) {
+              if (v == 'Custom...') {
+                _showCustomStyleSheet();
+              } else {
+                setState(() => _selectedStyle = _selectedStyle == v ? null : v);
+              }
+            },
           ),
           const SizedBox(height: 12),
         ],
@@ -957,6 +1143,7 @@ class _HomeScreenState extends State<HomeScreen> {
             separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (_, i) {
               final chip = chips[i];
+              final isCustomTrigger = chip == 'Custom...';
               final isSelected = selected == chip;
               return GestureDetector(
                 onTap: () => onSelect(chip),
@@ -964,19 +1151,37 @@ class _HomeScreenState extends State<HomeScreen> {
                   duration: const Duration(milliseconds: 160),
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? ElioColors.navy.withValues(alpha: 0.08) : Colors.transparent,
+                    color: isCustomTrigger
+                        ? Colors.transparent
+                        : (isSelected ? ElioColors.navy.withValues(alpha: 0.08) : Colors.transparent),
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
-                      color: isSelected ? ElioColors.navy : ElioColors.border,
+                      color: isCustomTrigger
+                          ? ElioColors.textMuted
+                          : (isSelected ? ElioColors.navy : ElioColors.border),
                       width: isSelected ? 1.5 : 1.0,
                     ),
                   ),
-                  child: Text(
-                    chip,
-                    style: TextStyle(fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected ? ElioColors.navy : ElioColors.textPrimary,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isCustomTrigger)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Icon(Icons.add, size: 14, color: ElioColors.textMuted),
+                        ),
+                      Text(
+                        chip,
+                        style: TextStyle(fontSize: 13,
+                          fontWeight: isCustomTrigger
+                              ? FontWeight.w500
+                              : (isSelected ? FontWeight.w700 : FontWeight.w500),
+                          color: isCustomTrigger
+                              ? ElioColors.textMuted
+                              : (isSelected ? ElioColors.navy : ElioColors.textPrimary),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -1022,9 +1227,11 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─── Meal planner banner ─────────────────────────────────────────────────────
   Widget _buildMealPlannerBanner() {
     return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const MealPlanScreen()),
-      ),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const MealPlanScreen()),
+        ).then((_) => _checkSavedMealPlan()); // Refresh saved plan state on return
+      },
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(16),
@@ -1039,7 +1246,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Plan your week',
+                    _hasSavedMealPlan ? 'Your meal plan' : 'Plan your week',
                     style: ElioText.bodyLarge.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -1047,7 +1254,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '21 meals generated in one tap',
+                    _hasSavedMealPlan
+                        ? 'Tap to view your saved plan'
+                        : '21 meals generated in one tap',
                     style: ElioText.bodyMedium.copyWith(
                       color: Colors.white.withValues(alpha: 0.65),
                     ),
@@ -1061,9 +1270,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: ElioColors.amber,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Text(
-                'Open →',
-                style: TextStyle(
+              child: Text(
+                _hasSavedMealPlan ? 'View →' : 'Open →',
+                style: const TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,

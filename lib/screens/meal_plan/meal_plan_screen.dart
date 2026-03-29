@@ -4,7 +4,7 @@ import '../../models/meal_plan_models.dart';
 import '../../services/meal_plan_service.dart';
 import '../../services/firestore_service.dart';
 import '../shopping/shopping_list_screen.dart';
-import '../../utils/region_utils.dart';
+import '../recipe/recipe_screen.dart';
 
 // ─────────────────────────────────────────────
 // MealPlanScreen
@@ -211,14 +211,13 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   }
 
   void _openMealDetail(MealSlot meal) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RecipeScreen(
+          recipe: meal.toGeneratedRecipe(),
+          // No originalRequest → "Generate Another" is disabled (correct for meal plan context)
+        ),
       ),
-      builder: (_) => _MealDetailSheet(meal: meal),
     );
   }
 
@@ -260,15 +259,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       child: Row(
         children: [
           GestureDetector(
-            onTap: () {
-              if (_plan != null) {
-                // Clear plan and return to config screen
-                setState(() => _plan = null);
-                _firestore.deleteMealPlan();
-              } else {
-                Navigator.of(context).pop();
-              }
-            },
+            onTap: () => Navigator.of(context).pop(),
             child: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
           ),
           const SizedBox(width: 12),
@@ -280,13 +271,35 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                 Text(
                   _plan == null
                       ? 'Generate your week in one tap'
-                      : 'Tap a meal to view · ← to reconfigure',
+                      : 'Tap a meal to view full recipe',
                   style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
                 ),
               ],
             ),
           ),
           const SizedBox(width: 12),
+          if (_plan != null) ...[
+            // "New plan" — discard current and reconfigure
+            GestureDetector(
+              onTap: () {
+                setState(() => _plan = null);
+                _firestore.deleteMealPlan();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: ElioColors.offWhite,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: ElioColors.border),
+                ),
+                child: const Text(
+                  'New plan',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: ElioColors.textSecondary),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
           _GenerateButton(
             isGenerating: _isGenerating,
             hasExistingPlan: _plan != null,
@@ -758,197 +771,7 @@ class _MealCard extends StatelessWidget {
   }
 }
 
-// ─── Meal detail bottom sheet ─────────────────────────────────────────────────
-class _MealDetailSheet extends StatelessWidget {
-  final MealSlot meal;
-
-  const _MealDetailSheet({required this.meal});
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.75,
-      minChildSize: 0.5,
-      maxChildSize: 0.95,
-      expand: false,
-      builder: (_, scrollController) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            children: [
-              // Handle
-              Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 8),
-                child: Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: ElioColors.border,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  controller: scrollController,
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title
-                      Text(meal.title, style: ElioText.headingLarge),
-                      const SizedBox(height: 6),
-                      Text(
-                        meal.description,
-                        style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Meta badges
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          _TimeBadge(minutes: meal.totalTimeMinutes),
-                          _TimeBadge(minutes: meal.prepTimeMinutes, label: 'prep'),
-                          if (meal.caloriesPerServing != null)
-                            _MetaBadge(
-                              icon: Icons.local_fire_department_outlined,
-                              label: '${meal.caloriesPerServing} kcal',
-                              color: const Color(0xFFE53935),
-                            ),
-                          if (RegionUtils.formatCost(usd: meal.estimatedCostPerServingUSD, gbp: meal.estimatedCostPerServingGBP) != null)
-                            _MetaBadge(
-                              icon: Icons.attach_money,
-                              label: RegionUtils.formatCost(usd: meal.estimatedCostPerServingUSD, gbp: meal.estimatedCostPerServingGBP)!,
-                              color: const Color(0xFF2E7D32),
-                            ),
-                          ...meal.dietaryTags.map((tag) => _DietaryTag(label: tag)),
-                        ],
-                      ),
-
-                      const SizedBox(height: 24),
-
-                      // Ingredients
-                      Text('Ingredients', style: ElioText.headingMedium),
-                      const SizedBox(height: 10),
-                      ...meal.ingredients.map((ing) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.only(top: 6),
-                              width: 6,
-                              height: 6,
-                              decoration: const BoxDecoration(
-                                color: ElioColors.amber,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                ing.displayString,
-                                style: ElioText.bodyMedium,
-                              ),
-                            ),
-                          ],
-                        ),
-                      )),
-
-                      if (meal.steps.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        Text('Method', style: ElioText.headingMedium),
-                        const SizedBox(height: 10),
-                        ...meal.steps.asMap().entries.map((entry) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  color: ElioColors.navy,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    '${entry.key + 1}',
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 3),
-                                  child: Text(
-                                    entry.value,
-                                    style: ElioText.bodyMedium,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 // ─── Supporting widgets ───────────────────────────────────────────────────────
-
-class _MetaBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  const _MetaBadge({required this.icon, required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 11, color: color),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _TimeBadge extends StatelessWidget {
   final int minutes;

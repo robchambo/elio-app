@@ -564,6 +564,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
+  bool get _canExcludeIngredients => widget.originalRequest != null;
+
   Widget _buildIngredientsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -593,18 +595,20 @@ class _RecipeScreenState extends State<RecipeScreen> {
               ),
           ],
         ),
-        if (_excludedIngredients.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Tap ✕ to exclude an ingredient from the next generation.',
-            style: ElioText.label.copyWith(color: ElioColors.textMuted),
-          ),
-        ] else ...[
-          const SizedBox(height: 4),
-          Text(
-            'Tap ✕ on any ingredient to exclude it.',
-            style: ElioText.label.copyWith(color: ElioColors.textMuted),
-          ),
+        if (_canExcludeIngredients) ...[
+          if (_excludedIngredients.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Tap ✕ to exclude an ingredient from the next generation.',
+              style: ElioText.label.copyWith(color: ElioColors.textMuted),
+            ),
+          ] else ...[
+            const SizedBox(height: 4),
+            Text(
+              'Tap ✕ on any ingredient to exclude it.',
+              style: ElioText.label.copyWith(color: ElioColors.textMuted),
+            ),
+          ],
         ],
         const SizedBox(height: 10),
         ...widget.recipe.ingredients.map((ingredient) {
@@ -667,31 +671,33 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                // ✕ exclude button
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => _toggleExclude(ingredient.name),
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: isExcluded
-                          ? ElioColors.navy.withValues(alpha: 0.08)
-                          : Colors.transparent,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isExcluded ? Icons.add_rounded : Icons.close_rounded,
-                      size: 16,
-                      color: isExcluded ? ElioColors.navy : ElioColors.textMuted,
+                // ✕ exclude button (only when Generate Another is available)
+                if (_canExcludeIngredients) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _toggleExclude(ingredient.name),
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: isExcluded
+                            ? ElioColors.navy.withValues(alpha: 0.08)
+                            : Colors.transparent,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        isExcluded ? Icons.add_rounded : Icons.close_rounded,
+                        size: 16,
+                        color: isExcluded ? ElioColors.navy : ElioColors.textMuted,
+                      ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           );
         }),
-        if (_excludedIngredients.isNotEmpty) ...[
+        if (_canExcludeIngredients && _excludedIngredients.isNotEmpty) ...[
           const SizedBox(height: 6),
           Text(
             '${_excludedIngredients.length} ingredient${_excludedIngredients.length == 1 ? '' : 's'} excluded — tap "Generate Another" to apply.',
@@ -817,34 +823,36 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Widget _buildActionButtons() {
     return Column(
       children: [
-        // Generate Another — primary action
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: widget.originalRequest != null ? _generateAnother : null,
-            icon: _isRegenerating
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.refresh_rounded, size: 20),
-            label: Text(_isRegenerating ? 'Generating...' : 'Generate Another'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.amber,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 15),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              textStyle: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700),
-              elevation: 0,
+        // Generate Another — only when there's original request context
+        if (widget.originalRequest != null) ...[
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _generateAnother,
+              icon: _isRegenerating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 20),
+              label: Text(_isRegenerating ? 'Generating...' : 'Generate Another'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ElioColors.amber,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700),
+                elevation: 0,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        // Hands-Free Mode — secondary action
+          const SizedBox(height: 12),
+        ],
+        // Hands-Free Mode — always available
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(

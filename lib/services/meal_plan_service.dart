@@ -324,9 +324,11 @@ class MealPlanService {
     buffer.writeln('- ONLY generate the following meal types per day: $mealNames.');
 
     buffer.writeln();
-    buffer.writeln('- Include caloriesPerServing (integer kcal), estimatedCostPerServingUSD, and estimatedCostPerServingGBP for each meal (budget/own-brand pricing).');
+    buffer.writeln('- Include full nutrition per serving: calories (kcal), proteinG, carbsG, fatG, fibreG.');
+    buffer.writeln('- Include estimatedCostPerServingUSD and estimatedCostPerServingGBP (budget/own-brand pricing).');
+    buffer.writeln('- Include 1-2 substitution tips per meal (ingredient swaps with trade-off explanation).');
     buffer.writeln();
-    buffer.writeln('## JSON SCHEMA (return EXACTLY this structure with all 7 days):');
+    buffer.writeln('## JSON SCHEMA (return EXACTLY this structure):');
     buffer.writeln('''
 {
   "days": [
@@ -337,12 +339,14 @@ class MealPlanService {
         "description": "string",
         "prepTimeMinutes": 5,
         "cookTimeMinutes": 10,
+        "servings": $servings,
         "dietaryTags": ["string"],
         "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}],
         "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
-        "caloriesPerServing": 400,
+        "nutrition": {"calories": 400, "proteinG": 25.0, "carbsG": 45.0, "fatG": 12.0, "fibreG": 6.0},
         "estimatedCostPerServingUSD": 3.50,
-        "estimatedCostPerServingGBP": 2.80
+        "estimatedCostPerServingGBP": 2.80,
+        "substitutions": [{"original": "ingredient", "substitute": "swap", "tradeOff": "explanation"}]
       },
       "lunch": { ... same structure ... },
       "dinner": { ... same structure ... }
@@ -385,6 +389,8 @@ class MealPlanService {
     }
 
     buffer.writeln('Servings: $servings. Max 8 ingredients. Description: 1 sentence.');
+    buffer.writeln('Meal title must sound like home cooking, NOT a pre-made product.');
+    buffer.writeln('Ingredients must be raw/purchasable items, NOT pre-prepared dishes.');
 
     if (mealType == MealType.breakfast) {
       buffer.writeln('This is breakfast — keep it quick (under 15 min total).');
@@ -398,12 +404,14 @@ class MealPlanService {
   "description": "string",
   "prepTimeMinutes": 5,
   "cookTimeMinutes": 10,
+  "servings": $servings,
   "dietaryTags": ["string"],
   "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}],
   "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
-  "caloriesPerServing": 400,
+  "nutrition": {"calories": 400, "proteinG": 25.0, "carbsG": 45.0, "fatG": 12.0, "fibreG": 6.0},
   "estimatedCostPerServingUSD": 3.50,
-  "estimatedCostPerServingGBP": 2.80
+  "estimatedCostPerServingGBP": 2.80,
+  "substitutions": [{"original": "ingredient", "substitute": "swap", "tradeOff": "explanation"}]
 }''');
     return buffer.toString();
   }

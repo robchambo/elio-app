@@ -1,3 +1,5 @@
+import 'recipe_models.dart';
+
 // ─────────────────────────────────────────────
 // Meal Plan Models
 // Data structures for the weekly meal planner.
@@ -6,10 +8,7 @@
 //   MealPlan
 //     └── List<DayPlan> (7 days, Mon–Sun)
 //           └── Map<MealType, MealSlot>
-//                 └── MealSlot (title, description, time, dietaryTags, ingredients)
-//
-// MealSlot is intentionally lightweight — it is a summary card,
-// not a full recipe. Users tap a slot to see the full recipe.
+//                 └── MealSlot (full recipe data — shared view with single recipe)
 // ─────────────────────────────────────────────
 
 enum MealType { breakfast, lunch, dinner }
@@ -40,11 +39,15 @@ class MealSlot {
   final String description;
   final int prepTimeMinutes;
   final int cookTimeMinutes;
+  final int servings;
   final List<String> dietaryTags;
   final List<MealIngredient> ingredients;
   final List<String> steps;
 
-  /// Estimated calories per serving (nullable for backwards compat)
+  /// Full nutrition info per serving (nullable for backwards compat)
+  final NutritionInfo? nutrition;
+
+  /// Legacy: calories only (kept for old cached plans). Prefer nutrition.calories.
   final int? caloriesPerServing;
 
   /// Gemini-estimated cost per serving in USD (budget/own-brand tier)
@@ -53,6 +56,9 @@ class MealSlot {
   /// Gemini-estimated cost per serving in GBP (budget/own-brand tier)
   final double? estimatedCostPerServingGBP;
 
+  /// Substitution tips (same format as single recipe)
+  final List<RecipeSubstitution> substitutions;
+
   const MealSlot({
     required this.title,
     required this.description,
@@ -60,13 +66,19 @@ class MealSlot {
     required this.cookTimeMinutes,
     required this.dietaryTags,
     required this.ingredients,
+    this.servings = 2,
     this.steps = const [],
+    this.nutrition,
     this.caloriesPerServing,
     this.estimatedCostPerServingUSD,
     this.estimatedCostPerServingGBP,
+    this.substitutions = const [],
   });
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
+
+  /// Effective calories — prefers full nutrition object, falls back to legacy field
+  int? get effectiveCalories => nutrition?.calories ?? caloriesPerServing;
 
   factory MealSlot.fromJson(Map<String, dynamic> json) {
     return MealSlot(
@@ -74,6 +86,7 @@ class MealSlot {
       description: json['description'] as String? ?? '',
       prepTimeMinutes: (json['prepTimeMinutes'] as num?)?.toInt() ?? 5,
       cookTimeMinutes: (json['cookTimeMinutes'] as num?)?.toInt() ?? 15,
+      servings: (json['servings'] as num?)?.toInt() ?? 2,
       dietaryTags: (json['dietaryTags'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
@@ -83,9 +96,15 @@ class MealSlot {
       steps: (json['steps'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
+      nutrition: json['nutrition'] != null
+          ? NutritionInfo.fromJson(json['nutrition'] as Map<String, dynamic>)
+          : null,
       caloriesPerServing: (json['caloriesPerServing'] as num?)?.toInt(),
       estimatedCostPerServingUSD: (json['estimatedCostPerServingUSD'] as num?)?.toDouble(),
       estimatedCostPerServingGBP: (json['estimatedCostPerServingGBP'] as num?)?.toDouble(),
+      substitutions: (json['substitutions'] as List<dynamic>? ?? [])
+          .map((e) => RecipeSubstitution.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -94,13 +113,41 @@ class MealSlot {
     'description': description,
     'prepTimeMinutes': prepTimeMinutes,
     'cookTimeMinutes': cookTimeMinutes,
+    'servings': servings,
     'dietaryTags': dietaryTags,
     'ingredients': ingredients.map((i) => i.toJson()).toList(),
     'steps': steps,
+    if (nutrition != null) 'nutrition': nutrition!.toMap(),
     if (caloriesPerServing != null) 'caloriesPerServing': caloriesPerServing,
     if (estimatedCostPerServingUSD != null) 'estimatedCostPerServingUSD': estimatedCostPerServingUSD,
     if (estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': estimatedCostPerServingGBP,
+    if (substitutions.isNotEmpty) 'substitutions': substitutions.map((s) => s.toMap()).toList(),
   };
+
+  /// Convert to GeneratedRecipe for use with the unified RecipeScreen.
+  GeneratedRecipe toGeneratedRecipe() {
+    return GeneratedRecipe(
+      title: title,
+      prepTimeMinutes: prepTimeMinutes,
+      cookTimeMinutes: cookTimeMinutes,
+      servings: servings,
+      description: description,
+      ingredients: ingredients
+          .map((i) => RecipeIngredient(
+                name: i.name,
+                quantity: i.quantity,
+                unit: i.unit,
+                fromInventory: false,
+              ))
+          .toList(),
+      steps: steps,
+      substitutions: substitutions,
+      dietaryTags: dietaryTags,
+      nutrition: nutrition,
+      estimatedCostPerServingUSD: estimatedCostPerServingUSD,
+      estimatedCostPerServingGBP: estimatedCostPerServingGBP,
+    );
+  }
 }
 
 class MealIngredient {
