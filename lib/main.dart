@@ -8,6 +8,8 @@ import 'screens/onboarding/screen0_welcome.dart';
 import 'screens/home/home_screen.dart';
 import 'services/firestore_service.dart';
 import 'services/analytics_service.dart';
+import 'services/remote_config_service.dart';
+import 'services/purchase_service.dart';
 
 // ─────────────────────────────────────────────
 // Elio — AI Recipe Generator
@@ -31,6 +33,12 @@ void main() async {
 
     // Initialise Analytics (sets user properties, enables collection)
     await AnalyticsService.instance.init();
+
+    // Fetch Remote Config (Gemini API key, feature flags)
+    await RemoteConfigService.instance.init();
+
+    // Initialise RevenueCat (runs in dry mode if no API key configured)
+    await PurchaseService.instance.init();
   } catch (_) {
     // Firebase init may fail with placeholder credentials — app still
     // functions in guest mode.

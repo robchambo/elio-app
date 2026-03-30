@@ -807,8 +807,7 @@ class _MealCard extends StatelessWidget {
 
 class _TimeBadge extends StatelessWidget {
   final int minutes;
-  final String? label;
-  const _TimeBadge({required this.minutes, this.label});
+  const _TimeBadge({required this.minutes});
 
   @override
   Widget build(BuildContext context) {
@@ -824,7 +823,7 @@ class _TimeBadge extends StatelessWidget {
           const Icon(Icons.timer_outlined, size: 11, color: ElioColors.amber),
           const SizedBox(width: 3),
           Text(
-            label != null ? '$minutes min $label' : '$minutes min',
+            '$minutes min',
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,

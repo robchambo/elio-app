@@ -269,11 +269,13 @@ class MealPlan {
 class ShoppingItem {
   final String name;
   final List<String> quantities; // one per meal that uses it
+  final bool isRestock; // true for Running Low items
   bool isChecked;
 
   ShoppingItem({
     required this.name,
     required this.quantities,
+    this.isRestock = false,
     this.isChecked = false,
   });
 }
@@ -323,7 +325,7 @@ class ShoppingList {
     for (final item in runningLowItems) {
       final key = item.toLowerCase().trim();
       if (!existingNames.contains(key)) {
-        items.add(ShoppingItem(name: key, quantities: ['Restock']));
+        items.add(ShoppingItem(name: key, quantities: ['Restock'], isRestock: true));
         existingNames.add(key);
       }
     }

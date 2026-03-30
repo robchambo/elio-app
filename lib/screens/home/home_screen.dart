@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
 import '../../services/firestore_service.dart';
@@ -206,18 +204,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
     return result;
-  }
-
-  // ── Recent custom styles persistence ──────────────────────────────
-  static const String _recentCustomStylesKey = 'recent_custom_styles';
-
-  Future<void> _loadRecentCustomStyles() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_recentCustomStylesKey);
-    if (raw != null) {
-      final list = List<String>.from(jsonDecode(raw) as List);
-      if (mounted) setState(() => _recentCustomStyles = list);
-    }
   }
 
   void _saveCustomStyle(String style) {

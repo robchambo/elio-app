@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/recipe_models.dart';
+import 'remote_config_service.dart';
 
 // ─────────────────────────────────────────────
 // GeminiService
@@ -15,7 +16,7 @@ import '../models/recipe_models.dart';
 // ─────────────────────────────────────────────
 
 class GeminiService {
-  static const String _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static String get _apiKey => RemoteConfigService.instance.geminiApiKey;
   static const String _model = 'gemini-2.5-flash';
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';

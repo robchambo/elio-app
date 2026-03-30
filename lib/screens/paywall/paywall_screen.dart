@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
 import '../../theme/elio_theme.dart';
 import '../../services/analytics_service.dart';
+import '../../services/purchase_service.dart';
+import '../../services/entitlement_service.dart';
 
 // ─────────────────────────────────────────────
 // PaywallScreen
@@ -30,7 +33,10 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen> {
   final AnalyticsService _analytics = AnalyticsService.instance;
+  final PurchaseService _purchases = PurchaseService.instance;
   bool _isAnnual = true; // Annual pre-selected
+  bool _isLoading = false;
+  List<Package> _packages = [];
 
   @override
   void initState() {
@@ -39,6 +45,13 @@ class _PaywallScreenState extends State<PaywallScreen> {
       'trigger': widget.trigger.name,
       'locked_feature': widget.lockedFeatureName ?? 'none',
     });
+    _loadPackages();
+  }
+
+  Future<void> _loadPackages() async {
+    if (!_purchases.isAvailable) return;
+    final packages = await _purchases.getPackages();
+    if (mounted) setState(() => _packages = packages);
   }
 
   String get _headline {
@@ -144,34 +157,44 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: _onSubscribe,
+                        onPressed: _isLoading ? null : _onSubscribe,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: ElioColors.amber,
                           foregroundColor: Colors.white,
+                          disabledBackgroundColor: ElioColors.amber.withValues(alpha: 0.5),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                         ),
-                        child: Text(
-                          widget.trigger == PaywallTrigger.onboarding
-                              ? 'Start Free Trial'
-                              : _isAnnual
-                                  ? 'Go Pro — £27.99/year'
-                                  : 'Go Pro — £4.49/month',
-                          style: GoogleFonts.outfit(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2.5,
+                                ),
+                              )
+                            : Text(
+                                widget.trigger == PaywallTrigger.onboarding
+                                    ? 'Start Free Trial'
+                                    : _isAnnual
+                                        ? 'Go Pro — £27.99/year'
+                                        : 'Go Pro — £4.49/month',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(height: 12),
 
-                    // ── Secondary CTA ────────────────────────
+                    // ── Secondary CTAs ───────────────────────
                     if (widget.trigger == PaywallTrigger.onboarding)
                       TextButton(
-                        onPressed: () {
+                        onPressed: _isLoading ? null : () {
                           _analytics.logEvent('paywall_skip_trial');
                           Navigator.of(context).pop();
                         },
@@ -184,7 +207,18 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         ),
                       ),
 
-                    const SizedBox(height: 8),
+                    // ── Restore purchases ────────────────────
+                    TextButton(
+                      onPressed: _isLoading ? null : _onRestore,
+                      child: Text(
+                        'Restore purchases',
+                        style: ElioText.bodyMedium.copyWith(
+                          color: ElioColors.textSecondary,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
                     Text(
                       'Cancel anytime. No commitment.',
                       style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
@@ -278,15 +312,75 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
-  void _onSubscribe() {
+  Future<void> _onSubscribe() async {
     _analytics.logEvent('paywall_subscribe_tapped', {
       'plan': _isAnnual ? 'annual' : 'monthly',
       'trigger': widget.trigger.name,
     });
-    // TODO: Integrate with RevenueCat / StoreKit / Google Play Billing
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Subscription coming soon!')),
+
+    if (!_purchases.isAvailable) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Subscriptions coming soon!')),
+        );
+      }
+      return;
+    }
+
+    // Find the right package
+    final targetId = _isAnnual
+        ? PurchaseService.annualProductId
+        : PurchaseService.monthlyProductId;
+    final package = _packages.cast<Package?>().firstWhere(
+      (p) => p!.storeProduct.identifier == targetId,
+      orElse: () => _packages.isNotEmpty ? _packages.first : null,
     );
+
+    if (package == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No plans available. Please try again later.')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    final success = await _purchases.purchasePackage(package);
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (success) {
+      await EntitlementService.instance.refresh();
+      _analytics.logEvent('purchase_completed', {
+        'plan': _isAnnual ? 'annual' : 'monthly',
+      });
+      if (mounted) Navigator.of(context).pop(true);
+    }
+  }
+
+  Future<void> _onRestore() async {
+    setState(() => _isLoading = true);
+    final success = await _purchases.restorePurchases();
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    if (success) {
+      await EntitlementService.instance.refresh();
+      _analytics.logEvent('purchase_restored');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Pro access restored!')),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No previous subscription found.')),
+        );
+      }
+    }
   }
 }
 

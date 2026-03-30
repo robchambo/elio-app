@@ -36,6 +36,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     _items = widget.shoppingList.items.map((item) => ShoppingItem(
       name: item.name,
       quantities: List.from(item.quantities),
+      isRestock: item.isRestock,
       isChecked: false,
     )).toList();
   }
@@ -157,14 +158,11 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
                       children: [
-                        // Unchecked items
-                        ...unchecked.map((item) {
-                          final index = _items.indexOf(item);
-                          return _ShoppingItemTile(
-                            item: item,
-                            onTap: () => _toggleItem(index),
-                          );
-                        }),
+                        // Restock section (Running Low items) — always at top
+                        ..._buildRestockSection(unchecked),
+
+                        // Recipe ingredients section
+                        ..._buildRecipeSection(unchecked),
 
                         // Checked items section
                         if (checked.isNotEmpty) ...[
@@ -207,6 +205,63 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
         ),
       ),
     );
+  }
+
+  List<Widget> _buildRestockSection(List<ShoppingItem> unchecked) {
+    final restockItems = unchecked.where((i) => i.isRestock).toList();
+    if (restockItems.isEmpty) return [];
+
+    return [
+      Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, size: 16, color: ElioColors.amber),
+          const SizedBox(width: 6),
+          Text(
+            'Restock (${restockItems.length})',
+            style: ElioText.label.copyWith(
+              color: ElioColors.amber,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      ...restockItems.map((item) {
+        final index = _items.indexOf(item);
+        return _ShoppingItemTile(
+          item: item,
+          onTap: () => _toggleItem(index),
+        );
+      }),
+      const SizedBox(height: 16),
+    ];
+  }
+
+  List<Widget> _buildRecipeSection(List<ShoppingItem> unchecked) {
+    final recipeItems = unchecked.where((i) => !i.isRestock).toList();
+    if (recipeItems.isEmpty) return [];
+
+    final hasRestock = unchecked.any((i) => i.isRestock);
+    return [
+      if (hasRestock) ...[
+        Text(
+          'For recipes (${recipeItems.length})',
+          style: ElioText.label.copyWith(
+            color: ElioColors.textMuted,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+      ...recipeItems.map((item) {
+        final index = _items.indexOf(item);
+        return _ShoppingItemTile(
+          item: item,
+          onTap: () => _toggleItem(index),
+        );
+      }),
+    ];
   }
 
   Widget _buildEmptyState() {
