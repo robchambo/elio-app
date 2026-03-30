@@ -65,8 +65,8 @@ class GeminiService {
           'topP': 0.95,
           'maxOutputTokens': 4096,
           'responseMimeType': 'application/json',
-          'thinkingConfig': {'thinkingBudget': 0},
         },
+        'thinkingConfig': {'thinkingBudget': 0},
       }),
     );
 
@@ -74,10 +74,13 @@ class GeminiService {
       throw Exception('Recipe generation is temporarily unavailable (rate limit reached). Please wait a minute and try again.');
     }
     if (response.statusCode == 400) {
-      throw Exception('Invalid request to recipe service. Please try again.');
+      throw Exception('Invalid request to recipe service (400). Please try again.');
     }
     if (response.statusCode == 403) {
       throw Exception('Recipe service access denied. Please check your API key.');
+    }
+    if (response.statusCode == 404) {
+      throw Exception('Recipe service unavailable (model not found). Please try again.');
     }
     if (response.statusCode != 200) {
       throw Exception('Recipe service error (${response.statusCode}). Please try again.');
@@ -217,6 +220,12 @@ class GeminiService {
       buffer.writeln();
       buffer.writeln('## EXCLUDED INGREDIENTS (do NOT use these — user has run out or does not want them):');
       buffer.writeln(request.excludedIngredients.join(', '));
+    }
+
+    if (request.appliances.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('## AVAILABLE APPLIANCES:');
+      buffer.writeln('User has: ${request.appliances.join(', ')}. Where appropriate, suggest using these appliances to enhance the recipe.');
     }
 
     if (request.recentTitles.isNotEmpty) {

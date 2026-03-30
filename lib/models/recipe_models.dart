@@ -52,6 +52,9 @@ class RecipeGenerationRequest {
   /// Titles of recipes the user has disliked — used for adaptive learning
   final List<String> dislikedRecipes;
 
+  /// Kitchen appliances the user owns — used to enhance recipe suggestions
+  final List<String> appliances;
+
   const RecipeGenerationRequest({
     required this.perishables,
     required this.alwaysHave,
@@ -68,6 +71,7 @@ class RecipeGenerationRequest {
     this.leftoverItems = const [],
     this.likedRecipes = const [],
     this.dislikedRecipes = const [],
+    this.appliances = const [],
   });
 }
 

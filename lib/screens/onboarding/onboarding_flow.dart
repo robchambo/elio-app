@@ -11,6 +11,7 @@ import 'screen2_preset.dart';
 import 'screen3_pantry.dart';
 import 'screen4_household.dart';
 import 'screen5_style.dart';
+import 'screen6_appliances.dart';
 
 // ─────────────────────────────────────────────
 // OnboardingFlow
@@ -25,6 +26,7 @@ import 'screen5_style.dart';
 //   3. Pantry review (mandatory)
 //   4. Household members (optional)
 //   5. Style preferences (optional)
+//   6. Kitchen appliances (optional)
 // ─────────────────────────────────────────────
 
 class OnboardingFlow extends StatefulWidget {
@@ -51,7 +53,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   bool _isSaving = false;
 
   static const List<String> _stepNames = [
-    'dietary', 'kitchen_preset', 'pantry_review', 'household', 'style',
+    'dietary', 'kitchen_preset', 'pantry_review', 'household', 'style', 'appliances',
   ];
 
   @override
@@ -92,8 +94,14 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     _goToPage(4);
   }
 
-  Future<void> _onStyleComplete(OnboardingState updated) async {
+  void _onStyleComplete(OnboardingState updated) {
+    setState(() => _state = updated);
     _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[4]});
+    _goToPage(5);
+  }
+
+  Future<void> _onAppliancesComplete(OnboardingState updated) async {
+    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[5]});
     setState(() { _state = updated; _isSaving = true; });
 
     // Guest mode: persist pantry data locally then navigate
@@ -189,6 +197,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           state: _state,
           onComplete: _onStyleComplete,
           onBack: () => _goToPage(3),
+        ),
+        KitchenAppliancesScreen(
+          state: _state,
+          onComplete: _onAppliancesComplete,
+          onBack: () => _goToPage(4),
         ),
       ],
     );

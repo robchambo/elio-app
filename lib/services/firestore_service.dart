@@ -46,6 +46,7 @@ class FirestoreService {
       'createdAt': now,
       'onboardingComplete': true,
       'stylePreferences': state.stylePreferences,
+      'appliances': state.appliances,
       'subscription': {
         'tier': 'free',
         'status': 'active',
@@ -170,6 +171,7 @@ class FirestoreService {
 
     return {
       'stylePreferences': List<String>.from(userData['stylePreferences'] ?? []),
+      'appliances': List<String>.from(userData['appliances'] ?? []),
       'dietaryRequirements': dietaryRequirements,
       'customAllergens': customAllergens,
       'householdProfiles': householdProfiles,
@@ -179,6 +181,12 @@ class FirestoreService {
       'inventoryWithIds': inventoryWithIds,
       'subscription': userData['subscription'] as Map<String, dynamic>? ?? {},
     };
+  }
+
+  // ─── Save appliances ────────────────────────────────────────────────
+
+  Future<void> saveAppliances(List<String> appliances) async {
+    await _db.collection('users').doc(_uid).update({'appliances': appliances});
   }
 
   // ─── Free tier: check if user can generate a recipe ─────────────

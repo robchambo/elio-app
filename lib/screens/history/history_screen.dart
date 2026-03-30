@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/recipe_models.dart';
 import '../../services/history_service.dart';
+import '../../services/entitlement_service.dart';
 import '../../theme/elio_theme.dart';
 import '../recipe/recipe_screen.dart';
 
@@ -21,6 +22,7 @@ class HistoryScreen extends StatefulWidget {
 class _HistoryScreenState extends State<HistoryScreen> {
   List<SavedRecipe> _recipes = [];
   bool _loading = true;
+  bool _historyTrimmed = false;
 
   @override
   void initState() {
@@ -29,8 +31,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _load() async {
-    final recipes = await HistoryService.getHistory();
-    if (mounted) setState(() { _recipes = recipes; _loading = false; });
+    // Refresh entitlements then apply the free-tier 20-item cap.
+    await EntitlementService.instance.refresh();
+    final allRecipes = await HistoryService.getHistory();
+    List<SavedRecipe> recipes = allRecipes;
+    bool trimmed = false;
+    if (EntitlementService.instance.isFree &&
+        allRecipes.length > EntitlementService.freeHistoryLimit) {
+      recipes = allRecipes.take(EntitlementService.freeHistoryLimit).toList();
+      trimmed = true;
+    }
+    if (mounted) {
+      setState(() {
+        _recipes = recipes;
+        _historyTrimmed = trimmed;
+        _loading = false;
+      });
+    }
   }
 
   Future<void> _delete(SavedRecipe saved) async {
@@ -167,11 +184,38 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  Widget _buildUpgradeBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(0, 8, 0, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: ElioColors.amber.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ElioColors.amber, width: 1),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_outline_rounded, color: ElioColors.amber, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Upgrade for full history — free accounts show the 20 most recent recipes.',
+              style: GoogleFonts.outfit(fontSize: 13, color: ElioColors.textPrimary, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildList() {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-      itemCount: _recipes.length,
+      itemCount: _recipes.length + (_historyTrimmed ? 1 : 0),
       itemBuilder: (context, index) {
+        if (_historyTrimmed && index == _recipes.length) {
+          return _buildUpgradeBanner();
+        }
         final saved = _recipes[index];
         final recipe = saved.recipe;
         return Dismissible(

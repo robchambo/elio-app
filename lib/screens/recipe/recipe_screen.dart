@@ -80,6 +80,93 @@ class _RecipeScreenState extends State<RecipeScreen> {
     });
   }
 
+  void _onExcludeIngredientTap(String ingredientName) {
+    // Re-including: instant, no popup needed
+    if (_excludedIngredients.contains(ingredientName)) {
+      _toggleExclude(ingredientName);
+      return;
+    }
+
+    // Check if the recipe already has a substitution for this ingredient
+    final sub = widget.recipe.substitutions.where((s) {
+      final original = s.original.toLowerCase();
+      final name = ingredientName.toLowerCase();
+      return original.contains(name) || name.contains(original);
+    }).firstOrNull;
+
+    if (sub == null) {
+      // No substitution available — exclude silently
+      _toggleExclude(ingredientName);
+      return;
+    }
+
+    // Show substitution suggestion
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: ElioColors.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('No ${sub.original}?', style: ElioText.headingMedium),
+            const SizedBox(height: 8),
+            RichText(
+              text: TextSpan(
+                style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+                children: [
+                  const TextSpan(text: 'Try '),
+                  TextSpan(
+                    text: sub.substitute,
+                    style: ElioText.bodyLarge.copyWith(
+                      color: ElioColors.navy,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(text: ' instead. ${sub.tradeOff}'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  _toggleExclude(ingredientName);
+                },
+                child: Text('Got it — exclude ${sub.original}'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Keep it'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _generateAnother() async {
     if (_isRegenerating) return;
     final request = widget.originalRequest;
@@ -306,6 +393,47 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
+  void _showCostInfoSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: ElioColors.border, borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            const Icon(Icons.info_outline, color: ElioColors.amber, size: 32),
+            const SizedBox(height: 12),
+            Text('About cost estimates', style: ElioText.headingMedium),
+            const SizedBox(height: 8),
+            Text(
+              "Elio's best estimate based on standard, non-premium ingredients. Actual costs may vary depending on where you shop!",
+              style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Got it'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildRatingRow() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -507,9 +635,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 ),
               ),
             if (_costLabel != null)
-              _MetaBadge(
-                icon: Icons.shopping_basket_outlined,
-                label: _costLabel!,
+              GestureDetector(
+                onTap: _showCostInfoSheet,
+                child: _MetaBadge(
+                  icon: Icons.shopping_basket_outlined,
+                  label: _costLabel!,
+                ),
               ),
           ],
         ),
@@ -682,7 +813,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 if (_canExcludeIngredients) ...[
                   const SizedBox(width: 8),
                   GestureDetector(
-                    onTap: () => _toggleExclude(ingredient.name),
+                    onTap: () => _onExcludeIngredientTap(ingredient.name),
                     child: Container(
                       width: 24,
                       height: 24,

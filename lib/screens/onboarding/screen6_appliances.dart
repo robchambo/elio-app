@@ -4,18 +4,19 @@ import '../../theme/elio_theme.dart';
 import '../../widgets/elio_progress_bar.dart';
 
 // ─────────────────────────────────────────────
-// Screen 5 — Food Style Preferences (Optional)
+// Screen 6 — Kitchen Appliances (Optional)
 // Design philosophy: approachable utility.
-// Multi-select grid of cooking styles that pre-populate
-// the Style chips on the home screen. Fully skippable.
+// Multi-select chip grid of appliances the user owns.
+// Stored in Firestore and used to enhance recipe suggestions.
+// Fully skippable.
 // ─────────────────────────────────────────────
 
-class StylePreferencesScreen extends StatefulWidget {
+class KitchenAppliancesScreen extends StatefulWidget {
   final OnboardingState state;
   final void Function(OnboardingState updated) onComplete;
   final VoidCallback onBack;
 
-  const StylePreferencesScreen({
+  const KitchenAppliancesScreen({
     super.key,
     required this.state,
     required this.onComplete,
@@ -23,38 +24,33 @@ class StylePreferencesScreen extends StatefulWidget {
   });
 
   @override
-  State<StylePreferencesScreen> createState() => _StylePreferencesScreenState();
+  State<KitchenAppliancesScreen> createState() => _KitchenAppliancesScreenState();
 }
 
-class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
+class _KitchenAppliancesScreenState extends State<KitchenAppliancesScreen> {
   late Set<String> _selected;
   final ScrollController _scrollController = ScrollController();
   bool _showScrollHint = true;
 
-  static const List<_StyleOption> _options = [
-    _StyleOption('Asian', '🍜'),
-    _StyleOption('Mediterranean', '🫒'),
-    _StyleOption('Indian', '🍛'),
-    _StyleOption('Mexican', '🌮'),
-    _StyleOption('Italian', '🍝'),
-    _StyleOption('Middle Eastern', '🧆'),
-    _StyleOption('Japanese', '🍱'),
-    _StyleOption('Thai', '🌶️'),
-    _StyleOption('American', '🍔'),
-    _StyleOption('French', '🥐'),
-    _StyleOption('Comfort food', '🥘'),
-    _StyleOption('Light & healthy', '🥗'),
-    _StyleOption('Quick & easy', '⚡'),
-    _StyleOption('Smoothies', '🥤'),
-    _StyleOption('Vegetable-forward', '🥦'),
-    _StyleOption('High protein', '💪'),
-    _StyleOption('Budget-friendly', '💰'),
+  static const List<_ApplianceOption> _options = [
+    _ApplianceOption('Air fryer', '🌬️'),
+    _ApplianceOption('Slow cooker', '🍲'),
+    _ApplianceOption('Rice cooker', '🍚'),
+    _ApplianceOption('Instant Pot / Pressure cooker', '⚡'),
+    _ApplianceOption('Stand mixer', '🎂'),
+    _ApplianceOption('Food processor', '🔪'),
+    _ApplianceOption('Blender', '🥤'),
+    _ApplianceOption('Sous vide', '🌡️'),
+    _ApplianceOption('Bread maker', '🍞'),
+    _ApplianceOption('Waffle iron', '🧇'),
+    _ApplianceOption('Spiralizer', '🥗'),
+    _ApplianceOption('Grill / BBQ', '🔥'),
   ];
 
   @override
   void initState() {
     super.initState();
-    _selected = Set.from(widget.state.stylePreferences);
+    _selected = Set.from(widget.state.appliances);
     _scrollController.addListener(() {
       final atBottom = _scrollController.position.pixels >=
           _scrollController.position.maxScrollExtent - 40;
@@ -72,19 +68,19 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
     super.dispose();
   }
 
-  void _toggle(String style) {
+  void _toggle(String appliance) {
     setState(() {
-      if (_selected.contains(style)) {
-        _selected.remove(style);
+      if (_selected.contains(appliance)) {
+        _selected.remove(appliance);
       } else {
-        _selected.add(style);
+        _selected.add(appliance);
       }
     });
   }
 
   void _complete() {
     widget.onComplete(
-      widget.state.copyWith(stylePreferences: _selected.toList()),
+      widget.state.copyWith(appliances: _selected.toList()),
     );
   }
 
@@ -98,7 +94,7 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
             // ── Progress bar ──────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: ElioProgressBar(currentStep: 5, totalSteps: 5),
+              child: ElioProgressBar(currentStep: 6, totalSteps: 6),
             ),
 
             // ── Back button ───────────────────────────────────────
@@ -120,10 +116,10 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('What do you like to cook?', style: ElioText.displayMedium),
+                  Text("What's in your kitchen?", style: ElioText.displayMedium),
                   const SizedBox(height: 8),
                   Text(
-                    'We\'ll use this to personalise your recipe suggestions. You can change this any time.',
+                    "We'll suggest recipes that make the most of your appliances.",
                     style: ElioText.bodyLarge,
                   ),
                   const SizedBox(height: 6),
@@ -140,7 +136,7 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Style grid with scroll indicator ──────────────
+            // ── Appliances grid with scroll indicator ──────────────
             Expanded(
               child: Stack(
                 children: [
@@ -158,7 +154,7 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
                       itemBuilder: (context, i) {
                         final opt = _options[i];
                         final isSelected = _selected.contains(opt.label);
-                        return _StyleChip(
+                        return _ApplianceChip(
                           option: opt,
                           isSelected: isSelected,
                           onTap: () => _toggle(opt.label),
@@ -221,7 +217,7 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
                     child: ElevatedButton(
                       onPressed: _complete,
                       child: Text(
-                        _selected.isEmpty ? 'Continue' : 'Save preferences',
+                        _selected.isEmpty ? 'Continue' : 'Save appliances',
                       ),
                     ),
                   ),
@@ -245,14 +241,14 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
   }
 }
 
-// ─── Style chip tile ─────────────────────────────────────────────────────────
+// ─── Appliance chip tile ──────────────────────────────────────────────────────
 
-class _StyleChip extends StatelessWidget {
-  final _StyleOption option;
+class _ApplianceChip extends StatelessWidget {
+  final _ApplianceOption option;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _StyleChip({
+  const _ApplianceChip({
     required this.option,
     required this.isSelected,
     required this.onTap,
@@ -301,8 +297,8 @@ class _StyleChip extends StatelessWidget {
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
-class _StyleOption {
+class _ApplianceOption {
   final String label;
   final String emoji;
-  const _StyleOption(this.label, this.emoji);
+  const _ApplianceOption(this.label, this.emoji);
 }

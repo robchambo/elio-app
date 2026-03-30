@@ -60,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _alwaysHave = [];
   List<String> _almostAlwaysHave = [];
   List<String> _runningLowItems = []; // items flagged as running low
+  List<String> _appliances = [];
   bool _isLoading = true;
   bool _isGenerating = false;
 
@@ -163,6 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _alwaysHave = List<String>.from(data['alwaysHave'] ?? []);
           _almostAlwaysHave = List<String>.from(data['almostAlwaysHave'] ?? []);
           _runningLowItems = List<String>.from(data['runningLowItems'] ?? []);
+          _appliances = List<String>.from(data['appliances'] ?? []);
           _householdProfiles = List<Map<String, dynamic>>.from(
             (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
           );
@@ -442,6 +444,7 @@ class _HomeScreenState extends State<HomeScreen> {
         leftoverItems: _isLeftoverMode ? _leftoverItems.toList() : [],
         likedRecipes: likedRecipes,
         dislikedRecipes: dislikedRecipes,
+        appliances: _appliances,
       );
 
       final recipe = await GeminiService.generateRecipe(request);

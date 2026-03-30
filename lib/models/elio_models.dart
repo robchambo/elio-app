@@ -16,7 +16,8 @@ enum DietaryRequirement {
   kosher('Kosher'),
   lowFodmap('Low FODMAP'),
   diabeticFriendly('Diabetic-friendly'),
-  lowCarb('Low-carb');
+  lowCarb('Low-carb'),
+  highProtein('High-protein');
 
   final String label;
   const DietaryRequirement(this.label);

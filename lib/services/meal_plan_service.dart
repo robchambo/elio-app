@@ -97,8 +97,8 @@ class MealPlanService {
           'topP': 0.95,
           'maxOutputTokens': 8192,
           'responseMimeType': 'application/json',
-          'thinkingConfig': {'thinkingBudget': 0},
         },
+        'thinkingConfig': {'thinkingBudget': 0},
       }),
     );
 
@@ -209,8 +209,8 @@ class MealPlanService {
           'topP': 0.95,
           'maxOutputTokens': 1024,
           'responseMimeType': 'application/json',
-          'thinkingConfig': {'thinkingBudget': 0},
         },
+        'thinkingConfig': {'thinkingBudget': 0},
       }),
     );
 

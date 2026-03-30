@@ -52,24 +52,42 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   // ── Style preferences ──────────────────────────────────────────────
   List<String> _stylePreferences = [];
 
+  // ── Kitchen appliances ─────────────────────────────────────────────
+  List<String> _appliances = [];
+
   // ── Available options ──────────────────────────────────────────────
   static const List<String> _allDietaryOptions = [
     'Vegetarian', 'Vegan', 'Gluten-free', 'Dairy-free',
     'Nut-free', 'Halal', 'Kosher', 'Low FODMAP',
-    'Diabetic-friendly', 'Low-carb',
+    'Diabetic-friendly', 'Low-carb', 'High-protein',
   ];
 
   static const List<String> _allStyleOptions = [
     'Italian', 'Asian', 'Middle Eastern', 'Mexican',
     'Mediterranean', 'Indian', 'American', 'French',
     'Japanese', 'Thai', 'Greek', 'British',
-    'Comfort food', 'Healthy', 'Quick & easy',
+    'Comfort food', 'Healthy', 'Quick & easy', 'Smoothies',
+  ];
+
+  static const List<String> _allApplianceOptions = [
+    'Air fryer',
+    'Slow cooker',
+    'Rice cooker',
+    'Instant Pot / Pressure cooker',
+    'Stand mixer',
+    'Food processor',
+    'Blender',
+    'Sous vide',
+    'Bread maker',
+    'Waffle iron',
+    'Spiralizer',
+    'Grill / BBQ',
   ];
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _loadData();
   }
 
@@ -89,6 +107,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           (data['inventoryWithIds'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
         );
         _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
+        _appliances = List<String>.from(data['appliances'] ?? []);
         _householdProfiles = List<Map<String, dynamic>>.from(
           (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
         );
@@ -338,6 +357,23 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
+  // ── Appliance helpers ──────────────────────────────────────────────
+
+  Future<void> _toggleAppliance(String appliance) async {
+    final updated = List<String>.from(_appliances);
+    if (updated.contains(appliance)) {
+      updated.remove(appliance);
+    } else {
+      updated.add(appliance);
+    }
+    setState(() => _appliances = updated);
+    try {
+      await _firestore.saveAppliances(updated);
+    } catch (_) {
+      _showSnack('Could not save appliance change. Please try again.');
+    }
+  }
+
   // ── Household helpers ──────────────────────────────────────────────
 
   Future<void> _deleteMember(String profileId) async {
@@ -360,6 +396,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   Future<void> _addMember(String name, List<String> dietary) async {
     if (name.trim().isEmpty) return;
+
+    // Enforce household member limit for free tier.
+    if (_householdProfiles.length >= EntitlementService.instance.maxHouseholdMembers) {
+      _showSnack('Upgrade to Pro to add more household members.');
+      return;
+    }
+
     try {
       final ref = FirebaseFirestore.instance
           .collection('users')
@@ -475,6 +518,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 Tab(text: 'Dietary'),
                 Tab(text: 'Household'),
                 Tab(text: 'Style'),
+                Tab(text: 'Kitchen'),
               ],
             ),
             const Divider(height: 1),
@@ -489,6 +533,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         _buildDietaryTab(),
                         _buildHouseholdTab(),
                         _buildStyleTab(),
+                        _buildKitchenTab(),
                       ],
                     ),
             ),
@@ -1207,6 +1252,51 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 ),
                 child: Text(
                   style,
+                  style: ElioText.label.copyWith(
+                    color: isSelected ? Colors.white : ElioColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  // ─── Kitchen tab ──────────────────────────────────────────────────────────────
+  Widget _buildKitchenTab() {
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        Text('Your kitchen appliances', style: ElioText.headingMedium),
+        const SizedBox(height: 4),
+        Text(
+          "Select the appliances you own and we'll tailor recipes to make the most of them.",
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+        ),
+        const SizedBox(height: 20),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: _allApplianceOptions.map((appliance) {
+            final isSelected = _appliances.contains(appliance);
+            return GestureDetector(
+              onTap: () => _toggleAppliance(appliance),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? ElioColors.amber : ElioColors.offWhite,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isSelected ? ElioColors.amber : ElioColors.border,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Text(
+                  appliance,
                   style: ElioText.label.copyWith(
                     color: isSelected ? Colors.white : ElioColors.textPrimary,
                     fontWeight: FontWeight.w600,
