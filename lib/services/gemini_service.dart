@@ -64,7 +64,6 @@ class GeminiService {
           'topK': 40,
           'topP': 0.95,
           'maxOutputTokens': 4096,
-          'responseMimeType': 'application/json',
         },
       }),
     );
@@ -104,7 +103,11 @@ class GeminiService {
       throw Exception('Empty response from AI. Please try again.');
     }
 
-    String rawText = parts[0]['text'] as String? ?? '';
+    // Skip thinking parts — find the actual text response
+    final textParts = parts.where((p) => p['thought'] != true).toList();
+    String rawText = textParts.isNotEmpty
+        ? (textParts.last['text'] as String? ?? '')
+        : (parts.last['text'] as String? ?? '');
     final recipeJson = _extractJson(rawText);
     return GeneratedRecipe.fromJson(recipeJson);
   }

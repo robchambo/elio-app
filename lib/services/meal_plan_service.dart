@@ -95,8 +95,7 @@ class MealPlanService {
           'temperature': 0.85,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 8192,
-          'responseMimeType': 'application/json',
+          'maxOutputTokens': 16384,
         },
       }),
     );
@@ -120,7 +119,11 @@ class MealPlanService {
       throw Exception('Empty response from AI. Please try again.');
     }
 
-    final rawText = parts[0]['text'] as String? ?? '';
+    // Skip thinking parts — find the actual text response
+    final textParts = parts.where((p) => p['thought'] != true).toList();
+    final rawText = textParts.isNotEmpty
+        ? (textParts.last['text'] as String? ?? '')
+        : (parts.last['text'] as String? ?? '');
     final planJson = _extractJson(rawText);
 
     // Parse the 7-day structure
@@ -206,8 +209,7 @@ class MealPlanService {
           'temperature': 0.9,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 1024,
-          'responseMimeType': 'application/json',
+          'maxOutputTokens': 4096,
         },
       }),
     );
@@ -226,7 +228,10 @@ class MealPlanService {
       throw Exception('Empty response. Please try again.');
     }
 
-    final rawText = parts[0]['text'] as String? ?? '';
+    final textParts2 = parts.where((p) => p['thought'] != true).toList();
+    final rawText = textParts2.isNotEmpty
+        ? (textParts2.last['text'] as String? ?? '')
+        : (parts.last['text'] as String? ?? '');
     final mealJson = _extractJson(rawText);
     return MealSlot.fromJson(mealJson);
   }
