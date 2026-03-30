@@ -1,4 +1,4 @@
-# Elio — build release APK for distribution
+# Elio - build release APK for distribution
 # Usage: .\build.ps1 -sprint 8.1
 #        .\build.ps1 -sprint 8.2 -open   (opens output folder after build)
 
@@ -33,11 +33,11 @@ if (-not (Test-Path $releaseDir)) {
 }
 
 Write-Host ""
-Write-Host "Building Elio — Sprint $sprint release APK..." -ForegroundColor Cyan
+Write-Host "Building Elio - Sprint $sprint release APK..." -ForegroundColor Cyan
 Write-Host ""
 
 # Build
-flutter build apk --release --flavor prod -t lib/main.dart --dart-define=GEMINI_API_KEY=$apiKey
+flutter build apk --release --flavor prod -t lib/main.dart --dart-define="GEMINI_API_KEY=$apiKey"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""

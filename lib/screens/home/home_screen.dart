@@ -116,7 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserData();
     _loadRecentHistory();
     _checkSavedMealPlan();
-    _loadRecentCustomStyles();
+    // Custom styles are session-only — not loaded from storage
   }
 
   Future<void> _loadRecentHistory() async {
@@ -220,18 +220,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _saveCustomStyle(String style) async {
+  void _saveCustomStyle(String style) {
     final trimmed = style.trim();
     if (trimmed.isEmpty) return;
-    // Remove duplicate if exists, then prepend
     _recentCustomStyles.remove(trimmed);
     _recentCustomStyles.insert(0, trimmed);
-    // Cap at 10
     if (_recentCustomStyles.length > 10) {
       _recentCustomStyles = _recentCustomStyles.sublist(0, 10);
     }
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_recentCustomStylesKey, jsonEncode(_recentCustomStyles));
   }
 
   void _showCustomStyleSheet() {
