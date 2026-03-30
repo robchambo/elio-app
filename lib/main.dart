@@ -7,6 +7,7 @@ import 'theme/elio_theme.dart';
 import 'screens/onboarding/screen0_welcome.dart';
 import 'screens/home/home_screen.dart';
 import 'services/firestore_service.dart';
+import 'services/analytics_service.dart';
 
 // ─────────────────────────────────────────────
 // Elio — AI Recipe Generator
@@ -20,27 +21,22 @@ import 'services/firestore_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  bool firebaseAvailable = false;
-
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    firebaseAvailable = true;
 
     // Pass all uncaught Flutter framework errors to Crashlytics
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+
+    // Initialise Analytics (sets user properties, enables collection)
+    await AnalyticsService.instance.init();
   } catch (_) {
     // Firebase init may fail with placeholder credentials — app still
     // functions in guest mode.
   }
 
-  // Catch async errors outside the Flutter framework
-  if (firebaseAvailable) {
-    runApp(const ElioApp());
-  } else {
-    runApp(const ElioApp());
-  }
+  runApp(const ElioApp());
 }
 
 class ElioApp extends StatelessWidget {
@@ -52,6 +48,7 @@ class ElioApp extends StatelessWidget {
       title: 'Elio',
       theme: elioTheme(),
       debugShowCheckedModeBanner: false,
+      navigatorObservers: [AnalyticsService.instance.observer],
       home: const _AuthGate(),
     );
   }

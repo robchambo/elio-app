@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/analytics_service.dart';
 import '../../theme/elio_theme.dart';
 import 'onboarding_flow.dart';
 import '../home/home_screen.dart';
@@ -33,8 +34,11 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   bool _isLoading = false;
   String? _errorMessage;
 
+  final AnalyticsService _analytics = AnalyticsService.instance;
+
   Future<void> _handleGoogleSignIn() async {
     setState(() { _isLoading = true; _errorMessage = null; });
+    _analytics.logEvent('sign_in_method', {'method': 'google'});
 
     try {
       final credential = await _auth.signInWithGoogle();
@@ -62,9 +66,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
           (route) => false,
         );
       } else {
-        // New user — start onboarding.
-        // OnboardingFlow navigates to HomeScreen itself on completion
-        // so we do NOT pass an onComplete callback that captures this context.
+        // New user — start onboarding
+        _analytics.logEvent('onboarding_started');
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
             builder: (_) => OnboardingFlow(
@@ -86,6 +89,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 
   void _handleGuestMode() {
+    _analytics.logEvent('sign_in_method', {'method': 'guest'});
+    _analytics.logEvent('onboarding_started');
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => OnboardingFlow(

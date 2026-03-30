@@ -5,6 +5,7 @@ import '../../services/meal_plan_service.dart';
 import '../../services/firestore_service.dart';
 import '../shopping/shopping_list_screen.dart';
 import '../recipe/recipe_screen.dart';
+import '../../services/analytics_service.dart';
 
 // ─────────────────────────────────────────────
 // MealPlanScreen
@@ -33,6 +34,7 @@ class MealPlanScreen extends StatefulWidget {
 class _MealPlanScreenState extends State<MealPlanScreen>
     with SingleTickerProviderStateMixin {
   final FirestoreService _firestore = FirestoreService();
+  final AnalyticsService _analytics = AnalyticsService.instance;
 
   // ── State ──────────────────────────────────────────────────────────
   MealPlan? _plan;
@@ -136,8 +138,16 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _tabController.animateTo(0);
         });
         _savePlan();
+        _analytics.logEvent('meal_plan_generated', {
+          'days': orderedDays.length,
+          'meal_types': orderedTypes.length,
+          'total_meals': orderedDays.length * orderedTypes.length,
+        });
       }
     } catch (e) {
+      _analytics.logEvent('meal_plan_generation_failed', {
+        'error_type': e.runtimeType.toString(),
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -181,6 +191,9 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _plan = _plan!.copyWithDay(dayIndex, updatedDay);
         });
         _savePlan();
+        _analytics.logEvent('meal_plan_meal_regenerated', {
+          'meal_type': mealType.name,
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -203,6 +216,9 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       alreadyHave: [..._alwaysHave, ..._almostAlwaysHave],
       runningLowItems: _runningLowItems,
     );
+    _analytics.logEvent('shopping_list_viewed', {
+      'item_count': shoppingList.items.length,
+    });
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ShoppingListScreen(shoppingList: shoppingList),

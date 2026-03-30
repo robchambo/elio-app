@@ -8,6 +8,7 @@ import '../../services/firestore_service.dart';
 import '../../services/auth_service.dart';
 import '../../utils/pantry_utils.dart';
 import '../onboarding/screen0_welcome.dart';
+import '../../services/analytics_service.dart';
 
 // ─────────────────────────────────────────────
 // ProfileScreen
@@ -24,6 +25,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
   final FirestoreService _firestore = FirestoreService();
+  final AnalyticsService _analytics = AnalyticsService.instance;
   late TabController _tabController;
 
   bool _isLoading = true;
@@ -134,6 +136,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       final idx = _inventoryItems.indexWhere((i) => i['id'] == itemId);
       if (idx != -1) _inventoryItems[idx]['runningLow'] = newValue;
     });
+    if (newValue) {
+      _analytics.logEvent('pantry_item_running_low');
+    }
     try {
       await _firestore.toggleRunningLow(itemId, newValue);
     } catch (_) {
@@ -186,6 +191,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           'tier': tier,
           'runningLow': false,
         }));
+        _analytics.logEvent('pantry_item_added', {'tier': tier});
       }
     } catch (_) {
       _showSnack('Could not add item. Please try again.');

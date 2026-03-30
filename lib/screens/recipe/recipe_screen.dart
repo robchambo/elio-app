@@ -8,6 +8,7 @@ import '../../services/history_service.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/region_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../services/analytics_service.dart';
 
 // ─────────────────────────────────────────────
 // RecipeScreen — Sprint 4 patch
@@ -45,6 +46,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool _isRegenerating = false;
   final Set<String> _excludedIngredients = {};
   final FirestoreService _firestore = FirestoreService();
+  final AnalyticsService _analytics = AnalyticsService.instance;
 
   // ── Rating state ──────────────────────────────────────────────────────────────────────────────
   bool? _userRating; // true = liked, false = disliked, null = not rated
@@ -155,6 +157,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
     setState(() {
       _userRating = liked;
       _isRating = true;
+    });
+    _analytics.logEvent('recipe_rated', {
+      'direction': liked ? 'up' : 'down',
+      'recipe_title': widget.recipe.title,
     });
     try {
       await _firestore.rateRecipe(

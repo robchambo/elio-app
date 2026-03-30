@@ -13,6 +13,7 @@ import '../history/history_screen.dart';
 import '../meal_plan/meal_plan_screen.dart';
 import '../profile/profile_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../services/analytics_service.dart';
 
 // ─────────────────────────────────────────────
 // HomeScreen
@@ -39,6 +40,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirestoreService _firestore = FirestoreService();
+  final AnalyticsService _analytics = AnalyticsService.instance;
   final TextEditingController _textController = TextEditingController();
   final FocusNode _textFocus = FocusNode();
 
@@ -489,6 +491,15 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _loadRecentHistory();
 
+      _analytics.logEvent('recipe_generated', {
+        'style': _selectedStyle ?? 'none',
+        'time': _selectedTime ?? 'none',
+        'mood': _selectedMood ?? 'none',
+        'is_leftover_mode': _isLeftoverMode,
+        'perishable_count': _selectedPerishables.length,
+        'is_guest': widget.isGuest,
+      });
+
       if (mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -501,6 +512,9 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (e) {
+      _analytics.logEvent('recipe_generation_failed', {
+        'error_type': e.runtimeType.toString(),
+      });
       if (mounted) {
         final raw = e.toString();
         final String msg;

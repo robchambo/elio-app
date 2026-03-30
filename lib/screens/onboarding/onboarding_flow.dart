@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../models/onboarding_state.dart';
 import '../../services/firestore_service.dart';
 import '../../services/guest_pantry_service.dart';
+import '../../services/analytics_service.dart';
 import '../home/home_screen.dart';
 import 'screen1_dietary.dart';
 import 'screen2_preset.dart';
@@ -44,8 +45,13 @@ class OnboardingFlow extends StatefulWidget {
 class _OnboardingFlowState extends State<OnboardingFlow> {
   final PageController _pageController = PageController();
   final FirestoreService _firestore = FirestoreService();
+  final AnalyticsService _analytics = AnalyticsService.instance;
   OnboardingState _state = OnboardingState();
   bool _isSaving = false;
+
+  static const List<String> _stepNames = [
+    'dietary', 'kitchen_preset', 'pantry_review', 'household', 'style',
+  ];
 
   @override
   void dispose() {
@@ -63,30 +69,36 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
 
   void _onDietaryNext(OnboardingState updated) {
     setState(() => _state = updated);
+    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[0]});
     _goToPage(1);
   }
 
   void _onPresetNext(OnboardingState updated) {
     setState(() => _state = updated);
+    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[1]});
     _goToPage(2);
   }
 
   void _onPantryNext(OnboardingState updated) {
     setState(() => _state = updated);
+    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[2]});
     _goToPage(3);
   }
 
   void _onHouseholdNext(OnboardingState updated) {
     setState(() => _state = updated);
+    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[3]});
     _goToPage(4);
   }
 
   Future<void> _onStyleComplete(OnboardingState updated) async {
+    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[4]});
     setState(() { _state = updated; _isSaving = true; });
 
     // Guest mode: persist pantry data locally then navigate
     if (widget.isGuest) {
       await GuestPantryService.save(_state);
+      _analytics.logEvent('onboarding_completed', {'auth_method': 'guest'});
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen(isGuest: true)),
@@ -97,10 +109,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     }
 
     // Signed-in mode: save to Firestore then navigate directly
-    // (do NOT call widget.onComplete() — that callback captures the
-    // WelcomeScreen context which is already unmounted at this point)
     try {
       await _firestore.completeOnboarding(_state, widget.displayName);
+      _analytics.logEvent('onboarding_completed', {'auth_method': 'google'});
+      _analytics.setDietaryProfile(_state.dietaryRequirements.map((d) => d.label).toList());
+      _analytics.setHouseholdSize(_state.additionalMembers.length + 1);
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
