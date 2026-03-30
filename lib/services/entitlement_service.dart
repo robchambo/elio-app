@@ -42,10 +42,22 @@ class EntitlementService {
 
   int get maxHouseholdMembers => isPro ? proHouseholdLimit : freeHouseholdLimit;
 
+  // ── Dev accounts: always Pro regardless of Firestore tier ─────────
+  static const Set<String> _devEmails = {
+    'info.autex@gmail.com',
+    'kate.d.r.taylor@gmail.com',
+  };
+
   // ── Refresh from Firestore ─────────────────────────────────────────
   Future<void> refresh() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+
+    // Dev accounts are always Pro — no Firestore check needed
+    if (_devEmails.contains(user.email)) {
+      _tier = 'pro';
+      return;
+    }
 
     final doc = await _db.collection('users').doc(user.uid).get();
     if (!doc.exists) return;
