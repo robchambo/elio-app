@@ -6,6 +6,7 @@ import '../../services/analytics_service.dart';
 import '../../theme/elio_theme.dart';
 import 'onboarding_flow.dart';
 import '../home/home_screen.dart';
+import '../auth/email_login_screen.dart';
 
 // ─────────────────────────────────────────────
 // WelcomeScreen (Screen 0)
@@ -239,6 +240,45 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             ),
                           ],
                         ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ── Email sign-in button ─────────────────────────
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: OutlinedButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const EmailLoginScreen(),
+                            ),
+                          );
+                        },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: ElioColors.navy,
+                    side: const BorderSide(color: ElioColors.border, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    backgroundColor: ElioColors.white,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.email_outlined, size: 20, color: ElioColors.navy),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Sign in with email',
+                        style: GoogleFonts.outfit(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: ElioColors.navy,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),

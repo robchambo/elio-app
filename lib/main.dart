@@ -10,6 +10,7 @@ import 'services/firestore_service.dart';
 import 'services/analytics_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/purchase_service.dart';
+import 'services/notification_service.dart';
 
 // ─────────────────────────────────────────────
 // Elio — AI Recipe Generator
@@ -39,6 +40,9 @@ void main() async {
 
     // Initialise RevenueCat (runs in dry mode if no API key configured)
     await PurchaseService.instance.init();
+
+    // Initialise FCM push notifications
+    await NotificationService.instance.init();
   } catch (_) {
     // Firebase init may fail with placeholder credentials — app still
     // functions in guest mode.
@@ -50,12 +54,19 @@ void main() async {
 class ElioApp extends StatelessWidget {
   const ElioApp({super.key});
 
+  static final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+
   @override
   Widget build(BuildContext context) {
+    // Give the notification service access to scaffold messenger for snackbars
+    NotificationService.instance.scaffoldMessengerKey = _scaffoldMessengerKey;
+
     return MaterialApp(
       title: 'Elio',
       theme: elioTheme(),
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: _scaffoldMessengerKey,
       navigatorObservers: [AnalyticsService.instance.observer],
       home: const _AuthGate(),
     );

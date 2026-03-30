@@ -1,7 +1,7 @@
 # Elio Development Roadmap
 
 **Last Updated:** 2026-03-29
-**Current Status:** Sprint 10 complete. Next: Sprint 11.
+**Current Status:** Sprint 13 complete. Next: Sprint 14.
 **Design Doc Reference:** Recipe Generator App Design Document v2.1
 
 ---
@@ -118,19 +118,15 @@
 
 ---
 
-### Sprint 13 -- Auth Expansion & Notifications
+### Sprint 13 -- Auth Expansion & Notifications (Complete)
 
-**Goal:** Broaden sign-in options and add re-engagement via push notifications.
-
-| # | Task | Estimate | Priority |
-|---|------|----------|----------|
-| 13.1 | Email/password authentication (register, login, forgot password) | 3-4 hrs | High |
-| 13.2 | Apple Sign-In (required for App Store) | 3-4 hrs | High (iOS) |
-| 13.3 | Push notifications via FCM (expiry alerts, weekly prompt, re-engagement) | 4-5 hrs | Medium |
-| 13.4 | Notification preferences screen | 1-2 hrs | Medium |
-| 13.5 | iOS FCM setup (APNs certificate) | 2-3 hrs | Medium (iOS) |
-
-**Estimate:** ~13-18 hours
+| # | Task | Status |
+|---|------|--------|
+| 13.1 | Email/password authentication (register, login, forgot password) | Done |
+| 13.2 | Apple Sign-In (required for App Store) | Deferred (iOS) |
+| 13.3 | Push notifications via FCM (token management, topic subscriptions) | Done |
+| 13.4 | Notification preferences screen (3 toggle categories) | Done |
+| 13.5 | iOS FCM setup (APNs certificate) | Deferred (iOS) |
 
 ---
 
@@ -178,12 +174,12 @@
 | **8** | Analytics & Core Polish | Done | -- |
 | **9** | Paywall, Entitlements & Feature Gating | Done | -- |
 | **10** | QA, Tests & Bug Fixes | Done | -- |
-| **11** | Billing Integration & Pre-Launch Polish | **Done** | -- |
-| **12** | Persistent Shopping List & UX Polish | **Next** | ~6-9 hrs |
-| **13** | Auth Expansion & Notifications | Planned | ~13-18 hrs |
-| **14** | Advanced Features | Planned | ~21-27 hrs |
+| **11** | Billing Integration & Pre-Launch Polish | Done | -- |
+| **12** | Persistent Shopping List & UX Polish | Done | -- |
+| **13** | Auth Expansion & Notifications | Done | -- |
+| **14** | Advanced Features | **Next** | ~21-27 hrs |
 | **15** | Launch Preparation | Planned | ~17-24 hrs |
-| | **Total remaining** | | **~57-78 hrs** |
+| | **Total remaining** | | **~38-51 hrs** |
 
 ---
 

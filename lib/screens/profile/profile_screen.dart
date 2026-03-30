@@ -11,6 +11,7 @@ import '../onboarding/screen0_welcome.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/shopping_service.dart';
+import 'notification_prefs_screen.dart';
 
 // ─────────────────────────────────────────────
 // ProfileScreen
@@ -542,6 +543,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       ],
                     ),
                   ),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const NotificationPrefsScreen()),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: ElioColors.offWhite,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: ElioColors.border),
+                      ),
+                      child: const Icon(Icons.notifications_outlined, size: 18, color: ElioColors.navy),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   TextButton(
                     onPressed: _signOut,
                     child: Text('Sign out', style: ElioText.label.copyWith(color: ElioColors.error)),

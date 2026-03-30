@@ -40,6 +40,48 @@ class AuthService {
     }
   }
 
+  // Sign in with email and password
+  Future<UserCredential> signInWithEmail(String email, String password) async {
+    try {
+      return await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Register with email and password
+  Future<UserCredential> registerWithEmail(
+    String email,
+    String password,
+    String displayName,
+  ) async {
+    try {
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // Set the display name on the Firebase user profile
+      await credential.user?.updateDisplayName(displayName);
+
+      return credential;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Send password reset email
+  Future<void> sendPasswordReset(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
     await _googleSignIn.signOut();
