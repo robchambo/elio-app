@@ -33,7 +33,9 @@ import '../../services/entitlement_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final bool isGuest;
-  const HomeScreen({super.key, this.isGuest = false});
+  /// Pre-filled perishable items from scanning — triggers auto-generation.
+  final List<String>? scannedItems;
+  const HomeScreen({super.key, this.isGuest = false, this.scannedItems});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -120,6 +122,16 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadRecentHistory();
     _checkSavedMealPlan();
     // Custom styles are session-only — not loaded from storage
+
+    // If scanned items were passed in, pre-fill and auto-generate
+    if (widget.scannedItems != null && widget.scannedItems!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _selectedPerishables.addAll(widget.scannedItems!);
+        });
+        _generateRecipe();
+      });
+    }
   }
 
   Future<void> _loadRecentHistory() async {

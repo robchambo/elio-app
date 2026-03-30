@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/scanner_service.dart';
 import '../../theme/elio_theme.dart';
+import '../home/home_screen.dart';
 
 // ─────────────────────────────────────────────
 // ScanSuccessScreen
@@ -172,8 +173,17 @@ class ScanSuccessScreen extends StatelessWidget {
           height: 54,
           child: ElevatedButton.icon(
             onPressed: () {
-              // Pop all the way back to root for recipe generation
-              Navigator.of(context).popUntil((route) => route.isFirst);
+              // Pop to root and push HomeScreen with scanned items for auto-generation
+              final perishableNames = items
+                  .where((i) => i.suggestedTier == 'perishable')
+                  .map((i) => i.name)
+                  .toList();
+              final allNames = items.map((i) => i.name).toList();
+              final itemsToGenerate = perishableNames.isNotEmpty ? perishableNames : allNames;
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => HomeScreen(scannedItems: itemsToGenerate)),
+                (route) => false,
+              );
             },
             icon: const Icon(Icons.auto_awesome_rounded, size: 20),
             label: const Text('Generate Recipe with These'),
