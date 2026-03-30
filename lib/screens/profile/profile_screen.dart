@@ -277,6 +277,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   // ── Dietary helpers ────────────────────────────────────────────────
 
   Future<void> _toggleDietary(String req) async {
+    final previous = List<String>.from(_dietaryRequirements);
     final updated = List<String>.from(_dietaryRequirements);
     if (updated.contains(req)) {
       updated.remove(req);
@@ -293,16 +294,19 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             .doc(_ownerProfileId)
             .update({'dietaryRequirements': updated});
       } catch (_) {
+        setState(() => _dietaryRequirements = previous);
         _showSnack('Could not save dietary change. Please try again.');
       }
     } else {
-      _showSnack('Complete onboarding to save your dietary preferences.');
+      setState(() => _dietaryRequirements = previous);
+      _showSnack('Could not save — profile not loaded. Try restarting the app.');
     }
   }
 
   Future<void> _addCustomAllergen(String allergen) async {
     final trimmed = allergen.trim();
     if (trimmed.isEmpty || _customAllergens.contains(trimmed)) return;
+    final previous = List<String>.from(_customAllergens);
     final updated = List<String>.from(_customAllergens)..add(trimmed);
     setState(() => _customAllergens = updated);
     _customAllergenController.clear();
@@ -315,12 +319,17 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             .doc(_ownerProfileId)
             .update({'customAllergens': updated});
       } catch (_) {
+        setState(() => _customAllergens = previous);
         _showSnack('Could not save allergen. Please try again.');
       }
+    } else {
+      setState(() => _customAllergens = previous);
+      _showSnack('Could not save — profile not loaded. Try restarting the app.');
     }
   }
 
   Future<void> _removeCustomAllergen(String allergen) async {
+    final previous = List<String>.from(_customAllergens);
     final updated = List<String>.from(_customAllergens)..remove(allergen);
     setState(() => _customAllergens = updated);
     if (_ownerProfileId != null) {
@@ -332,8 +341,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             .doc(_ownerProfileId)
             .update({'customAllergens': updated});
       } catch (_) {
+        setState(() => _customAllergens = previous);
         _showSnack('Could not remove allergen. Please try again.');
       }
+    } else {
+      setState(() => _customAllergens = previous);
+      _showSnack('Could not save — profile not loaded. Try restarting the app.');
     }
   }
 
