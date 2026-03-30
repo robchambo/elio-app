@@ -997,17 +997,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Anything in mind?',
-          style: ElioText.headingMedium,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'All optional — Elio will figure it out if you skip these.',
-          style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
-        ),
-        const SizedBox(height: 16),
-
         // Time row
         _buildChipRow(
           label: 'Time',

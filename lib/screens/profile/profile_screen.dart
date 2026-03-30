@@ -10,6 +10,7 @@ import '../../utils/pantry_utils.dart';
 import '../onboarding/screen0_welcome.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/shopping_service.dart';
 
 // ─────────────────────────────────────────────
 // ProfileScreen
@@ -55,6 +56,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   // ── Kitchen appliances ─────────────────────────────────────────────
   List<String> _appliances = [];
 
+  // ── Shopping list ──────────────────────────────────────────────────
+  List<PersistentShoppingItem> _shoppingItems = [];
+  bool _shoppingLoading = true;
+  final TextEditingController _shoppingAddController = TextEditingController();
+
   // ── Available options ──────────────────────────────────────────────
   static const List<String> _allDietaryOptions = [
     'Vegetarian', 'Vegan', 'Gluten-free', 'Dairy-free',
@@ -87,14 +93,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     _loadData();
+    _loadShoppingItems();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     _customAllergenController.dispose();
+    _shoppingAddController.dispose();
     super.dispose();
   }
 
@@ -124,6 +132,20 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       });
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // ── Shopping list loading ───────────────────────────────────────────
+  Future<void> _loadShoppingItems() async {
+    try {
+      final items = await ShoppingService.instance.loadItems();
+      if (!mounted) return;
+      setState(() {
+        _shoppingItems = items;
+        _shoppingLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _shoppingLoading = false);
     }
   }
 
@@ -208,8 +230,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   Future<void> _toggleRunningLow(String itemId, bool current) async {
     final newValue = !current;
+    final idx = _inventoryItems.indexWhere((i) => i['id'] == itemId);
+    final itemName = idx != -1 ? (_inventoryItems[idx]['name'] as String? ?? '') : '';
     setState(() {
-      final idx = _inventoryItems.indexWhere((i) => i['id'] == itemId);
       if (idx != -1) _inventoryItems[idx]['runningLow'] = newValue;
     });
     if (newValue) {
@@ -217,11 +240,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
     try {
       await _firestore.toggleRunningLow(itemId, newValue);
+      // Sync with persistent shopping list
+      if (itemName.isNotEmpty) {
+        if (newValue) {
+          await ShoppingService.instance.addRestockItem(itemName);
+        } else {
+          await ShoppingService.instance.removeRestockItem(itemName);
+        }
+        // Refresh shopping items if we're on that tab
+        _loadShoppingItems();
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
-          final idx = _inventoryItems.indexWhere((i) => i['id'] == itemId);
-          if (idx != -1) _inventoryItems[idx]['runningLow'] = current;
+          final i = _inventoryItems.indexWhere((i) => i['id'] == itemId);
+          if (i != -1) _inventoryItems[i]['runningLow'] = current;
         });
       }
     }
@@ -526,12 +559,15 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               indicatorWeight: 2.5,
               labelStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600),
               unselectedLabelStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w400),
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               tabs: const [
                 Tab(text: 'Pantry'),
                 Tab(text: 'Dietary'),
                 Tab(text: 'Household'),
                 Tab(text: 'Style'),
                 Tab(text: 'Kitchen'),
+                Tab(text: 'Shopping'),
               ],
             ),
             const Divider(height: 1),
@@ -547,6 +583,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         _buildHouseholdTab(),
                         _buildStyleTab(),
                         _buildKitchenTab(),
+                        _buildShoppingTab(),
                       ],
                     ),
             ),
@@ -1276,6 +1313,332 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         ),
       ],
     );
+  }
+
+  // ─── Shopping tab ─────────────────────────────────────────────────────────────
+  Widget _buildShoppingTab() {
+    if (_shoppingLoading) {
+      return const Center(child: CircularProgressIndicator(color: ElioColors.amber));
+    }
+
+    final unchecked = _shoppingItems.where((i) => !i.isChecked).toList();
+    final checked = _shoppingItems.where((i) => i.isChecked).toList();
+    final restockItems = unchecked.where((i) => i.isRestock).toList();
+    final mealPlanItems = unchecked.where((i) => i.isMealPlan).toList();
+    final manualItems = unchecked.where((i) => i.isManual).toList();
+
+    return Column(
+      children: [
+        // ── Add item input ─────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _shoppingAddController,
+                  style: ElioText.bodyMedium,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    hintText: 'Add an item...',
+                    hintStyle: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    filled: true,
+                    fillColor: ElioColors.offWhite,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: ElioColors.border),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: ElioColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: ElioColors.amber, width: 1.5),
+                    ),
+                  ),
+                  onSubmitted: (_) => _addShoppingItem(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: _addShoppingItem,
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: ElioColors.amber,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.add, size: 20, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── Progress bar ───────────────────────────────────────
+        if (_shoppingItems.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: _shoppingItems.isEmpty ? 0 : checked.length / _shoppingItems.length,
+                backgroundColor: ElioColors.border,
+                valueColor: const AlwaysStoppedAnimation<Color>(ElioColors.amber),
+                minHeight: 6,
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 4),
+
+        // ── Item count ─────────────────────────────────────────
+        if (_shoppingItems.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${_shoppingItems.length} items · ${checked.length} done',
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              ),
+            ),
+          ),
+
+        const SizedBox(height: 8),
+
+        // ── Items list ─────────────────────────────────────────
+        Expanded(
+          child: _shoppingItems.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.shopping_cart_outlined, size: 56, color: ElioColors.textMuted),
+                        const SizedBox(height: 16),
+                        Text('Shopping list is empty', style: ElioText.headingMedium),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Add items manually, generate a meal plan, or mark pantry items as Running Low.',
+                          textAlign: TextAlign.center,
+                          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
+                  children: [
+                    // Restock section
+                    if (restockItems.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, size: 16, color: ElioColors.amber),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Restock (${restockItems.length})',
+                            style: ElioText.label.copyWith(
+                              color: ElioColors.amber,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...restockItems.map((item) => _buildShoppingTile(item)),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Meal plan section
+                    if (mealPlanItems.isNotEmpty) ...[
+                      Text(
+                        'For recipes (${mealPlanItems.length})',
+                        style: ElioText.label.copyWith(
+                          color: ElioColors.textMuted,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...mealPlanItems.map((item) => _buildShoppingTile(item)),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Manual items section
+                    if (manualItems.isNotEmpty) ...[
+                      if (restockItems.isNotEmpty || mealPlanItems.isNotEmpty)
+                        Text(
+                          'Added by you (${manualItems.length})',
+                          style: ElioText.label.copyWith(
+                            color: ElioColors.textMuted,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      if (restockItems.isNotEmpty || mealPlanItems.isNotEmpty)
+                        const SizedBox(height: 8),
+                      ...manualItems.map((item) => _buildShoppingTile(item)),
+                    ],
+
+                    // Checked items
+                    if (checked.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Done (${checked.length})',
+                            style: ElioText.label.copyWith(
+                              color: ElioColors.textMuted,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: _clearCheckedShopping,
+                            child: Text(
+                              'Clear',
+                              style: ElioText.label.copyWith(
+                                color: ElioColors.sky,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ...checked.map((item) => _buildShoppingTile(item)),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShoppingTile(PersistentShoppingItem item) {
+    return Dismissible(
+      key: Key(item.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.only(right: 16),
+        alignment: Alignment.centerRight,
+        decoration: BoxDecoration(
+          color: ElioColors.error,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.delete_outline, color: Colors.white, size: 20),
+      ),
+      onDismissed: (_) => _removeShoppingItem(item),
+      child: GestureDetector(
+        onTap: () => _toggleShoppingItem(item),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: item.isChecked
+                ? ElioColors.offWhite.withValues(alpha: 0.5)
+                : ElioColors.offWhite,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: item.isChecked ? ElioColors.border.withValues(alpha: 0.5) : ElioColors.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: item.isChecked ? ElioColors.amber : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: item.isChecked ? ElioColors.amber : ElioColors.border,
+                    width: 1.5,
+                  ),
+                ),
+                child: item.isChecked
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _capitaliseShoppingName(item.name),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: item.isChecked ? ElioColors.textMuted : ElioColors.textPrimary,
+                    decoration: item.isChecked ? TextDecoration.lineThrough : null,
+                    decorationColor: ElioColors.textMuted,
+                  ),
+                ),
+              ),
+              if (item.quantity.isNotEmpty && !item.isChecked)
+                Text(
+                  item.quantity,
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _capitaliseShoppingName(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  Future<void> _addShoppingItem() async {
+    final text = _shoppingAddController.text.trim();
+    if (text.isEmpty) return;
+    _shoppingAddController.clear();
+    try {
+      final item = await ShoppingService.instance.addItem(name: text);
+      if (!mounted) return;
+      setState(() {
+        // Remove existing if it was updated (same name)
+        _shoppingItems.removeWhere((i) => i.id == item.id);
+        _shoppingItems.add(item);
+      });
+    } catch (_) {
+      if (mounted) _showSnack('Could not add item.');
+    }
+  }
+
+  Future<void> _toggleShoppingItem(PersistentShoppingItem item) async {
+    final newChecked = !item.isChecked;
+    setState(() => item.isChecked = newChecked);
+    try {
+      await ShoppingService.instance.toggleChecked(item.id, newChecked);
+    } catch (_) {
+      if (mounted) setState(() => item.isChecked = !newChecked);
+    }
+  }
+
+  Future<void> _removeShoppingItem(PersistentShoppingItem item) async {
+    final index = _shoppingItems.indexOf(item);
+    setState(() => _shoppingItems.remove(item));
+    try {
+      await ShoppingService.instance.removeItem(item.id);
+    } catch (_) {
+      if (mounted) setState(() => _shoppingItems.insert(index, item));
+    }
+  }
+
+  Future<void> _clearCheckedShopping() async {
+    final checked = _shoppingItems.where((i) => i.isChecked).toList();
+    setState(() => _shoppingItems.removeWhere((i) => i.isChecked));
+    try {
+      await ShoppingService.instance.clearChecked();
+    } catch (_) {
+      if (mounted) setState(() => _shoppingItems.addAll(checked));
+    }
   }
 
   // ─── Kitchen tab ──────────────────────────────────────────────────────────────

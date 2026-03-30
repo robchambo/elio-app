@@ -98,53 +98,73 @@
 
 ---
 
-### Sprint 12 -- Auth Expansion & Notifications
+### Sprint 12 -- Persistent Shopping List & UX Polish
+
+**Goal:** Make the shopping list a living document that persists across the week, combining manual adds, meal plan ingredients, and restock items.
+
+| # | Task | Estimate | Priority |
+|---|------|----------|----------|
+| 12.1 | Firestore `shoppingItems` collection schema + ShoppingService CRUD | 1-2 hrs | High |
+| 12.2 | Profile "Shopping" tab with persistent list (restock / meal plan / manual sections) | 2-3 hrs | High |
+| 12.3 | Manual item add (text input at top of shopping tab) | 0.5 hr | High |
+| 12.4 | Auto-populate from meal plan on generation (smart merge, no duplicates) | 1-2 hrs | High |
+| 12.5 | Auto-add Running Low items to shopping list (sync on flag toggle) | 1 hr | High |
+| 12.6 | Meal plan "Shopping List" button navigates to persistent list | 0.5 hr | Medium |
+| 12.7 | Home screen heading/spacing cleanup (if more space still needed) | 0.5 hr | Low |
+
+**Exit criteria:** User can add items to shopping list at any time, meal plan generation auto-merges ingredients, Running Low items auto-appear in Restock section, list persists across sessions.
+
+**Estimate:** ~6-9 hours
+
+---
+
+### Sprint 13 -- Auth Expansion & Notifications
 
 **Goal:** Broaden sign-in options and add re-engagement via push notifications.
 
 | # | Task | Estimate | Priority |
 |---|------|----------|----------|
-| 12.1 | Email/password authentication (register, login, forgot password) | 3-4 hrs | High |
-| 12.2 | Apple Sign-In (required for App Store) | 3-4 hrs | High (iOS) |
-| 12.3 | Push notifications via FCM (expiry alerts, weekly prompt, re-engagement) | 4-5 hrs | Medium |
-| 12.4 | Notification preferences screen | 1-2 hrs | Medium |
-| 12.5 | iOS FCM setup (APNs certificate) | 2-3 hrs | Medium (iOS) |
+| 13.1 | Email/password authentication (register, login, forgot password) | 3-4 hrs | High |
+| 13.2 | Apple Sign-In (required for App Store) | 3-4 hrs | High (iOS) |
+| 13.3 | Push notifications via FCM (expiry alerts, weekly prompt, re-engagement) | 4-5 hrs | Medium |
+| 13.4 | Notification preferences screen | 1-2 hrs | Medium |
+| 13.5 | iOS FCM setup (APNs certificate) | 2-3 hrs | Medium (iOS) |
 
 **Estimate:** ~13-18 hours
 
 ---
 
-### Sprint 13 -- Advanced Features
+### Sprint 14 -- Advanced Features
 
 **Goal:** Differentiation features that make Elio stand out from competitors.
 
 | # | Task | Estimate | Priority |
 |---|------|----------|----------|
-| 13.1 | Budget mode (mood chip + prompt tuning + cost-optimised recipes) | 3-4 hrs | Medium |
-| 13.2 | Expiry date tracking with colour-coded indicators + "use it up" generation | 3-4 hrs | Medium |
-| 13.3 | Three-tier persistent inventory (perishables as stored tier) | 2-3 hrs | Medium |
-| 13.4 | Barcode scanning (mobile_scanner + Open Food Facts API) | 4-5 hrs | Low |
-| 13.5 | Receipt scanning (Gemini Vision OCR -> batch pantry add) | 5-6 hrs | Low |
-| 13.6 | Voice control for cooking mode (speech_to_text) | 4-5 hrs | Low |
+| 14.1 | Budget mode (mood chip + prompt tuning + cost-optimised recipes) | 3-4 hrs | Medium |
+| 14.2 | Expiry date tracking with colour-coded indicators + "use it up" generation | 3-4 hrs | Medium |
+| 14.3 | Three-tier persistent inventory (perishables as stored tier) | 2-3 hrs | Medium |
+| 14.4 | Barcode scanning (mobile_scanner + Open Food Facts API) | 4-5 hrs | Low |
+| 14.5 | Receipt scanning (Gemini Vision OCR -> batch pantry add) | 5-6 hrs | Low |
+| 14.6 | Voice control for cooking mode (speech_to_text) | 4-5 hrs | Low |
 
 **Estimate:** ~21-27 hours
 
 ---
 
-### Sprint 14 -- Launch Preparation
+### Sprint 15 -- Launch Preparation
 
 **Goal:** Production-ready for both app stores.
 
 | # | Task | Estimate | Priority |
 |---|------|----------|----------|
-| 14.1 | Performance audit (DevTools profiling, list optimisation, cold start) | 3-4 hrs | High |
-| 14.2 | Security hardening (Firestore rules, data retention, GDPR) | 2-3 hrs | High |
-| 14.3 | Privacy policy + terms of service (in-app screens + hosted URLs) | 2-3 hrs | High |
-| 14.4 | App Store assets (screenshots, feature graphic, store listing copy) | 4-5 hrs | High |
-| 14.5 | Full regression test: Android (physical device) | 2-3 hrs | High |
-| 14.6 | Full regression test: iOS (physical device) | 2-3 hrs | High |
-| 14.7 | Submit to Play Console internal testing track | 1-2 hrs | High |
-| 14.8 | Submit to TestFlight | 1-2 hrs | High |
+| 15.1 | Performance audit (DevTools profiling, list optimisation, cold start) | 3-4 hrs | High |
+| 15.2 | Security hardening (Firestore rules, data retention, GDPR) | 2-3 hrs | High |
+| 15.3 | Privacy policy + terms of service (in-app screens + hosted URLs) | 2-3 hrs | High |
+| 15.4 | App Store assets (screenshots, feature graphic, store listing copy) | 4-5 hrs | High |
+| 15.5 | Full regression test: Android (physical device) | 2-3 hrs | High |
+| 15.6 | Full regression test: iOS (physical device) | 2-3 hrs | High |
+| 15.7 | Submit to Play Console internal testing track | 1-2 hrs | High |
+| 15.8 | Submit to TestFlight | 1-2 hrs | High |
 
 **Estimate:** ~17-24 hours
 
@@ -158,22 +178,23 @@
 | **8** | Analytics & Core Polish | Done | -- |
 | **9** | Paywall, Entitlements & Feature Gating | Done | -- |
 | **10** | QA, Tests & Bug Fixes | Done | -- |
-| **11** | Billing Integration & Pre-Launch Polish | **Next** | ~14-19 hrs |
-| **12** | Auth Expansion & Notifications | Planned | ~13-18 hrs |
-| **13** | Advanced Features | Planned | ~21-27 hrs |
-| **14** | Launch Preparation | Planned | ~17-24 hrs |
-| | **Total remaining** | | **~65-88 hrs** |
+| **11** | Billing Integration & Pre-Launch Polish | **Done** | -- |
+| **12** | Persistent Shopping List & UX Polish | **Next** | ~6-9 hrs |
+| **13** | Auth Expansion & Notifications | Planned | ~13-18 hrs |
+| **14** | Advanced Features | Planned | ~21-27 hrs |
+| **15** | Launch Preparation | Planned | ~17-24 hrs |
+| | **Total remaining** | | **~57-78 hrs** |
 
 ---
 
 ## Minimum Viable Launch (Android)
 
-The app is launchable on Android after **Sprint 11** (billing) + **Sprint 14** (launch prep). That's ~31-43 hours of work.
+The app is launchable on Android after **Sprint 12** (shopping list) + **Sprint 15** (launch prep). That's ~23-33 hours of work.
 
-Sprints 12 and 13 can ship as post-launch updates:
-- Email/password auth and notifications (Sprint 12) improve retention
-- Advanced features (Sprint 13) are differentiators, not blockers
-- Apple Sign-In (12.2) blocks iOS App Store submission specifically
+Sprints 13 and 14 can ship as post-launch updates:
+- Email/password auth and notifications (Sprint 13) improve retention
+- Advanced features (Sprint 14) are differentiators, not blockers
+- Apple Sign-In (13.2) blocks iOS App Store submission specifically
 
 ---
 
@@ -184,7 +205,7 @@ Sprints 12 and 13 can ship as post-launch updates:
 | `google-services.json` not in git | Low | Must be added manually after fresh clone |
 | Dev flavor broken | Low | No Firebase client for `com.elio.elio_app.dev`; always use `--flavor prod` |
 | iOS not built/tested | Medium | URL scheme placeholder needs filling before any iOS build |
-| Pantry fuzzy match on add | Low | Normalisation exists but no user-facing "already have" warning yet (Sprint 11.7) |
+| Pantry fuzzy match on add | Resolved | Duplicate warning with Levenshtein matching implemented |
 
 ---
 

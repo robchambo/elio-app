@@ -7,6 +7,7 @@ import '../shopping/shopping_list_screen.dart';
 import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/shopping_service.dart';
 import '../paywall/paywall_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -149,6 +150,11 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _tabController.animateTo(0);
         });
         _savePlan();
+        // Auto-populate persistent shopping list
+        ShoppingService.instance.mergeFromMealPlan(
+          plan,
+          alreadyHave: [..._alwaysHave, ..._almostAlwaysHave],
+        );
         _analytics.logEvent('meal_plan_generated', {
           'days': orderedDays.length,
           'meal_types': orderedTypes.length,
