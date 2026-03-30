@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../utils/pantry_utils.dart';
 import '../onboarding/screen0_welcome.dart';
 import '../../services/analytics_service.dart';
+import '../../services/entitlement_service.dart';
 
 // ─────────────────────────────────────────────
 // ProfileScreen
@@ -27,6 +28,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   final FirestoreService _firestore = FirestoreService();
   final AnalyticsService _analytics = AnalyticsService.instance;
   late TabController _tabController;
+
+  // ── Dev override: emails allowed to self-grant Pro ─────────────────
+  static const Set<String> _proOverrideAllowlist = {
+    'info.autex@gmail.com',
+    'kate.d.r.taylor@gmail.com',
+  };
 
   bool _isLoading = true;
 
@@ -99,6 +106,56 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  // ── Pro override helper ────────────────────────────────────────────
+
+  Future<void> _onProOverrideLongPress(String email) async {
+    if (!_proOverrideAllowlist.contains(email)) return;
+
+    final entitlements = EntitlementService.instance;
+    await entitlements.refresh();
+    final isCurrentlyPro = entitlements.isPro;
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Dev: Pro Override'),
+        content: Text(
+          isCurrentlyPro
+              ? 'Pro access is currently active. Revoke it?'
+              : 'Grant Pro access to this account without billing?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              if (isCurrentlyPro) {
+                await _firestore.revokeProAccess();
+              } else {
+                await _firestore.grantProAccess();
+              }
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(isCurrentlyPro ? 'Pro access revoked.' : 'Pro access granted!'),
+                    backgroundColor: ElioColors.navy,
+                  ),
+                );
+              }
+            },
+            child: Text(isCurrentlyPro ? 'Revoke' : 'Grant Pro'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Pantry helpers ─────────────────────────────────────────────────
@@ -389,7 +446,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       children: [
                         Text(displayName, style: ElioText.headingLarge),
                         if (email.isNotEmpty)
-                          Text(email, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+                          GestureDetector(
+                            onLongPress: () => _onProOverrideLongPress(email),
+                            child: Text(email, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+                          ),
                       ],
                     ),
                   ),

@@ -384,6 +384,20 @@ class FirestoreService {
     return (3 - dailyGenerations).clamp(0, 3);
   }
 
+  // ─── Pro override (dev/test accounts only) ────────────────────────
+
+  Future<void> grantProAccess() async {
+    await _db.collection('users').doc(_uid).update({
+      'subscription.proOverride': true,
+    });
+  }
+
+  Future<void> revokeProAccess() async {
+    await _db.collection('users').doc(_uid).update({
+      'subscription.proOverride': false,
+    });
+  }
+
   // ─── Get all inventory item names ─────────────────────────────────
 
   Future<List<String>> getInventoryNames() async {

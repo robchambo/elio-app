@@ -53,7 +53,9 @@ class EntitlementService {
     final data = doc.data() as Map<String, dynamic>;
     final subscription = data['subscription'] as Map<String, dynamic>? ?? {};
 
-    _tier = subscription['tier'] as String? ?? 'free';
+    // proOverride bypasses billing — set directly in Firestore for dev/test accounts
+    final proOverride = subscription['proOverride'] as bool? ?? false;
+    _tier = proOverride ? 'pro' : (subscription['tier'] as String? ?? 'free');
 
     // Weekly generation tracking
     _weeklyGenerations = (subscription['weeklyGenerations'] as num?)?.toInt() ?? 0;
