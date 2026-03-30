@@ -63,10 +63,12 @@ class GeminiService {
           'temperature': 0.8,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 4096,
+          'maxOutputTokens': 16384,
         },
       }),
-    );
+    ).timeout(const Duration(seconds: 60), onTimeout: () {
+      throw Exception('Recipe generation timed out. Please try again.');
+    });
 
     if (response.statusCode == 429) {
       throw Exception('Recipe generation is temporarily unavailable (rate limit reached). Please wait a minute and try again.');

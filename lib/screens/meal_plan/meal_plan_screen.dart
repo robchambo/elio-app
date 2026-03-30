@@ -388,22 +388,12 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     final selectedDayName = fullDayNames[_selectedDayIndex];
     final dayOrNull = _plan!.days.where((d) => d.dayName == selectedDayName).firstOrNull;
 
-    if (dayOrNull == null) {
-      return Center(
-        child: Text(
-          '$selectedDayName is not included\nin this meal plan.',
-          textAlign: TextAlign.center,
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-        ),
-      );
-    }
-
-    final day = dayOrNull;
+    // Show meal cards for every day — null slots show "Tap ↺ to generate"
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
       child: Column(
         children: MealType.values.map((type) {
-          final meal = day.meals[type];
+          final meal = dayOrNull?.meals[type];
           final slotKey = '${_selectedDayIndex}_${type.name}';
           final isRegenerating = _regeneratingSlots.contains(slotKey);
           return Padding(
