@@ -1,7 +1,7 @@
 # Elio Development Roadmap
 
-**Last Updated:** 2026-03-29
-**Current Status:** Sprint 13 complete. Next: Sprint 14.
+**Last Updated:** 2026-03-30
+**Current Status:** Sprint 14 complete. Next: Sprint 15 (Launch Preparation).
 **Design Doc Reference:** Recipe Generator App Design Document v2.1
 
 ---
@@ -130,20 +130,22 @@
 
 ---
 
-### Sprint 14 -- Advanced Features
+### Sprint 14 -- Advanced Features (Complete)
 
-**Goal:** Differentiation features that make Elio stand out from competitors.
-
-| # | Task | Estimate | Priority |
-|---|------|----------|----------|
-| 14.1 | Budget mode (mood chip + prompt tuning + cost-optimised recipes) | 3-4 hrs | Medium |
-| 14.2 | Expiry date tracking with colour-coded indicators + "use it up" generation | 3-4 hrs | Medium |
-| 14.3 | Three-tier persistent inventory (perishables as stored tier) | 2-3 hrs | Medium |
-| 14.4 | Barcode scanning (mobile_scanner + Open Food Facts API) | 4-5 hrs | Low |
-| 14.5 | Receipt scanning (Gemini Vision OCR -> batch pantry add) | 5-6 hrs | Low |
-| 14.6 | Voice control for cooking mode (speech_to_text) | 4-5 hrs | Low |
-
-**Estimate:** ~21-27 hours
+| # | Task | Status |
+|---|------|--------|
+| 14.1 | Saver mode toggle (budget-friendly recipes via Gemini prompt) | Done |
+| 14.2 | Expiry date tracking with colour-coded badges (green/amber/red) | Done |
+| 14.3 | Three-tier persistent inventory (perishable tier with optional expiry) | Done |
+| 14.4 | Barcode scanning (mobile_scanner + Open Food Facts API) | Done |
+| 14.5 | Receipt scanning (Gemini Vision OCR + smart tier memory) | Done |
+| 14.6 | Voice control for cooking mode (wake word "Hey Elio", TTS step reading) | Done |
+| 14.7 | Advanced onboarding pantry packs (Spices, Oils, Baking, Sauces, Grains) | Done |
+| 14.8 | Units (metric/imperial) + region (US/UK) settings in onboarding + profile | Done |
+| 14.9 | Save recipe button + add-to-shopping-list on recipe screen | Done |
+| 14.10 | Keyboard dismissal fix during onboarding navigation | Done |
+| 14.11 | Quick pantry access fridge icon on home screen | Done |
+| 14.12 | Expiry banner on home screen for items expiring soon | Done |
 
 ---
 
@@ -177,9 +179,9 @@
 | **11** | Billing Integration & Pre-Launch Polish | Done | -- |
 | **12** | Persistent Shopping List & UX Polish | Done | -- |
 | **13** | Auth Expansion & Notifications | Done | -- |
-| **14** | Advanced Features | **Next** | ~21-27 hrs |
-| **15** | Launch Preparation | Planned | ~17-24 hrs |
-| | **Total remaining** | | **~38-51 hrs** |
+| **14** | Advanced Features | Done | -- |
+| **15** | Launch Preparation | **Next** | ~17-24 hrs |
+| | **Total remaining** | | **~17-24 hrs** |
 
 ---
 
