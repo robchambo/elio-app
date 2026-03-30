@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
 import '../../services/gemini_service.dart';
@@ -53,6 +56,18 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool? _userRating; // true = liked, false = disliked, null = not rated
   bool _isRating = false;
 
+  // ── Voice control state ────────────────────────────────────────────────────────────────────────
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  final FlutterTts _tts = FlutterTts();
+  bool _voiceEnabled = false;
+  bool _isListening = false;
+  bool _speechAvailable = false;
+  bool _voiceHelpShown = false;
+  String _voiceFeedback = '';
+  Timer? _feedbackTimer;
+  Timer? _restartTimer;
+  String _recognisedWords = '';
+
   // ── Cost estimate label ────────────────────────────────────────────────────────────────────────────────────────────────
   /// Returns a formatted cost-per-serving string based on device locale.
   /// Delegates to RegionUtils.formatCost() for locale-aware currency selection.
@@ -66,6 +81,296 @@ class _RecipeScreenState extends State<RecipeScreen> {
   void initState() {
     super.initState();
     _servings = widget.recipe.servings;
+    _initTts();
+  }
+
+  @override
+  void dispose() {
+    _stopListening();
+    _feedbackTimer?.cancel();
+    _restartTimer?.cancel();
+    _tts.stop();
+    super.dispose();
+  }
+
+  // ── TTS setup ──────────────────────────────────────────────────────────────────
+  Future<void> _initTts() async {
+    try {
+      await _tts.setLanguage('en-US');
+      await _tts.setSpeechRate(0.45);
+      await _tts.setVolume(1.0);
+    } catch (_) {
+      // TTS init failure is non-critical
+    }
+  }
+
+  Future<void> _speakText(String text) async {
+    try {
+      await _tts.speak(text);
+    } catch (_) {
+      // TTS failure is non-critical — silently ignore
+    }
+  }
+
+  // ── Speech recognition ─────────────────────────────────────────────────────────
+  Future<void> _initVoiceControl() async {
+    try {
+      _speechAvailable = await _speech.initialize(
+        onError: (error) {
+          // On error, attempt restart if voice is still enabled
+          if (_voiceEnabled && mounted) {
+            _restartTimer?.cancel();
+            _restartTimer = Timer(const Duration(milliseconds: 500), () {
+              if (_voiceEnabled && mounted) _startListening();
+            });
+          }
+        },
+        onStatus: (status) {
+          if (status == 'done' || status == 'notListening') {
+            if (_voiceEnabled && mounted) {
+              _restartTimer?.cancel();
+              _restartTimer = Timer(const Duration(milliseconds: 300), () {
+                if (_voiceEnabled && mounted) _startListening();
+              });
+            }
+          }
+        },
+      );
+
+      if (!_speechAvailable && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Voice control unavailable — check microphone permissions.'),
+            backgroundColor: ElioColors.navy,
+          ),
+        );
+        return;
+      }
+
+      if (mounted) {
+        setState(() => _voiceEnabled = true);
+        if (!_voiceHelpShown) {
+          _showVoiceHelpOverlay();
+          _voiceHelpShown = true;
+        }
+        _startListening();
+        // Read step 1 aloud when voice mode first activates
+        _speakText(widget.recipe.steps[_currentStep]);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Voice control unavailable — check microphone permissions.'),
+            backgroundColor: ElioColors.navy,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _startListening() async {
+    if (!_speechAvailable || !_voiceEnabled || !mounted) return;
+    try {
+      await _speech.listen(
+        onResult: (result) {
+          _recognisedWords = result.recognizedWords.toLowerCase();
+          _processVoiceCommand(_recognisedWords);
+        },
+        listenFor: const Duration(seconds: 30),
+        pauseFor: const Duration(seconds: 5),
+        listenOptions: stt.SpeechListenOptions(
+          listenMode: stt.ListenMode.dictation,
+        ),
+      );
+      if (mounted) setState(() => _isListening = true);
+    } catch (_) {
+      if (mounted) setState(() => _isListening = false);
+    }
+  }
+
+  Future<void> _stopListening() async {
+    _restartTimer?.cancel();
+    try {
+      await _speech.stop();
+    } catch (_) {}
+    if (mounted) setState(() => _isListening = false);
+  }
+
+  void _toggleVoiceControl() {
+    if (_voiceEnabled) {
+      _stopListening();
+      setState(() => _voiceEnabled = false);
+    } else {
+      _initVoiceControl();
+    }
+  }
+
+  void _processVoiceCommand(String words) {
+    // Look for "hey elio" wake word followed by a command
+    final wakeIndex = words.lastIndexOf('hey elio');
+    if (wakeIndex == -1) return;
+
+    final afterWake = words.substring(wakeIndex + 8).trim();
+    if (afterWake.isEmpty) return;
+
+    if (afterWake.contains('next')) {
+      _onVoiceNext();
+    } else if (afterWake.contains('back') || afterWake.contains('previous')) {
+      _onVoiceBack();
+    } else if (afterWake.contains('repeat') || afterWake.contains('read')) {
+      _onVoiceRepeat();
+    } else if (afterWake.contains('done') || afterWake.contains('exit') || afterWake.contains('stop')) {
+      _onVoiceDone();
+    }
+  }
+
+  void _showVoiceFeedback(String message) {
+    _feedbackTimer?.cancel();
+    setState(() => _voiceFeedback = message);
+    _feedbackTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _voiceFeedback = '');
+    });
+  }
+
+  void _onVoiceNext() {
+    if (_currentStep < widget.recipe.steps.length - 1) {
+      setState(() => _currentStep++);
+      _showVoiceFeedback('Got it — next step');
+      _speakText(widget.recipe.steps[_currentStep]);
+    } else {
+      _showVoiceFeedback('Already on the last step');
+    }
+    _recognisedWords = '';
+  }
+
+  void _onVoiceBack() {
+    if (_currentStep > 0) {
+      setState(() => _currentStep--);
+      _showVoiceFeedback('Got it — previous step');
+      _speakText(widget.recipe.steps[_currentStep]);
+    } else {
+      _showVoiceFeedback('Already on the first step');
+    }
+    _recognisedWords = '';
+  }
+
+  void _onVoiceRepeat() {
+    _showVoiceFeedback('Reading step aloud');
+    _speakText(widget.recipe.steps[_currentStep]);
+    _recognisedWords = '';
+  }
+
+  void _onVoiceDone() {
+    _showVoiceFeedback('Exiting cooking mode');
+    _stopListening();
+    setState(() {
+      _voiceEnabled = false;
+      _handsFreeMode = false;
+    });
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _analytics.logEvent('hands_free_exited', {
+      'step_reached': _currentStep + 1,
+      'total_steps': widget.recipe.steps.length,
+      'exit_method': 'voice',
+    });
+    _recognisedWords = '';
+  }
+
+  void _showVoiceHelpOverlay() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: ElioColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Icon(Icons.mic_rounded, color: ElioColors.amber, size: 36),
+            const SizedBox(height: 12),
+            Text('Voice commands', style: ElioText.headingMedium),
+            const SizedBox(height: 16),
+            Text(
+              "Say 'Hey Elio' followed by:",
+              style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            _buildVoiceHelpRow('"Hey Elio, next"', 'Go to the next step'),
+            const SizedBox(height: 10),
+            _buildVoiceHelpRow('"Hey Elio, back"', 'Go to the previous step'),
+            const SizedBox(height: 10),
+            _buildVoiceHelpRow('"Hey Elio, repeat"', 'Read the current step aloud'),
+            const SizedBox(height: 10),
+            _buildVoiceHelpRow('"Hey Elio, done"', 'Exit cooking mode'),
+            const SizedBox(height: 20),
+            Text(
+              'Tap the mic button to turn voice control on/off',
+              style: ElioText.bodyMedium.copyWith(
+                color: ElioColors.textMuted,
+                fontStyle: FontStyle.italic,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ElioColors.amber,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Got it'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoiceHelpRow(String command, String description) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: ElioColors.navy.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            command,
+            style: ElioText.bodyMedium.copyWith(
+              fontWeight: FontWeight.w600,
+              color: ElioColors.navy,
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            description,
+            style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+          ),
+        ),
+      ],
+    );
   }
 
   double get _scaleFactor => _servings / widget.recipe.servings;
@@ -1019,6 +1324,22 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   // ─── Hands-Free Mode ─────────────────────────────────────────────────────────
+
+  void _exitHandsFreeMode({String exitMethod = 'button'}) {
+    _stopListening();
+    _tts.stop();
+    _analytics.logEvent('hands_free_exited', {
+      'step_reached': _currentStep + 1,
+      'total_steps': widget.recipe.steps.length,
+      'exit_method': exitMethod,
+    });
+    setState(() {
+      _handsFreeMode = false;
+      _voiceEnabled = false;
+    });
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  }
+
   Widget _buildHandsFreeMode() {
     final steps = widget.recipe.steps;
     final isFirst = _currentStep == 0;
@@ -1029,20 +1350,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // ── Header row: Exit, mic, title, step counter ──
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  // Exit button
                   GestureDetector(
-                    onTap: () {
-                      _analytics.logEvent('hands_free_exited', {
-                        'step_reached': _currentStep + 1,
-                        'total_steps': widget.recipe.steps.length,
-                      });
-                      setState(() => _handsFreeMode = false);
-                      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-                    },
+                    onTap: () => _exitHandsFreeMode(),
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -1059,15 +1374,55 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       ),
                     ),
                   ),
-                  Text(
-                    widget.recipe.title,
-                    style: ElioText.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: ElioColors.textSecondary,
+                  const SizedBox(width: 8),
+                  // Mic button
+                  GestureDetector(
+                    onTap: _toggleVoiceControl,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: _voiceEnabled
+                            ? ElioColors.amber.withValues(alpha: 0.15)
+                            : ElioColors.offWhite,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: _voiceEnabled ? ElioColors.amber : ElioColors.border,
+                          width: _voiceEnabled ? 2.0 : 1.0,
+                        ),
+                        boxShadow: _isListening
+                            ? [
+                                BoxShadow(
+                                  color: ElioColors.amber.withValues(alpha: 0.35),
+                                  blurRadius: 12,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Icon(
+                        _voiceEnabled ? Icons.mic_rounded : Icons.mic_off_rounded,
+                        size: 20,
+                        color: _voiceEnabled ? ElioColors.amber : ElioColors.textMuted,
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
+                  const Spacer(),
+                  // Recipe title
+                  Flexible(
+                    child: Text(
+                      widget.recipe.title,
+                      style: ElioText.bodyMedium.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: ElioColors.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Step counter
                   Text(
                     '${_currentStep + 1} / ${steps.length}',
                     style: ElioText.bodyMedium.copyWith(
@@ -1078,6 +1433,36 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 ],
               ),
             ),
+            // ── Voice feedback toast ──
+            if (_voiceFeedback.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: ElioColors.amber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: ElioColors.amber.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.hearing_rounded, size: 16, color: ElioColors.amber),
+                      const SizedBox(width: 8),
+                      Text(
+                        _voiceFeedback,
+                        style: ElioText.bodyMedium.copyWith(
+                          color: ElioColors.navy,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            // ── Progress bar ──
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
               child: Row(
@@ -1095,6 +1480,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 }),
               ),
             ),
+            // ── Step content ──
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(28, 0, 28, 0),
@@ -1125,6 +1511,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 ),
               ),
             ),
+            // ── Navigation buttons ──
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
               child: Row(
@@ -1161,7 +1548,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
                                 _analytics.logEvent('hands_free_completed', {
                                   'step_count': steps.length,
                                 });
-                                setState(() => _handsFreeMode = false);
+                                _stopListening();
+                                _tts.stop();
+                                setState(() {
+                                  _handsFreeMode = false;
+                                  _voiceEnabled = false;
+                                });
                                 SystemChrome.setEnabledSystemUIMode(
                                     SystemUiMode.edgeToEdge);
                               }

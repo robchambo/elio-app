@@ -25,6 +25,10 @@ class OnboardingState {
   // Screen 6: Kitchen appliances owned (optional)
   List<String> appliances;
 
+  // Screen 7: Units & Region
+  String measurementUnits; // "metric" or "imperial"
+  String region; // "US" or "UK"
+
   // Screen 1 extra: custom allergens entered as free text
   List<String> customAllergens;
 
@@ -35,12 +39,16 @@ class OnboardingState {
     List<HouseholdProfile>? additionalMembers,
     List<String>? stylePreferences,
     List<String>? appliances,
+    String? measurementUnits,
+    String? region,
     List<String>? customAllergens,
   })  : dietaryRequirements = dietaryRequirements ?? [],
         inventory = inventory ?? [],
         additionalMembers = additionalMembers ?? [],
         stylePreferences = stylePreferences ?? [],
         appliances = appliances ?? [],
+        measurementUnits = measurementUnits ?? 'metric',
+        region = region ?? 'US',
         customAllergens = customAllergens ?? [];
 
   OnboardingState copyWith({
@@ -50,6 +58,8 @@ class OnboardingState {
     List<HouseholdProfile>? additionalMembers,
     List<String>? stylePreferences,
     List<String>? appliances,
+    String? measurementUnits,
+    String? region,
     List<String>? customAllergens,
   }) {
     return OnboardingState(
@@ -59,6 +69,8 @@ class OnboardingState {
       additionalMembers: additionalMembers ?? this.additionalMembers,
       stylePreferences: stylePreferences ?? this.stylePreferences,
       appliances: appliances ?? this.appliances,
+      measurementUnits: measurementUnits ?? this.measurementUnits,
+      region: region ?? this.region,
       customAllergens: customAllergens ?? this.customAllergens,
     );
   }

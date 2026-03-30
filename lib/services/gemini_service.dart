@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/recipe_models.dart';
+import '../utils/region_utils.dart';
 import 'remote_config_service.dart';
 
 // ─────────────────────────────────────────────
@@ -167,6 +168,20 @@ class GeminiService {
     buffer.writeln();
     buffer.writeln('## HARD CONSTRAINTS (never override):');
 
+    // Measurement units and region
+    final units = RegionUtils.measurementUnits;
+    if (units == 'imperial') {
+      buffer.writeln('Use imperial measurements (ounces, cups, Fahrenheit) for all quantities and temperatures.');
+    } else {
+      buffer.writeln('Use metric measurements (grams, millilitres, Celsius) for all quantities and temperatures.');
+    }
+    final appRegion = RegionUtils.region;
+    if (appRegion == AppRegion.uk) {
+      buffer.writeln('User is in the United Kingdom — use GBP for cost estimates and UK ingredient names.');
+    } else {
+      buffer.writeln('User is in the United States — use USD for cost estimates and US ingredient names.');
+    }
+
     if (request.dietaryRequirements.isNotEmpty) {
       buffer.writeln('Dietary: ${request.dietaryRequirements.join(', ')} — strictly enforced.');
     } else {
@@ -190,9 +205,14 @@ class GeminiService {
       buffer.writeln();
       buffer.writeln('## INVENTORY:');
 
+      // Perishable inventory items with urgency (from pantry perishable tier)
+      if (request.perishableInventoryDescriptions.isNotEmpty) {
+        buffer.writeln('PERISHABLE ITEMS (use these first): ${request.perishableInventoryDescriptions.join(', ')}');
+      }
+
       if (request.perishables.isNotEmpty) {
         buffer.writeln('Fresh items (use these): ${request.perishables.join(', ')}');
-      } else {
+      } else if (request.perishableInventoryDescriptions.isEmpty) {
         buffer.writeln('No fresh items — use pantry staples.');
       }
 
@@ -251,6 +271,12 @@ class GeminiService {
       if (request.dislikedRecipes.isNotEmpty) {
         buffer.writeln('User has DISLIKED recipes similar to: ${request.dislikedRecipes.take(5).join(', ')} — avoid similar styles and flavour profiles.');
       }
+    }
+
+    if (request.isSaverMode) {
+      buffer.writeln();
+      buffer.writeln('## BUDGET MODE:');
+      buffer.writeln('Prioritise affordable, budget-friendly ingredients. Use own-brand/store-brand pricing. Favour bulk staples (rice, pasta, lentils, beans, frozen veg). Avoid premium, organic, or specialty ingredients. Aim for under £2 / \$3 per serving. Suggest the cheapest viable option for each ingredient.');
     }
 
     buffer.writeln();

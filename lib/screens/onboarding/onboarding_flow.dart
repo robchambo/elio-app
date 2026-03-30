@@ -4,6 +4,7 @@ import '../../models/onboarding_state.dart';
 import '../../services/firestore_service.dart';
 import '../../services/guest_pantry_service.dart';
 import '../../services/analytics_service.dart';
+import '../../utils/region_utils.dart';
 import '../home/home_screen.dart';
 import '../paywall/paywall_screen.dart';
 import 'screen1_dietary.dart';
@@ -12,10 +13,11 @@ import 'screen3_pantry.dart';
 import 'screen4_household.dart';
 import 'screen5_style.dart';
 import 'screen6_appliances.dart';
+import 'screen7_units_region.dart';
 
 // ─────────────────────────────────────────────
 // OnboardingFlow
-// Coordinator widget that manages the five-screen onboarding sequence.
+// Coordinator widget that manages the seven-screen onboarding sequence.
 // Uses a PageView for smooth horizontal transitions.
 // Accumulates OnboardingState across screens.
 // Writes to Firestore on completion (skipped in guest mode).
@@ -27,6 +29,7 @@ import 'screen6_appliances.dart';
 //   4. Household members (optional)
 //   5. Style preferences (optional)
 //   6. Kitchen appliances (optional)
+//   7. Units & Region (optional)
 // ─────────────────────────────────────────────
 
 class OnboardingFlow extends StatefulWidget {
@@ -53,7 +56,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   bool _isSaving = false;
 
   static const List<String> _stepNames = [
-    'dietary', 'kitchen_preset', 'pantry_review', 'household', 'style', 'appliances',
+    'dietary', 'kitchen_preset', 'pantry_review', 'household', 'style', 'appliances', 'units_region',
   ];
 
   @override
@@ -100,9 +103,19 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     _goToPage(5);
   }
 
-  Future<void> _onAppliancesComplete(OnboardingState updated) async {
+  void _onAppliancesNext(OnboardingState updated) {
+    setState(() => _state = updated);
     _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[5]});
+    _goToPage(6);
+  }
+
+  Future<void> _onUnitsRegionComplete(OnboardingState updated) async {
+    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[6]});
     setState(() { _state = updated; _isSaving = true; });
+
+    // Apply region and units overrides to RegionUtils
+    RegionUtils.setRegion(updated.region == 'UK' ? AppRegion.uk : AppRegion.us);
+    RegionUtils.setMeasurementUnits(updated.measurementUnits);
 
     // Guest mode: persist pantry data locally then navigate
     if (widget.isGuest) {
@@ -200,8 +213,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         ),
         KitchenAppliancesScreen(
           state: _state,
-          onComplete: _onAppliancesComplete,
+          onComplete: _onAppliancesNext,
           onBack: () => _goToPage(4),
+        ),
+        UnitsRegionScreen(
+          state: _state,
+          onComplete: _onUnitsRegionComplete,
+          onBack: () => _goToPage(5),
         ),
       ],
     );

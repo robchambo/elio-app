@@ -57,34 +57,98 @@ enum KitchenPreset {
 
 class InventoryItem {
   final String name;
-  final String tier; // 'alwaysHave' | 'almostAlwaysHave'
+  final String tier; // 'alwaysHave' | 'almostAlwaysHave' | 'perishable'
   final bool isRunningLow;
+  final DateTime? expiryDate;
 
   const InventoryItem({
     required this.name,
     required this.tier,
     this.isRunningLow = false,
+    this.expiryDate,
   });
 
-  Map<String, dynamic> toFirestore() => {
-    'name': name,
-    'tier': tier,
-    'runningLow': isRunningLow,
-  };
+  /// Whether an expiry date is set.
+  bool get hasExpiry => expiryDate != null;
+
+  /// True if the item expires within 1-3 days (inclusive) from now.
+  bool get isExpiringSoon {
+    if (expiryDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expiry = DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day);
+    final diff = expiry.difference(today).inDays;
+    return diff >= 1 && diff <= 3;
+  }
+
+  /// True if the item expires today or is already past expiry.
+  bool get isExpired {
+    if (expiryDate == null) return false;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expiry = DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day);
+    return expiry.difference(today).inDays <= 0;
+  }
+
+  /// Human-readable relative expiry label (e.g. "2d", "1w", "Expired").
+  String? get expiryLabel {
+    if (expiryDate == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final expiry = DateTime(expiryDate!.year, expiryDate!.month, expiryDate!.day);
+    final days = expiry.difference(today).inDays;
+    if (days < 0) return 'Expired';
+    if (days == 0) return 'Today';
+    if (days <= 6) return '${days}d';
+    if (days <= 13) return '1w';
+    return '${(days / 7).round()}w';
+  }
+
+  /// Description with urgency for Gemini prompt.
+  String get geminiDescription {
+    if (expiryDate == null) return name;
+    final label = expiryLabel;
+    if (label == 'Expired' || label == 'Today') return '$name (expires today)';
+    return '$name (expires in $label)';
+  }
+
+  Map<String, dynamic> toFirestore() {
+    final map = <String, dynamic>{
+      'name': name,
+      'tier': tier,
+      'runningLow': isRunningLow,
+    };
+    if (expiryDate != null) {
+      // Store as Firestore Timestamp via import in the service layer;
+      // here we store as ISO string, converted to Timestamp in the service.
+      map['expiryDate'] = expiryDate!.toIso8601String();
+    }
+    return map;
+  }
 
   factory InventoryItem.fromFirestore(Map<String, dynamic> data) {
+    DateTime? expiry;
+    final rawExpiry = data['expiryDate'];
+    if (rawExpiry != null) {
+      if (rawExpiry is String) {
+        expiry = DateTime.tryParse(rawExpiry);
+      }
+      // Firestore Timestamp is handled in the service layer
+    }
     return InventoryItem(
       name: data['name'] as String? ?? '',
       tier: data['tier'] as String? ?? 'almostAlwaysHave',
       isRunningLow: data['runningLow'] as bool? ?? false,
+      expiryDate: expiry,
     );
   }
 
-  InventoryItem copyWith({String? name, String? tier, bool? isRunningLow}) {
+  InventoryItem copyWith({String? name, String? tier, bool? isRunningLow, DateTime? expiryDate, bool clearExpiry = false}) {
     return InventoryItem(
       name: name ?? this.name,
       tier: tier ?? this.tier,
       isRunningLow: isRunningLow ?? this.isRunningLow,
+      expiryDate: clearExpiry ? null : (expiryDate ?? this.expiryDate),
     );
   }
 }

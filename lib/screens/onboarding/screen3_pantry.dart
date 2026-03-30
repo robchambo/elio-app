@@ -39,6 +39,55 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
   String _addTier = 'alwaysHave';
   String? _draggingItemName; // track which item is being dragged
 
+  /// Quick-add packs data
+  static const Map<String, Map<String, List<String>>> _quickAddPacks = {
+    'Spices & Seasonings': {
+      'Basic': [
+        'Salt', 'Black pepper', 'Garlic powder', 'Onion powder', 'Paprika',
+        'Cumin', 'Oregano', 'Chilli flakes', 'Cinnamon', 'Mixed herbs',
+      ],
+      'Asian': [
+        'Ginger (ground)', 'Five-spice', 'Sesame oil', 'Soy sauce',
+        'Fish sauce', 'Lemongrass', 'Turmeric', 'Sriracha',
+      ],
+      'Indian': [
+        'Garam masala', 'Cumin seeds', 'Coriander (ground)', 'Turmeric',
+        'Chilli powder', 'Cardamom', 'Mustard seeds', 'Fenugreek',
+      ],
+      'Mexican': [
+        'Chilli powder', 'Cumin', 'Smoked paprika', 'Cayenne pepper',
+        'Chipotle paste', 'Lime',
+      ],
+    },
+    'Oils & Vinegars': {
+      '': [
+        'Olive oil', 'Vegetable oil', 'Coconut oil', 'Sesame oil',
+        'Balsamic vinegar', 'White wine vinegar', 'Apple cider vinegar',
+      ],
+    },
+    'Baking Essentials': {
+      '': [
+        'Plain flour', 'Self-raising flour', 'Baking powder',
+        'Bicarbonate of soda', 'Vanilla extract', 'Cocoa powder',
+        'Caster sugar', 'Brown sugar', 'Cornflour', 'Yeast',
+      ],
+    },
+    'Sauces & Condiments': {
+      '': [
+        'Ketchup', 'Mayonnaise', 'Mustard', 'Worcestershire sauce',
+        'Hot sauce', 'Honey', 'Maple syrup', 'Tomato puree',
+        'Stock cubes (chicken)', 'Stock cubes (vegetable)',
+      ],
+    },
+    'Grains & Pasta': {
+      '': [
+        'Rice (white)', 'Rice (brown)', 'Pasta (spaghetti)', 'Pasta (penne)',
+        'Couscous', 'Quinoa', 'Oats', 'Noodles (egg)', 'Noodles (rice)',
+        'Bread',
+      ],
+    },
+  };
+
   @override
   void initState() {
     super.initState();
@@ -173,6 +222,35 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
         ),
       ),
     );
+  }
+
+  /// Check if a pack item is already in the pantry (exact or fuzzy match).
+  bool _isItemInPantry(String packItem) {
+    for (final item in _items) {
+      if (PantryUtils.isFuzzyMatch(packItem, item.name)) return true;
+    }
+    return false;
+  }
+
+  /// Toggle a quick-add pack item: add to alwaysHave or remove.
+  void _togglePackItem(String name) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      // Check if already in pantry via fuzzy match
+      final matchIdx = _items.indexWhere(
+        (i) => PantryUtils.isFuzzyMatch(name, i.name),
+      );
+      if (matchIdx != -1) {
+        // Only remove if the exact name matches (user added via pack)
+        // If it was from a preset with a different name, don't remove it
+        if (_items[matchIdx].name == name) {
+          _items.removeAt(matchIdx);
+        }
+        // If fuzzy match but different name, it's a preset item — do nothing
+      } else {
+        _items.add(InventoryItem(name: name, tier: 'alwaysHave'));
+      }
+    });
   }
 
   List<InventoryItem> get _alwaysHave =>
@@ -321,6 +399,14 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Quick-add packs ─────────────────────────
+                      _QuickAddPacksSection(
+                        packs: _quickAddPacks,
+                        isItemInPantry: _isItemInPantry,
+                        onToggleItem: _togglePackItem,
                       ),
                       const SizedBox(height: 20),
                     ],
@@ -599,6 +685,190 @@ class _DragFeedbackChip extends StatelessWidget {
           color: color,
         ),
       ),
+    );
+  }
+}
+
+// ─── Quick-add packs section ─────────────────────────────────────────────────
+
+class _QuickAddPacksSection extends StatelessWidget {
+  final Map<String, Map<String, List<String>>> packs;
+  final bool Function(String) isItemInPantry;
+  final void Function(String) onToggleItem;
+
+  const _QuickAddPacksSection({
+    required this.packs,
+    required this.isItemInPantry,
+    required this.onToggleItem,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: ElioColors.offWhite,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ElioColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Quick-add packs', style: ElioText.headingMedium),
+          const SizedBox(height: 2),
+          Text(
+            'Tap a category to expand and pick items',
+            style: ElioText.label.copyWith(color: ElioColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          ...packs.entries.map((category) => _PackCategorySection(
+                categoryName: category.key,
+                subcategories: category.value,
+                isItemInPantry: isItemInPantry,
+                onToggleItem: onToggleItem,
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Collapsible category within quick-add packs ─────────────────────────────
+
+class _PackCategorySection extends StatefulWidget {
+  final String categoryName;
+  final Map<String, List<String>> subcategories;
+  final bool Function(String) isItemInPantry;
+  final void Function(String) onToggleItem;
+
+  const _PackCategorySection({
+    required this.categoryName,
+    required this.subcategories,
+    required this.isItemInPantry,
+    required this.onToggleItem,
+  });
+
+  @override
+  State<_PackCategorySection> createState() => _PackCategorySectionState();
+}
+
+class _PackCategorySectionState extends State<_PackCategorySection> {
+  bool _expanded = false;
+
+  int get _totalItemCount =>
+      widget.subcategories.values.fold(0, (sum, list) => sum + list.length);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Category header — tap to expand/collapse
+        GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Icon(
+                  _expanded
+                      ? Icons.expand_more_rounded
+                      : Icons.chevron_right_rounded,
+                  size: 20,
+                  color: ElioColors.navy,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    widget.categoryName,
+                    style: ElioText.label.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: ElioColors.navy,
+                    ),
+                  ),
+                ),
+                Text(
+                  '$_totalItemCount items',
+                  style: ElioText.label.copyWith(
+                    color: ElioColors.textMuted,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // Expanded content
+        if (_expanded) ...[
+          ...widget.subcategories.entries.map((sub) {
+            final hasSubLabel = sub.key.isNotEmpty;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (hasSubLabel) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(left: 26, bottom: 6),
+                      child: Text(
+                        sub.key,
+                        style: ElioText.label.copyWith(
+                          color: ElioColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.only(left: 26),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: sub.value.map((itemName) {
+                        final selected = widget.isItemInPantry(itemName);
+                        return GestureDetector(
+                          onTap: () => widget.onToggleItem(itemName),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: selected
+                                  ? ElioColors.amber.withValues(alpha: 0.12)
+                                  : ElioColors.white,
+                              borderRadius: BorderRadius.circular(24),
+                              border: Border.all(
+                                color: selected
+                                    ? ElioColors.amber.withValues(alpha: 0.5)
+                                    : ElioColors.border,
+                              ),
+                            ),
+                            child: Text(
+                              itemName,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight:
+                                    selected ? FontWeight.w600 : FontWeight.w500,
+                                color: selected
+                                    ? ElioColors.amber
+                                    : ElioColors.navy,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+        // Divider between categories (except last)
+        const Divider(height: 1, color: ElioColors.border),
+      ],
     );
   }
 }

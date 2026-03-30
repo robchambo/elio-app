@@ -55,6 +55,13 @@ class RecipeGenerationRequest {
   /// Kitchen appliances the user owns — used to enhance recipe suggestions
   final List<String> appliances;
 
+  /// Whether the user wants budget-friendly recipes
+  final bool isSaverMode;
+
+  /// Perishable inventory items with urgency descriptions for Gemini
+  /// e.g. "chicken breast (expires in 2d)", "spinach (expires today)"
+  final List<String> perishableInventoryDescriptions;
+
   const RecipeGenerationRequest({
     required this.perishables,
     required this.alwaysHave,
@@ -72,6 +79,8 @@ class RecipeGenerationRequest {
     this.likedRecipes = const [],
     this.dislikedRecipes = const [],
     this.appliances = const [],
+    this.isSaverMode = false,
+    this.perishableInventoryDescriptions = const [],
   });
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme/elio_theme.dart';
+import '../../models/elio_models.dart';
 import '../../models/recipe_models.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
@@ -59,6 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _almostAlwaysHave = [];
   List<String> _runningLowItems = []; // items flagged as running low
   List<String> _appliances = [];
+  List<String> _perishableDescriptions = [];
+  int _expiringItemCount = 0;
+  bool _showExpiryBanner = true;
+  bool _saverMode = false;
   bool _isLoading = true;
   bool _isGenerating = false;
 
@@ -157,12 +162,38 @@ class _HomeScreenState extends State<HomeScreen> {
     try {
       final data = await _firestore.getUserData();
       if (mounted) {
+        // Build perishable descriptions from inventory
+        final inventoryWithIds = List<Map<String, dynamic>>.from(
+          (data['inventoryWithIds'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
+        );
+        final perishableDescs = <String>[];
+        int expiringCount = 0;
+        for (final item in inventoryWithIds) {
+          if (item['tier'] == 'perishable') {
+            final name = item['name'] as String? ?? '';
+            final rawExpiry = item['expiryDate'] as String?;
+            DateTime? expiry;
+            if (rawExpiry != null) expiry = DateTime.tryParse(rawExpiry);
+            final invItem = InventoryItem(name: name, tier: 'perishable', expiryDate: expiry);
+            perishableDescs.add(invItem.geminiDescription);
+            if (expiry != null) {
+              final now = DateTime.now();
+              final today = DateTime(now.year, now.month, now.day);
+              final expiryDay = DateTime(expiry.year, expiry.month, expiry.day);
+              final diff = expiryDay.difference(today).inDays;
+              if (diff <= 1) expiringCount++;
+            }
+          }
+        }
+
         setState(() {
           _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
           _alwaysHave = List<String>.from(data['alwaysHave'] ?? []);
           _almostAlwaysHave = List<String>.from(data['almostAlwaysHave'] ?? []);
           _runningLowItems = List<String>.from(data['runningLowItems'] ?? []);
           _appliances = List<String>.from(data['appliances'] ?? []);
+          _perishableDescriptions = perishableDescs;
+          _expiringItemCount = expiringCount;
           _householdProfiles = List<Map<String, dynamic>>.from(
             (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
           );
@@ -427,6 +458,8 @@ class _HomeScreenState extends State<HomeScreen> {
         likedRecipes: likedRecipes,
         dislikedRecipes: dislikedRecipes,
         appliances: _appliances,
+        isSaverMode: _saverMode,
+        perishableInventoryDescriptions: _isLeftoverMode ? [] : _perishableDescriptions,
       );
 
       final recipe = await GeminiService.generateRecipe(request);
@@ -458,6 +491,7 @@ class _HomeScreenState extends State<HomeScreen> {
         'time': _selectedTime ?? 'none',
         'mood': _selectedMood ?? 'none',
         'is_leftover_mode': _isLeftoverMode,
+        'is_saver_mode': _saverMode,
         'perishable_count': _selectedPerishables.length,
         'is_guest': widget.isGuest,
       });
@@ -534,6 +568,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const SizedBox(height: 16),
+                          // ── Expiry banner ─────────────────────────
+                          if (_expiringItemCount > 0 && _showExpiryBanner)
+                            _buildExpiryBanner(),
                           // ── Active dietary filter strip ──────────
                           if (!widget.isGuest && _allDietaryConstraints.isNotEmpty)
                             _buildDietaryFilterStrip(),
@@ -587,32 +624,113 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          // Profile avatar
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              ).then((_) => _loadUserData()); // Refresh data when returning
-            },
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: const BoxDecoration(
-                color: ElioColors.navy,
-                shape: BoxShape.circle,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Quick pantry access
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 0)),
+                  ).then((_) => _loadUserData());
+                },
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(
+                    color: ElioColors.offWhite,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: ElioColors.border),
+                  ),
+                  child: const Icon(Icons.kitchen_outlined, size: 17, color: ElioColors.navy),
+                ),
               ),
-              child: Center(
-                child: Text(
-                  initials,
-                  style: const TextStyle(fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+              // Profile avatar
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                  ).then((_) => _loadUserData());
+                },
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: ElioColors.navy,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      initials,
+                      style: const TextStyle(fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
                   ),
                 ),
               ),
             ),
           ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  // ─── Expiry banner ──────────────────────────────────────────────────────────
+  Widget _buildExpiryBanner() {
+    final label = _expiringItemCount == 1
+        ? '1 item expiring soon'
+        : '$_expiringItemCount items expiring soon';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3E0),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: ElioColors.amber.withValues(alpha: 0.4)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFE65100)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: ElioText.bodyMedium.copyWith(
+                  color: const Color(0xFFE65100),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            GestureDetector(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 0)),
+                ).then((_) => _loadUserData());
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: ElioColors.amber,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'View',
+                  style: ElioText.label.copyWith(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => setState(() => _showExpiryBanner = false),
+              child: const Icon(Icons.close, size: 16, color: Color(0xFFE65100)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1111,31 +1229,76 @@ class _HomeScreenState extends State<HomeScreen> {
   // ─── Generate button ──────────────────────────────────────────────────────────
   Widget _buildGenerateButton() {
     return SizedBox(
-      width: double.infinity,
       height: 56,
-      child: ElevatedButton(
-        onPressed: _isGenerating ? null : _generateRecipe,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: ElioColors.amber,
-          disabledBackgroundColor: ElioColors.amber.withValues(alpha: 0.6),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 0,
-        ),
-        child: _isGenerating
-            ? const SizedBox(
-                width: 22,
-                height: 22,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2.5,
+      child: Row(
+        children: [
+          // Saver toggle
+          GestureDetector(
+            onTap: () {
+              setState(() => _saverMode = !_saverMode);
+              _analytics.logEvent('saver_mode_toggled', {'enabled': _saverMode});
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Saver',
+                  style: GoogleFonts.quicksand(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _saverMode ? ElioColors.amber : ElioColors.navy,
+                  ),
                 ),
-              )
-            : Text(
-                _isLeftoverMode ? 'Use These Leftovers →' : 'Generate Recipe →',
-                style: const TextStyle(fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white),
+                const SizedBox(width: 2),
+                SizedBox(
+                  height: 32,
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Switch.adaptive(
+                      value: _saverMode,
+                      activeTrackColor: ElioColors.amber,
+                      onChanged: (value) {
+                        setState(() => _saverMode = value);
+                        _analytics.logEvent('saver_mode_toggled', {'enabled': value});
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Generate button
+          Expanded(
+            child: SizedBox(
+              height: 56,
+              child: ElevatedButton(
+                onPressed: _isGenerating ? null : _generateRecipe,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ElioColors.amber,
+                  disabledBackgroundColor: ElioColors.amber.withValues(alpha: 0.6),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: _isGenerating
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : Text(
+                        _isLeftoverMode ? 'Use These Leftovers →' : 'Generate Recipe →',
+                        style: const TextStyle(fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white),
+                      ),
               ),
+            ),
+          ),
+        ],
       ),
     );
   }

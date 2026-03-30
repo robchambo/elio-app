@@ -31,9 +31,29 @@ class RegionUtils {
     'GB': AppRegion.uk,
   };
 
+  /// User-overridden region (set from onboarding or settings).
+  static AppRegion? _userOverride;
+
+  /// User-overridden measurement units ("metric" or "imperial").
+  static String _measurementUnits = 'metric';
+
+  /// Set the user's preferred region (persists in memory for the session).
+  static void setRegion(AppRegion region) {
+    _userOverride = region;
+  }
+
+  /// Set the user's preferred measurement units ("metric" or "imperial").
+  static void setMeasurementUnits(String units) {
+    _measurementUnits = units;
+  }
+
+  /// Current measurement units. Defaults to "metric".
+  static String get measurementUnits => _measurementUnits;
+
   /// Detect the device's app region from the platform locale.
-  /// Falls back to [AppRegion.us] if the country code is unrecognised.
+  /// Returns user override if set, otherwise falls back to locale detection.
   static AppRegion get region {
+    if (_userOverride != null) return _userOverride!;
     final locale = PlatformDispatcher.instance.locale;
     final countryCode = locale.countryCode?.toUpperCase() ?? '';
     return _countryCodeToRegion[countryCode] ?? AppRegion.us;

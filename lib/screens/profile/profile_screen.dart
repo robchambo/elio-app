@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../theme/elio_theme.dart';
+import '../../models/elio_models.dart';
 import '../../services/firestore_service.dart';
 import '../../services/auth_service.dart';
 import '../../utils/pantry_utils.dart';
@@ -12,6 +13,7 @@ import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/shopping_service.dart';
 import 'notification_prefs_screen.dart';
+import 'settings_screen.dart';
 
 // ─────────────────────────────────────────────
 // ProfileScreen
@@ -20,7 +22,8 @@ import 'notification_prefs_screen.dart';
 // ─────────────────────────────────────────────
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final int initialTab;
+  const ProfileScreen({super.key, this.initialTab = 0});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -94,7 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 6, vsync: this, initialIndex: widget.initialTab);
     _loadData();
     _loadShoppingItems();
   }
@@ -208,6 +211,24 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   List<Map<String, dynamic>> get _almostAlwaysHaveItems =>
       _inventoryItems.where((i) => i['tier'] == 'almostAlwaysHave').toList();
 
+  List<Map<String, dynamic>> get _perishableItems {
+    final items = _inventoryItems.where((i) => i['tier'] == 'perishable').toList();
+    items.sort((a, b) {
+      final aExpiry = a['expiryDate'] as String?;
+      final bExpiry = b['expiryDate'] as String?;
+      if (aExpiry == null && bExpiry == null) return 0;
+      if (aExpiry == null) return 1;
+      if (bExpiry == null) return -1;
+      final aDate = DateTime.tryParse(aExpiry);
+      final bDate = DateTime.tryParse(bExpiry);
+      if (aDate == null && bDate == null) return 0;
+      if (aDate == null) return 1;
+      if (bDate == null) return -1;
+      return aDate.compareTo(bDate);
+    });
+    return items;
+  }
+
   Future<void> _moveItemToTier(String itemId, String newTier) async {
     final idx = _inventoryItems.indexWhere((i) => i['id'] == itemId);
     if (idx == -1) return;
@@ -302,6 +323,34 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           'runningLow': false,
         }));
         _analytics.logEvent('pantry_item_added', {'tier': tier});
+      }
+    } catch (_) {
+      _showSnack('Could not add item. Please try again.');
+    }
+  }
+
+  Future<void> _addPerishableItem(String name, {DateTime? expiryDate}) async {
+    if (name.trim().isEmpty) return;
+    final existingNames = _inventoryItems
+        .map((item) => item['name'] as String? ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+    final duplicates = PantryUtils.findDuplicates(name.trim(), existingNames);
+    if (duplicates.isNotEmpty && mounted) {
+      final addAnyway = await PantryUtils.showDuplicateWarning(context, name.trim(), duplicates);
+      if (!addAnyway) return;
+    }
+    try {
+      final id = await _firestore.addInventoryItem(name.trim(), 'perishable', expiryDate: expiryDate);
+      if (mounted) {
+        setState(() => _inventoryItems.add({
+          'id': id,
+          'name': name.trim(),
+          'tier': 'perishable',
+          'runningLow': false,
+          if (expiryDate != null) 'expiryDate': expiryDate.toIso8601String(),
+        }));
+        _analytics.logEvent('pantry_item_added', {'tier': 'perishable', 'has_expiry': expiryDate != null});
       }
     } catch (_) {
       _showSnack('Could not add item. Please try again.');
@@ -545,6 +594,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   ),
                   GestureDetector(
                     onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: ElioColors.offWhite,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: ElioColors.border),
+                      ),
+                      child: const Icon(Icons.settings_outlined, size: 18, color: ElioColors.navy),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (_) => const NotificationPrefsScreen()),
                     ),
                     child: Container(
@@ -642,10 +706,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         Text('Your pantry', style: ElioText.headingMedium),
         const SizedBox(height: 4),
         Text(
-          'Long-press any item to move it between tiers. Tap ⚠ to flag items running low.',
+          'Long-press any item to move it between tiers. Tap the warning icon to flag items running low.',
           style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
         ),
         const SizedBox(height: 20),
+        _buildPerishableSection(),
+        const SizedBox(height: 24),
         _buildTierSection(
           title: 'Always Have',
           subtitle: 'Staples you always keep stocked',
@@ -671,8 +737,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     final itemId = item['id'] as String;
     final itemName = item['name'] as String? ?? '';
     final currentTier = item['tier'] as String? ?? 'alwaysHave';
-    final otherTier = currentTier == 'alwaysHave' ? 'almostAlwaysHave' : 'alwaysHave';
-    final otherTierLabel = currentTier == 'alwaysHave' ? 'Almost Always Have' : 'Always Have';
+
+    String tierLabel(String t) {
+      switch (t) {
+        case 'alwaysHave': return 'Always Have';
+        case 'almostAlwaysHave': return 'Almost Always Have';
+        case 'perishable': return 'Perishables';
+        default: return t;
+      }
+    }
+
+    final allTiers = ['alwaysHave', 'almostAlwaysHave', 'perishable'];
+    final otherTiers = allTiers.where((t) => t != currentTier).toList();
 
     showModalBottomSheet(
       context: context,
@@ -700,11 +776,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               Text(itemName, style: ElioText.headingMedium),
               const SizedBox(height: 4),
               Text(
-                'Currently in: ${currentTier == 'alwaysHave' ? 'Always Have' : 'Almost Always Have'}',
+                'Currently in: ${tierLabel(currentTier)}',
                 style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
               ),
               const SizedBox(height: 16),
-              ListTile(
+              ...otherTiers.map((t) => ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
                   width: 40, height: 40,
@@ -715,14 +791,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   child: const Icon(Icons.swap_vert_rounded, color: ElioColors.navy, size: 20),
                 ),
                 title: Text(
-                  'Move to "$otherTierLabel"',
+                  'Move to "${tierLabel(t)}"',
                   style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600),
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _moveItemToTier(itemId, otherTier);
+                  _moveItemToTier(itemId, t);
                 },
-              ),
+              )),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Container(
@@ -748,6 +824,268 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               const SizedBox(height: 8),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Perishable section ────────────────────────────────────────────────────
+  Widget _buildPerishableSection() {
+    final items = _perishableItems;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ElioColors.border),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.kitchen_rounded, size: 16, color: Color(0xFF3D9970)),
+              const SizedBox(width: 6),
+              Text('Perishables', style: ElioText.headingMedium),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Fresh items with optional expiry tracking',
+            style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          if (items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No perishables yet. Add some below.',
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+              ),
+            ),
+          ...items.map((item) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: GestureDetector(
+              onLongPress: () => _showItemMoveMenu(item),
+              child: _buildPerishableRow(item),
+            ),
+          )),
+          const SizedBox(height: 8),
+          _buildPerishableAddRow(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPerishableRow(Map<String, dynamic> item) {
+    final itemId = item['id'] as String;
+    final name = item['name'] as String? ?? '';
+    final rawExpiry = item['expiryDate'] as String?;
+    DateTime? expiryDate;
+    if (rawExpiry != null) expiryDate = DateTime.tryParse(rawExpiry);
+
+    final invItem = InventoryItem(name: name, tier: 'perishable', expiryDate: expiryDate);
+    final label = invItem.expiryLabel;
+    final isExpired = invItem.isExpired;
+    final isExpiringSoon = invItem.isExpiringSoon;
+
+    Color? badgeColor;
+    if (label != null) {
+      if (isExpired) {
+        badgeColor = ElioColors.error;
+      } else if (isExpiringSoon) {
+        badgeColor = ElioColors.amber;
+      } else {
+        badgeColor = const Color(0xFF3D9970);
+      }
+    }
+
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: isExpired
+                  ? const Color(0xFFFFF0F0)
+                  : isExpiringSoon
+                      ? const Color(0xFFFFF8F0)
+                      : ElioColors.offWhite,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isExpired
+                    ? ElioColors.error.withValues(alpha: 0.5)
+                    : isExpiringSoon
+                        ? ElioColors.amber.withValues(alpha: 0.5)
+                        : ElioColors.border,
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    name,
+                    style: ElioText.bodyMedium.copyWith(
+                      color: isExpired ? ElioColors.error : ElioColors.textPrimary,
+                      fontWeight: (isExpired || isExpiringSoon) ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+                if (label != null && badgeColor != null) ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: badgeColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      label,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+                ],
+                if (isExpiringSoon || isExpired) ...[
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: ElioColors.error),
+                      ),
+                      child: Text(
+                        'Use it up',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: ElioColors.error),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        GestureDetector(
+          onTap: () => _deleteInventoryItem(itemId),
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: ElioColors.offWhite,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: ElioColors.border),
+            ),
+            child: const Icon(Icons.close, size: 15, color: ElioColors.textMuted),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPerishableAddRow() {
+    final controller = TextEditingController();
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        final hasText = controller.text.trim().isNotEmpty;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      hintText: 'Add perishable...',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: ElioColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: ElioColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: ElioColors.navy, width: 1.5),
+                      ),
+                      filled: true,
+                      fillColor: ElioColors.offWhite,
+                    ),
+                    style: ElioText.bodyMedium,
+                    textCapitalization: TextCapitalization.words,
+                    onChanged: (_) => setLocalState(() {}),
+                    onSubmitted: (value) {
+                      if (value.trim().isNotEmpty) {
+                        _addPerishableItem(value.trim());
+                        controller.clear();
+                        setLocalState(() {});
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    if (controller.text.trim().isNotEmpty) {
+                      _addPerishableItem(controller.text.trim());
+                      controller.clear();
+                      setLocalState(() {});
+                    }
+                  },
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: ElioColors.navy,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.add, size: 20, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            if (hasText) ...[
+              const SizedBox(height: 8),
+              Text('Set expiry:', style: ElioText.label.copyWith(color: ElioColors.textSecondary, fontSize: 11)),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  _expiryPresetChip('3 days', 3, controller),
+                  _expiryPresetChip('1 week', 7, controller),
+                  _expiryPresetChip('2 weeks', 14, controller),
+                  _expiryPresetChip('No expiry', null, controller),
+                ],
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _expiryPresetChip(String label, int? days, TextEditingController controller) {
+    return GestureDetector(
+      onTap: () {
+        final name = controller.text.trim();
+        if (name.isEmpty) return;
+        final expiryDate = days != null ? DateTime.now().add(Duration(days: days)) : null;
+        _addPerishableItem(name, expiryDate: expiryDate);
+        controller.clear();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: ElioColors.amber.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ElioColors.amber.withValues(alpha: 0.3)),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: ElioColors.amber),
         ),
       ),
     );

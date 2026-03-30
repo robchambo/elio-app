@@ -49,6 +49,8 @@ dependencies:
   google_generative_ai: ^0.4.6
   purchases_flutter: ^8.9.0
   firebase_messaging: ^15.2.4
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.2.0
 
 dev_dependencies:
   flutter_test:

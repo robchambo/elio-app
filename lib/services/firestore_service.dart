@@ -57,6 +57,8 @@ class FirestoreService {
         'weeklyGenerations': 0,
         'weekStartedAt': now,
       },
+      'measurementUnits': state.measurementUnits,
+      'region': state.region,
       'activeProfileIds': ['owner'],
     });
 
@@ -76,7 +78,17 @@ class FirestoreService {
     if (existingInventory.docs.isEmpty) {
       for (final item in state.inventory) {
         final itemRef = userRef.collection('inventory').doc();
-        batch.set(itemRef, item.toFirestore());
+        final itemData = item.toFirestore();
+        // Convert ISO string expiryDate to Firestore Timestamp
+        if (itemData['expiryDate'] is String) {
+          final dt = DateTime.tryParse(itemData['expiryDate'] as String);
+          if (dt != null) {
+            itemData['expiryDate'] = Timestamp.fromDate(dt);
+          } else {
+            itemData.remove('expiryDate');
+          }
+        }
+        batch.set(itemRef, itemData);
       }
     }
 
@@ -157,7 +169,23 @@ class FirestoreService {
       final name = data['name'] as String? ?? '';
       final tier = data['tier'] as String? ?? '';
       final isRunningLow = data['runningLow'] as bool? ?? false;
-      inventoryWithIds.add({'id': doc.id, 'name': name, 'tier': tier, 'runningLow': isRunningLow});
+
+      // Parse expiryDate — may be a Timestamp or ISO string
+      DateTime? expiryDate;
+      final rawExpiry = data['expiryDate'];
+      if (rawExpiry is Timestamp) {
+        expiryDate = rawExpiry.toDate();
+      } else if (rawExpiry is String) {
+        expiryDate = DateTime.tryParse(rawExpiry);
+      }
+
+      inventoryWithIds.add({
+        'id': doc.id,
+        'name': name,
+        'tier': tier,
+        'runningLow': isRunningLow,
+        if (expiryDate != null) 'expiryDate': expiryDate.toIso8601String(),
+      });
       if (tier == 'alwaysHave') {
         alwaysHave.add(name);
       } else if (tier == 'almostAlwaysHave') {
@@ -187,6 +215,26 @@ class FirestoreService {
 
   Future<void> saveAppliances(List<String> appliances) async {
     await _db.collection('users').doc(_uid).update({'appliances': appliances});
+  }
+
+  // ─── Settings: get and update measurement units + region ─────────
+
+  Future<Map<String, String>> getSettings() async {
+    final doc = await _db.collection('users').doc(_uid).get();
+    if (!doc.exists) return {'measurementUnits': 'metric', 'region': 'US'};
+    final data = doc.data() as Map<String, dynamic>;
+    return {
+      'measurementUnits': data['measurementUnits'] as String? ?? 'metric',
+      'region': data['region'] as String? ?? 'US',
+    };
+  }
+
+  Future<void> updateSettings({String? measurementUnits, String? region}) async {
+    final updates = <String, dynamic>{};
+    if (measurementUnits != null) updates['measurementUnits'] = measurementUnits;
+    if (region != null) updates['region'] = region;
+    if (updates.isEmpty) return;
+    await _db.collection('users').doc(_uid).update(updates);
   }
 
   // ─── Free tier: check if user can generate a recipe ─────────────
@@ -258,11 +306,13 @@ class FirestoreService {
 
   // ─── Update an inventory item ────────────────────────────────────
 
-  Future<void> updateInventoryItem(String itemId, {String? name, String? tier, bool? runningLow}) async {
+  Future<void> updateInventoryItem(String itemId, {String? name, String? tier, bool? runningLow, DateTime? expiryDate, bool clearExpiry = false}) async {
     final updates = <String, dynamic>{};
     if (name != null) updates['name'] = name;
     if (tier != null) updates['tier'] = tier;
     if (runningLow != null) updates['runningLow'] = runningLow;
+    if (expiryDate != null) updates['expiryDate'] = Timestamp.fromDate(expiryDate);
+    if (clearExpiry) updates['expiryDate'] = FieldValue.delete();
     if (updates.isEmpty) return;
     await _db
         .collection('users')
@@ -274,9 +324,13 @@ class FirestoreService {
 
   // ─── Add a new inventory item ────────────────────────────────────
 
-  Future<String> addInventoryItem(String name, String tier) async {
+  Future<String> addInventoryItem(String name, String tier, {DateTime? expiryDate}) async {
     final ref = _db.collection('users').doc(_uid).collection('inventory').doc();
-    await ref.set({'name': name, 'tier': tier, 'runningLow': false});
+    final data = <String, dynamic>{'name': name, 'tier': tier, 'runningLow': false};
+    if (expiryDate != null) {
+      data['expiryDate'] = Timestamp.fromDate(expiryDate);
+    }
+    await ref.set(data);
     return ref.id;
   }
 
