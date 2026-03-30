@@ -9,6 +9,7 @@ import '../../services/firestore_service.dart';
 import '../../utils/region_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
+import '../../services/entitlement_service.dart';
 
 // ─────────────────────────────────────────────
 // RecipeScreen — Sprint 4 patch
@@ -115,7 +116,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
       if (!widget.isGuest) {
         await Future.wait([
-          _firestore.incrementDailyGenerations(),
+          EntitlementService.instance.recordGeneration(),
           _firestore.saveRecipe(newRecipe),
         ]);
       }

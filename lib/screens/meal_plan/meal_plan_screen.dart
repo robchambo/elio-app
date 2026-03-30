@@ -6,6 +6,8 @@ import '../../services/firestore_service.dart';
 import '../shopping/shopping_list_screen.dart';
 import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
+import '../../services/entitlement_service.dart';
+import '../paywall/paywall_screen.dart';
 
 // ─────────────────────────────────────────────
 // MealPlanScreen
@@ -35,6 +37,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     with SingleTickerProviderStateMixin {
   final FirestoreService _firestore = FirestoreService();
   final AnalyticsService _analytics = AnalyticsService.instance;
+  final EntitlementService _entitlements = EntitlementService.instance;
 
   // ── State ──────────────────────────────────────────────────────────
   MealPlan? _plan;
@@ -114,6 +117,14 @@ class _MealPlanScreenState extends State<MealPlanScreen>
 
   Future<void> _generateWeeklyPlan() async {
     if (_isGenerating) return;
+
+    // Pro-only feature gate
+    await _entitlements.refresh();
+    if (!_entitlements.canUseMealPlanner) {
+      if (mounted) _showProRequiredSnack('Meal planning');
+      return;
+    }
+
     setState(() => _isGenerating = true);
 
     try {
@@ -211,6 +222,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
 
   void _openShoppingList() {
     if (_plan == null) return;
+    if (!_entitlements.canUseShoppingList) {
+      _showProRequiredSnack('Shopping lists');
+      return;
+    }
     final shoppingList = ShoppingList.fromMealPlan(
       _plan!,
       alreadyHave: [..._alwaysHave, ..._almostAlwaysHave],
@@ -222,6 +237,17 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => ShoppingListScreen(shoppingList: shoppingList),
+      ),
+    );
+  }
+
+  void _showProRequiredSnack(String feature) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PaywallScreen(
+          trigger: PaywallTrigger.lockedFeature,
+          lockedFeatureName: feature,
+        ),
       ),
     );
   }

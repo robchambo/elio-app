@@ -53,6 +53,8 @@ class FirestoreService {
         'renewsAt': null,
         'dailyGenerations': 0,
         'dailyGenerationsResetAt': now,
+        'weeklyGenerations': 0,
+        'weekStartedAt': now,
       },
       'activeProfileIds': ['owner'],
     });

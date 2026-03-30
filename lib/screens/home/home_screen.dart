@@ -12,8 +12,10 @@ import '../recipe/recipe_screen.dart';
 import '../history/history_screen.dart';
 import '../meal_plan/meal_plan_screen.dart';
 import '../profile/profile_screen.dart';
+import '../paywall/paywall_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
+import '../../services/entitlement_service.dart';
 
 // ─────────────────────────────────────────────
 // HomeScreen
@@ -41,6 +43,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final FirestoreService _firestore = FirestoreService();
   final AnalyticsService _analytics = AnalyticsService.instance;
+  final EntitlementService _entitlements = EntitlementService.instance;
   final TextEditingController _textController = TextEditingController();
   final FocusNode _textFocus = FocusNode();
 
@@ -389,45 +392,20 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _selectedPerishables.remove(item));
   }
 
-  // ── Guest cap: device-local daily counter ─────────────────────────
-  static const String _guestCapKey = 'guest_daily_generations';
-  static const String _guestCapDateKey = 'guest_daily_generations_date';
-
-  Future<bool> _canGuestGenerate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toUtc();
-    final todayStr = '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
-    final savedDate = prefs.getString(_guestCapDateKey) ?? '';
-    if (savedDate != todayStr) {
-      // New day — reset counter
-      await prefs.setInt(_guestCapKey, 0);
-      await prefs.setString(_guestCapDateKey, todayStr);
-      return true;
-    }
-    final count = prefs.getInt(_guestCapKey) ?? 0;
-    return count < 3;
-  }
-
-  Future<void> _incrementGuestGenerations() async {
-    final prefs = await SharedPreferences.getInstance();
-    final current = prefs.getInt(_guestCapKey) ?? 0;
-    await prefs.setInt(_guestCapKey, current + 1);
-  }
-
   // ── Generate recipe ────────────────────────────────────────────────
   Future<void> _generateRecipe() async {
     if (_isGenerating) return;
 
     // Check free tier cap
     if (widget.isGuest) {
-      final canGenerate = await _canGuestGenerate();
+      final canGenerate = await EntitlementService.canGuestGenerate();
       if (!canGenerate && mounted) {
         _showUpgradeDialog();
         return;
       }
     } else {
-      final canGenerate = await _firestore.canGenerateRecipe();
-      if (!canGenerate && mounted) {
+      await _entitlements.refresh();
+      if (!_entitlements.canGenerate && mounted) {
         _showUpgradeDialog();
         return;
       }
@@ -469,12 +447,11 @@ class _HomeScreenState extends State<HomeScreen> {
       final recipe = await GeminiService.generateRecipe(request);
 
       if (widget.isGuest) {
-        // Increment device-local guest cap
-        await _incrementGuestGenerations();
+        await EntitlementService.recordGuestGeneration();
       } else {
-        // Increment daily cap and save to Firestore in parallel
+        // Record generation and save recipe in parallel
         await Future.wait([
-          _firestore.incrementDailyGenerations(),
+          _entitlements.recordGeneration(),
           _firestore.saveRecipe(recipe),
         ]);
       }
@@ -545,66 +522,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showUpgradeDialog() {
-    _analytics.logEvent('upgrade_prompt_shown', {
-      'trigger': 'daily_cap_reached',
-      'is_guest': widget.isGuest,
-    });
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Column(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: ElioColors.amber.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.auto_awesome, color: ElioColors.amber, size: 28),
-            ),
-            const SizedBox(height: 16),
-            Text("You've cooked up 3 today!", style: ElioText.headingMedium, textAlign: TextAlign.center),
-          ],
-        ),
-        content: Text(
-          'Free accounts get 3 recipe generations per day. Upgrade to Elio Pro for unlimited recipes, weekly meal plans, and more.',
-          style: ElioText.bodyLarge,
-          textAlign: TextAlign.center,
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          Column(
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    _analytics.logEvent('upgrade_prompt_tapped');
-                    Navigator.of(ctx).pop();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Subscription coming soon!')),
-                    );
-                  },
-                  child: const Text('Upgrade to Pro — £2.99/mo'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () {
-                  _analytics.logEvent('upgrade_prompt_dismissed');
-                  Navigator.of(ctx).pop();
-                },
-                child: Text(
-                  'Maybe tomorrow',
-                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                ),
-              ),
-            ],
-          ),
-        ],
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PaywallScreen(trigger: PaywallTrigger.capReached),
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../services/firestore_service.dart';
 import '../../services/guest_pantry_service.dart';
 import '../../services/analytics_service.dart';
 import '../home/home_screen.dart';
+import '../paywall/paywall_screen.dart';
 import 'screen1_dietary.dart';
 import 'screen2_preset.dart';
 import 'screen3_pantry.dart';
@@ -115,9 +116,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
       _analytics.setDietaryProfile(_state.dietaryRequirements.map((d) => d.label).toList());
       _analytics.setHouseholdSize(_state.additionalMembers.length + 1);
       if (mounted) {
+        // Navigate to Home, then show paywall on top
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const HomeScreen()),
           (route) => false,
+        );
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const PaywallScreen(trigger: PaywallTrigger.onboarding),
+          ),
         );
       }
     } catch (e) {
