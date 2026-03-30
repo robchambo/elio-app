@@ -215,7 +215,7 @@ class ShoppingService {
 
 // ─── Models ──────────────────────────────────────────────────────────────────
 
-enum ShoppingSource { manual, mealPlan, restock }
+enum ShoppingSource { manual, mealPlan, restock, recipe }
 
 class PersistentShoppingItem {
   final String id;

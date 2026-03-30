@@ -14,6 +14,7 @@ import '../../services/entitlement_service.dart';
 import '../../services/shopping_service.dart';
 import 'notification_prefs_screen.dart';
 import 'settings_screen.dart';
+import '../scanner/scanner_screen.dart';
 
 // ─────────────────────────────────────────────
 // ProfileScreen
@@ -708,6 +709,59 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         Text(
           'Long-press any item to move it between tiers. Tap the warning icon to flag items running low.',
           style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+        ),
+        const SizedBox(height: 16),
+        // ── Scan buttons ──────────────────────────────────────
+        Row(
+          children: [
+            Expanded(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ScannerScreen(initialTab: 1)),
+                ).then((_) => _loadData()),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF8EE),
+                    border: Border.all(color: ElioColors.amber, width: 1.5),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.receipt_long_rounded, size: 26, color: ElioColors.amber),
+                      const SizedBox(height: 4),
+                      Text('Scan Receipt', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: ElioColors.navy)),
+                      Text('Photo or camera', style: GoogleFonts.quicksand(fontSize: 11, color: ElioColors.textSecondary)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ScannerScreen(initialTab: 0)),
+                ).then((_) => _loadData()),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: ElioColors.offWhite,
+                    border: Border.all(color: ElioColors.border, width: 1.5),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.qr_code_scanner_rounded, size: 26, color: ElioColors.navy),
+                      const SizedBox(height: 4),
+                      Text('Scan Barcode', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: ElioColors.navy)),
+                      Text('Product lookup', style: GoogleFonts.quicksand(fontSize: 11, color: ElioColors.textSecondary)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 20),
         _buildPerishableSection(),

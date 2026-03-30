@@ -13,6 +13,7 @@ import '../../utils/region_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/shopping_service.dart';
 
 // ─────────────────────────────────────────────
 // RecipeScreen — Sprint 4 patch
@@ -45,6 +46,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool _handsFreeMode = false;
   int _currentStep = 0;
   final Set<int> _expandedSubstitutions = {};
+
+  // ── Save & Shopping state ───────────────────────────────────────────────────
+  bool _isSaved = false;
+  bool _isAddingToShop = false;
 
   // ── Regeneration state ──────────────────────────────────────────────────────────────────────────────
   bool _isRegenerating = false;
@@ -789,6 +794,104 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
+  // ─── Save recipe ────────────────────────────────────────────────────────────
+  Future<void> _saveRecipe() async {
+    if (_isSaved) return; // Already saved
+    try {
+      await HistoryService.saveRecipe(SavedRecipe(
+        recipe: widget.recipe,
+        savedAt: DateTime.now().toUtc().toIso8601String(),
+      ));
+      if (mounted) {
+        setState(() => _isSaved = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Recipe saved'),
+            backgroundColor: ElioColors.navy,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        AnalyticsService.instance.logEvent('recipe_saved', {
+          'title': widget.recipe.title,
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Could not save recipe'),
+            backgroundColor: ElioColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    }
+  }
+
+  // ─── Add ingredients to shopping list ──────────────────────────────────────
+  Future<void> _addToShoppingList() async {
+    if (widget.isGuest) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Sign in to use the shopping list'),
+          backgroundColor: ElioColors.navy,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+    setState(() => _isAddingToShop = true);
+    try {
+      final shop = ShoppingService.instance;
+      int added = 0;
+      for (final ing in widget.recipe.ingredients) {
+        // Skip items the user already has in pantry
+        if (ing.fromInventory) continue;
+        final qty = ing.unit.isEmpty
+            ? _scaleQuantity(ing.quantity)
+            : '${_scaleQuantity(ing.quantity)} ${ing.unit}';
+        await shop.addItem(
+          name: ing.name,
+          quantity: qty,
+          source: ShoppingSource.recipe,
+        );
+        added++;
+      }
+      if (mounted) {
+        setState(() => _isAddingToShop = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$added item${added == 1 ? '' : 's'} added to shopping list'),
+            backgroundColor: ElioColors.navy,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        AnalyticsService.instance.logEvent('recipe_added_to_shopping', {
+          'title': widget.recipe.title,
+          'item_count': added,
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isAddingToShop = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Could not add to shopping list'),
+            backgroundColor: ElioColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    }
+  }
+
   void _shareRecipe() {
     final r = widget.recipe;
     final buffer = StringBuffer();
@@ -882,6 +985,28 @@ class _RecipeScreenState extends State<RecipeScreen> {
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
+        // Save recipe
+        IconButton(
+          icon: Icon(
+            _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+            color: _isSaved ? ElioColors.amber : ElioColors.navy,
+            size: 22,
+          ),
+          tooltip: _isSaved ? 'Saved' : 'Save recipe',
+          onPressed: _saveRecipe,
+        ),
+        // Add ingredients to shopping list
+        IconButton(
+          icon: _isAddingToShop
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.navy),
+                )
+              : const Icon(Icons.add_shopping_cart_rounded, color: ElioColors.navy, size: 22),
+          tooltip: 'Add to shopping list',
+          onPressed: _isAddingToShop ? null : _addToShoppingList,
+        ),
+        // Share
         IconButton(
           icon: const Icon(Icons.ios_share_rounded, color: ElioColors.navy, size: 22),
           tooltip: 'Share recipe',

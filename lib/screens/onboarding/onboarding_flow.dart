@@ -66,6 +66,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _goToPage(int page) {
+    // Dismiss keyboard before transitioning to next page
+    FocusScope.of(context).unfocus();
     _pageController.animateToPage(
       page,
       duration: const Duration(milliseconds: 350),

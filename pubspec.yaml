@@ -51,6 +51,8 @@ dependencies:
   firebase_messaging: ^15.2.4
   speech_to_text: ^7.0.0
   flutter_tts: ^4.2.0
+  mobile_scanner: ^6.0.2
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
