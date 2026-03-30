@@ -545,6 +545,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showUpgradeDialog() {
+    _analytics.logEvent('upgrade_prompt_shown', {
+      'trigger': 'daily_cap_reached',
+      'is_guest': widget.isGuest,
+    });
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -578,6 +582,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    _analytics.logEvent('upgrade_prompt_tapped');
                     Navigator.of(ctx).pop();
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Subscription coming soon!')),
@@ -588,7 +593,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
+                onPressed: () {
+                  _analytics.logEvent('upgrade_prompt_dismissed');
+                  Navigator.of(ctx).pop();
+                },
                 child: Text(
                   'Maybe tomorrow',
                   style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),

@@ -867,6 +867,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 _handsFreeMode = true;
                 _currentStep = 0;
               });
+              _analytics.logEvent('hands_free_started', {
+                'step_count': widget.recipe.steps.length,
+              });
               SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
             },
             icon: const Icon(Icons.visibility_outlined, size: 20),
@@ -901,6 +904,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 children: [
                   GestureDetector(
                     onTap: () {
+                      _analytics.logEvent('hands_free_exited', {
+                        'step_reached': _currentStep + 1,
+                        'total_steps': widget.recipe.steps.length,
+                      });
                       setState(() => _handsFreeMode = false);
                       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
                     },
@@ -1019,6 +1026,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       child: ElevatedButton(
                         onPressed: isLast
                             ? () {
+                                _analytics.logEvent('hands_free_completed', {
+                                  'step_count': steps.length,
+                                });
                                 setState(() => _handsFreeMode = false);
                                 SystemChrome.setEnabledSystemUIMode(
                                     SystemUiMode.edgeToEdge);
