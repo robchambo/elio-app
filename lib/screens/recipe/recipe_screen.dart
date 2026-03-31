@@ -472,6 +472,18 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   Future<void> _addSingleToShoppingList(RecipeIngredient ingredient) async {
+    if (_isShoppingExclusion(ingredient.name)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("${ingredient.name} — you probably already have this!"),
+          backgroundColor: ElioColors.navy,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     if (widget.isGuest) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -875,6 +887,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
   }
 
+  // ─── Shopping list staple filter ────────────────────────────────────────────
+  /// Items everyone has — never add these to a shopping list.
+  static const _shoppingExclusions = {
+    'water', 'tap water', 'cold water', 'warm water', 'hot water', 'boiling water',
+    'ice', 'ice cubes',
+    'salt', 'sea salt', 'table salt', 'kosher salt',
+    'pepper', 'black pepper', 'ground pepper', 'ground black pepper',
+  };
+
+  bool _isShoppingExclusion(String name) {
+    return _shoppingExclusions.contains(name.toLowerCase().trim());
+  }
+
   // ─── Add ingredients to shopping list ──────────────────────────────────────
   Future<void> _addToShoppingList() async {
     if (widget.isGuest) {
@@ -893,8 +918,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
       final shop = ShoppingService.instance;
       int added = 0;
       for (final ing in _currentRecipe.ingredients) {
-        // Skip items the user already has in pantry
+        // Skip items the user already has, and universal staples
         if (ing.fromInventory) continue;
+        if (_isShoppingExclusion(ing.name)) continue;
         final qty = ing.unit.isEmpty
             ? _scaleQuantity(ing.quantity)
             : '${_scaleQuantity(ing.quantity)} ${ing.unit}';
@@ -1266,15 +1292,21 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       ),
                     ),
                   ),
-                  // Quantity
+                  // Quantity (constrained so name always gets space)
                   if (!isExcluded)
-                    Text(
-                      ingredient.unit.isEmpty
-                          ? _scaleQuantity(ingredient.quantity)
-                          : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
-                      style: ElioText.bodyMedium.copyWith(
-                        color: ElioColors.textSecondary,
-                        fontWeight: FontWeight.w600,
+                    ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.35),
+                      child: Text(
+                        ingredient.unit.isEmpty
+                            ? _scaleQuantity(ingredient.quantity)
+                            : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
+                        style: ElioText.bodyMedium.copyWith(
+                          color: ElioColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.right,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   // ✕ exclude button (only when Generate Another is available)

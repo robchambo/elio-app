@@ -348,8 +348,12 @@ class GeminiService {
     }
     prompt.writeln('Suggest ONE substitute that works in this recipe. Return JSON: {substitute, adjustedQuantity, unit, tradeOff(1 sentence)}.');
 
+    // Use flash-lite for substitutions (cheap, fast)
+    const subModel = 'gemini-2.5-flash-lite';
+    const subUrl = 'https://generativelanguage.googleapis.com/v1beta/models/$subModel:generateContent';
+
     final response = await http.post(
-      Uri.parse('$_baseUrl?key=$_apiKey'),
+      Uri.parse('$subUrl?key=$_apiKey'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
         'contents': [
@@ -361,7 +365,7 @@ class GeminiService {
         ],
         'generationConfig': {
           'temperature': 0.6,
-          'maxOutputTokens': 150,
+          'maxOutputTokens': 256,
           'responseMimeType': 'application/json',
         },
       }),
@@ -385,7 +389,11 @@ class GeminiService {
       throw Exception('Empty substitution response.');
     }
 
-    final rawText = parts.last['text'] as String? ?? '';
+    // Skip thinking parts if present
+    final textParts = parts.where((p) => p['thought'] != true).toList();
+    final rawText = textParts.isNotEmpty
+        ? (textParts.last['text'] as String? ?? '')
+        : (parts.last['text'] as String? ?? '');
     final json = _extractJson(rawText);
     return IngredientSubstitutionResult.fromJson(json);
   }
