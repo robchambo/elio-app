@@ -15,6 +15,7 @@ import '../paywall/paywall_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/remote_config_service.dart';
 
 // ─────────────────────────────────────────────
 // HomeScreen
@@ -540,7 +541,9 @@ class _HomeScreenState extends State<HomeScreen> {
         } else if (raw.contains('429') || raw.contains('quota')) {
           msg = 'Too many requests. Please wait a moment and try again.';
         } else if (raw.contains('401') || raw.contains('403') || raw.contains('API key')) {
-          msg = 'Auth error: ${raw.length > 120 ? raw.substring(0, 120) : raw}';
+          final key = RemoteConfigService.instance.geminiApiKey;
+          final keyInfo = key.isEmpty ? 'EMPTY' : '${key.length} chars, starts ${key.substring(0, 4)}...';
+          msg = 'Auth error ($keyInfo): ${raw.length > 80 ? raw.substring(0, 80) : raw}';
         } else {
           msg = 'Something went wrong. Please try again.';
         }
