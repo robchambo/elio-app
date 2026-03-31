@@ -374,7 +374,7 @@ class GeminiService {
     });
 
     if (response.statusCode != 200) {
-      throw Exception('Could not generate substitution (${response.statusCode}).');
+      throw Exception('Substitution failed (${response.statusCode}): ${response.body.length > 100 ? response.body.substring(0, 100) : response.body}');
     }
 
     final responseData = jsonDecode(response.body) as Map<String, dynamic>;
@@ -394,6 +394,11 @@ class GeminiService {
     final rawText = textParts.isNotEmpty
         ? (textParts.last['text'] as String? ?? '')
         : (parts.last['text'] as String? ?? '');
+
+    if (rawText.isEmpty) {
+      throw Exception('Empty text in substitution response. Parts: ${parts.length}');
+    }
+
     final json = _extractJson(rawText);
     return IngredientSubstitutionResult.fromJson(json);
   }

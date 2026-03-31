@@ -1233,13 +1233,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
               ),
           ],
         ),
-        if (_canExcludeIngredients) ...[
-          const SizedBox(height: 4),
-          Text(
-            'Tap any ingredient for options',
-            style: ElioText.label.copyWith(color: ElioColors.textMuted),
-          ),
-        ],
+        const SizedBox(height: 4),
+        Text(
+          'Tap any ingredient for options',
+          style: ElioText.label.copyWith(color: ElioColors.textMuted),
+        ),
         const SizedBox(height: 10),
         ..._currentRecipe.ingredients.map((ingredient) {
           final isExcluded = _excludedIngredients.contains(ingredient.name);
@@ -1309,8 +1307,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  // ✕ exclude button (only when Generate Another is available)
-                  if (_canExcludeIngredients) ...[
+                  // ✕ options button
+                  ...[
                     const SizedBox(width: 8),
                     GestureDetector(
                       onTap: () => _showIngredientOptions(ingredient),
