@@ -476,37 +476,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
       final recipe = await GeminiService.generateRecipe(request);
 
-      if (widget.isGuest) {
-        await EntitlementService.recordGuestGeneration();
-      } else {
-        // Record generation and save recipe in parallel
-        await Future.wait([
-          _entitlements.recordGeneration(),
-          _firestore.saveRecipe(recipe),
-        ]);
-      }
-
-      // Always save to local history (works offline and for guests)
-      await HistoryService.saveRecipe(SavedRecipe(
-        recipe: recipe,
-        savedAt: DateTime.now().toUtc().toIso8601String(),
-      ));
-
+      // ── Navigate to recipe immediately — don't let saves block display ──
       // Track title for deduplication (keep last 10)
       _recentTitles.add(recipe.title);
       if (_recentTitles.length > 20) _recentTitles.removeAt(0);
-
-      _loadRecentHistory();
-
-      _analytics.logEvent('recipe_generated', {
-        'style': _selectedStyle ?? 'none',
-        'time': _selectedTime ?? 'none',
-        'mood': _selectedMood ?? 'none',
-        'is_leftover_mode': _isLeftoverMode,
-        'is_saver_mode': _saverMode,
-        'perishable_count': _selectedPerishables.length,
-        'is_guest': widget.isGuest,
-      });
 
       if (mounted) {
         Navigator.of(context).push(
@@ -519,6 +492,38 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       }
+
+      // ── Background saves — non-blocking, best-effort ──
+      try {
+        if (widget.isGuest) {
+          await EntitlementService.recordGuestGeneration();
+        } else {
+          await Future.wait([
+            _entitlements.recordGeneration(),
+            _firestore.saveRecipe(recipe),
+          ]);
+        }
+      } catch (_) {
+        // Firestore save failure is non-critical — recipe is already shown
+      }
+
+      // Always save to local history (works offline and for guests)
+      await HistoryService.saveRecipe(SavedRecipe(
+        recipe: recipe,
+        savedAt: DateTime.now().toUtc().toIso8601String(),
+      ));
+
+      _loadRecentHistory();
+
+      _analytics.logEvent('recipe_generated', {
+        'style': _selectedStyle ?? 'none',
+        'time': _selectedTime ?? 'none',
+        'mood': _selectedMood ?? 'none',
+        'is_leftover_mode': _isLeftoverMode,
+        'is_saver_mode': _saverMode,
+        'perishable_count': _selectedPerishables.length,
+        'is_guest': widget.isGuest,
+      });
     } catch (e) {
       _analytics.logEvent('recipe_generation_failed', {
         'error_type': e.runtimeType.toString(),
@@ -535,7 +540,7 @@ class _HomeScreenState extends State<HomeScreen> {
         } else if (raw.contains('429') || raw.contains('quota')) {
           msg = 'Too many requests. Please wait a moment and try again.';
         } else if (raw.contains('401') || raw.contains('403') || raw.contains('API key')) {
-          msg = 'Authentication error. Please restart the app.';
+          msg = 'Auth error: ${raw.length > 120 ? raw.substring(0, 120) : raw}';
         } else {
           msg = 'Something went wrong. Please try again.';
         }
