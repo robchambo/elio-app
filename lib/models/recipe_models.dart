@@ -199,6 +199,26 @@ class GeneratedRecipe {
     if (estimatedCostPerServingUSD != null) 'estimatedCostPerServingUSD': estimatedCostPerServingUSD,
     if (estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': estimatedCostPerServingGBP,
   };
+
+  GeneratedRecipe copyWith({
+    List<RecipeIngredient>? ingredients,
+    List<RecipeSubstitution>? substitutions,
+  }) {
+    return GeneratedRecipe(
+      title: title,
+      prepTimeMinutes: prepTimeMinutes,
+      cookTimeMinutes: cookTimeMinutes,
+      servings: servings,
+      description: description,
+      ingredients: ingredients ?? this.ingredients,
+      steps: steps,
+      substitutions: substitutions ?? this.substitutions,
+      dietaryTags: dietaryTags,
+      nutrition: nutrition,
+      estimatedCostPerServingUSD: estimatedCostPerServingUSD,
+      estimatedCostPerServingGBP: estimatedCostPerServingGBP,
+    );
+  }
 }
 
 class RecipeIngredient {
@@ -297,4 +317,29 @@ class RecipeSubstitution {
     'substitute': substitute,
     'tradeOff': tradeOff,
   };
+}
+
+// ─── Ingredient substitution result (lightweight AI swap) ───────────────────
+
+class IngredientSubstitutionResult {
+  final String substitute;
+  final String adjustedQuantity;
+  final String unit;
+  final String tradeOff;
+
+  const IngredientSubstitutionResult({
+    required this.substitute,
+    required this.adjustedQuantity,
+    required this.unit,
+    required this.tradeOff,
+  });
+
+  factory IngredientSubstitutionResult.fromJson(Map<String, dynamic> json) {
+    return IngredientSubstitutionResult(
+      substitute: json['substitute'] as String? ?? '',
+      adjustedQuantity: json['adjustedQuantity']?.toString() ?? '',
+      unit: json['unit'] as String? ?? '',
+      tradeOff: json['tradeOff'] as String? ?? '',
+    );
+  }
 }

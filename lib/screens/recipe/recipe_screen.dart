@@ -43,6 +43,9 @@ class RecipeScreen extends StatefulWidget {
 
 class _RecipeScreenState extends State<RecipeScreen> {
   late int _servings;
+
+  // ── Mutable recipe (supports in-place ingredient swaps) ────────────────────
+  late GeneratedRecipe _currentRecipe;
   bool _handsFreeMode = false;
   int _currentStep = 0;
   final Set<int> _expandedSubstitutions = {};
@@ -77,8 +80,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
   /// Returns a formatted cost-per-serving string based on device locale.
   /// Delegates to RegionUtils.formatCost() for locale-aware currency selection.
   String? get _costLabel => RegionUtils.formatCost(
-    usd: widget.recipe.estimatedCostPerServingUSD,
-    gbp: widget.recipe.estimatedCostPerServingGBP,
+    usd: _currentRecipe.estimatedCostPerServingUSD,
+    gbp: _currentRecipe.estimatedCostPerServingGBP,
     suffix: '/serving',
   );
 
@@ -86,6 +89,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   void initState() {
     super.initState();
     _servings = widget.recipe.servings;
+    _currentRecipe = widget.recipe;
     _initTts();
   }
 
@@ -160,7 +164,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         }
         _startListening();
         // Read step 1 aloud when voice mode first activates
-        _speakText(widget.recipe.steps[_currentStep]);
+        _speakText(_currentRecipe.steps[_currentStep]);
       }
     } catch (e) {
       if (mounted) {
@@ -239,10 +243,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   void _onVoiceNext() {
-    if (_currentStep < widget.recipe.steps.length - 1) {
+    if (_currentStep < _currentRecipe.steps.length - 1) {
       setState(() => _currentStep++);
       _showVoiceFeedback('Got it — next step');
-      _speakText(widget.recipe.steps[_currentStep]);
+      _speakText(_currentRecipe.steps[_currentStep]);
     } else {
       _showVoiceFeedback('Already on the last step');
     }
@@ -253,7 +257,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     if (_currentStep > 0) {
       setState(() => _currentStep--);
       _showVoiceFeedback('Got it — previous step');
-      _speakText(widget.recipe.steps[_currentStep]);
+      _speakText(_currentRecipe.steps[_currentStep]);
     } else {
       _showVoiceFeedback('Already on the first step');
     }
@@ -262,7 +266,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   void _onVoiceRepeat() {
     _showVoiceFeedback('Reading step aloud');
-    _speakText(widget.recipe.steps[_currentStep]);
+    _speakText(_currentRecipe.steps[_currentStep]);
     _recognisedWords = '';
   }
 
@@ -276,7 +280,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _analytics.logEvent('hands_free_exited', {
       'step_reached': _currentStep + 1,
-      'total_steps': widget.recipe.steps.length,
+      'total_steps': _currentRecipe.steps.length,
       'exit_method': 'voice',
     });
     _recognisedWords = '';
@@ -390,91 +394,131 @@ class _RecipeScreenState extends State<RecipeScreen> {
     });
   }
 
-  void _onExcludeIngredientTap(String ingredientName) {
-    // Re-including: instant, no popup needed
-    if (_excludedIngredients.contains(ingredientName)) {
-      _toggleExclude(ingredientName);
+  void _showIngredientOptions(RecipeIngredient ingredient) {
+    // If already excluded, just re-include on tap
+    if (_excludedIngredients.contains(ingredient.name)) {
+      _toggleExclude(ingredient.name);
       return;
     }
 
-    // Check if the recipe already has a substitution for this ingredient
-    final sub = widget.recipe.substitutions.where((s) {
-      final original = s.original.toLowerCase();
-      final name = ingredientName.toLowerCase();
-      return original.contains(name) || name.contains(original);
-    }).firstOrNull;
+    _analytics.logEvent('ingredient_options_opened', {
+      'ingredient': ingredient.name,
+      'from_inventory': ingredient.fromInventory,
+    });
 
-    if (sub == null) {
-      // No substitution available — exclude silently
-      _toggleExclude(ingredientName);
-      return;
-    }
-
-    // Show substitution suggestion
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: ElioColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+      isScrollControlled: true,
+      builder: (_) => _IngredientOptionsSheet(
+        ingredient: ingredient,
+        recipe: _currentRecipe,
+        originalRequest: widget.originalRequest,
+        isGuest: widget.isGuest,
+        scaleFactor: _scaleFactor,
+        onSubstituted: (result) {
+          // In-place swap: replace ingredient with substitute
+          final newIngredients = _currentRecipe.ingredients.map((i) {
+            if (i.name == ingredient.name) {
+              return RecipeIngredient(
+                name: result.substitute,
+                quantity: result.adjustedQuantity,
+                unit: result.unit,
+                fromInventory: false,
+              );
+            }
+            return i;
+          }).toList();
+
+          final newSubs = [
+            ..._currentRecipe.substitutions,
+            RecipeSubstitution(
+              original: ingredient.name,
+              substitute: result.substitute,
+              tradeOff: result.tradeOff,
             ),
-            const SizedBox(height: 20),
-            Text('No ${sub.original}?', style: ElioText.headingMedium),
-            const SizedBox(height: 8),
-            RichText(
-              text: TextSpan(
-                style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
-                children: [
-                  const TextSpan(text: 'Try '),
-                  TextSpan(
-                    text: sub.substitute,
-                    style: ElioText.bodyLarge.copyWith(
-                      color: ElioColors.navy,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  TextSpan(text: ' instead. ${sub.tradeOff}'),
-                ],
-              ),
+          ];
+
+          setState(() {
+            _currentRecipe = _currentRecipe.copyWith(
+              ingredients: newIngredients,
+              substitutions: newSubs,
+            );
+          });
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Swapped ${ingredient.name} → ${result.substitute}'),
+              backgroundColor: ElioColors.navy,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              duration: const Duration(seconds: 3),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  _toggleExclude(ingredientName);
-                },
-                child: Text('Got it — exclude ${sub.original}'),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Keep it'),
-              ),
-            ),
-          ],
-        ),
+          );
+          _analytics.logEvent('ingredient_substituted', {
+            'original': ingredient.name,
+            'substitute': result.substitute,
+          });
+        },
+        onExcludeAndRegenerate: () {
+          _toggleExclude(ingredient.name);
+          _generateAnother();
+        },
+        onAddToShoppingList: () {
+          _addSingleToShoppingList(ingredient);
+        },
       ),
     );
+  }
+
+  Future<void> _addSingleToShoppingList(RecipeIngredient ingredient) async {
+    if (widget.isGuest) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Sign in to use the shopping list'),
+          backgroundColor: ElioColors.navy,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+    try {
+      final qty = ingredient.unit.isEmpty
+          ? _scaleQuantity(ingredient.quantity)
+          : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}';
+      await ShoppingService.instance.addItem(
+        name: ingredient.name,
+        quantity: qty,
+        source: ShoppingSource.recipe,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${ingredient.name} added to shopping list'),
+            backgroundColor: ElioColors.navy,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        _analytics.logEvent('ingredient_added_to_shopping', {
+          'ingredient': ingredient.name,
+          'recipe': _currentRecipe.title,
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Could not add to shopping list'),
+            backgroundColor: ElioColors.error,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _generateAnother() async {
@@ -505,7 +549,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ],
         recentTitles: [
           ...request.recentTitles,
-          widget.recipe.title,
+          _currentRecipe.title,
         ],
       );
 
@@ -558,14 +602,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
     });
     _analytics.logEvent('recipe_rated', {
       'direction': liked ? 'up' : 'down',
-      'recipe_title': widget.recipe.title,
+      'recipe_title': _currentRecipe.title,
     });
     try {
       await _firestore.rateRecipe(
-        recipeTitle: widget.recipe.title,
+        recipeTitle: _currentRecipe.title,
         liked: liked,
-        cuisineTags: widget.recipe.dietaryTags,
-        dietaryTags: widget.recipe.dietaryTags,
+        cuisineTags: _currentRecipe.dietaryTags,
+        dietaryTags: _currentRecipe.dietaryTags,
       );
     } catch (_) {
       // Rating failure is non-critical — silently ignore
@@ -575,7 +619,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   void _showNutritionSheet() {
-    final n = widget.recipe.nutrition;
+    final n = _currentRecipe.nutrition;
     if (n == null) return;
     showModalBottomSheet(
       context: context,
@@ -799,7 +843,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     if (_isSaved) return; // Already saved
     try {
       await HistoryService.saveRecipe(SavedRecipe(
-        recipe: widget.recipe,
+        recipe: _currentRecipe,
         savedAt: DateTime.now().toUtc().toIso8601String(),
       ));
       if (mounted) {
@@ -814,7 +858,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ),
         );
         AnalyticsService.instance.logEvent('recipe_saved', {
-          'title': widget.recipe.title,
+          'title': _currentRecipe.title,
         });
       }
     } catch (_) {
@@ -848,7 +892,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     try {
       final shop = ShoppingService.instance;
       int added = 0;
-      for (final ing in widget.recipe.ingredients) {
+      for (final ing in _currentRecipe.ingredients) {
         // Skip items the user already has in pantry
         if (ing.fromInventory) continue;
         final qty = ing.unit.isEmpty
@@ -873,7 +917,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ),
         );
         AnalyticsService.instance.logEvent('recipe_added_to_shopping', {
-          'title': widget.recipe.title,
+          'title': _currentRecipe.title,
           'item_count': added,
         });
       }
@@ -893,7 +937,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   void _shareRecipe() {
-    final r = widget.recipe;
+    final r = _currentRecipe;
     final buffer = StringBuffer();
     buffer.writeln('🍽️ ${r.title}');
     buffer.writeln();
@@ -957,7 +1001,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   _buildIngredientsSection(),
                   const SizedBox(height: 28),
                   _buildMethodSection(),
-                  if (widget.recipe.substitutions.isNotEmpty) ...[
+                  if (_currentRecipe.substitutions.isNotEmpty) ...[
                     const SizedBox(height: 28),
                     _buildSubstitutionsSection(),
                   ],
@@ -1016,7 +1060,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       ],
       expandedHeight: 0,
       title: Text(
-        widget.recipe.title,
+        _currentRecipe.title,
         style: GoogleFonts.outfit(
           fontSize: 17,
           fontWeight: FontWeight.w700,
@@ -1032,10 +1076,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(widget.recipe.title, style: ElioText.displayMedium),
+        Text(_currentRecipe.title, style: ElioText.displayMedium),
         const SizedBox(height: 8),
-        if (widget.recipe.description.isNotEmpty) ...[
-          Text(widget.recipe.description, style: ElioText.bodyLarge),
+        if (_currentRecipe.description.isNotEmpty) ...[
+          Text(_currentRecipe.description, style: ElioText.bodyLarge),
           const SizedBox(height: 12),
         ],
         Wrap(
@@ -1044,24 +1088,24 @@ class _RecipeScreenState extends State<RecipeScreen> {
           children: [
             _MetaBadge(
               icon: Icons.timer_outlined,
-              label: '${widget.recipe.totalTimeMinutes} min',
+              label: '${_currentRecipe.totalTimeMinutes} min',
             ),
             _MetaBadge(
               icon: Icons.restaurant_outlined,
-              label: '${widget.recipe.prepTimeMinutes} min prep',
+              label: '${_currentRecipe.prepTimeMinutes} min prep',
             ),
-            if (widget.recipe.dietaryTags.isNotEmpty)
+            if (_currentRecipe.dietaryTags.isNotEmpty)
               _MetaBadge(
                 icon: Icons.local_dining_outlined,
-                label: widget.recipe.dietaryTags.first,
+                label: _currentRecipe.dietaryTags.first,
                 color: ElioColors.sky,
               ),
-            if (widget.recipe.nutrition != null)
+            if (_currentRecipe.nutrition != null)
               GestureDetector(
                 onTap: _showNutritionSheet,
                 child: _MetaBadge(
                   icon: Icons.monitor_heart_outlined,
-                  label: '${widget.recipe.nutrition!.calories} kcal',
+                  label: '${_currentRecipe.nutrition!.calories} kcal',
                 ),
               ),
             if (_costLabel != null)
@@ -1142,7 +1186,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           children: [
             Text('Ingredients', style: ElioText.headingMedium),
             const Spacer(),
-            if (widget.recipe.ingredients.any((i) => i.fromInventory))
+            if (_currentRecipe.ingredients.any((i) => i.fromInventory))
               Row(
                 children: [
                   Container(
@@ -1164,104 +1208,99 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ],
         ),
         if (_canExcludeIngredients) ...[
-          if (_excludedIngredients.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text(
-              'Tap ✕ to exclude an ingredient from the next generation.',
-              style: ElioText.label.copyWith(color: ElioColors.textMuted),
-            ),
-          ] else ...[
-            const SizedBox(height: 4),
-            Text(
-              'Tap ✕ on any ingredient to exclude it.',
-              style: ElioText.label.copyWith(color: ElioColors.textMuted),
-            ),
-          ],
+          const SizedBox(height: 4),
+          Text(
+            'Tap any ingredient for options',
+            style: ElioText.label.copyWith(color: ElioColors.textMuted),
+          ),
         ],
         const SizedBox(height: 10),
-        ...widget.recipe.ingredients.map((ingredient) {
+        ..._currentRecipe.ingredients.map((ingredient) {
           final isExcluded = _excludedIngredients.contains(ingredient.name);
           final isFromInventory = ingredient.fromInventory && !isExcluded;
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: isExcluded
-                  ? const Color(0xFFF5F5F5)
-                  : isFromInventory
-                      ? ElioColors.amber.withValues(alpha: 0.07)
-                      : ElioColors.offWhite,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
+          return GestureDetector(
+            onTap: () => _showIngredientOptions(ingredient),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
                 color: isExcluded
-                    ? ElioColors.border
+                    ? const Color(0xFFF5F5F5)
                     : isFromInventory
-                        ? ElioColors.amber.withValues(alpha: 0.4)
-                        : ElioColors.border,
+                        ? ElioColors.amber.withValues(alpha: 0.07)
+                        : ElioColors.offWhite,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isExcluded
+                      ? ElioColors.border
+                      : isFromInventory
+                          ? ElioColors.amber.withValues(alpha: 0.4)
+                          : ElioColors.border,
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                // Colour dot
-                Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.only(right: 10),
-                  decoration: BoxDecoration(
-                    color: isExcluded
-                        ? ElioColors.border
-                        : isFromInventory
-                            ? ElioColors.amber
-                            : ElioColors.border,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                // Name
-                Expanded(
-                  child: Text(
-                    ingredient.name,
-                    style: ElioText.bodyMedium.copyWith(
-                      fontWeight: isFromInventory ? FontWeight.w600 : FontWeight.w400,
-                      color: isExcluded ? ElioColors.textMuted : ElioColors.textPrimary,
-                      decoration: isExcluded ? TextDecoration.lineThrough : null,
+              child: Row(
+                children: [
+                  // Colour dot
+                  Container(
+                    width: 6,
+                    height: 6,
+                    margin: const EdgeInsets.only(right: 10),
+                    decoration: BoxDecoration(
+                      color: isExcluded
+                          ? ElioColors.border
+                          : isFromInventory
+                              ? ElioColors.amber
+                              : ElioColors.border,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                ),
-                // Quantity
-                if (!isExcluded)
-                  Text(
-                    ingredient.unit.isEmpty
-                        ? _scaleQuantity(ingredient.quantity)
-                        : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
-                    style: ElioText.bodyMedium.copyWith(
-                      color: ElioColors.textSecondary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                // ✕ exclude button (only when Generate Another is available)
-                if (_canExcludeIngredients) ...[
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () => _onExcludeIngredientTap(ingredient.name),
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: isExcluded
-                            ? ElioColors.navy.withValues(alpha: 0.08)
-                            : Colors.transparent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        isExcluded ? Icons.add_rounded : Icons.close_rounded,
-                        size: 16,
-                        color: isExcluded ? ElioColors.navy : ElioColors.textMuted,
+                  // Name
+                  Expanded(
+                    child: Text(
+                      ingredient.name,
+                      style: ElioText.bodyMedium.copyWith(
+                        fontWeight: isFromInventory ? FontWeight.w600 : FontWeight.w400,
+                        color: isExcluded ? ElioColors.textMuted : ElioColors.textPrimary,
+                        decoration: isExcluded ? TextDecoration.lineThrough : null,
                       ),
                     ),
                   ),
+                  // Quantity
+                  if (!isExcluded)
+                    Text(
+                      ingredient.unit.isEmpty
+                          ? _scaleQuantity(ingredient.quantity)
+                          : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
+                      style: ElioText.bodyMedium.copyWith(
+                        color: ElioColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  // ✕ exclude button (only when Generate Another is available)
+                  if (_canExcludeIngredients) ...[
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => _showIngredientOptions(ingredient),
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          color: isExcluded
+                              ? ElioColors.navy.withValues(alpha: 0.08)
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isExcluded ? Icons.add_rounded : Icons.close_rounded,
+                          size: 16,
+                          color: isExcluded ? ElioColors.navy : ElioColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           );
         }),
@@ -1282,7 +1321,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       children: [
         Text('Method', style: ElioText.headingMedium),
         const SizedBox(height: 12),
-        ...widget.recipe.steps.asMap().entries.map((entry) {
+        ..._currentRecipe.steps.asMap().entries.map((entry) {
           final stepNum = entry.key + 1;
           final step = entry.value;
           return Padding(
@@ -1329,7 +1368,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       children: [
         Text('Substitution tips', style: ElioText.headingMedium),
         const SizedBox(height: 12),
-        ...widget.recipe.substitutions.asMap().entries.map((entry) {
+        ..._currentRecipe.substitutions.asMap().entries.map((entry) {
           final i = entry.key;
           final sub = entry.value;
           final isExpanded = _expandedSubstitutions.contains(i);
@@ -1430,7 +1469,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 _currentStep = 0;
               });
               _analytics.logEvent('hands_free_started', {
-                'step_count': widget.recipe.steps.length,
+                'step_count': _currentRecipe.steps.length,
               });
               SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
             },
@@ -1455,7 +1494,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _tts.stop();
     _analytics.logEvent('hands_free_exited', {
       'step_reached': _currentStep + 1,
-      'total_steps': widget.recipe.steps.length,
+      'total_steps': _currentRecipe.steps.length,
       'exit_method': exitMethod,
     });
     setState(() {
@@ -1466,7 +1505,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   Widget _buildHandsFreeMode() {
-    final steps = widget.recipe.steps;
+    final steps = _currentRecipe.steps;
     final isFirst = _currentStep == 0;
     final isLast = _currentStep == steps.length - 1;
 
@@ -1537,7 +1576,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   // Recipe title
                   Flexible(
                     child: Text(
-                      widget.recipe.title,
+                      _currentRecipe.title,
                       style: ElioText.bodyMedium.copyWith(
                         fontWeight: FontWeight.w600,
                         color: ElioColors.textSecondary,
@@ -1850,6 +1889,393 @@ class _NutritionTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Ingredient options bottom sheet ────────────────────────────────────────
+
+class _IngredientOptionsSheet extends StatefulWidget {
+  final RecipeIngredient ingredient;
+  final GeneratedRecipe recipe;
+  final RecipeGenerationRequest? originalRequest;
+  final bool isGuest;
+  final double scaleFactor;
+  final void Function(IngredientSubstitutionResult) onSubstituted;
+  final VoidCallback onExcludeAndRegenerate;
+  final VoidCallback onAddToShoppingList;
+
+  const _IngredientOptionsSheet({
+    required this.ingredient,
+    required this.recipe,
+    required this.originalRequest,
+    required this.isGuest,
+    required this.scaleFactor,
+    required this.onSubstituted,
+    required this.onExcludeAndRegenerate,
+    required this.onAddToShoppingList,
+  });
+
+  @override
+  State<_IngredientOptionsSheet> createState() => _IngredientOptionsSheetState();
+}
+
+class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
+  // States: 'options', 'loading', 'result', 'error'
+  String _state = 'options';
+  IngredientSubstitutionResult? _result;
+  String _errorMessage = '';
+
+  Future<void> _requestSubstitution() async {
+    setState(() => _state = 'loading');
+    try {
+      final otherNames = widget.recipe.ingredients
+          .where((i) => i.name != widget.ingredient.name)
+          .map((i) => i.name)
+          .toList();
+
+      final result = await GeminiService.generateSubstitution(
+        ingredientName: widget.ingredient.name,
+        ingredientQuantity: widget.ingredient.quantity,
+        ingredientUnit: widget.ingredient.unit,
+        recipeTitle: widget.recipe.title,
+        otherIngredients: otherNames,
+        dietaryRequirements: widget.recipe.dietaryTags,
+      );
+
+      if (mounted) {
+        setState(() {
+          _result = result;
+          _state = 'result';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          _state = 'error';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Drag handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: ElioColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Content based on state
+          if (_state == 'options') _buildOptions(),
+          if (_state == 'loading') _buildLoading(),
+          if (_state == 'result') _buildResult(),
+          if (_state == 'error') _buildError(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOptions() {
+    final ing = widget.ingredient;
+    final qty = ing.unit.isEmpty ? ing.quantity : '${ing.quantity} ${ing.unit}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text("Don't have this?", style: ElioText.headingMedium),
+        const SizedBox(height: 4),
+        Text(
+          '${ing.name}${qty.isNotEmpty ? ' — $qty' : ''}',
+          style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+        ),
+        if (ing.fromInventory) ...[
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: ElioColors.amber,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'This is from your pantry',
+                style: ElioText.label.copyWith(color: ElioColors.textSecondary),
+              ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 20),
+
+        // Option 1: Suggest substitution
+        _buildOptionTile(
+          icon: Icons.swap_horiz_rounded,
+          iconColor: ElioColors.sky,
+          title: 'Suggest a substitution',
+          subtitle: 'AI-powered, instant',
+          onTap: _requestSubstitution,
+        ),
+        const SizedBox(height: 8),
+
+        // Option 2: Remove & Regenerate (only if we have original request)
+        if (widget.originalRequest != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _buildOptionTile(
+              icon: Icons.refresh_rounded,
+              iconColor: ElioColors.amber,
+              title: 'Remove & regenerate',
+              subtitle: 'New recipe without this ingredient',
+              onTap: () {
+                Navigator.of(context).pop();
+                widget.onExcludeAndRegenerate();
+              },
+            ),
+          ),
+
+        // Option 3: Add to shopping list
+        _buildOptionTile(
+          icon: Icons.add_shopping_cart_rounded,
+          iconColor: ElioColors.navy,
+          title: 'Add to shopping list',
+          subtitle: 'Buy it for next time',
+          onTap: widget.isGuest
+              ? null
+              : () {
+                  Navigator.of(context).pop();
+                  widget.onAddToShoppingList();
+                },
+          locked: widget.isGuest,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOptionTile({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required VoidCallback? onTap,
+    bool locked = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: ElioColors.offWhite,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: ElioColors.border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: ElioText.bodyMedium.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: locked ? ElioColors.textMuted : ElioColors.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    locked ? 'Sign in to use' : subtitle,
+                    style: ElioText.label.copyWith(color: ElioColors.textMuted),
+                  ),
+                ],
+              ),
+            ),
+            if (locked)
+              const Icon(Icons.lock_outline_rounded, size: 18, color: ElioColors.textMuted)
+            else
+              const Icon(Icons.chevron_right_rounded, size: 20, color: ElioColors.textMuted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return SizedBox(
+      height: 120,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: ElioColors.amber,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Finding a substitution...',
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResult() {
+    final r = _result!;
+    final qty = r.unit.isEmpty ? r.adjustedQuantity : '${r.adjustedQuantity} ${r.unit}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.swap_horiz_rounded, color: ElioColors.sky, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Instead of ${widget.ingredient.name}',
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: ElioColors.sky.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: ElioColors.sky.withValues(alpha: 0.3)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                r.substitute,
+                style: ElioText.headingMedium.copyWith(color: ElioColors.navy),
+              ),
+              if (qty.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(qty, style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary)),
+              ],
+              if (r.tradeOff.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(r.tradeOff, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              widget.onSubstituted(r);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ElioColors.navy,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: const Text('Use this instead'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              side: const BorderSide(color: ElioColors.border),
+            ),
+            child: const Text('Never mind'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildError() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text("Couldn't find a substitution", style: ElioText.headingMedium),
+        const SizedBox(height: 8),
+        Text(
+          _errorMessage,
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+        ),
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _requestSubstitution,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: ElioColors.navy,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            child: const Text('Try again'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              side: const BorderSide(color: ElioColors.border),
+            ),
+            child: const Text('Dismiss'),
+          ),
+        ),
+      ],
     );
   }
 }
