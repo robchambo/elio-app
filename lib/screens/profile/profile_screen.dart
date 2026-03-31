@@ -52,9 +52,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   String? _ownerProfileId;
   final TextEditingController _customAllergenController = TextEditingController();
 
-  // ── Household members ──────────────────────────────────────────────
-  List<Map<String, dynamic>> _householdProfiles = [];
-
   // ── Style preferences ──────────────────────────────────────────────
   List<String> _stylePreferences = [];
 
@@ -98,7 +95,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this, initialIndex: widget.initialTab);
+    _tabController = TabController(length: 5, vsync: this, initialIndex: widget.initialTab);
     _loadData();
     _loadShoppingItems();
   }
@@ -121,10 +118,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         );
         _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
         _appliances = List<String>.from(data['appliances'] ?? []);
-        _householdProfiles = List<Map<String, dynamic>>.from(
+        final householdProfiles = List<Map<String, dynamic>>.from(
           (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
         );
-        final owner = _householdProfiles.firstWhere(
+        final owner = householdProfiles.firstWhere(
           (p) => p['isOwner'] == true,
           orElse: () => {},
         );
@@ -471,59 +468,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
-  // ── Household helpers ──────────────────────────────────────────────
-
-  Future<void> _deleteMember(String profileId) async {
-    final removed = _householdProfiles.firstWhere((p) => p['id'] == profileId, orElse: () => {});
-    setState(() => _householdProfiles.removeWhere((p) => p['id'] == profileId));
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
-          .collection('profiles')
-          .doc(profileId)
-          .delete();
-    } catch (_) {
-      if (mounted && removed.isNotEmpty) {
-        setState(() => _householdProfiles.add(removed));
-        _showSnack('Could not remove member. Please try again.');
-      }
-    }
-  }
-
-  Future<void> _addMember(String name, List<String> dietary) async {
-    if (name.trim().isEmpty) return;
-
-    // Enforce household member limit for free tier.
-    if (_householdProfiles.length >= EntitlementService.instance.maxHouseholdMembers) {
-      _showSnack('Upgrade to Pro to add more household members.');
-      return;
-    }
-
-    try {
-      final ref = FirebaseFirestore.instance
-          .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
-          .collection('profiles')
-          .doc();
-      await ref.set({
-        'name': name.trim(),
-        'dietaryRequirements': dietary,
-        'isOwner': false,
-      });
-      if (mounted) {
-        setState(() => _householdProfiles.add({
-          'id': ref.id,
-          'name': name.trim(),
-          'dietaryRequirements': dietary,
-          'isOwner': false,
-        }));
-      }
-    } catch (_) {
-      _showSnack('Could not add member. Please try again.');
-    }
-  }
-
   void _showSnack(String msg) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
@@ -645,7 +589,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               tabs: const [
                 Tab(text: 'Pantry'),
                 Tab(text: 'Dietary'),
-                Tab(text: 'Household'),
                 Tab(text: 'Style'),
                 Tab(text: 'Kitchen'),
                 Tab(text: 'Shopping'),
@@ -661,7 +604,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       children: [
                         _buildPantryTab(),
                         _buildDietaryTab(),
-                        _buildHouseholdTab(),
                         _buildStyleTab(),
                         _buildKitchenTab(),
                         _buildShoppingTab(),
@@ -1482,7 +1424,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'To edit a household member\'s dietary requirements, go to the Household tab.',
+                  'To edit a household member\'s dietary requirements, go to Settings.',
                   style: ElioText.bodyMedium.copyWith(color: ElioColors.sky, fontSize: 13),
                 ),
               ),
@@ -1493,190 +1435,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  // ─── Household tab ────────────────────────────────────────────────────────────
-  Widget _buildHouseholdTab() {
-    final members = _householdProfiles.where((p) => p['isOwner'] != true).toList();
-
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Text('Household members', style: ElioText.headingMedium),
-        const SizedBox(height: 4),
-        Text(
-          'Elio applies the union of all active dietary requirements when generating recipes.',
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-        ),
-        const SizedBox(height: 20),
-        if (members.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Text(
-              'No household members added yet.',
-              style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
-            ),
-          ),
-        ...members.map((member) => _buildMemberCard(member)),
-        const SizedBox(height: 16),
-        _buildAddMemberButton(),
-      ],
-    );
-  }
-
-  Widget _buildMemberCard(Map<String, dynamic> member) {
-    final reqs = List<String>.from(member['dietaryRequirements'] ?? []);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: ElioColors.offWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ElioColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(color: ElioColors.navy, shape: BoxShape.circle),
-            child: Center(
-              child: Text(
-                (member['name'] as String? ?? '?').isNotEmpty
-                    ? (member['name'] as String)[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(member['name'] as String? ?? 'Member', style: ElioText.headingMedium.copyWith(fontSize: 15)),
-                if (reqs.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: reqs.map((r) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: ElioColors.navy.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(r, style: ElioText.label.copyWith(fontSize: 11, color: ElioColors.navy)),
-                    )).toList(),
-                  ),
-                ] else
-                  Text('No dietary requirements', style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted, fontSize: 13)),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () => _deleteMember(member['id'] as String),
-            child: const Icon(Icons.close, size: 18, color: ElioColors.textMuted),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAddMemberButton() {
-    return GestureDetector(
-      onTap: _showAddMemberSheet,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: ElioColors.border, width: 1.5),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.person_add_outlined, size: 18, color: ElioColors.navy),
-            const SizedBox(width: 8),
-            Text('Add household member', style: ElioText.label.copyWith(color: ElioColors.navy)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showAddMemberSheet() {
-    final nameController = TextEditingController();
-    final selectedDietary = <String>[];
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheetState) => Padding(
-          padding: EdgeInsets.only(
-            left: 20, right: 20, top: 24,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Add household member', style: ElioText.headingMedium),
-              const SizedBox(height: 16),
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(hintText: 'Name (e.g. Partner, Child)'),
-                textCapitalization: TextCapitalization.words,
-                autofocus: true,
-              ),
-              const SizedBox(height: 16),
-              Text('Dietary requirements', style: ElioText.label),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _allDietaryOptions.map((req) {
-                  final isSelected = selectedDietary.contains(req);
-                  return GestureDetector(
-                    onTap: () => setSheetState(() {
-                      if (isSelected) { selectedDietary.remove(req); }
-                      else { selectedDietary.add(req); }
-                    }),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: isSelected ? ElioColors.navy : ElioColors.offWhite,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: isSelected ? ElioColors.navy : ElioColors.border),
-                      ),
-                      child: Text(req, style: ElioText.label.copyWith(
-                        color: isSelected ? Colors.white : ElioColors.textPrimary,
-                      )),
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _addMember(nameController.text, List.from(selectedDietary));
-                  },
-                  child: const Text('Add member'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   // ─── Style tab ────────────────────────────────────────────────────────────────
   Widget _buildStyleTab() {

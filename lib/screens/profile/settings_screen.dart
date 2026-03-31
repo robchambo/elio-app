@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../theme/elio_theme.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/region_utils.dart';
+import 'household_screen.dart';
 
 // ─────────────────────────────────────────────
 // SettingsScreen
@@ -89,6 +91,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Household section
+                      Text('Household', style: ElioText.headingMedium),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const HouseholdScreen()),
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: ElioColors.offWhite,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: ElioColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.people_outline, size: 22, color: ElioColors.navy),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Manage household members',
+                                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                                    const SizedBox(height: 2),
+                                    Text('Add or remove people and their dietary needs',
+                                        style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right_rounded, size: 22, color: ElioColors.textMuted),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 28),
+
                       // Measurement Units section
                       Text('Measurement Units', style: ElioText.headingMedium),
                       const SizedBox(height: 12),
