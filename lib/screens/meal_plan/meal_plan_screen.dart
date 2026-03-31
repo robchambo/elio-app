@@ -258,15 +258,43 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     );
   }
 
-  void _openMealDetail(MealSlot meal) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => RecipeScreen(
-          recipe: meal.toGeneratedRecipe(),
-          // No originalRequest → "Generate Another" is disabled (correct for meal plan context)
+  Future<void> _openMealDetail(MealSlot meal, int dayIndex, MealType mealType) async {
+    // Phase 2: load detail on demand if not yet fetched
+    if (!meal.hasDetail) {
+      final slotKey = '${dayIndex}_${mealType.name}';
+      setState(() => _regeneratingSlots.add(slotKey));
+      try {
+        final detailed = await MealPlanService.generateMealDetail(meal);
+        if (!mounted) return;
+        setState(() {
+          final updatedDay = _plan!.days[dayIndex].copyWithMeal(mealType, detailed);
+          _plan = _plan!.copyWithDay(dayIndex, updatedDay);
+        });
+        _savePlan();
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => RecipeScreen(recipe: detailed.toGeneratedRecipe()),
+          ),
+        );
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString().replaceFirst('Exception: ', '')),
+              backgroundColor: ElioColors.navy,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _regeneratingSlots.remove(slotKey));
+      }
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RecipeScreen(recipe: meal.toGeneratedRecipe()),
         ),
-      ),
-    );
+      );
+    }
   }
 
   @override
@@ -409,7 +437,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
               meal: meal,
               isRegenerating: isRegenerating,
               onRegenerate: () => _regenerateMeal(_selectedDayIndex, type),
-              onTap: meal != null && !isRegenerating ? () => _openMealDetail(meal) : null,
+              onTap: meal != null && !isRegenerating ? () => _openMealDetail(meal, _selectedDayIndex, type) : null,
             ),
           );
         }).toList(),

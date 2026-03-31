@@ -12,6 +12,11 @@ import 'remote_config_service.dart';
 // ScannerService
 // Handles barcode product lookup, receipt OCR via Gemini Vision,
 // tier memory CRUD, non-food filtering, and smart tier assignment.
+//
+// Cost optimisations (Sprint 15):
+//   • Switched to gemini-2.5-flash-lite (~35% cheaper, no thinking tokens)
+//   • responseMimeType: application/json — guaranteed clean JSON
+//   • Receipt prompt compressed
 // ─────────────────────────────────────────────
 
 class ScannerService {
@@ -75,17 +80,15 @@ class ScannerService {
   // Sends image bytes to Gemini Vision API, extracts food items + prices.
   Future<ReceiptScanResult> scanReceipt(Uint8List imageBytes) async {
     try {
-      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
+      final model = GenerativeModel(
+        model: 'gemini-2.5-flash-lite',
+        apiKey: _apiKey,
+        generationConfig: GenerationConfig(
+          responseMimeType: 'application/json',
+        ),
+      );
 
-      const prompt = '''Analyze this receipt image. Extract all FOOD items.
-For each food item, return a JSON array of objects:
-[{"name": "item name (clean, no quantity codes)", "price": "1.99", "category": "dairy|meat|produce|bakery|frozen|canned|dry_goods|condiment|beverage|snack|other", "isFood": true}]
-
-Also include any non-food items with "isFood": false.
-Include a "storeName" field at the top level if the store name is visible.
-
-Return ONLY valid JSON in this format:
-{"storeName": "Store Name or null", "items": [...]}''';
+      const prompt = 'Extract food items from this receipt. For non-food items set isFood:false. Schema: {storeName:string|null, items:[{name:string (clean, no codes), price:string, category:dairy|meat|produce|bakery|frozen|canned|dry_goods|condiment|beverage|snack|other, isFood:bool}]}';
 
       final content = Content.multi([
         TextPart(prompt),
@@ -238,47 +241,24 @@ Return ONLY valid JSON in this format:
   }
 
   // ── JSON Extraction ─────────────────────────────────────────────
-  // Robustly extract a JSON object from a string that may contain
-  // markdown fences, leading/trailing prose, or other noise.
-  // Same pattern as gemini_service.dart.
+  // With responseMimeType: application/json, direct parse should always work.
+  // Minimal fallback kept as safety net.
   static Map<String, dynamic> _extractJson(String text) {
     text = text.trim();
 
-    // 1. If the whole body IS the JSON
     if (text.startsWith('{')) {
       try {
         return jsonDecode(text) as Map<String, dynamic>;
-      } catch (_) {
-        // Fall through to fence stripping
-      }
+      } catch (_) {}
     }
 
-    // 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
-    final fencePattern =
-        RegExp(r'```(?:json)?\s*([\s\S]*?)```', multiLine: true);
-    final fenceMatch = fencePattern.firstMatch(text);
-    if (fenceMatch != null) {
-      final inner = fenceMatch.group(1)?.trim() ?? '';
-      if (inner.isNotEmpty) {
-        try {
-          return jsonDecode(inner) as Map<String, dynamic>;
-        } catch (_) {
-          // Fall through to brace extraction
-        }
-      }
-    }
-
-    // 3. Find outermost { ... } braces
     final start = text.indexOf('{');
     final end = text.lastIndexOf('}');
     if (start != -1 && end != -1 && end > start) {
-      final candidate = text.substring(start, end + 1);
       try {
-        return jsonDecode(candidate) as Map<String, dynamic>;
+        return jsonDecode(text.substring(start, end + 1)) as Map<String, dynamic>;
       } catch (e) {
-        throw Exception(
-          'Could not parse receipt JSON: ${e.toString().substring(0, 80)}',
-        );
+        throw Exception('Could not parse receipt JSON: ${e.toString().substring(0, 80)}');
       }
     }
 

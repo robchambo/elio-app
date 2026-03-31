@@ -77,6 +77,9 @@ class MealSlot {
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
 
+  /// Whether Phase 2 detail (steps, nutrition, substitutions) has been loaded.
+  bool get hasDetail => steps.isNotEmpty;
+
   /// Effective calories — prefers full nutrition object, falls back to legacy field
   int? get effectiveCalories => nutrition?.calories ?? caloriesPerServing;
 
@@ -123,6 +126,29 @@ class MealSlot {
     if (estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': estimatedCostPerServingGBP,
     if (substitutions.isNotEmpty) 'substitutions': substitutions.map((s) => s.toMap()).toList(),
   };
+
+  /// Merge Phase 2 detail (steps, nutrition, substitutions) into this slot.
+  MealSlot copyWithDetail({
+    required List<String> steps,
+    NutritionInfo? nutrition,
+    List<RecipeSubstitution> substitutions = const [],
+  }) {
+    return MealSlot(
+      title: title,
+      description: description,
+      prepTimeMinutes: prepTimeMinutes,
+      cookTimeMinutes: cookTimeMinutes,
+      servings: servings,
+      dietaryTags: dietaryTags,
+      ingredients: ingredients,
+      steps: steps,
+      nutrition: nutrition,
+      caloriesPerServing: caloriesPerServing,
+      estimatedCostPerServingUSD: estimatedCostPerServingUSD,
+      estimatedCostPerServingGBP: estimatedCostPerServingGBP,
+      substitutions: substitutions,
+    );
+  }
 
   /// Convert to GeneratedRecipe for use with the unified RecipeScreen.
   GeneratedRecipe toGeneratedRecipe() {

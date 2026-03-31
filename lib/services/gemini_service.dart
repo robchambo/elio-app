@@ -6,38 +6,34 @@ import 'remote_config_service.dart';
 
 // ─────────────────────────────────────────────
 // GeminiService
-// Calls the Gemini 2.5 Flash API to generate recipes.
+// Calls Gemini 2.5 Flash-Lite to generate recipes.
 //
-// Key fixes (Sprint 4 patch):
-//   • maxOutputTokens raised to 4096 — prevents truncated JSON
-//   • Prompt instructs model to keep steps concise to stay within limit
-//   • JSON extraction is more robust: handles missing fences, extra text
-//   • Up to 2 automatic retries on parse failure
-//   • Daily cap is only incremented AFTER a successful parse (in home_screen)
+// Cost optimisations (Sprint 15):
+//   • Switched to gemini-2.5-flash-lite (~35% cheaper, no thinking tokens)
+//   • responseMimeType: application/json — guaranteed clean JSON
+//   • Prompt compressed ~50% — fewer input tokens per call
+//   • maxOutputTokens capped at 2048 (single recipe ≈ 500-800 tokens)
 // ─────────────────────────────────────────────
 
 class GeminiService {
   static String get _apiKey => RemoteConfigService.instance.geminiApiKey;
-  static const String _model = 'gemini-2.5-flash';
+  static const String _model = 'gemini-2.5-flash-lite';
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';
 
   static Future<GeneratedRecipe> generateRecipe(RecipeGenerationRequest request) async {
     Exception? lastError;
 
-    // Up to 2 attempts — Gemini occasionally produces malformed JSON
     for (int attempt = 1; attempt <= 2; attempt++) {
       try {
         return await _attemptGeneration(request);
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
-        // Only retry on parse errors, not on HTTP/auth errors
         if (e.toString().contains('rate limit') ||
             e.toString().contains('access denied') ||
             e.toString().contains('Invalid request')) {
           rethrow;
         }
-        // Brief pause before retry
         if (attempt < 2) {
           await Future.delayed(const Duration(milliseconds: 500));
         }
@@ -65,7 +61,8 @@ class GeminiService {
           'temperature': 0.8,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 16384,
+          'maxOutputTokens': 2048,
+          'responseMimeType': 'application/json',
         },
       }),
     ).timeout(const Duration(seconds: 60), onTimeout: () {
@@ -90,7 +87,6 @@ class GeminiService {
 
     final responseData = jsonDecode(response.body) as Map<String, dynamic>;
 
-    // Check for finish reason — STOP is good, MAX_TOKENS means truncation
     final candidates = responseData['candidates'] as List<dynamic>?;
     if (candidates == null || candidates.isEmpty) {
       throw Exception('No recipe generated. Please try again.');
@@ -107,44 +103,24 @@ class GeminiService {
       throw Exception('Empty response from AI. Please try again.');
     }
 
-    // Skip thinking parts — find the actual text response
-    final textParts = parts.where((p) => p['thought'] != true).toList();
-    String rawText = textParts.isNotEmpty
-        ? (textParts.last['text'] as String? ?? '')
-        : (parts.last['text'] as String? ?? '');
+    final rawText = parts.last['text'] as String? ?? '';
     final recipeJson = _extractJson(rawText);
     return GeneratedRecipe.fromJson(recipeJson);
   }
 
-  /// Robustly extract a JSON object from a string that may contain
-  /// markdown fences, leading/trailing prose, or other noise.
+  /// Extract JSON from response. With responseMimeType set, the response
+  /// should already be clean JSON, but we keep a minimal fallback.
   static Map<String, dynamic> _extractJson(String text) {
     text = text.trim();
 
-    // 1. If responseMimeType worked, the whole body IS the JSON
+    // 1. Direct parse — expected path with responseMimeType: application/json
     if (text.startsWith('{')) {
       try {
         return jsonDecode(text) as Map<String, dynamic>;
-      } catch (_) {
-        // Fall through to fence stripping
-      }
+      } catch (_) {}
     }
 
-    // 2. Strip markdown code fences (```json ... ``` or ``` ... ```)
-    final fencePattern = RegExp(r'```(?:json)?\s*([\s\S]*?)```', multiLine: true);
-    final fenceMatch = fencePattern.firstMatch(text);
-    if (fenceMatch != null) {
-      final inner = fenceMatch.group(1)?.trim() ?? '';
-      if (inner.isNotEmpty) {
-        try {
-          return jsonDecode(inner) as Map<String, dynamic>;
-        } catch (_) {
-          // Fall through to brace extraction
-        }
-      }
-    }
-
-    // 3. Find outermost { ... } braces
+    // 2. Fallback: find outermost braces
     final start = text.indexOf('{');
     final end = text.lastIndexOf('}');
     if (start != -1 && end != -1 && end > start) {
@@ -162,165 +138,94 @@ class GeminiService {
   static String _buildPrompt(RecipeGenerationRequest request) {
     final buffer = StringBuffer();
 
-    buffer.writeln('You are Elio, a friendly AI cooking assistant. Generate ONE recipe as valid JSON.');
-    buffer.writeln();
-    buffer.writeln('IMPORTANT: Your ENTIRE response must be a single valid JSON object. No prose before or after. No markdown fences.');
-    buffer.writeln();
-    buffer.writeln('## HARD CONSTRAINTS (never override):');
+    buffer.writeln('Generate ONE recipe as JSON.');
 
-    // Measurement units and region
+    // Region & units
     final units = RegionUtils.measurementUnits;
-    if (units == 'imperial') {
-      buffer.writeln('Use imperial measurements (ounces, cups, Fahrenheit) for all quantities and temperatures.');
-    } else {
-      buffer.writeln('Use metric measurements (grams, millilitres, Celsius) for all quantities and temperatures.');
-    }
     final appRegion = RegionUtils.region;
+    if (units == 'imperial') {
+      buffer.writeln('Units: imperial (oz, cups, °F).');
+    } else {
+      buffer.writeln('Units: metric (g, ml, °C).');
+    }
     if (appRegion == AppRegion.uk) {
-      buffer.writeln('User is in the United Kingdom — use GBP for cost estimates and UK ingredient names.');
+      buffer.writeln('Region: UK (GBP, UK ingredient names).');
     } else {
-      buffer.writeln('User is in the United States — use USD for cost estimates and US ingredient names.');
+      buffer.writeln('Region: US (USD, US ingredient names).');
     }
 
+    // Dietary
     if (request.dietaryRequirements.isNotEmpty) {
-      buffer.writeln('Dietary: ${request.dietaryRequirements.join(', ')} — strictly enforced.');
-    } else {
-      buffer.writeln('No dietary restrictions.');
+      buffer.writeln('Dietary: ${request.dietaryRequirements.join(', ')} — strict.');
     }
 
-    // ── Leftover mode: completely different framing ──────────────────
+    // ── Leftover mode ──
     if (request.isLeftoverMode && request.leftoverItems.isNotEmpty) {
-      buffer.writeln();
-      buffer.writeln('## LEFTOVER MODE:');
-      buffer.writeln('The user has these leftovers and wants to use them up creatively. Build the recipe AROUND these items.');
-      buffer.writeln('Leftovers to use: ${request.leftoverItems.join(', ')}');
-      buffer.writeln('Goal: transform these leftovers into something delicious. Minimise food waste.');
+      buffer.writeln('LEFTOVER MODE — build recipe around: ${request.leftoverItems.join(', ')}. Minimise waste.');
       if (request.alwaysHave.isNotEmpty) {
-        buffer.writeln('Pantry staples available: ${request.alwaysHave.join(', ')}');
+        buffer.writeln('Pantry: ${request.alwaysHave.join(', ')}');
       }
       if (request.almostAlwaysHave.isNotEmpty) {
         buffer.writeln('Usually have: ${request.almostAlwaysHave.join(', ')}');
       }
     } else {
-      buffer.writeln();
-      buffer.writeln('## INVENTORY:');
-
-      // Perishable inventory items with urgency (from pantry perishable tier)
+      // Normal mode inventory
       if (request.perishableInventoryDescriptions.isNotEmpty) {
-        buffer.writeln('PERISHABLE ITEMS (use these first): ${request.perishableInventoryDescriptions.join(', ')}');
+        buffer.writeln('PERISHABLE (use first): ${request.perishableInventoryDescriptions.join(', ')}');
       }
-
       if (request.perishables.isNotEmpty) {
-        buffer.writeln('Fresh items (use these): ${request.perishables.join(', ')}');
+        buffer.writeln('Fresh: ${request.perishables.join(', ')}');
       } else if (request.perishableInventoryDescriptions.isEmpty) {
         buffer.writeln('No fresh items — use pantry staples.');
       }
-
       if (request.alwaysHave.isNotEmpty) {
-        buffer.writeln('Pantry staples: ${request.alwaysHave.join(', ')}');
+        buffer.writeln('Pantry: ${request.alwaysHave.join(', ')}');
       }
       if (request.almostAlwaysHave.isNotEmpty) {
         buffer.writeln('Usually have: ${request.almostAlwaysHave.join(', ')}');
       }
-    } // end else (normal mode)
+    }
 
-    buffer.writeln();
-    buffer.writeln('## PREFERENCES:');
+    // Preferences
     if (request.timePreference != null) buffer.writeln('Time: ${request.timePreference}');
     if (request.stylePreference != null) {
       buffer.writeln(request.stylePreference == 'Surprise me'
-          ? 'Style: Be creative — any cuisine.'
+          ? 'Style: any cuisine, be creative.'
           : 'Style: ${request.stylePreference}');
     }
     if (request.moodPreference != null) buffer.writeln('Mood: ${request.moodPreference}');
     buffer.writeln('Servings: ${request.servings}');
 
     if (request.runningLowItems.isNotEmpty) {
-      buffer.writeln();
-      buffer.writeln('## RUNNING LOW (use sparingly or avoid — user is nearly out of these):');
-      buffer.writeln(request.runningLowItems.join(', '));
+      buffer.writeln('RUNNING LOW (use sparingly): ${request.runningLowItems.join(', ')}');
     }
-
     if (request.excludedIngredients.isNotEmpty) {
-      buffer.writeln();
-      buffer.writeln('## EXCLUDED INGREDIENTS (do NOT use these — user has run out or does not want them):');
-      buffer.writeln(request.excludedIngredients.join(', '));
+      buffer.writeln('EXCLUDED: ${request.excludedIngredients.join(', ')}');
     }
-
     if (request.appliances.isNotEmpty) {
-      buffer.writeln();
-      buffer.writeln('## AVAILABLE APPLIANCES:');
-      buffer.writeln('User has: ${request.appliances.join(', ')}. Where appropriate, suggest using these appliances to enhance the recipe.');
+      buffer.writeln('Appliances: ${request.appliances.join(', ')}');
     }
-
     if (request.recentTitles.isNotEmpty) {
-      buffer.writeln();
-      buffer.writeln('## RECENTLY GENERATED (do NOT repeat these recipes — generate something different):');
-      for (final title in request.recentTitles) {
-        buffer.writeln('- $title');
-      }
+      buffer.writeln('AVOID (recently generated): ${request.recentTitles.join(', ')}');
     }
 
-    // Taste profile is injected by caller via request fields
-    if (request.likedRecipes.isNotEmpty || request.dislikedRecipes.isNotEmpty) {
-      buffer.writeln();
-      buffer.writeln('## TASTE PROFILE (adapt suggestions based on this):');
-      if (request.likedRecipes.isNotEmpty) {
-        buffer.writeln('User has LIKED recipes similar to: ${request.likedRecipes.take(5).join(', ')} — lean into similar styles, flavours, and techniques.');
-      }
-      if (request.dislikedRecipes.isNotEmpty) {
-        buffer.writeln('User has DISLIKED recipes similar to: ${request.dislikedRecipes.take(5).join(', ')} — avoid similar styles and flavour profiles.');
-      }
+    // Taste profile
+    if (request.likedRecipes.isNotEmpty) {
+      buffer.writeln('Liked: ${request.likedRecipes.take(5).join(', ')} — lean into similar styles.');
+    }
+    if (request.dislikedRecipes.isNotEmpty) {
+      buffer.writeln('Disliked: ${request.dislikedRecipes.take(5).join(', ')} — avoid similar.');
     }
 
     if (request.isSaverMode) {
-      buffer.writeln();
-      buffer.writeln('## BUDGET MODE:');
-      buffer.writeln('Prioritise affordable, budget-friendly ingredients. Use own-brand/store-brand pricing. Favour bulk staples (rice, pasta, lentils, beans, frozen veg). Avoid premium, organic, or specialty ingredients. Aim for under £2 / \$3 per serving. Suggest the cheapest viable option for each ingredient.');
+      buffer.writeln('BUDGET MODE: under £2/\$3 per serving, own-brand pricing, bulk staples.');
     }
 
-    buffer.writeln();
-    buffer.writeln('## RULES:');
-    buffer.writeln('- Recipe title must sound like home cooking, NOT a pre-made product. E.g. "Lemon Herb Chicken with Roasted Vegetables", not "Cooked Mediterranean Chicken".');
-    buffer.writeln('- Ingredients must be raw/purchasable items, NOT pre-prepared dishes. Never list a cooked dish as an ingredient.');
-    buffer.writeln('- Keep steps SHORT (1-2 sentences each). Max 8 steps total.');
-    buffer.writeln('- Max 10 ingredients.');
-    buffer.writeln('- substitutions array may be empty [].');
-    buffer.writeln('- dietaryTags array may be empty [].');
-    buffer.writeln('- estimatedCostPerServingUSD and estimatedCostPerServingGBP: estimate the cost per serving in USD and GBP respectively.');
-    buffer.writeln('  Use BUDGET/OWN-BRAND pricing (e.g. Kroger brand, Walmart Great Value, Tesco Everyday Value, Asda Smart Price).');
-    buffer.writeln('  Do NOT use organic, premium, or specialty variants. Choose the standard, most affordable option.');
-    buffer.writeln('  Account for the fact that users buy whole packs (e.g. a 1lb chicken pack, not just the exact grams used).');
-    buffer.writeln('  Exclude pantry staples (salt, pepper, oil, basic spices) from the estimate — assume the user already has these.');
-    buffer.writeln('  Provide a realistic low-end estimate. If uncertain, err on the lower side.');
+    // Rules (compressed)
+    buffer.writeln('Rules: home-cooking title (not pre-made product names). Raw/purchasable ingredients only. Max 10 ingredients, max 8 steps (1-2 sentences). estimatedCost: budget/own-brand pricing, exclude pantry staples, err low.');
 
-    buffer.writeln();
-    buffer.writeln('## JSON SCHEMA (return exactly this structure):');
-    buffer.writeln('Include estimated per-serving nutritional values in the "nutrition" field.');
-    buffer.writeln('''{
-  "title": "string",
-  "description": "string (1-2 sentences)",
-  "prepTimeMinutes": 10,
-  "cookTimeMinutes": 20,
-  "servings": 2,
-  "dietaryTags": ["string"],
-  "ingredients": [
-    {"name": "string", "quantity": "string", "unit": "string", "fromInventory": true}
-  ],
-  "steps": ["string"],
-  "substitutions": [
-    {"original": "string", "substitute": "string", "tradeOff": "string"}
-  ],
-  "nutrition": {
-    "calories": 450,
-    "proteinG": 35.0,
-    "carbsG": 42.0,
-    "fatG": 12.0,
-    "fibreG": 6.0
-  },
-  "estimatedCostPerServingUSD": 4.50,
-  "estimatedCostPerServingGBP": 3.50
-}''');
+    // Compact schema
+    buffer.writeln('Schema: {title, description(1-2 sentences), prepTimeMinutes, cookTimeMinutes, servings, dietaryTags[], ingredients[{name,quantity,unit,fromInventory}], steps[], substitutions[{original,substitute,tradeOff}], nutrition{calories,proteinG,carbsG,fatG,fibreG}, estimatedCostPerServingUSD, estimatedCostPerServingGBP}');
 
     return buffer.toString();
   }

@@ -1,24 +1,25 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/meal_plan_models.dart';
+import '../models/recipe_models.dart';
 import 'remote_config_service.dart';
 
 // ─────────────────────────────────────────────
 // MealPlanService
-// Calls Gemini 2.5 Flash to generate a full 7-day meal plan
-// or a single replacement meal.
+// Calls Gemini 2.5 Flash-Lite to generate meal plans.
 //
-// The full-week prompt asks for all 21 meals in one call.
-// This is more efficient than 21 separate calls and ensures
-// variety across the week (Gemini sees the full context).
-//
-// Token budget: 21 meals × ~150 tokens each ≈ 3150 tokens.
-// We request 6000 to be safe.
+// Cost optimisations (Sprint 15):
+//   • Switched to gemini-2.5-flash-lite (~35% cheaper, no thinking tokens)
+//   • responseMimeType: application/json — guaranteed clean JSON
+//   • Prompts compressed ~50% — fewer input tokens per call
+//   • Two-phase generation: weekly call returns summaries only (Phase 1),
+//     detail (steps, nutrition, substitutions) loaded on-demand (Phase 2)
+//   • maxOutputTokens: 4096 weekly / 1024 single meal / 512 detail
 // ─────────────────────────────────────────────
 
 class MealPlanService {
   static String get _apiKey => RemoteConfigService.instance.geminiApiKey;
-  static const String _model = 'gemini-2.5-flash';
+  static const String _model = 'gemini-2.5-flash-lite';
   static const String _baseUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';
 
@@ -96,7 +97,8 @@ class MealPlanService {
           'temperature': 0.85,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 16384,
+          'maxOutputTokens': 4096,
+          'responseMimeType': 'application/json',
         },
       }),
     );
@@ -120,14 +122,9 @@ class MealPlanService {
       throw Exception('Empty response from AI. Please try again.');
     }
 
-    // Skip thinking parts — find the actual text response
-    final textParts = parts.where((p) => p['thought'] != true).toList();
-    final rawText = textParts.isNotEmpty
-        ? (textParts.last['text'] as String? ?? '')
-        : (parts.last['text'] as String? ?? '');
+    final rawText = parts.last['text'] as String? ?? '';
     final planJson = _extractJson(rawText);
 
-    // Parse the 7-day structure
     final daysJson = planJson['days'] as List<dynamic>?;
     if (daysJson == null || daysJson.isEmpty) {
       throw Exception('Meal plan structure was invalid. Please try again.');
@@ -147,7 +144,7 @@ class MealPlanService {
     required List<String> dietaryRequirements,
     required List<String> alwaysHave,
     required List<String> almostAlwaysHave,
-    required List<String> existingTitles, // avoid repeats
+    required List<String> existingTitles,
     int servings = 2,
   }) async {
     Exception? lastError;
@@ -210,7 +207,8 @@ class MealPlanService {
           'temperature': 0.9,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 4096,
+          'maxOutputTokens': 1024,
+          'responseMimeType': 'application/json',
         },
       }),
     );
@@ -229,12 +227,76 @@ class MealPlanService {
       throw Exception('Empty response. Please try again.');
     }
 
-    final textParts2 = parts.where((p) => p['thought'] != true).toList();
-    final rawText = textParts2.isNotEmpty
-        ? (textParts2.last['text'] as String? ?? '')
-        : (parts.last['text'] as String? ?? '');
+    final rawText = parts.last['text'] as String? ?? '';
     final mealJson = _extractJson(rawText);
     return MealSlot.fromJson(mealJson);
+  }
+
+  // ── Phase 2: on-demand detail for a single meal ────────────────────────────────
+  // Given a Phase 1 summary (title + ingredients), fetches steps, nutrition,
+  // and substitutions. Returns an updated MealSlot with detail merged in.
+  static Future<MealSlot> generateMealDetail(MealSlot summary) async {
+    final ingredientNames = summary.ingredients.map((i) => i.name).join(', ');
+    final prompt = StringBuffer()
+      ..writeln('Given this meal, generate cooking steps, nutrition, and substitutions.')
+      ..writeln('Title: ${summary.title}')
+      ..writeln('Description: ${summary.description}')
+      ..writeln('Ingredients: $ingredientNames')
+      ..writeln('Servings: ${summary.servings}')
+      ..writeln('3-6 concise steps (1-2 sentences each). Nutrition per serving. 1-2 substitutions.')
+      ..writeln('Schema: {steps[], nutrition{calories,proteinG,carbsG,fatG,fibreG}, substitutions[{original,substitute,tradeOff}]}');
+
+    final response = await http.post(
+      Uri.parse('$_baseUrl?key=$_apiKey'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'contents': [
+          {
+            'parts': [{'text': prompt.toString()}]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.7,
+          'topK': 40,
+          'topP': 0.95,
+          'maxOutputTokens': 512,
+          'responseMimeType': 'application/json',
+        },
+      }),
+    );
+
+    _checkHttpErrors(response);
+
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final candidates = responseData['candidates'] as List<dynamic>?;
+    if (candidates == null || candidates.isEmpty) {
+      throw Exception('Could not load meal detail. Please try again.');
+    }
+
+    final content = candidates[0]['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List<dynamic>?;
+    if (parts == null || parts.isEmpty) {
+      throw Exception('Empty detail response. Please try again.');
+    }
+
+    final rawText = parts.last['text'] as String? ?? '';
+    final detailJson = _extractJson(rawText);
+
+    final steps = (detailJson['steps'] as List<dynamic>? ?? [])
+        .map((e) => e.toString())
+        .toList();
+    final nutrition = detailJson['nutrition'] != null
+        ? NutritionInfo.fromJson(detailJson['nutrition'] as Map<String, dynamic>)
+        : null;
+    final substitutions = (detailJson['substitutions'] as List<dynamic>? ?? [])
+        .map((e) => RecipeSubstitution.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    return summary.copyWithDetail(
+      steps: steps,
+      nutrition: nutrition,
+      substitutions: substitutions,
+    );
   }
 
   // ── HTTP error handling ───────────────────────────────────────────────────────
@@ -254,20 +316,13 @@ class MealPlanService {
   }
 
   // ── JSON extraction ───────────────────────────────────────────────────────────
+  // With responseMimeType: application/json, direct parse should always work.
+  // Minimal fallback kept as safety net.
   static Map<String, dynamic> _extractJson(String text) {
     text = text.trim();
 
     if (text.startsWith('{')) {
       try { return jsonDecode(text) as Map<String, dynamic>; } catch (_) {}
-    }
-
-    final fencePattern = RegExp(r'```(?:json)?\s*([\s\S]*?)```', multiLine: true);
-    final fenceMatch = fencePattern.firstMatch(text);
-    if (fenceMatch != null) {
-      final inner = fenceMatch.group(1)?.trim() ?? '';
-      if (inner.isNotEmpty) {
-        try { return jsonDecode(inner) as Map<String, dynamic>; } catch (_) {}
-      }
     }
 
     final start = text.indexOf('{');
@@ -293,71 +348,26 @@ class MealPlanService {
     final mealNames = selectedMealTypes.map((m) => m.name).join(', ');
     final totalMeals = selectedDays.length * selectedMealTypes.length;
 
-    buffer.writeln('You are Elio, an AI cooking assistant. Generate a meal plan for ${selectedDays.length} days ($totalMeals meals total: $mealNames for each day) as valid JSON.');
-    buffer.writeln('Your ENTIRE response must be a single valid JSON object. No prose, no markdown fences.');
-    buffer.writeln();
-    buffer.writeln('## HARD CONSTRAINTS:');
+    buffer.writeln('Generate a ${selectedDays.length}-day meal plan ($totalMeals meals: $mealNames/day) as JSON.');
 
     if (dietaryRequirements.isNotEmpty) {
-      buffer.writeln('Dietary: ${dietaryRequirements.join(', ')} — strictly enforced for ALL meals.');
-    } else {
-      buffer.writeln('No dietary restrictions.');
+      buffer.writeln('Dietary: ${dietaryRequirements.join(', ')} — strict for ALL meals.');
     }
 
-    buffer.writeln();
-    buffer.writeln('## PANTRY (items the user always has):');
-    if (alwaysHave.isNotEmpty) buffer.writeln(alwaysHave.join(', '));
+    if (alwaysHave.isNotEmpty) buffer.writeln('Pantry: ${alwaysHave.join(', ')}');
     if (almostAlwaysHave.isNotEmpty) buffer.writeln('Usually have: ${almostAlwaysHave.join(', ')}');
 
     if (stylePreferences.isNotEmpty) {
-      buffer.writeln();
-      buffer.writeln('## STYLE PREFERENCES: ${stylePreferences.join(', ')}');
-      buffer.writeln('Vary cuisines across the week. Use these as inspiration, not a strict rule.');
+      buffer.writeln('Styles: ${stylePreferences.join(', ')} — vary across week, use as inspiration.');
     }
 
-    buffer.writeln();
-    buffer.writeln('## RULES:');
-    buffer.writeln('- Meal titles must sound like home cooking, NOT pre-made products.');
-    buffer.writeln('- Ingredients must be raw/purchasable items, NOT pre-prepared dishes.');
-    buffer.writeln('- Servings: $servings per meal.');
-    buffer.writeln('- Vary meals across the week — no repeated dishes.');
-    buffer.writeln('- Breakfast should be quick (under 15 min). Lunch moderate. Dinner can be more involved.');
-    buffer.writeln('- Each meal: max 8 ingredients, description 1 sentence, 3-6 cooking steps.');
-    buffer.writeln('- Keep ingredient quantities realistic for $servings servings.');
-    buffer.writeln('- ONLY generate meals for the following days: ${selectedDays.join(', ')}.');
-    buffer.writeln('- ONLY generate the following meal types per day: $mealNames.');
+    buffer.writeln('Rules: $servings servings/meal. Home-cooking titles, raw/purchasable ingredients only. No repeats. Breakfast <15min. Max 8 ingredients. Maximise ingredient crossover across days to reduce waste.');
+    buffer.writeln('Days: ${selectedDays.join(', ')}. Meals: $mealNames.');
+    buffer.writeln('Include estimatedCostPerServingUSD and estimatedCostPerServingGBP (budget/own-brand pricing).');
+    buffer.writeln('Do NOT include steps, nutrition, or substitutions — only summaries.');
 
-    buffer.writeln();
-    buffer.writeln('- Include full nutrition per serving: calories (kcal), proteinG, carbsG, fatG, fibreG.');
-    buffer.writeln('- Include estimatedCostPerServingUSD and estimatedCostPerServingGBP (budget/own-brand pricing).');
-    buffer.writeln('- Include 1-2 substitution tips per meal (ingredient swaps with trade-off explanation).');
-    buffer.writeln();
-    buffer.writeln('## JSON SCHEMA (return EXACTLY this structure):');
-    buffer.writeln('''
-{
-  "days": [
-    {
-      "dayName": "Monday",
-      "breakfast": {
-        "title": "string",
-        "description": "string",
-        "prepTimeMinutes": 5,
-        "cookTimeMinutes": 10,
-        "servings": $servings,
-        "dietaryTags": ["string"],
-        "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}],
-        "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
-        "nutrition": {"calories": 400, "proteinG": 25.0, "carbsG": 45.0, "fatG": 12.0, "fibreG": 6.0},
-        "estimatedCostPerServingUSD": 3.50,
-        "estimatedCostPerServingGBP": 2.80,
-        "substitutions": [{"original": "ingredient", "substitute": "swap", "tradeOff": "explanation"}]
-      },
-      "lunch": { ... same structure ... },
-      "dinner": { ... same structure ... }
-    },
-    ... repeat for Tuesday through Sunday ...
-  ]
-}''');
+    // Phase 1 schema — no steps/nutrition/substitutions
+    buffer.writeln('Schema: {days:[{dayName, breakfast/lunch/dinner:{title, description(1 sentence), prepTimeMinutes, cookTimeMinutes, servings, dietaryTags[], ingredients[{name,quantity,unit}], estimatedCostPerServingUSD, estimatedCostPerServingGBP}}]}');
 
     return buffer.toString();
   }
@@ -373,50 +383,24 @@ class MealPlanService {
   }) {
     final buffer = StringBuffer();
 
-    buffer.writeln('You are Elio. Generate ONE ${mealType.displayName.toLowerCase()} meal for $dayName as valid JSON.');
-    buffer.writeln('Your ENTIRE response must be a single valid JSON object. No prose, no markdown fences.');
-    buffer.writeln();
+    buffer.writeln('Generate ONE ${mealType.displayName.toLowerCase()} for $dayName as JSON.');
 
     if (dietaryRequirements.isNotEmpty) {
-      buffer.writeln('Dietary constraints: ${dietaryRequirements.join(', ')} — strictly enforced.');
+      buffer.writeln('Dietary: ${dietaryRequirements.join(', ')} — strict.');
     }
-
-    if (alwaysHave.isNotEmpty) {
-      buffer.writeln('Pantry: ${alwaysHave.join(', ')}');
-    }
-    if (almostAlwaysHave.isNotEmpty) {
-      buffer.writeln('Usually have: ${almostAlwaysHave.join(', ')}');
-    }
-
+    if (alwaysHave.isNotEmpty) buffer.writeln('Pantry: ${alwaysHave.join(', ')}');
+    if (almostAlwaysHave.isNotEmpty) buffer.writeln('Usually have: ${almostAlwaysHave.join(', ')}');
     if (existingTitles.isNotEmpty) {
-      buffer.writeln('Do NOT repeat these meals: ${existingTitles.join(', ')}');
+      buffer.writeln('Avoid repeats: ${existingTitles.join(', ')}');
     }
 
-    buffer.writeln('Servings: $servings. Max 8 ingredients. Description: 1 sentence.');
-    buffer.writeln('Meal title must sound like home cooking, NOT a pre-made product.');
-    buffer.writeln('Ingredients must be raw/purchasable items, NOT pre-prepared dishes.');
-
+    buffer.writeln('$servings servings. Max 8 ingredients. Home-cooking title, raw ingredients only.');
     if (mealType == MealType.breakfast) {
-      buffer.writeln('This is breakfast — keep it quick (under 15 min total).');
+      buffer.writeln('Breakfast — under 15min total.');
     }
 
-    buffer.writeln();
-    buffer.writeln('JSON schema:');
-    buffer.writeln('''
-{
-  "title": "string",
-  "description": "string",
-  "prepTimeMinutes": 5,
-  "cookTimeMinutes": 10,
-  "servings": $servings,
-  "dietaryTags": ["string"],
-  "ingredients": [{"name": "string", "quantity": "string", "unit": "string"}],
-  "steps": ["Step 1: ...", "Step 2: ...", "Step 3: ..."],
-  "nutrition": {"calories": 400, "proteinG": 25.0, "carbsG": 45.0, "fatG": 12.0, "fibreG": 6.0},
-  "estimatedCostPerServingUSD": 3.50,
-  "estimatedCostPerServingGBP": 2.80,
-  "substitutions": [{"original": "ingredient", "substitute": "swap", "tradeOff": "explanation"}]
-}''');
+    buffer.writeln('Schema: {title, description(1 sentence), prepTimeMinutes, cookTimeMinutes, servings, dietaryTags[], ingredients[{name,quantity,unit}], steps[], nutrition{calories,proteinG,carbsG,fatG,fibreG}, estimatedCostPerServingUSD, estimatedCostPerServingGBP, substitutions[{original,substitute,tradeOff}]}');
+
     return buffer.toString();
   }
 }
