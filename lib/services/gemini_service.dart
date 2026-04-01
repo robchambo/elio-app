@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/recipe_models.dart';
@@ -8,36 +9,47 @@ import 'remote_config_service.dart';
 // GeminiService
 // Calls the Gemini 2.5 Flash API to generate recipes.
 //
-// Key fixes (Sprint 4 patch):
-//   • maxOutputTokens raised to 4096 — prevents truncated JSON
-//   • Prompt instructs model to keep steps concise to stay within limit
-//   • JSON extraction is more robust: handles missing fences, extra text
-//   • Up to 2 automatic retries on parse failure
-//   • Daily cap is only incremented AFTER a successful parse (in home_screen)
+// Uses streaming (SSE) for recipe generation to improve
+// perceived speed. JSON mode + thinking disabled for
+// guaranteed valid JSON without overhead.
+//
+// Substitutions use a separate batch call (flash-lite).
 // ─────────────────────────────────────────────
 
 class GeminiService {
   static String get _apiKey => RemoteConfigService.instance.geminiApiKey;
   static const String _model = 'gemini-2.5-flash';
-  static const String _baseUrl =
-      'https://generativelanguage.googleapis.com/v1beta/models/$_model:generateContent';
+  static const String _streamUrl =
+      'https://generativelanguage.googleapis.com/v1beta/models/$_model:streamGenerateContent';
 
+  /// Convenience wrapper — awaits the stream and returns the final recipe.
+  /// Used by recipe_screen.dart (remove & regenerate) and anywhere that
+  /// doesn't need streaming UI updates.
   static Future<GeneratedRecipe> generateRecipe(RecipeGenerationRequest request) async {
     Exception? lastError;
 
-    // Up to 2 attempts — Gemini occasionally produces malformed JSON
     for (int attempt = 1; attempt <= 2; attempt++) {
       try {
-        return await _attemptGeneration(request);
+        GeneratedRecipe? result;
+        await for (final status in generateRecipeStream(request)) {
+          switch (status) {
+            case RecipeComplete():
+              result = status.recipe;
+            case RecipeError():
+              throw Exception(status.message);
+            case RecipeGenerating():
+              break;
+          }
+        }
+        if (result != null) return result;
+        throw Exception('Recipe generation completed without a result.');
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
-        // Only retry on parse errors, not on HTTP/auth errors
         if (e.toString().contains('rate limit') ||
             e.toString().contains('access denied') ||
             e.toString().contains('Invalid request')) {
           rethrow;
         }
-        // Brief pause before retry
         if (attempt < 2) {
           await Future.delayed(const Duration(milliseconds: 500));
         }
@@ -47,13 +59,19 @@ class GeminiService {
     throw lastError ?? Exception('Recipe generation failed. Please try again.');
   }
 
-  static Future<GeneratedRecipe> _attemptGeneration(RecipeGenerationRequest request) async {
+  /// Streaming recipe generation — yields status updates as chunks arrive.
+  /// Subscribe to this from the home screen for skeleton/shimmer UI.
+  static Stream<RecipeGenerationStatus> generateRecipeStream(RecipeGenerationRequest request) async* {
     final prompt = _buildPrompt(request);
+    final client = http.Client();
 
-    final response = await http.post(
-      Uri.parse('$_baseUrl?key=$_apiKey'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
+    try {
+      final httpRequest = http.Request(
+        'POST',
+        Uri.parse('$_streamUrl?alt=sse&key=$_apiKey'),
+      );
+      httpRequest.headers['Content-Type'] = 'application/json';
+      httpRequest.body = jsonEncode({
         'contents': [
           {
             'parts': [
@@ -65,55 +83,99 @@ class GeminiService {
           'temperature': 0.8,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 16384,
+          'maxOutputTokens': 4096,
+          'responseMimeType': 'application/json',
+          'thinkingConfig': {'thinkingBudget': 0},
         },
-      }),
-    ).timeout(const Duration(seconds: 60), onTimeout: () {
-      throw Exception('Recipe generation timed out. Please try again.');
-    });
+      });
 
-    if (response.statusCode == 429) {
-      throw Exception('Recipe generation is temporarily unavailable (rate limit reached). Please wait a minute and try again.');
-    }
-    if (response.statusCode == 400) {
-      throw Exception('Invalid request to recipe service (400). Please try again.');
-    }
-    if (response.statusCode == 403) {
-      throw Exception('Recipe service access denied. Please check your API key.');
-    }
-    if (response.statusCode == 404) {
-      throw Exception('Recipe service unavailable (model not found). Please try again.');
-    }
-    if (response.statusCode != 200) {
-      throw Exception('Recipe service error (${response.statusCode}). Please try again.');
-    }
+      final streamedResponse = await client.send(httpRequest).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => throw Exception('Recipe generation timed out. Please try again.'),
+      );
 
-    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+      // Check HTTP status before reading the stream
+      if (streamedResponse.statusCode == 429) {
+        yield RecipeError(message: 'Recipe generation is temporarily unavailable (rate limit reached). Please wait a minute and try again.');
+        return;
+      }
+      if (streamedResponse.statusCode == 400) {
+        yield RecipeError(message: 'Invalid request to recipe service (400). Please try again.');
+        return;
+      }
+      if (streamedResponse.statusCode == 403) {
+        yield RecipeError(message: 'Recipe service access denied. Please check your API key.');
+        return;
+      }
+      if (streamedResponse.statusCode == 404) {
+        yield RecipeError(message: 'Recipe service unavailable (model not found). Please try again.');
+        return;
+      }
+      if (streamedResponse.statusCode != 200) {
+        yield RecipeError(message: 'Recipe service error (${streamedResponse.statusCode}). Please try again.');
+        return;
+      }
 
-    // Check for finish reason — STOP is good, MAX_TOKENS means truncation
-    final candidates = responseData['candidates'] as List<dynamic>?;
-    if (candidates == null || candidates.isEmpty) {
-      throw Exception('No recipe generated. Please try again.');
+      // Parse SSE stream — accumulate text chunks
+      final buffer = StringBuffer();
+      int totalBytes = 0;
+      String? finishReason;
+
+      await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
+        totalBytes += chunk.length;
+        yield RecipeGenerating(bytesReceived: totalBytes);
+
+        // SSE format: lines starting with "data: " followed by JSON
+        for (final line in chunk.split('\n')) {
+          final trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          final jsonStr = trimmed.substring(6); // Strip "data: " prefix
+          if (jsonStr.isEmpty || jsonStr == '[DONE]') continue;
+
+          try {
+            final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+            final candidates = data['candidates'] as List<dynamic>?;
+            if (candidates == null || candidates.isEmpty) continue;
+
+            // Capture finish reason from the final chunk
+            final fr = candidates[0]['finishReason'] as String?;
+            if (fr != null) finishReason = fr;
+
+            final content = candidates[0]['content'] as Map<String, dynamic>?;
+            final parts = content?['parts'] as List<dynamic>?;
+            if (parts == null) continue;
+
+            for (final part in parts) {
+              final text = part['text'] as String?;
+              if (text != null) buffer.write(text);
+            }
+          } catch (_) {
+            // Malformed SSE chunk — skip and continue accumulating
+          }
+        }
+      }
+
+      // Stream complete — check finish reason and parse
+      if (finishReason == 'MAX_TOKENS') {
+        yield RecipeError(message: 'Response was too long and got cut off. Please try again.');
+        return;
+      }
+
+      final rawText = buffer.toString().trim();
+      if (rawText.isEmpty) {
+        yield RecipeError(message: 'Empty response from AI. Please try again.');
+        return;
+      }
+
+      final recipeJson = _extractJson(rawText);
+      yield RecipeComplete(recipe: GeneratedRecipe.fromJson(recipeJson));
+    } catch (e) {
+      yield RecipeError(
+        message: e is Exception ? e.toString().replaceFirst('Exception: ', '') : 'Recipe generation failed. Please try again.',
+      );
+    } finally {
+      client.close();
     }
-
-    final finishReason = candidates[0]['finishReason'] as String? ?? 'STOP';
-    if (finishReason == 'MAX_TOKENS') {
-      throw Exception('Response was too long and got cut off. Retrying with a shorter recipe...');
-    }
-
-    final content = candidates[0]['content'] as Map<String, dynamic>?;
-    final parts = content?['parts'] as List<dynamic>?;
-    if (parts == null || parts.isEmpty) {
-      throw Exception('Empty response from AI. Please try again.');
-    }
-
-    // Skip thinking parts — find the actual text response
-    final textParts = parts.where((p) => p['thought'] != true).toList();
-    String rawText = textParts.isNotEmpty
-        ? (textParts.last['text'] as String? ?? '')
-        : (parts.last['text'] as String? ?? '');
-    final recipeJson = _extractJson(rawText);
-    return GeneratedRecipe.fromJson(recipeJson);
   }
 
   /// Robustly extract a JSON object from a string that may contain

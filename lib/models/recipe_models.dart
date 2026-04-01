@@ -262,13 +262,15 @@ class RecipeIngredient {
 class SavedRecipe {
   final GeneratedRecipe recipe;
   final String savedAt; // ISO8601 string, used as unique ID
+  final bool isBookmarked;
 
-  const SavedRecipe({required this.recipe, required this.savedAt});
+  const SavedRecipe({required this.recipe, required this.savedAt, this.isBookmarked = false});
 
   factory SavedRecipe.fromJson(Map<String, dynamic> json) {
     return SavedRecipe(
       recipe: GeneratedRecipe.fromJson(json['recipe'] as Map<String, dynamic>),
       savedAt: json['savedAt'] as String? ?? DateTime.now().toIso8601String(),
+      isBookmarked: json['isBookmarked'] as bool? ?? false,
     );
   }
 
@@ -285,11 +287,21 @@ class SavedRecipe {
       'substitutions': recipe.substitutions.map((s) => s.toMap()).toList(),
     },
     'savedAt': savedAt,
+    'isBookmarked': isBookmarked,
   };
 
-  static SavedRecipe fromRecipe(GeneratedRecipe recipe) => SavedRecipe(
+  SavedRecipe copyWith({GeneratedRecipe? recipe, String? savedAt, bool? isBookmarked}) {
+    return SavedRecipe(
+      recipe: recipe ?? this.recipe,
+      savedAt: savedAt ?? this.savedAt,
+      isBookmarked: isBookmarked ?? this.isBookmarked,
+    );
+  }
+
+  static SavedRecipe fromRecipe(GeneratedRecipe recipe, {bool bookmarked = false}) => SavedRecipe(
     recipe: recipe,
     savedAt: DateTime.now().toIso8601String(),
+    isBookmarked: bookmarked,
   );
 }
 
@@ -317,6 +329,27 @@ class RecipeSubstitution {
     'substitute': substitute,
     'tradeOff': tradeOff,
   };
+}
+
+// ─── Ingredient substitution result (lightweight AI swap) ───────────────────
+
+// ─── Recipe generation status (streaming) ─────────────────────────────────
+
+sealed class RecipeGenerationStatus {}
+
+class RecipeGenerating extends RecipeGenerationStatus {
+  final int bytesReceived;
+  RecipeGenerating({required this.bytesReceived});
+}
+
+class RecipeComplete extends RecipeGenerationStatus {
+  final GeneratedRecipe recipe;
+  RecipeComplete({required this.recipe});
+}
+
+class RecipeError extends RecipeGenerationStatus {
+  final String message;
+  RecipeError({required this.message});
 }
 
 // ─── Ingredient substitution result (lightweight AI swap) ───────────────────

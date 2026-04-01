@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/elio_models.dart';
 import '../../models/recipe_models.dart';
@@ -68,6 +70,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _saverMode = false;
   bool _isLoading = true;
   bool _isGenerating = false;
+  String _generatingMessage = 'Generating recipe...';
+  StreamSubscription<RecipeGenerationStatus>? _generationSub;
 
   // ── Household profiles for dietary filter strip ────────────────────
   // Each entry: { 'id': String, 'name': String, 'dietaryRequirements': List<String>, 'isOwner': bool }
@@ -149,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _generationSub?.cancel();
     _textController.dispose();
     _textFocus.dispose();
     _leftoverController.dispose();
@@ -419,6 +424,14 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _selectedPerishables.remove(item));
   }
 
+  // ── Streaming status messages ───────────────────────────────────────
+  static const List<String> _streamingMessages = [
+    'Generating recipe...',
+    'Cooking up something good...',
+    'Picking the best ingredients...',
+    'Almost ready...',
+  ];
+
   // ── Generate recipe ────────────────────────────────────────────────
   Future<void> _generateRecipe() async {
     if (_isGenerating) return;
@@ -438,123 +451,160 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    setState(() => _isGenerating = true);
+    setState(() {
+      _isGenerating = true;
+      _generatingMessage = _streamingMessages[0];
+    });
 
-    try {
-      // Load taste profile for adaptive learning (non-blocking, best-effort)
-      List<String> likedRecipes = [];
-      List<String> dislikedRecipes = [];
-      if (!widget.isGuest) {
-        try {
-          final tasteProfile = await _firestore.getTasteProfile();
-          likedRecipes = tasteProfile['liked'] ?? [];
-          dislikedRecipes = tasteProfile['disliked'] ?? [];
-        } catch (_) {
-          // Non-critical — proceed without taste profile
-        }
-      }
-
-      final request = RecipeGenerationRequest(
-        perishables: _isLeftoverMode ? [] : _selectedPerishables.toList(),
-        alwaysHave: _alwaysHave,
-        almostAlwaysHave: _almostAlwaysHave,
-        dietaryRequirements: _activeDietaryRequirements,
-        timePreference: _selectedTime,
-        stylePreference: _selectedStyle,
-        moodPreference: _selectedMood,
-        servings: 2,
-        recentTitles: List.from(_recentTitles),
-        runningLowItems: List.from(_runningLowItems),
-        isLeftoverMode: _isLeftoverMode,
-        leftoverItems: _isLeftoverMode ? _leftoverItems.toList() : [],
-        likedRecipes: likedRecipes,
-        dislikedRecipes: dislikedRecipes,
-        appliances: _appliances,
-        isSaverMode: _saverMode,
-        perishableInventoryDescriptions: _isLeftoverMode ? [] : _perishableDescriptions,
-      );
-
-      final recipe = await GeminiService.generateRecipe(request);
-
-      // ── Navigate to recipe immediately — don't let saves block display ──
-      // Track title for deduplication (keep last 10)
-      _recentTitles.add(recipe.title);
-      if (_recentTitles.length > 20) _recentTitles.removeAt(0);
-
-      if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => RecipeScreen(
-              recipe: recipe,
-              originalRequest: request,
-              isGuest: widget.isGuest,
-            ),
-          ),
-        );
-      }
-
-      // ── Background saves — non-blocking, best-effort ──
+    // Load taste profile for adaptive learning (non-blocking, best-effort)
+    List<String> likedRecipes = [];
+    List<String> dislikedRecipes = [];
+    if (!widget.isGuest) {
       try {
-        if (widget.isGuest) {
-          await EntitlementService.recordGuestGeneration();
-        } else {
-          await Future.wait([
-            _entitlements.recordGeneration(),
-            _firestore.saveRecipe(recipe),
-          ]);
-        }
+        final tasteProfile = await _firestore.getTasteProfile();
+        likedRecipes = tasteProfile['liked'] ?? [];
+        dislikedRecipes = tasteProfile['disliked'] ?? [];
       } catch (_) {
-        // Firestore save failure is non-critical — recipe is already shown
+        // Non-critical — proceed without taste profile
       }
-
-      // Always save to local history (works offline and for guests)
-      await HistoryService.saveRecipe(SavedRecipe(
-        recipe: recipe,
-        savedAt: DateTime.now().toUtc().toIso8601String(),
-      ));
-
-      _loadRecentHistory();
-
-      _analytics.logEvent('recipe_generated', {
-        'style': _selectedStyle ?? 'none',
-        'time': _selectedTime ?? 'none',
-        'mood': _selectedMood ?? 'none',
-        'is_leftover_mode': _isLeftoverMode,
-        'is_saver_mode': _saverMode,
-        'perishable_count': _selectedPerishables.length,
-        'is_guest': widget.isGuest,
-      });
-    } catch (e) {
-      _analytics.logEvent('recipe_generation_failed', {
-        'error_type': e.runtimeType.toString(),
-      });
-      if (mounted) {
-        final raw = e.toString();
-        final String msg;
-        if (raw.contains('SocketException') ||
-            raw.contains('SocketFailed') ||
-            raw.contains('ClientException') ||
-            raw.contains('No address associated') ||
-            raw.contains('Failed host lookup')) {
-          msg = 'No internet connection. Please check your network and try again.';
-        } else if (raw.contains('429') || raw.contains('quota')) {
-          msg = 'Too many requests. Please wait a moment and try again.';
-        } else if (raw.contains('401') || raw.contains('403') || raw.contains('API key')) {
-          msg = 'Authentication error. Please restart the app.';
-        } else {
-          msg = 'Something went wrong. Please try again.';
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: ElioColors.navy,
-            duration: const Duration(seconds: 5),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
     }
+
+    final request = RecipeGenerationRequest(
+      perishables: _isLeftoverMode ? [] : _selectedPerishables.toList(),
+      alwaysHave: _alwaysHave,
+      almostAlwaysHave: _almostAlwaysHave,
+      dietaryRequirements: _activeDietaryRequirements,
+      timePreference: _selectedTime,
+      stylePreference: _selectedStyle,
+      moodPreference: _selectedMood,
+      servings: 2,
+      recentTitles: List.from(_recentTitles),
+      runningLowItems: List.from(_runningLowItems),
+      isLeftoverMode: _isLeftoverMode,
+      leftoverItems: _isLeftoverMode ? _leftoverItems.toList() : [],
+      likedRecipes: likedRecipes,
+      dislikedRecipes: dislikedRecipes,
+      appliances: _appliances,
+      isSaverMode: _saverMode,
+      perishableInventoryDescriptions: _isLeftoverMode ? [] : _perishableDescriptions,
+    );
+
+    int messageIndex = 0;
+    _generationSub = GeminiService.generateRecipeStream(request).listen(
+      (status) {
+        if (!mounted) return;
+        switch (status) {
+          case RecipeGenerating():
+            // Cycle through encouraging messages as data arrives
+            final newIndex = (status.bytesReceived ~/ 200).clamp(0, _streamingMessages.length - 1);
+            if (newIndex != messageIndex) {
+              messageIndex = newIndex;
+              setState(() => _generatingMessage = _streamingMessages[messageIndex]);
+            }
+
+          case RecipeComplete():
+            final recipe = status.recipe;
+
+            // Track title for deduplication (keep last 20)
+            _recentTitles.add(recipe.title);
+            if (_recentTitles.length > 20) _recentTitles.removeAt(0);
+
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => RecipeScreen(
+                  recipe: recipe,
+                  originalRequest: request,
+                  isGuest: widget.isGuest,
+                ),
+              ),
+            );
+
+            // Background saves — non-blocking, best-effort
+            _performBackgroundSaves(recipe);
+
+            _analytics.logEvent('recipe_generated', {
+              'style': _selectedStyle ?? 'none',
+              'time': _selectedTime ?? 'none',
+              'mood': _selectedMood ?? 'none',
+              'is_leftover_mode': _isLeftoverMode,
+              'is_saver_mode': _saverMode,
+              'perishable_count': _selectedPerishables.length,
+              'is_guest': widget.isGuest,
+            });
+
+            setState(() => _isGenerating = false);
+
+          case RecipeError():
+            _analytics.logEvent('recipe_generation_failed', {
+              'error_type': 'stream_error',
+            });
+            _showGenerationError(status.message);
+            setState(() => _isGenerating = false);
+        }
+      },
+      onError: (e) {
+        if (!mounted) return;
+        _analytics.logEvent('recipe_generation_failed', {
+          'error_type': e.runtimeType.toString(),
+        });
+        _showGenerationError(e.toString());
+        setState(() => _isGenerating = false);
+      },
+      onDone: () {
+        // Stream completed — if still generating, something went wrong
+        if (mounted && _isGenerating) {
+          setState(() => _isGenerating = false);
+        }
+      },
+    );
+  }
+
+  Future<void> _performBackgroundSaves(GeneratedRecipe recipe) async {
+    try {
+      if (widget.isGuest) {
+        await EntitlementService.recordGuestGeneration();
+      } else {
+        await Future.wait([
+          _entitlements.recordGeneration(),
+          _firestore.saveRecipe(recipe),
+        ]);
+      }
+    } catch (_) {
+      // Firestore save failure is non-critical — recipe is already shown
+    }
+
+    // Always save to local history (works offline and for guests)
+    await HistoryService.saveRecipe(SavedRecipe(
+      recipe: recipe,
+      savedAt: DateTime.now().toUtc().toIso8601String(),
+    ));
+
+    _loadRecentHistory();
+  }
+
+  void _showGenerationError(String raw) {
+    if (!mounted) return;
+    final String msg;
+    if (raw.contains('SocketException') ||
+        raw.contains('SocketFailed') ||
+        raw.contains('ClientException') ||
+        raw.contains('No address associated') ||
+        raw.contains('Failed host lookup')) {
+      msg = 'No internet connection. Please check your network and try again.';
+    } else if (raw.contains('429') || raw.contains('quota') || raw.contains('rate limit')) {
+      msg = 'Too many requests. Please wait a moment and try again.';
+    } else if (raw.contains('401') || raw.contains('403') || raw.contains('API key') || raw.contains('access denied')) {
+      msg = 'Authentication error. Please restart the app.';
+    } else {
+      msg = 'Something went wrong. Please try again.';
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: ElioColors.navy,
+        duration: const Duration(seconds: 5),
+      ),
+    );
   }
 
   void _showUpgradeDialog() {
@@ -597,6 +647,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           _buildMoodChipsSection(),
                           const SizedBox(height: 24),
                           _buildGenerateButton(),
+                          if (_isGenerating) ...[
+                            const SizedBox(height: 16),
+                            _buildRecipeSkeleton(),
+                          ],
                           const SizedBox(height: 16),
                           _buildMealPlannerBanner(),
                           const SizedBox(height: 24),
@@ -1298,13 +1352,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   elevation: 0,
                 ),
                 child: _isGenerating
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2.5,
-                        ),
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _generatingMessage,
+                            style: const TextStyle(fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white),
+                          ),
+                        ],
                       )
                     : Text(
                         _isLeftoverMode ? 'Use These Leftovers →' : 'Generate Recipe →',
@@ -1316,6 +1382,101 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─── Recipe skeleton (shimmer) ────────────────────────────────────────────────
+  Widget _buildRecipeSkeleton() {
+    return Shimmer.fromColors(
+      baseColor: ElioColors.offWhite,
+      highlightColor: Colors.white,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: ElioColors.offWhite,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: ElioColors.border),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title placeholder
+            Container(
+              width: 200,
+              height: 20,
+              decoration: BoxDecoration(
+                color: ElioColors.border,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            const SizedBox(height: 12),
+            // Description placeholder
+            Container(
+              width: double.infinity,
+              height: 14,
+              decoration: BoxDecoration(
+                color: ElioColors.border,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              width: 240,
+              height: 14,
+              decoration: BoxDecoration(
+                color: ElioColors.border,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Time / servings row
+            Row(
+              children: [
+                Container(
+                  width: 80,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: ElioColors.border,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 80,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: ElioColors.border,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  width: 60,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: ElioColors.border,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Ingredient lines
+            for (int i = 0; i < 4; i++) ...[
+              Container(
+                width: [180.0, 220.0, 160.0, 200.0][i],
+                height: 12,
+                decoration: BoxDecoration(
+                  color: ElioColors.border,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ],
+        ),
       ),
     );
   }
