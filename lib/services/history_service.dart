@@ -38,6 +38,31 @@ class HistoryService {
     }
   }
 
+  /// Toggle bookmark status for a recipe by its savedAt timestamp.
+  static Future<void> toggleBookmark(String savedAt) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = await getHistory();
+    final idx = existing.indexWhere((r) => r.savedAt == savedAt);
+    if (idx != -1) {
+      existing[idx] = existing[idx].copyWith(isBookmarked: !existing[idx].isBookmarked);
+      final encoded = jsonEncode(existing.map((r) => r.toJson()).toList());
+      await prefs.setString(_key, encoded);
+    }
+  }
+
+  /// Returns only bookmarked recipes, newest first.
+  static Future<List<SavedRecipe>> getBookmarked() async {
+    final all = await getHistory();
+    return all.where((r) => r.isBookmarked).toList();
+  }
+
+  /// Check if a recipe is bookmarked by savedAt.
+  static Future<bool> isBookmarked(String savedAt) async {
+    final all = await getHistory();
+    final match = all.where((r) => r.savedAt == savedAt);
+    return match.isNotEmpty && match.first.isBookmarked;
+  }
+
   /// Delete a single recipe by its savedAt timestamp (used as unique ID).
   static Future<void> deleteRecipe(String savedAt) async {
     final prefs = await SharedPreferences.getInstance();
@@ -47,7 +72,20 @@ class HistoryService {
     await prefs.setString(_key, encoded);
   }
 
-  /// Clear all history.
+  /// Clear all non-bookmarked history.
+  static Future<void> clearHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = await getHistory();
+    final bookmarked = existing.where((r) => r.isBookmarked).toList();
+    if (bookmarked.isEmpty) {
+      await prefs.remove(_key);
+    } else {
+      final encoded = jsonEncode(bookmarked.map((r) => r.toJson()).toList());
+      await prefs.setString(_key, encoded);
+    }
+  }
+
+  /// Clear all history including bookmarks.
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);

@@ -324,11 +324,14 @@ class FirestoreService {
 
   // ─── Add a new inventory item ────────────────────────────────────
 
-  Future<String> addInventoryItem(String name, String tier, {DateTime? expiryDate}) async {
+  Future<String> addInventoryItem(String name, String tier, {DateTime? expiryDate, String? category}) async {
     final ref = _db.collection('users').doc(_uid).collection('inventory').doc();
     final data = <String, dynamic>{'name': name, 'tier': tier, 'runningLow': false};
     if (expiryDate != null) {
       data['expiryDate'] = Timestamp.fromDate(expiryDate);
+    }
+    if (category != null) {
+      data['category'] = category;
     }
     await ref.set(data);
     return ref.id;

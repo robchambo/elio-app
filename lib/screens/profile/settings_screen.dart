@@ -4,6 +4,8 @@ import '../../theme/elio_theme.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/region_utils.dart';
 import 'household_screen.dart';
+import 'dietary_screen.dart';
+import 'kitchen_screen.dart';
 
 // ─────────────────────────────────────────────
 // SettingsScreen
@@ -118,6 +120,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
                                     const SizedBox(height: 2),
                                     Text('Add or remove people and their dietary needs',
+                                        style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right_rounded, size: 22, color: ElioColors.textMuted),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const DietaryScreen()),
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: ElioColors.offWhite,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: ElioColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.no_meals_outlined, size: 22, color: ElioColors.navy),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Dietary & Allergens',
+                                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                                    const SizedBox(height: 2),
+                                    Text('Adjust your dietary requirements',
+                                        style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right_rounded, size: 22, color: ElioColors.textMuted),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const KitchenScreen()),
+                        ),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                          decoration: BoxDecoration(
+                            color: ElioColors.offWhite,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: ElioColors.border),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.kitchen_outlined, size: 22, color: ElioColors.navy),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Kitchen Appliances',
+                                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                                    const SizedBox(height: 2),
+                                    Text('Select the appliances you own',
                                         style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),
                                   ],
                                 ),

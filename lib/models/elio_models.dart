@@ -60,12 +60,14 @@ class InventoryItem {
   final String tier; // 'alwaysHave' | 'almostAlwaysHave' | 'perishable'
   final bool isRunningLow;
   final DateTime? expiryDate;
+  final String? category; // e.g. 'Spices & Seasonings', 'Asian Pantry', etc.
 
   const InventoryItem({
     required this.name,
     required this.tier,
     this.isRunningLow = false,
     this.expiryDate,
+    this.category,
   });
 
   /// Whether an expiry date is set.
@@ -119,9 +121,10 @@ class InventoryItem {
       'runningLow': isRunningLow,
     };
     if (expiryDate != null) {
-      // Store as Firestore Timestamp via import in the service layer;
-      // here we store as ISO string, converted to Timestamp in the service.
       map['expiryDate'] = expiryDate!.toIso8601String();
+    }
+    if (category != null) {
+      map['category'] = category;
     }
     return map;
   }
@@ -140,15 +143,17 @@ class InventoryItem {
       tier: data['tier'] as String? ?? 'almostAlwaysHave',
       isRunningLow: data['runningLow'] as bool? ?? false,
       expiryDate: expiry,
+      category: data['category'] as String?,
     );
   }
 
-  InventoryItem copyWith({String? name, String? tier, bool? isRunningLow, DateTime? expiryDate, bool clearExpiry = false}) {
+  InventoryItem copyWith({String? name, String? tier, bool? isRunningLow, DateTime? expiryDate, bool clearExpiry = false, String? category, bool clearCategory = false}) {
     return InventoryItem(
       name: name ?? this.name,
       tier: tier ?? this.tier,
       isRunningLow: isRunningLow ?? this.isRunningLow,
       expiryDate: clearExpiry ? null : (expiryDate ?? this.expiryDate),
+      category: clearCategory ? null : (category ?? this.category),
     );
   }
 }

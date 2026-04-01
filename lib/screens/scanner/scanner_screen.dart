@@ -362,7 +362,6 @@ class _ScannerScreenState extends State<ScannerScreen> {
           child: Row(
             children: [
               Expanded(
-                flex: 2,
                 child: _amberButton(
                   'Take Photo',
                   Icons.camera_alt_rounded,

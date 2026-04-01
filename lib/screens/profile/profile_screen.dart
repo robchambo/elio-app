@@ -8,10 +8,15 @@ import '../../models/elio_models.dart';
 import '../../services/firestore_service.dart';
 import '../../services/auth_service.dart';
 import '../../utils/pantry_utils.dart';
+import '../../data/pantry_categories.dart';
+import '../../widgets/pantry_builder_sheet.dart';
 import '../onboarding/screen0_welcome.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/history_service.dart';
 import '../../services/shopping_service.dart';
+import '../../models/recipe_models.dart';
+import '../recipe/recipe_screen.dart';
 import 'notification_prefs_screen.dart';
 import 'settings_screen.dart';
 import '../scanner/scanner_screen.dart';
@@ -45,18 +50,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   // ── Pantry state ───────────────────────────────────────────────────
   List<Map<String, dynamic>> _inventoryItems = [];
-
-  // ── Dietary requirements ───────────────────────────────────────────
-  List<String> _dietaryRequirements = [];
-  List<String> _customAllergens = [];
-  String? _ownerProfileId;
-  final TextEditingController _customAllergenController = TextEditingController();
+  final Set<String> _collapsedTiers = {}; // tracks which tiers are collapsed
+  bool _groupByCategory = false; // global toggle for grouped view
 
   // ── Style preferences ──────────────────────────────────────────────
   List<String> _stylePreferences = [];
-
-  // ── Kitchen appliances ─────────────────────────────────────────────
-  List<String> _appliances = [];
 
   // ── Shopping list ──────────────────────────────────────────────────
   List<PersistentShoppingItem> _shoppingItems = [];
@@ -64,12 +62,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   final TextEditingController _shoppingAddController = TextEditingController();
 
   // ── Available options ──────────────────────────────────────────────
-  static const List<String> _allDietaryOptions = [
-    'Vegetarian', 'Vegan', 'Gluten-free', 'Dairy-free',
-    'Nut-free', 'Halal', 'Kosher', 'Low FODMAP',
-    'Diabetic-friendly', 'Low-carb', 'High-protein',
-  ];
-
   static const List<String> _allStyleOptions = [
     'Italian', 'Asian', 'Middle Eastern', 'Mexican',
     'Mediterranean', 'Indian', 'American', 'French',
@@ -77,25 +69,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     'Comfort food', 'Healthy', 'Quick & easy', 'Smoothies',
   ];
 
-  static const List<String> _allApplianceOptions = [
-    'Air fryer',
-    'Slow cooker',
-    'Rice cooker',
-    'Instant Pot / Pressure cooker',
-    'Stand mixer',
-    'Food processor',
-    'Blender',
-    'Sous vide',
-    'Bread maker',
-    'Waffle iron',
-    'Spiralizer',
-    'Grill / BBQ',
-  ];
-
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this, initialIndex: widget.initialTab);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialTab);
     _loadData();
     _loadShoppingItems();
   }
@@ -103,7 +80,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   void dispose() {
     _tabController.dispose();
-    _customAllergenController.dispose();
     _shoppingAddController.dispose();
     super.dispose();
   }
@@ -117,19 +93,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           (data['inventoryWithIds'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
         );
         _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
-        _appliances = List<String>.from(data['appliances'] ?? []);
-        final householdProfiles = List<Map<String, dynamic>>.from(
-          (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
-        );
-        final owner = householdProfiles.firstWhere(
-          (p) => p['isOwner'] == true,
-          orElse: () => {},
-        );
-        if (owner.isNotEmpty) {
-          _ownerProfileId = owner['id'] as String?;
-          _dietaryRequirements = List<String>.from(owner['dietaryRequirements'] ?? []);
-          _customAllergens = List<String>.from(owner['customAllergens'] ?? []);
-        }
         _isLoading = false;
       });
     } catch (e) {
@@ -293,7 +256,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
-  Future<void> _addInventoryItem(String name, String tier) async {
+  Future<void> _addInventoryItem(String name, String tier, {String? category}) async {
     if (name.trim().isEmpty) return;
 
     // Check for fuzzy duplicates against existing inventory
@@ -311,14 +274,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       if (!addAnyway) return;
     }
 
+    // Auto-categorize if no category provided
+    final resolvedCategory = category ?? PantryCategories.categorize(name.trim());
+
     try {
-      final id = await _firestore.addInventoryItem(name.trim(), tier);
+      final id = await _firestore.addInventoryItem(name.trim(), tier, category: resolvedCategory);
       if (mounted) {
         setState(() => _inventoryItems.add({
           'id': id,
           'name': name.trim(),
           'tier': tier,
           'runningLow': false,
+          if (resolvedCategory != null) 'category': resolvedCategory,
         }));
         _analytics.logEvent('pantry_item_added', {'tier': tier});
       }
@@ -355,82 +322,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
-  // ── Dietary helpers ────────────────────────────────────────────────
-
-  Future<void> _toggleDietary(String req) async {
-    final previous = List<String>.from(_dietaryRequirements);
-    final updated = List<String>.from(_dietaryRequirements);
-    if (updated.contains(req)) {
-      updated.remove(req);
-    } else {
-      updated.add(req);
-    }
-    setState(() => _dietaryRequirements = updated);
-    if (_ownerProfileId != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(FirebaseAuth.instance.currentUser!.uid)
-            .collection('profiles')
-            .doc(_ownerProfileId)
-            .update({'dietaryRequirements': updated});
-      } catch (_) {
-        setState(() => _dietaryRequirements = previous);
-        _showSnack('Could not save dietary change. Please try again.');
-      }
-    } else {
-      setState(() => _dietaryRequirements = previous);
-      _showSnack('Could not save — profile not loaded. Try restarting the app.');
-    }
-  }
-
-  Future<void> _addCustomAllergen(String allergen) async {
-    final trimmed = allergen.trim();
-    if (trimmed.isEmpty || _customAllergens.contains(trimmed)) return;
-    final previous = List<String>.from(_customAllergens);
-    final updated = List<String>.from(_customAllergens)..add(trimmed);
-    setState(() => _customAllergens = updated);
-    _customAllergenController.clear();
-    if (_ownerProfileId != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(FirebaseAuth.instance.currentUser!.uid)
-            .collection('profiles')
-            .doc(_ownerProfileId)
-            .update({'customAllergens': updated});
-      } catch (_) {
-        setState(() => _customAllergens = previous);
-        _showSnack('Could not save allergen. Please try again.');
-      }
-    } else {
-      setState(() => _customAllergens = previous);
-      _showSnack('Could not save — profile not loaded. Try restarting the app.');
-    }
-  }
-
-  Future<void> _removeCustomAllergen(String allergen) async {
-    final previous = List<String>.from(_customAllergens);
-    final updated = List<String>.from(_customAllergens)..remove(allergen);
-    setState(() => _customAllergens = updated);
-    if (_ownerProfileId != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(FirebaseAuth.instance.currentUser!.uid)
-            .collection('profiles')
-            .doc(_ownerProfileId)
-            .update({'customAllergens': updated});
-      } catch (_) {
-        setState(() => _customAllergens = previous);
-        _showSnack('Could not remove allergen. Please try again.');
-      }
-    } else {
-      setState(() => _customAllergens = previous);
-      _showSnack('Could not save — profile not loaded. Try restarting the app.');
-    }
-  }
-
   // ── Style helpers ──────────────────────────────────────────────────
 
   Future<void> _toggleStyle(String style) async {
@@ -448,23 +339,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           .update({'stylePreferences': updated});
     } catch (_) {
       _showSnack('Could not save style change. Please try again.');
-    }
-  }
-
-  // ── Appliance helpers ──────────────────────────────────────────────
-
-  Future<void> _toggleAppliance(String appliance) async {
-    final updated = List<String>.from(_appliances);
-    if (updated.contains(appliance)) {
-      updated.remove(appliance);
-    } else {
-      updated.add(appliance);
-    }
-    setState(() => _appliances = updated);
-    try {
-      await _firestore.saveAppliances(updated);
-    } catch (_) {
-      _showSnack('Could not save appliance change. Please try again.');
     }
   }
 
@@ -588,9 +462,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               tabAlignment: TabAlignment.start,
               tabs: const [
                 Tab(text: 'Pantry'),
-                Tab(text: 'Dietary'),
+                Tab(text: 'Recipe Book'),
                 Tab(text: 'Style'),
-                Tab(text: 'Kitchen'),
                 Tab(text: 'Shopping'),
               ],
             ),
@@ -603,9 +476,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       controller: _tabController,
                       children: [
                         _buildPantryTab(),
-                        _buildDietaryTab(),
+                        _buildRecipeBookTab(),
                         _buildStyleTab(),
-                        _buildKitchenTab(),
                         _buildShoppingTab(),
                       ],
                     ),
@@ -646,14 +518,59 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Text('Your pantry', style: ElioText.headingMedium),
-        const SizedBox(height: 4),
-        Text(
-          'Long-press any item to move it between tiers. Tap the warning icon to flag items running low.',
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Your pantry', style: ElioText.headingMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Long-press to move items. Tap warning to flag low.',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            // Group toggle
+            GestureDetector(
+              onTap: () => setState(() => _groupByCategory = !_groupByCategory),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _groupByCategory ? ElioColors.navy.withValues(alpha: 0.08) : ElioColors.offWhite,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _groupByCategory ? ElioColors.navy : ElioColors.border,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.grid_view_rounded,
+                      size: 14,
+                      color: _groupByCategory ? ElioColors.navy : ElioColors.textMuted,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Group',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: _groupByCategory ? FontWeight.w700 : FontWeight.w500,
+                        color: _groupByCategory ? ElioColors.navy : ElioColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        // ── Scan buttons ──────────────────────────────────────
+        // ── Scan buttons + Pantry Builder ─────────────────────
         Row(
           children: [
             Expanded(
@@ -705,6 +622,42 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        // ── Pantry Builder button ────────────────────────────
+        GestureDetector(
+          onTap: _openPantryBuilder,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: ElioColors.navy,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.construction_rounded, size: 20, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  'Pantry Builder',
+                  style: GoogleFonts.outfit(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Browse & add by category',
+                  style: GoogleFonts.quicksand(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
         const SizedBox(height: 20),
         _buildPerishableSection(),
         const SizedBox(height: 24),
@@ -714,6 +667,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           items: _alwaysHaveItems,
           tier: 'alwaysHave',
           icon: Icons.inventory_2_outlined,
+          color: ElioColors.amber,
         ),
         const SizedBox(height: 24),
         _buildTierSection(
@@ -722,8 +676,39 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           items: _almostAlwaysHaveItems,
           tier: 'almostAlwaysHave',
           icon: Icons.kitchen_outlined,
+          color: ElioColors.sky,
         ),
+        const SizedBox(height: 20),
       ],
+    );
+  }
+
+  void _openPantryBuilder() {
+    final existingNames = _inventoryItems
+        .map((item) => item['name'] as String? ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => PantryBuilderSheet(
+        existingItemNames: existingNames,
+        onAddItem: (name, tier, category) async {
+          await _addInventoryItem(name, tier, category: category);
+        },
+        onRemoveItem: (name) async {
+          // Find and remove the item by name
+          final idx = _inventoryItems.indexWhere(
+            (i) => (i['name'] as String? ?? '').toLowerCase() == name.toLowerCase(),
+          );
+          if (idx != -1) {
+            final itemId = _inventoryItems[idx]['id'] as String;
+            await _deleteInventoryItem(itemId);
+          }
+        },
+      ),
     );
   }
 
@@ -828,6 +813,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   // ─── Perishable section ────────────────────────────────────────────────────
   Widget _buildPerishableSection() {
     final items = _perishableItems;
+    final isCollapsed = _collapsedTiers.contains('perishable');
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -837,36 +824,59 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.kitchen_rounded, size: 16, color: Color(0xFF3D9970)),
-              const SizedBox(width: 6),
-              Text('Perishables', style: ElioText.headingMedium),
-            ],
+          GestureDetector(
+            onTap: () => setState(() {
+              if (isCollapsed) {
+                _collapsedTiers.remove('perishable');
+              } else {
+                _collapsedTiers.add('perishable');
+              }
+            }),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                const Icon(Icons.kitchen_rounded, size: 16, color: Color(0xFF3D9970)),
+                const SizedBox(width: 6),
+                Text('Perishables', style: ElioText.headingMedium),
+                const SizedBox(width: 6),
+                Text(
+                  '(${items.length})',
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted, fontSize: 13),
+                ),
+                const Spacer(),
+                Icon(
+                  isCollapsed ? Icons.chevron_right_rounded : Icons.expand_more_rounded,
+                  size: 22,
+                  color: ElioColors.textMuted,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            'Fresh items with optional expiry tracking',
-            style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 12),
-          if (items.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'No perishables yet. Add some below.',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+          if (!isCollapsed) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Fresh items with optional expiry tracking',
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No perishables yet. Add some below.',
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                ),
               ),
-            ),
-          ...items.map((item) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: GestureDetector(
-              onLongPress: () => _showItemMoveMenu(item),
-              child: _buildPerishableRow(item),
-            ),
-          )),
-          const SizedBox(height: 8),
-          _buildPerishableAddRow(),
+            ...items.map((item) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: GestureDetector(
+                onLongPress: () => _showItemMoveMenu(item),
+                child: _buildPerishableRow(item),
+              ),
+            )),
+            const SizedBox(height: 8),
+            _buildPerishableAddRow(),
+          ],
         ],
       ),
     );
@@ -1093,7 +1103,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     required List<Map<String, dynamic>> items,
     required String tier,
     required IconData icon,
+    required Color color,
   }) {
+    final isCollapsed = _collapsedTiers.contains(tier);
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -1103,35 +1116,106 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, size: 16, color: ElioColors.navy),
-              const SizedBox(width: 6),
-              Text(title, style: ElioText.headingMedium),
-            ],
+          GestureDetector(
+            onTap: () => setState(() {
+              if (isCollapsed) {
+                _collapsedTiers.remove(tier);
+              } else {
+                _collapsedTiers.add(tier);
+              }
+            }),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 6),
+                Text(title, style: ElioText.headingMedium),
+                const SizedBox(width: 6),
+                Text(
+                  '(${items.length})',
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted, fontSize: 13),
+                ),
+                const Spacer(),
+                Icon(
+                  isCollapsed ? Icons.chevron_right_rounded : Icons.expand_more_rounded,
+                  size: 22,
+                  color: ElioColors.textMuted,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 2),
-          Text(subtitle, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13)),
-          const SizedBox(height: 12),
-          if (items.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'No items yet. Add some below.',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
-              ),
-            ),
-          ...items.map((item) => Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
-            child: GestureDetector(
-              onLongPress: () => _showItemMoveMenu(item),
-              child: _buildInventoryRowContent(item, item['runningLow'] as bool? ?? false, item['id'] as String),
-            ),
-          )),
-          const SizedBox(height: 8),
-          _buildAddItemRow(tier),
+          if (!isCollapsed) ...[
+            const SizedBox(height: 2),
+            Text(subtitle, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13)),
+            const SizedBox(height: 12),
+            if (items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No items yet. Add some below.',
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                ),
+              )
+            else if (_groupByCategory)
+              _buildGroupedItems(items, tier, color)
+            else
+              ...items.map((item) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: GestureDetector(
+                  onLongPress: () => _showItemMoveMenu(item),
+                  child: _buildInventoryRowContent(item, item['runningLow'] as bool? ?? false, item['id'] as String),
+                ),
+              )),
+            const SizedBox(height: 8),
+            _buildAddItemRow(tier),
+          ],
         ],
       ),
+    );
+  }
+
+  /// Builds items grouped by category within a tier.
+  Widget _buildGroupedItems(List<Map<String, dynamic>> items, String tier, Color color) {
+    // Group items by category
+    final grouped = <String, List<Map<String, dynamic>>>{};
+    for (final item in items) {
+      final category = item['category'] as String? ??
+          PantryCategories.categorize(item['name'] as String? ?? '') ??
+          'Other';
+      grouped.putIfAbsent(category, () => []).add(item);
+    }
+
+    // Sort categories: known categories first (in definition order), then 'Other' last
+    final categoryOrder = PantryCategories.all.map((c) => c.name).toList();
+    final sortedKeys = grouped.keys.toList()..sort((a, b) {
+      if (a == 'Other') return 1;
+      if (b == 'Other') return -1;
+      final aIdx = categoryOrder.indexOf(a);
+      final bIdx = categoryOrder.indexOf(b);
+      if (aIdx == -1 && bIdx == -1) return a.compareTo(b);
+      if (aIdx == -1) return 1;
+      if (bIdx == -1) return -1;
+      return aIdx.compareTo(bIdx);
+    });
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sortedKeys.map((categoryName) {
+        final catItems = grouped[categoryName]!;
+        final cat = PantryCategories.byName(categoryName);
+        final icon = cat?.icon ?? '📦';
+
+        return _CollapsibleCategoryGroup(
+          categoryName: categoryName,
+          icon: icon,
+          color: color,
+          items: catItems,
+          onLongPressItem: _showItemMoveMenu,
+          buildRow: (item) => _buildInventoryRowContent(
+            item, item['runningLow'] as bool? ?? false, item['id'] as String,
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -1266,173 +1350,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  // ─── Dietary tab ──────────────────────────────────────────────────────────────
-  Widget _buildDietaryTab() {
-    final user = FirebaseAuth.instance.currentUser;
-    final isGuest = user?.isAnonymous ?? true;
-
-    if (isGuest) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.no_meals_outlined, size: 56, color: ElioColors.textMuted),
-              const SizedBox(height: 16),
-              Text('Dietary preferences', style: ElioText.headingMedium),
-              const SizedBox(height: 8),
-              Text(
-                'Sign in with Google to set your dietary requirements and allergens.',
-                textAlign: TextAlign.center,
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(20),
-      children: [
-        Text('Dietary requirements & Allergens', style: ElioText.headingMedium),
-        const SizedBox(height: 4),
-        Text(
-          'Elio will never suggest recipes that don\'t work for you.',
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-        ),
-        const SizedBox(height: 20),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: _allDietaryOptions.map((req) {
-            final isSelected = _dietaryRequirements.contains(req);
-            return GestureDetector(
-              onTap: () => _toggleDietary(req),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? ElioColors.navy : ElioColors.offWhite,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: isSelected ? ElioColors.navy : ElioColors.border,
-                    width: isSelected ? 1.5 : 1,
-                  ),
-                ),
-                child: Text(
-                  req,
-                  style: ElioText.label.copyWith(
-                    color: isSelected ? Colors.white : ElioColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-        const SizedBox(height: 28),
-        // ── Custom allergens ──────────────────────────────────────────
-        Text('Custom allergens', style: ElioText.headingMedium.copyWith(fontSize: 16)),
-        const SizedBox(height: 4),
-        Text(
-          'Add any allergies or intolerances not listed above.',
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-        ),
-        const SizedBox(height: 12),
-        if (_customAllergens.isNotEmpty) ...[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _customAllergens.map((allergen) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFFFB300)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(allergen, style: ElioText.label.copyWith(color: const Color(0xFFE65100), fontWeight: FontWeight.w600)),
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: () => _removeCustomAllergen(allergen),
-                    child: const Icon(Icons.close, size: 14, color: Color(0xFFE65100)),
-                  ),
-                ],
-              ),
-            )).toList(),
-          ),
-          const SizedBox(height: 12),
-        ],
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _customAllergenController,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Sesame, Shellfish, Mustard...',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: ElioColors.border),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: ElioColors.border),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: ElioColors.navy, width: 1.5),
-                  ),
-                  filled: true,
-                  fillColor: ElioColors.offWhite,
-                ),
-                style: ElioText.bodyMedium,
-                textCapitalization: TextCapitalization.words,
-                onSubmitted: (value) => _addCustomAllergen(value),
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: () => _addCustomAllergen(_customAllergenController.text),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: ElioColors.navy,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.add, size: 20, color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFEEF4FF),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(Icons.info_outline, size: 16, color: ElioColors.sky),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'To edit a household member\'s dietary requirements, go to Settings.',
-                  style: ElioText.bodyMedium.copyWith(color: ElioColors.sky, fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+  // ─── Recipe Book tab ───────────────────────────────────────────────────────────
+  Widget _buildRecipeBookTab() {
+    return const _RecipeBookContent();
   }
 
 
@@ -1807,48 +1727,465 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
-  // ─── Kitchen tab ──────────────────────────────────────────────────────────────
-  Widget _buildKitchenTab() {
-    return ListView(
-      padding: const EdgeInsets.all(20),
+}
+
+// ─── Collapsible category group within grouped view ─────────────────────────
+
+class _CollapsibleCategoryGroup extends StatefulWidget {
+  final String categoryName;
+  final String icon;
+  final Color color;
+  final List<Map<String, dynamic>> items;
+  final void Function(Map<String, dynamic>) onLongPressItem;
+  final Widget Function(Map<String, dynamic>) buildRow;
+
+  const _CollapsibleCategoryGroup({
+    required this.categoryName,
+    required this.icon,
+    required this.color,
+    required this.items,
+    required this.onLongPressItem,
+    required this.buildRow,
+  });
+
+  @override
+  State<_CollapsibleCategoryGroup> createState() => _CollapsibleCategoryGroupState();
+}
+
+class _CollapsibleCategoryGroupState extends State<_CollapsibleCategoryGroup> {
+  bool _expanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Your kitchen appliances', style: ElioText.headingMedium),
-        const SizedBox(height: 4),
-        Text(
-          "Select the appliances you own and we'll tailor recipes to make the most of them.",
+        GestureDetector(
+          onTap: () => setState(() => _expanded = !_expanded),
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: [
+                Text(widget.icon, style: const TextStyle(fontSize: 14)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${widget.categoryName} (${widget.items.length})',
+                    style: ElioText.label.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: widget.color,
+                    ),
+                  ),
+                ),
+                Icon(
+                  _expanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                  size: 18,
+                  color: ElioColors.textMuted,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_expanded)
+          ...widget.items.map((item) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: GestureDetector(
+              onLongPress: () => widget.onLongPressItem(item),
+              child: widget.buildRow(item),
+            ),
+          )),
+        if (!_expanded)
+          Padding(
+            padding: const EdgeInsets.only(left: 22, bottom: 4),
+            child: Text(
+              widget.items.map((i) => i['name'] as String? ?? '').join(' · '),
+              style: ElioText.label.copyWith(color: ElioColors.textMuted),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Recipe Book tab content ────────────────────────────────────────────────
+
+class _RecipeBookContent extends StatefulWidget {
+  const _RecipeBookContent();
+
+  @override
+  State<_RecipeBookContent> createState() => _RecipeBookContentState();
+}
+
+class _RecipeBookContentState extends State<_RecipeBookContent> {
+  int _selectedTab = 0; // 0 = Saved, 1 = History
+  List<SavedRecipe> _saved = [];
+  List<SavedRecipe> _history = [];
+  bool _loading = true;
+  bool _historyTrimmed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    await EntitlementService.instance.refresh();
+    final allRecipes = await HistoryService.getHistory();
+    final bookmarked = allRecipes.where((r) => r.isBookmarked).toList();
+
+    List<SavedRecipe> history = allRecipes;
+    bool trimmed = false;
+    if (EntitlementService.instance.isFree &&
+        allRecipes.length > EntitlementService.freeHistoryLimit) {
+      history = allRecipes.take(EntitlementService.freeHistoryLimit).toList();
+      trimmed = true;
+    }
+
+    if (mounted) {
+      setState(() {
+        _saved = bookmarked;
+        _history = history;
+        _historyTrimmed = trimmed;
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _toggleBookmark(SavedRecipe recipe) async {
+    await HistoryService.toggleBookmark(recipe.savedAt);
+    await _load();
+  }
+
+  Future<void> _deleteRecipe(SavedRecipe recipe) async {
+    await HistoryService.deleteRecipe(recipe.savedAt);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${recipe.recipe.title} removed'),
+          backgroundColor: ElioColors.navy,
+          action: SnackBarAction(
+            label: 'Undo',
+            textColor: ElioColors.amber,
+            onPressed: () async {
+              await HistoryService.saveRecipe(recipe);
+              _load();
+            },
+          ),
+        ),
+      );
+    }
+    await _load();
+  }
+
+  Future<void> _clearHistory() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.offWhite,
+        title: Text('Clear history?', style: ElioText.headingMedium),
+        content: Text(
+          'All non-bookmarked recipes will be removed.',
           style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
         ),
-        const SizedBox(height: 20),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: _allApplianceOptions.map((appliance) {
-            final isSelected = _appliances.contains(appliance);
-            return GestureDetector(
-              onTap: () => _toggleAppliance(appliance),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: isSelected ? ElioColors.amber : ElioColors.offWhite,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: isSelected ? ElioColors.amber : ElioColors.border,
-                    width: isSelected ? 1.5 : 1,
-                  ),
-                ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Clear', style: TextStyle(color: ElioColors.error, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await HistoryService.clearHistory();
+      await _load();
+    }
+  }
+
+  String _formatDate(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      if (diff.inDays == 0) return 'Today';
+      if (diff.inDays == 1) return 'Yesterday';
+      if (diff.inDays < 7) return '${diff.inDays} days ago';
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: ElioColors.amber));
+    }
+
+    return Column(
+      children: [
+        // Segmented control
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: ElioColors.offWhite,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: ElioColors.border),
+            ),
+            child: Row(
+              children: [
+                _segmentButton(0, Icons.bookmark_rounded, 'Saved', _saved.length),
+                _segmentButton(1, Icons.history_rounded, 'History', _history.length),
+              ],
+            ),
+          ),
+        ),
+        // Clear history button (only on history tab with items)
+        if (_selectedTab == 1 && _history.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: _clearHistory,
                 child: Text(
-                  appliance,
-                  style: ElioText.label.copyWith(
-                    color: isSelected ? Colors.white : ElioColors.textPrimary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  'Clear history',
+                  style: ElioText.label.copyWith(color: ElioColors.error, fontSize: 12),
                 ),
               ),
-            );
-          }).toList(),
+            ),
+          ),
+        const SizedBox(height: 8),
+        // Recipe list
+        Expanded(
+          child: _selectedTab == 0 ? _buildSavedList() : _buildHistoryList(),
         ),
       ],
+    );
+  }
+
+  Widget _segmentButton(int index, IconData icon, String label, int count) {
+    final isSelected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? ElioColors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: isSelected
+                ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 1))]
+                : null,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 16, color: isSelected ? ElioColors.navy : ElioColors.textMuted),
+              const SizedBox(width: 6),
+              Text(
+                '$label ($count)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  color: isSelected ? ElioColors.navy : ElioColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSavedList() {
+    if (_saved.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.bookmark_border_rounded, size: 56, color: ElioColors.border),
+              const SizedBox(height: 16),
+              Text('No saved recipes', style: ElioText.headingMedium),
+              const SizedBox(height: 8),
+              Text(
+                'Tap the bookmark icon on any recipe to save it here.',
+                textAlign: TextAlign.center,
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+      itemCount: _saved.length,
+      itemBuilder: (context, index) => _buildRecipeCard(_saved[index], showBookmark: true),
+    );
+  }
+
+  Widget _buildHistoryList() {
+    if (_history.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.menu_book_rounded, size: 56, color: ElioColors.border),
+              const SizedBox(height: 16),
+              Text('No recipes yet', style: ElioText.headingMedium),
+              const SizedBox(height: 8),
+              Text(
+                'Recipes you generate will appear here automatically.',
+                textAlign: TextAlign.center,
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+      itemCount: _history.length + (_historyTrimmed ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (_historyTrimmed && index == _history.length) {
+          return _buildUpgradeBanner();
+        }
+        return _buildRecipeCard(_history[index], showBookmark: true);
+      },
+    );
+  }
+
+  Widget _buildRecipeCard(SavedRecipe saved, {bool showBookmark = false}) {
+    final recipe = saved.recipe;
+    return Dismissible(
+      key: Key(saved.savedAt),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => _deleteRecipe(saved),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: ElioColors.error,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(Icons.delete_outline_rounded, color: Colors.white, size: 26),
+      ),
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => RecipeScreen(recipe: recipe)),
+        ).then((_) => _load()),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: ElioColors.offWhite,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: ElioColors.border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      recipe.title,
+                      style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w700, fontSize: 15),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      recipe.description,
+                      style: ElioText.label.copyWith(color: ElioColors.textSecondary, height: 1.4),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.timer_outlined, size: 12, color: ElioColors.textSecondary),
+                        const SizedBox(width: 3),
+                        Text('${recipe.totalTimeMinutes} min',
+                            style: ElioText.label.copyWith(color: ElioColors.textSecondary, fontSize: 11)),
+                        const SizedBox(width: 10),
+                        Icon(Icons.people_outline_rounded, size: 12, color: ElioColors.textSecondary),
+                        const SizedBox(width: 3),
+                        Text('${recipe.servings}',
+                            style: ElioText.label.copyWith(color: ElioColors.textSecondary, fontSize: 11)),
+                        const Spacer(),
+                        Text(
+                          _formatDate(saved.savedAt),
+                          style: ElioText.label.copyWith(color: ElioColors.textMuted, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (showBookmark)
+                GestureDetector(
+                  onTap: () => _toggleBookmark(saved),
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Icon(
+                      saved.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                      size: 22,
+                      color: saved.isBookmarked ? ElioColors.amber : ElioColors.textMuted,
+                    ),
+                  ),
+                )
+              else
+                const Icon(Icons.chevron_right_rounded, color: ElioColors.border, size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpgradeBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(0, 8, 0, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      decoration: BoxDecoration(
+        color: ElioColors.amber.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ElioColors.amber),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_outline_rounded, color: ElioColors.amber, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Upgrade for full history — free accounts show the 20 most recent recipes.',
+              style: ElioText.bodyMedium.copyWith(fontSize: 13, height: 1.4),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

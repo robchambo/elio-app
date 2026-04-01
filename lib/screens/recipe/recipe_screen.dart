@@ -857,6 +857,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       await HistoryService.saveRecipe(SavedRecipe(
         recipe: _currentRecipe,
         savedAt: DateTime.now().toUtc().toIso8601String(),
+        isBookmarked: true,
       ));
       if (mounted) {
         setState(() => _isSaved = true);
