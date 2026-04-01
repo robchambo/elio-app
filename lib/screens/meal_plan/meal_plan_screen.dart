@@ -343,17 +343,25 @@ class _MealPlanScreenState extends State<MealPlanScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Meal Planner', style: ElioText.headingLarge),
-                Text(
-                  _plan == null
-                      ? 'Generate your week in one tap'
-                      : 'Tap a meal to view full recipe',
-                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                ),
+                Text('Meal Planner', style: ElioText.headingLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (_plan == null)
+                  Text(
+                    'Generate your week in one tap',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                else
+                  Text(
+                    'Tap a meal to view full recipe',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
           if (_plan != null) ...[
             // "New plan" — discard current and reconfigure
             GestureDetector(
@@ -362,7 +370,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                 _firestore.deleteMealPlan();
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   color: ElioColors.offWhite,
                   borderRadius: BorderRadius.circular(20),
@@ -370,11 +378,11 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                 ),
                 child: const Text(
                   'New plan',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: ElioColors.textSecondary),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ElioColors.textSecondary),
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
           ],
           _GenerateButton(
             isGenerating: _isGenerating,
@@ -652,7 +660,7 @@ class _GenerateButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: hasExistingPlan ? ElioColors.offWhite : ElioColors.amber,
           borderRadius: BorderRadius.circular(20),
@@ -666,11 +674,11 @@ class _GenerateButton extends StatelessWidget {
               size: 14,
               color: hasExistingPlan ? ElioColors.textSecondary : Colors.white,
             ),
-            const SizedBox(width: 5),
+            const SizedBox(width: 4),
             Text(
               hasExistingPlan ? 'Redo week' : 'Generate',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: hasExistingPlan ? ElioColors.textSecondary : Colors.white,
               ),
