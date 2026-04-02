@@ -443,6 +443,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _generateRecipe() async {
     if (_isGenerating) return;
 
+    // Dismiss keyboard before generation/navigation
+    FocusScope.of(context).unfocus();
+
     // Check free tier cap
     if (widget.isGuest) {
       final canGenerate = await EntitlementService.canGuestGenerate();

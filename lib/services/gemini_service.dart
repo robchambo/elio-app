@@ -23,6 +23,7 @@ class GeminiService {
   static const String _model = 'gemini-2.5-flash';
   static const String _streamUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:streamGenerateContent';
+  static final _httpClient = http.Client();
 
   /// Convenience wrapper — awaits the stream and returns the final recipe.
   /// Used by recipe_screen.dart (remove & regenerate) and anywhere that
@@ -64,8 +65,16 @@ class GeminiService {
   /// Streaming recipe generation — yields status updates as chunks arrive.
   /// Subscribe to this from the home screen for skeleton/shimmer UI.
   static Stream<RecipeGenerationStatus> generateRecipeStream(RecipeGenerationRequest request) async* {
-    final prompt = _buildPrompt(request);
-    final client = http.Client();
+    yield* _streamFromPrompt(_buildPrompt(request), maxOutputTokens: 1024);
+  }
+
+  /// Shared streaming logic — sends prompt to Gemini SSE endpoint,
+  /// parses chunks, and yields status updates.
+  static Stream<RecipeGenerationStatus> _streamFromPrompt(
+    String prompt, {
+    required int maxOutputTokens,
+  }) async* {
+    final client = _httpClient;
 
     try {
       final httpRequest = http.Request(
@@ -85,7 +94,7 @@ class GeminiService {
           'temperature': 0.8,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 4096,
+          'maxOutputTokens': maxOutputTokens,
           'responseMimeType': 'application/json',
           'thinkingConfig': {'thinkingBudget': 0},
         },
@@ -175,8 +184,6 @@ class GeminiService {
       yield RecipeError(
         message: e is Exception ? e.toString().replaceFirst('Exception: ', '') : 'Recipe generation failed. Please try again.',
       );
-    } finally {
-      client.close();
     }
   }
 
@@ -436,8 +443,8 @@ class GeminiService {
     return buffer.toString();
   }
 
-  /// Streaming bulk recipe generation — identical to [generateRecipeStream]
-  /// but uses the bulk prep prompt for batch cooking / freezing recipes.
+  /// Streaming bulk recipe generation — uses the bulk prep prompt for
+  /// batch cooking / freezing recipes with higher token limit.
   static Stream<RecipeGenerationStatus> generateBulkRecipeStream(
     RecipeGenerationRequest request, {
     required int portions,
@@ -445,121 +452,16 @@ class GeminiService {
     required int totalMeals,
     required List<String> previousMealTitles,
   }) async* {
-    final prompt = _buildBulkPrepPrompt(
-      request,
-      portions: portions,
-      mealNumber: mealNumber,
-      totalMeals: totalMeals,
-      previousMealTitles: previousMealTitles,
+    yield* _streamFromPrompt(
+      _buildBulkPrepPrompt(
+        request,
+        portions: portions,
+        mealNumber: mealNumber,
+        totalMeals: totalMeals,
+        previousMealTitles: previousMealTitles,
+      ),
+      maxOutputTokens: 2048,
     );
-    final client = http.Client();
-
-    try {
-      final httpRequest = http.Request(
-        'POST',
-        Uri.parse('$_streamUrl?alt=sse&key=$_apiKey'),
-      );
-      httpRequest.headers['Content-Type'] = 'application/json';
-      httpRequest.body = jsonEncode({
-        'contents': [
-          {
-            'parts': [
-              {'text': prompt}
-            ]
-          }
-        ],
-        'generationConfig': {
-          'temperature': 0.8,
-          'topK': 40,
-          'topP': 0.95,
-          'maxOutputTokens': 4096,
-          'responseMimeType': 'application/json',
-          'thinkingConfig': {'thinkingBudget': 0},
-        },
-      });
-
-      final streamedResponse = await client.send(httpRequest).timeout(
-        const Duration(seconds: 60),
-        onTimeout: () => throw Exception('Recipe generation timed out. Please try again.'),
-      );
-
-      if (streamedResponse.statusCode == 429) {
-        yield RecipeError(message: 'Recipe generation is temporarily unavailable (rate limit reached). Please wait a minute and try again.');
-        return;
-      }
-      if (streamedResponse.statusCode == 400) {
-        yield RecipeError(message: 'Invalid request to recipe service (400). Please try again.');
-        return;
-      }
-      if (streamedResponse.statusCode == 403) {
-        yield RecipeError(message: 'Recipe service access denied. Please check your API key.');
-        return;
-      }
-      if (streamedResponse.statusCode == 404) {
-        yield RecipeError(message: 'Recipe service unavailable (model not found). Please try again.');
-        return;
-      }
-      if (streamedResponse.statusCode != 200) {
-        yield RecipeError(message: 'Recipe service error (${streamedResponse.statusCode}). Please try again.');
-        return;
-      }
-
-      final buffer = StringBuffer();
-      int totalBytes = 0;
-      String? finishReason;
-
-      await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
-        totalBytes += chunk.length;
-        yield RecipeGenerating(bytesReceived: totalBytes);
-
-        for (final line in chunk.split('\n')) {
-          final trimmed = line.trim();
-          if (!trimmed.startsWith('data: ')) continue;
-          final jsonStr = trimmed.substring(6);
-          if (jsonStr.isEmpty || jsonStr == '[DONE]') continue;
-
-          try {
-            final data = jsonDecode(jsonStr) as Map<String, dynamic>;
-            final candidates = data['candidates'] as List<dynamic>?;
-            if (candidates == null || candidates.isEmpty) continue;
-
-            final fr = candidates[0]['finishReason'] as String?;
-            if (fr != null) finishReason = fr;
-
-            final content = candidates[0]['content'] as Map<String, dynamic>?;
-            final parts = content?['parts'] as List<dynamic>?;
-            if (parts == null) continue;
-
-            for (final part in parts) {
-              final text = part['text'] as String?;
-              if (text != null) buffer.write(text);
-            }
-          } catch (_) {
-            // Malformed SSE chunk — skip and continue accumulating
-          }
-        }
-      }
-
-      if (finishReason == 'MAX_TOKENS') {
-        yield RecipeError(message: 'Response was too long and got cut off. Please try again.');
-        return;
-      }
-
-      final rawText = buffer.toString().trim();
-      if (rawText.isEmpty) {
-        yield RecipeError(message: 'Empty response from AI. Please try again.');
-        return;
-      }
-
-      final recipeJson = _extractJson(rawText);
-      yield RecipeComplete(recipe: GeneratedRecipe.fromJson(recipeJson));
-    } catch (e) {
-      yield RecipeError(
-        message: e is Exception ? e.toString().replaceFirst('Exception: ', '') : 'Recipe generation failed. Please try again.',
-      );
-    } finally {
-      client.close();
-    }
   }
 
   /// Lightweight Gemini call to suggest a single ingredient substitution.

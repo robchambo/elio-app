@@ -106,6 +106,8 @@ class ScannerService {
       final List<ScannedItem> foodItems = [];
       int nonFoodCount = 0;
 
+      // First pass: collect food items, filter out non-food
+      final foodCandidates = <({String name, String? category, String? price})>[];
       for (final item in rawItems) {
         final isFood = item['isFood'] as bool? ?? true;
         final name = (item['name'] as String? ?? '').trim();
@@ -116,14 +118,26 @@ class ScannerService {
           continue;
         }
 
-        final category = item['category'] as String?;
-        final price = item['price']?.toString();
-        final tierResult = await suggestTier(name, category: category);
-
-        foodItems.add(ScannedItem(
+        foodCandidates.add((
           name: name,
-          category: category,
-          price: price,
+          category: item['category'] as String?,
+          price: item['price']?.toString(),
+        ));
+      }
+
+      // Batch tier lookups in parallel
+      final tierResults = await Future.wait(
+        foodCandidates.map((item) => suggestTier(item.name, category: item.category)),
+      );
+
+      // Second pass: zip results to build final list
+      for (var i = 0; i < foodCandidates.length; i++) {
+        final item = foodCandidates[i];
+        final tierResult = tierResults[i];
+        foodItems.add(ScannedItem(
+          name: item.name,
+          category: item.category,
+          price: item.price,
           suggestedTier: tierResult.tier,
           isNonFood: false,
           tierFromMemory: tierResult.fromMemory,

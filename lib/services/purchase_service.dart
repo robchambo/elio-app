@@ -68,8 +68,15 @@ class PurchaseService {
     }
   }
 
+  // ── Lazy init ──────────────────────────────────────────────────────
+  /// Ensures RevenueCat is initialised before use. Safe to call repeatedly.
+  Future<void> _ensureInitialised() async {
+    if (!_initialised) await init();
+  }
+
   // ── Fetch available packages ───────────────────────────────────────
   Future<List<Package>> getPackages() async {
+    await _ensureInitialised();
     if (!_initialised) return [];
 
     try {
@@ -82,6 +89,7 @@ class PurchaseService {
 
   // ── Purchase ───────────────────────────────────────────────────────
   Future<bool> purchasePackage(Package package) async {
+    await _ensureInitialised();
     if (!_initialised) return false;
 
     try {
@@ -97,6 +105,7 @@ class PurchaseService {
 
   // ── Restore purchases ─────────────────────────────────────────────
   Future<bool> restorePurchases() async {
+    await _ensureInitialised();
     if (!_initialised) return false;
 
     try {
@@ -109,6 +118,7 @@ class PurchaseService {
 
   // ── Check current entitlement ──────────────────────────────────────
   Future<bool> isPro() async {
+    await _ensureInitialised();
     if (!_initialised) return false;
 
     try {
@@ -141,6 +151,7 @@ class PurchaseService {
 
   // ── Identify user (call after sign-in) ─────────────────────────────
   Future<void> identify(String userId) async {
+    await _ensureInitialised();
     if (!_initialised) return;
     try {
       await Purchases.logIn(userId);

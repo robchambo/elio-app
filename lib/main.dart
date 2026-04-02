@@ -10,7 +10,6 @@ import 'screens/home/home_screen.dart';
 import 'services/firestore_service.dart';
 import 'services/analytics_service.dart';
 import 'services/remote_config_service.dart';
-import 'services/purchase_service.dart';
 import 'services/notification_service.dart';
 
 // ─────────────────────────────────────────────
@@ -39,17 +38,14 @@ void main() async {
       return true;
     };
 
-    // Initialise Analytics (sets user properties, enables collection)
-    await AnalyticsService.instance.init();
+    // Parallelise Analytics + Remote Config (both independent after Firebase)
+    await Future.wait([
+      AnalyticsService.instance.init(),
+      RemoteConfigService.instance.init(),
+    ]);
 
-    // Fetch Remote Config (Gemini API key, feature flags)
-    await RemoteConfigService.instance.init();
-
-    // Initialise RevenueCat (runs in dry mode if no API key configured)
-    await PurchaseService.instance.init();
-
-    // Initialise FCM push notifications
-    await NotificationService.instance.init();
+    // PurchaseService + NotificationService are deferred to first use
+    // (lazy init) to reduce cold-start time.
   } catch (_) {
     // Firebase init may fail with placeholder credentials — app still
     // functions in guest mode.

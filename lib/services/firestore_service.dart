@@ -17,6 +17,8 @@ class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  Map<String, List<String>>? _cachedTasteProfile;
+
   String get _uid => _auth.currentUser!.uid;
 
   /// Converts a stored enum name (e.g. "glutenFree") to its human-readable
@@ -378,17 +380,22 @@ class FirestoreService {
       });
     }
     await batch.commit();
+    _cachedTasteProfile = null; // invalidate cache after rating change
   }
 
   Future<Map<String, List<String>>> getTasteProfile() async {
+    if (_cachedTasteProfile != null) return _cachedTasteProfile!;
+
     final doc = await _db.collection('users').doc(_uid).get();
     if (!doc.exists) return {'liked': [], 'disliked': []};
     final data = doc.data() ?? {};
     final profile = (data['tasteProfile'] as Map<String, dynamic>?) ?? {};
-    return {
+    final result = {
       'liked': List<String>.from(profile['likedTitles'] ?? []),
       'disliked': List<String>.from(profile['dislikedTitles'] ?? []),
     };
+    _cachedTasteProfile = result;
+    return result;
   }
 
   // ─── Meal plan persistence ───────────────────────────────────────

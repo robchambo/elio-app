@@ -12,6 +12,7 @@ import '../models/recipe_models.dart';
 class HistoryService {
   static const String _key = 'elio_recipe_history';
   static const int _maxRecipes = 50;
+  static List<SavedRecipe>? _cache;
 
   /// Save a recipe to local history. Newest first. Prunes to _maxRecipes.
   static Future<void> saveRecipe(SavedRecipe recipe) async {
@@ -21,18 +22,23 @@ class HistoryService {
     final pruned = existing.take(_maxRecipes).toList();
     final encoded = jsonEncode(pruned.map((r) => r.toJson()).toList());
     await prefs.setString(_key, encoded);
+    _cache = null;
   }
 
   /// Returns all saved recipes, newest first.
   static Future<List<SavedRecipe>> getHistory() async {
+    if (_cache != null) return List.from(_cache!);
+
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return [];
     try {
       final list = jsonDecode(raw) as List<dynamic>;
-      return list
+      final result = list
           .map((e) => SavedRecipe.fromJson(e as Map<String, dynamic>))
           .toList();
+      _cache = result;
+      return List.from(result);
     } catch (_) {
       return [];
     }
@@ -48,6 +54,7 @@ class HistoryService {
       final encoded = jsonEncode(existing.map((r) => r.toJson()).toList());
       await prefs.setString(_key, encoded);
     }
+    _cache = null;
   }
 
   /// Returns only bookmarked recipes, newest first.
@@ -70,6 +77,7 @@ class HistoryService {
     existing.removeWhere((r) => r.savedAt == savedAt);
     final encoded = jsonEncode(existing.map((r) => r.toJson()).toList());
     await prefs.setString(_key, encoded);
+    _cache = null;
   }
 
   /// Clear all non-bookmarked history.
@@ -83,11 +91,13 @@ class HistoryService {
       final encoded = jsonEncode(bookmarked.map((r) => r.toJson()).toList());
       await prefs.setString(_key, encoded);
     }
+    _cache = null;
   }
 
   /// Clear all history including bookmarks.
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
+    _cache = null;
   }
 }

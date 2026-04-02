@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 1 April 2026 (Sprint 15.3.9 — Sprint 15.3 complete, moving to Sprint 16)
+**Last updated:** 1 April 2026 (Sprint 15.3.13 — performance + voice control fixes)
 
 ---
 
@@ -90,6 +90,15 @@
 | Style section redesigned — grouped into Cuisines (14) and Styles (7) with headers | ✅ |
 | Added Korean, Chinese, Caribbean, Southern, One-pot; removed Smoothies | ✅ |
 | Bookmark duplication fix — recipes saved once, RecipeScreen always knows savedAt | ✅ |
+| **Performance**: cold start parallelised, PurchaseService lazy init, NotificationService deferred | ✅ |
+| **Performance**: static HTTP client, maxOutputTokens reduced (1024/2048), shared streaming helper | ✅ |
+| **Performance**: taste profile cache, history cache, batched receipt tier lookups | ✅ |
+| Voice control: RECORD_AUDIO permission added to manifest (was missing) | ✅ |
+| Voice control: beep suppressed via platform channel (mutes audio streams during session) | ✅ |
+| Voice control: help overlay converted to dialog (fixes immersive mode), TTS starts after Got It | ✅ |
+| Voice control: "Hey Elio done" now only disables voice (stays in hands-free mode) | ✅ |
+| Recipe screen bottom padding increased (hands-free button fully visible) | ✅ |
+| Keyboard dismissed before recipe generation/navigation | ✅ |
 
 ---
 
@@ -99,7 +108,7 @@
 
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
-| 1 | Performance audit (DevTools profiling, list optimisation, cold start time) | 3–4 | Not started |
+| 1 | Performance audit (DevTools profiling, list optimisation, cold start time) | 3–4 | ✅ Done |
 | 2 | **Firestore security rules audit** — rules are currently permissive (dev mode); must be locked down before public launch. Firebase console already flagging this. Also: data retention policy, input sanitisation | 2–3 | Not started |
 | 3 | GDPR compliance (data export, account deletion, consent tracking) | 2–3 | Not started |
 | 4 | Privacy policy + Terms of Service (in-app screens + hosted URLs) | 2–3 | Not started |

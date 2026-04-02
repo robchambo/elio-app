@@ -47,13 +47,28 @@ class NotificationService {
 
   // ─── Initialisation ───────────────────────────────────────────────
 
-  /// Initialise FCM: request permissions, register token, set up listeners.
+  /// Lightweight init: register background handler + foreground listener only.
+  /// Does NOT request permission or fetch token (deferred to reduce cold start).
   Future<void> init() async {
     if (_initialised) return;
     _initialised = true;
 
     // Register the background handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+    // Listen for token refreshes (passive — only fires if permission already granted)
+    _tokenRefreshSub = _messaging.onTokenRefresh.listen(_saveToken);
+
+    // Foreground message handler
+    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+  }
+
+  /// Request notification permission and register the FCM token.
+  /// Call this explicitly after first load (e.g. from home screen)
+  /// rather than blocking app startup.
+  Future<void> requestPermissionAndRegister() async {
+    // Ensure base listeners are set up
+    if (!_initialised) await init();
 
     // Request notification permissions (Android 13+ requires runtime permission)
     final settings = await _messaging.requestPermission(
@@ -77,12 +92,6 @@ class NotificationService {
     } catch (e) {
       debugPrint('[Elio] Failed to get FCM token: $e');
     }
-
-    // Listen for token refreshes
-    _tokenRefreshSub = _messaging.onTokenRefresh.listen(_saveToken);
-
-    // Foreground message handler
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
   }
 
   // ─── Token management ─────────────────────────────────────────────

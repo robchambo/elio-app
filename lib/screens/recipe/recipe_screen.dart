@@ -80,6 +80,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool _isRating = false;
 
   // ── Voice control state ────────────────────────────────────────────────────────────────────────
+  static const _audioChannel = MethodChannel('com.elio/audio');
   final stt.SpeechToText _speech = stt.SpeechToText();
   final FlutterTts _tts = FlutterTts();
   bool _voiceEnabled = false;
@@ -129,6 +130,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _feedbackTimer?.cancel();
     _restartTimer?.cancel();
     _tts.stop();
+    // Always restore audio in case voice was active
+    try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
     super.dispose();
   }
 
@@ -179,8 +182,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
       if (!_speechAvailable && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Voice control unavailable — check microphone permissions.'),
+            content: Text('Voice control unavailable — microphone permission was denied. Grant it in Settings → Apps → Elio → Permissions.'),
             backgroundColor: ElioColors.navy,
+            duration: Duration(seconds: 4),
           ),
         );
         return;
@@ -188,13 +192,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
       if (mounted) {
         setState(() => _voiceEnabled = true);
+        // Mute beep streams for entire voice session
+        try { await _audioChannel.invokeMethod('muteBeep'); } catch (_) {}
         if (!_voiceHelpShown) {
+          // Show help first — TTS + listening start after "Got It"
           _showVoiceHelpOverlay();
           _voiceHelpShown = true;
+        } else {
+          _startListening();
+          _speakText(_currentRecipe.steps[_currentStep]);
         }
-        _startListening();
-        // Read step 1 aloud when voice mode first activates
-        _speakText(_currentRecipe.steps[_currentStep]);
       }
     } catch (e) {
       if (mounted) {
@@ -240,6 +247,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
     if (_voiceEnabled) {
       _stopListening();
       setState(() => _voiceEnabled = false);
+      // Restore audio streams when voice control is turned off
+      try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
     } else {
       _initVoiceControl();
     }
@@ -301,14 +310,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   void _onVoiceDone() {
-    _showVoiceFeedback('Exiting cooking mode');
+    _showVoiceFeedback('Voice control off');
     _stopListening();
     setState(() {
       _voiceEnabled = false;
-      _handsFreeMode = false;
     });
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    _analytics.logEvent('hands_free_exited', {
+    // Restore audio streams
+    try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
+    _analytics.logEvent('voice_control_stopped', {
       'step_reached': _currentStep + 1,
       'total_steps': _currentRecipe.steps.length,
       'exit_method': 'voice',
@@ -317,68 +326,65 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   void _showVoiceHelpOverlay() {
-    showModalBottomSheet(
+    // Use showDialog instead of showModalBottomSheet — bottom sheets
+    // fail silently inside hands-free / immersive mode.
+    showDialog(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: ElioColors.border,
-                borderRadius: BorderRadius.circular(2),
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.mic_rounded, color: ElioColors.amber, size: 36),
+              const SizedBox(height: 12),
+              Text('Voice commands', style: ElioText.headingMedium),
+              const SizedBox(height: 16),
+              Text(
+                "Say 'Hey Elio' followed by:",
+                style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Icon(Icons.mic_rounded, color: ElioColors.amber, size: 36),
-            const SizedBox(height: 12),
-            Text('Voice commands', style: ElioText.headingMedium),
-            const SizedBox(height: 16),
-            Text(
-              "Say 'Hey Elio' followed by:",
-              style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
-            ),
-            const SizedBox(height: 16),
-            _buildVoiceHelpRow('"Hey Elio, next"', 'Go to the next step'),
-            const SizedBox(height: 10),
-            _buildVoiceHelpRow('"Hey Elio, back"', 'Go to the previous step'),
-            const SizedBox(height: 10),
-            _buildVoiceHelpRow('"Hey Elio, repeat"', 'Read the current step aloud'),
-            const SizedBox(height: 10),
-            _buildVoiceHelpRow('"Hey Elio, done"', 'Exit cooking mode'),
-            const SizedBox(height: 20),
-            Text(
-              'Tap the mic button to turn voice control on/off',
-              style: ElioText.bodyMedium.copyWith(
-                color: ElioColors.textMuted,
-                fontStyle: FontStyle.italic,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: ElioColors.amber,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              const SizedBox(height: 16),
+              _buildVoiceHelpRow('"Hey Elio, next"', 'Go to the next step'),
+              const SizedBox(height: 10),
+              _buildVoiceHelpRow('"Hey Elio, back"', 'Go to the previous step'),
+              const SizedBox(height: 10),
+              _buildVoiceHelpRow('"Hey Elio, repeat"', 'Read the current step aloud'),
+              const SizedBox(height: 10),
+              _buildVoiceHelpRow('"Hey Elio, done"', 'Turn off voice control'),
+              const SizedBox(height: 20),
+              Text(
+                'Tap the mic button to turn voice control on/off',
+                style: ElioText.bodyMedium.copyWith(
+                  color: ElioColors.textMuted,
+                  fontStyle: FontStyle.italic,
                 ),
-                child: const Text('Got it'),
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                    // Start listening + read step 1 after dialog closes
+                    _startListening();
+                    _speakText(_currentRecipe.steps[_currentStep]);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: ElioColors.amber,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: const Text('Got it'),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1191,7 +1197,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           _buildSliverAppBar(),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1701,6 +1707,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
   void _exitHandsFreeMode({String exitMethod = 'button'}) {
     _stopListening();
     _tts.stop();
+    // Restore audio streams muted for beep suppression
+    try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
     _analytics.logEvent('hands_free_exited', {
       'step_reached': _currentStep + 1,
       'total_steps': _currentRecipe.steps.length,
