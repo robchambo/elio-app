@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 31 March 2026 (Sprint 15.3.2 — UX polish done, Recipe Import remaining)
+**Last updated:** 1 April 2026 (Sprint 15.3.9 — Sprint 15.3 complete, moving to Sprint 16)
 
 ---
 
@@ -64,16 +64,6 @@
 
 **Goal:** Let users bring external recipes into their Recipe Book via photo scan or manual entry, plus Pantry Builder improvements.
 
-### Remaining
-
-| # | Task | Est. Hours |
-|---|------|-----------|
-| 1 | **Recipe Import — Photo scan** *(Pro)* — take a photo of any recipe; Gemini Vision extracts title, ingredients (with quantities), and instructions; saved as a `SavedRecipe` with `isBookmarked: true` | 3–4 |
-| 2 | **Recipe Import — Manual entry form** *(Pro)* — structured form with per-ingredient rows (name + quantity), plus a large free-text instructions field suitable for typing or pasting | 2–3 |
-| 3 | **Recipe Import — Entry point** — import button in Recipe Book tab; bottom sheet chooser: "Take a photo" or "Enter manually"; paywall shown to free users | 1 |
-
-**Remaining estimate:** 6–8 hours
-
 ### Completed this sprint
 
 | Task | Status |
@@ -87,6 +77,19 @@
 | Pantry Builder — Perishable added as third option in tier picker | ✅ |
 | Settings — "Dietary & Allergens" subtitle simplified | ✅ |
 | Added shimmer package for loading skeleton | ✅ |
+| Bulk Prep Mode *(Pro)* — toggle + config popup, sequential streaming, bulk results screen, freezing/storage section on recipe screen | ✅ |
+| Receipt scanner disclaimer added | ✅ |
+| Recipe Import — photo scan, manual entry, entry point in Recipe Book *(Pro)* | ✅ |
+| Bookmark toggle fix — no more duplicates, proper toggle from recipe screen | ✅ |
+| Leftover regenerate bug fix — all request fields preserved on "Generate Another" | ✅ |
+| Shopping list — accurate add/update messaging | ✅ |
+| Recipe variety — last 5 session titles drive variety constraint in prompt | ✅ |
+| Error reporting — ErrorService + Crashlytics non-fatal logging across all features | ✅ |
+| Dietary options expanded — added Pescatarian, Egg-free, Soy-free, Shellfish-free (15 total) | ✅ |
+| Custom allergens label → "Custom allergens or dietary requirements" | ✅ |
+| Style section redesigned — grouped into Cuisines (14) and Styles (7) with headers | ✅ |
+| Added Korean, Chinese, Caribbean, Southern, One-pot; removed Smoothies | ✅ |
+| Bookmark duplication fix — recipes saved once, RecipeScreen always knows savedAt | ✅ |
 
 ---
 
@@ -97,15 +100,16 @@
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
 | 1 | Performance audit (DevTools profiling, list optimisation, cold start time) | 3–4 | Not started |
-| 2 | Security hardening (Firestore rules review, data retention policy, input sanitisation) | 2–3 | Not started |
+| 2 | **Firestore security rules audit** — rules are currently permissive (dev mode); must be locked down before public launch. Firebase console already flagging this. Also: data retention policy, input sanitisation | 2–3 | Not started |
 | 3 | GDPR compliance (data export, account deletion, consent tracking) | 2–3 | Not started |
 | 4 | Privacy policy + Terms of Service (in-app screens + hosted URLs) | 2–3 | Not started |
 | 5 | Remove temporary debug messages from home_screen.dart | 0.5 | Not started |
 | 6 | Full regression test — Android physical device | 3–4 | Not started |
 | 7 | App Store assets (screenshots, feature graphic, store listing copy) | 2–3 | Not started |
 | 8 | Submit to Google Play Console (internal testing track) | 1–2 | Not started |
+| 9 | Crashlytics → Slack/Discord webhook (real-time error alerts via Cloud Function) | 1–2 | Not started |
 
-**Estimate:** 16–22 hours
+**Estimate:** 17–24 hours
 
 ---
 

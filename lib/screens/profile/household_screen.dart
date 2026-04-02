@@ -23,10 +23,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   List<Map<String, dynamic>> _members = [];
 
   static const List<String> _allDietaryOptions = [
-    'Vegetarian', 'Vegan', 'Gluten-free', 'Dairy-free',
-    'Nut-free', 'Shellfish-free', 'Egg-free', 'Soy-free',
-    'Halal', 'Kosher', 'Low-sodium', 'Low-sugar',
-    'High-protein', 'Keto', 'Paleo', 'Pescatarian',
+    'Vegetarian', 'Vegan', 'Pescatarian', 'Gluten-free', 'Dairy-free',
+    'Egg-free', 'Nut-free', 'Soy-free', 'Shellfish-free',
+    'Halal', 'Kosher', 'Low FODMAP',
+    'Diabetic-friendly', 'Low-carb', 'High-protein',
   ];
 
   @override

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import '../models/recipe_models.dart';
 import '../utils/region_utils.dart';
@@ -321,6 +323,17 @@ class GeminiService {
       for (final title in request.recentTitles) {
         buffer.writeln('- $title');
       }
+
+      // Variety constraint — use last 5 to steer away from repetitive styles
+      final recentFive = request.recentTitles.length <= 5
+          ? request.recentTitles
+          : request.recentTitles.sublist(request.recentTitles.length - 5);
+      buffer.writeln();
+      buffer.writeln('## VARIETY (important):');
+      buffer.writeln('Look at these recent recipes: ${recentFive.join(', ')}.');
+      buffer.writeln('Generate something with a DIFFERENT base ingredient, cooking method, AND cuisine.');
+      buffer.writeln('If recent recipes are pasta-heavy, avoid pasta. If they are Asian-leaning, try a different region. If they are all oven-baked, try stovetop or no-cook.');
+      buffer.writeln('Variety is key — surprise the user with something fresh.');
     }
 
     // Taste profile is injected by caller via request fields
@@ -385,6 +398,168 @@ class GeminiService {
 }''');
 
     return buffer.toString();
+  }
+
+  /// Builds a bulk-prep-specific prompt by extending the base prompt with
+  /// batch cooking / freezing instructions and variety constraints.
+  static String _buildBulkPrepPrompt(
+    RecipeGenerationRequest request, {
+    required int portions,
+    required int mealNumber,
+    required int totalMeals,
+    required List<String> previousMealTitles,
+  }) {
+    final base = _buildPrompt(request);
+    final buffer = StringBuffer(base);
+
+    buffer.writeln();
+    buffer.writeln('## BULK PREP MODE:');
+    buffer.writeln('This recipe MUST be suitable for batch cooking and freezing.');
+    buffer.writeln('- Scale for $portions portions total');
+    buffer.writeln('- Choose recipes that freeze and reheat well (casseroles, curries, stews, pasta bakes, chilli, bolognese, soups, etc.)');
+    buffer.writeln('- Do NOT suggest: salads, dishes with raw vegetables, anything with fresh garnishes that won\'t survive freezing, fried foods that lose crispness');
+    buffer.writeln('- Steps should include batch cooking tips (use largest pans, cook in stages if needed)');
+    if (mealNumber > 1 && previousMealTitles.isNotEmpty) {
+      buffer.writeln('This is meal $mealNumber of $totalMeals. Previous meals already generated: ${previousMealTitles.join(', ')}. Generate something DIFFERENT — different cuisine, different protein, different base.');
+    }
+
+    buffer.writeln();
+    buffer.writeln('Add this to the JSON output:');
+    buffer.writeln('"bulkPrepInfo": {');
+    buffer.writeln('  "totalPortions": $portions,');
+    buffer.writeln('  "freezingInstructions": "string (how to cool, portion, and freeze)",');
+    buffer.writeln('  "reheatingInstructions": "string (how to defrost and reheat safely)",');
+    buffer.writeln('  "storageLife": "string (e.g. \'Up to 3 months frozen, 3 days in fridge\')",');
+    buffer.writeln('  "containerSuggestion": "string (e.g. \'Portion into 500ml containers\')"');
+    buffer.writeln('}');
+
+    return buffer.toString();
+  }
+
+  /// Streaming bulk recipe generation — identical to [generateRecipeStream]
+  /// but uses the bulk prep prompt for batch cooking / freezing recipes.
+  static Stream<RecipeGenerationStatus> generateBulkRecipeStream(
+    RecipeGenerationRequest request, {
+    required int portions,
+    required int mealNumber,
+    required int totalMeals,
+    required List<String> previousMealTitles,
+  }) async* {
+    final prompt = _buildBulkPrepPrompt(
+      request,
+      portions: portions,
+      mealNumber: mealNumber,
+      totalMeals: totalMeals,
+      previousMealTitles: previousMealTitles,
+    );
+    final client = http.Client();
+
+    try {
+      final httpRequest = http.Request(
+        'POST',
+        Uri.parse('$_streamUrl?alt=sse&key=$_apiKey'),
+      );
+      httpRequest.headers['Content-Type'] = 'application/json';
+      httpRequest.body = jsonEncode({
+        'contents': [
+          {
+            'parts': [
+              {'text': prompt}
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.8,
+          'topK': 40,
+          'topP': 0.95,
+          'maxOutputTokens': 4096,
+          'responseMimeType': 'application/json',
+          'thinkingConfig': {'thinkingBudget': 0},
+        },
+      });
+
+      final streamedResponse = await client.send(httpRequest).timeout(
+        const Duration(seconds: 60),
+        onTimeout: () => throw Exception('Recipe generation timed out. Please try again.'),
+      );
+
+      if (streamedResponse.statusCode == 429) {
+        yield RecipeError(message: 'Recipe generation is temporarily unavailable (rate limit reached). Please wait a minute and try again.');
+        return;
+      }
+      if (streamedResponse.statusCode == 400) {
+        yield RecipeError(message: 'Invalid request to recipe service (400). Please try again.');
+        return;
+      }
+      if (streamedResponse.statusCode == 403) {
+        yield RecipeError(message: 'Recipe service access denied. Please check your API key.');
+        return;
+      }
+      if (streamedResponse.statusCode == 404) {
+        yield RecipeError(message: 'Recipe service unavailable (model not found). Please try again.');
+        return;
+      }
+      if (streamedResponse.statusCode != 200) {
+        yield RecipeError(message: 'Recipe service error (${streamedResponse.statusCode}). Please try again.');
+        return;
+      }
+
+      final buffer = StringBuffer();
+      int totalBytes = 0;
+      String? finishReason;
+
+      await for (final chunk in streamedResponse.stream.transform(utf8.decoder)) {
+        totalBytes += chunk.length;
+        yield RecipeGenerating(bytesReceived: totalBytes);
+
+        for (final line in chunk.split('\n')) {
+          final trimmed = line.trim();
+          if (!trimmed.startsWith('data: ')) continue;
+          final jsonStr = trimmed.substring(6);
+          if (jsonStr.isEmpty || jsonStr == '[DONE]') continue;
+
+          try {
+            final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+            final candidates = data['candidates'] as List<dynamic>?;
+            if (candidates == null || candidates.isEmpty) continue;
+
+            final fr = candidates[0]['finishReason'] as String?;
+            if (fr != null) finishReason = fr;
+
+            final content = candidates[0]['content'] as Map<String, dynamic>?;
+            final parts = content?['parts'] as List<dynamic>?;
+            if (parts == null) continue;
+
+            for (final part in parts) {
+              final text = part['text'] as String?;
+              if (text != null) buffer.write(text);
+            }
+          } catch (_) {
+            // Malformed SSE chunk — skip and continue accumulating
+          }
+        }
+      }
+
+      if (finishReason == 'MAX_TOKENS') {
+        yield RecipeError(message: 'Response was too long and got cut off. Please try again.');
+        return;
+      }
+
+      final rawText = buffer.toString().trim();
+      if (rawText.isEmpty) {
+        yield RecipeError(message: 'Empty response from AI. Please try again.');
+        return;
+      }
+
+      final recipeJson = _extractJson(rawText);
+      yield RecipeComplete(recipe: GeneratedRecipe.fromJson(recipeJson));
+    } catch (e) {
+      yield RecipeError(
+        message: e is Exception ? e.toString().replaceFirst('Exception: ', '') : 'Recipe generation failed. Please try again.',
+      );
+    } finally {
+      client.close();
+    }
   }
 
   /// Lightweight Gemini call to suggest a single ingredient substitution.
@@ -463,5 +638,45 @@ class GeminiService {
 
     final json = _extractJson(rawText);
     return IngredientSubstitutionResult.fromJson(json);
+  }
+
+  /// Import a recipe from a photo using Gemini Vision.
+  /// Extracts title, ingredients, steps, and other details from a recipe image.
+  static Future<GeneratedRecipe> importRecipeFromImage(Uint8List imageBytes) async {
+    final model = GenerativeModel(
+      model: 'gemini-2.5-flash-lite',
+      apiKey: _apiKey,
+      generationConfig: GenerationConfig(
+        responseMimeType: 'application/json',
+      ),
+    );
+
+    const prompt = 'Extract the recipe from this image. Return a JSON object with: '
+        '{"title":"string","description":"string (1-2 sentences)","prepTimeMinutes":int,"cookTimeMinutes":int,"servings":int,'
+        '"dietaryTags":["string"],"ingredients":[{"name":"string","quantity":"string","unit":"string","fromInventory":false}],'
+        '"steps":["string"],"substitutions":[]}. '
+        'If prep/cook time is not visible, estimate based on the recipe. '
+        'If servings is not visible, default to 2. '
+        'Clean up ingredient names (remove codes/abbreviations). '
+        'Keep steps concise (1-2 sentences each). '
+        'If the image is not a recipe or is unreadable, return {"error":"Could not extract recipe from image"}.';
+
+    final content = Content.multi([
+      TextPart(prompt),
+      DataPart('image/jpeg', imageBytes),
+    ]);
+
+    final response = await model.generateContent([content]);
+    final rawText = response.text ?? '';
+    if (rawText.isEmpty) {
+      throw Exception('Empty response from AI. Please try a clearer photo.');
+    }
+
+    final json = _extractJson(rawText);
+    if (json.containsKey('error')) {
+      throw Exception(json['error'] as String);
+    }
+
+    return GeneratedRecipe.fromJson(json);
   }
 }

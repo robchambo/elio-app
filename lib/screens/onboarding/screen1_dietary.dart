@@ -135,12 +135,12 @@ class _DietaryScreenState extends State<DietaryScreen> {
 
                       // Custom allergen section
                       Text(
-                        'Other allergies or intolerances',
+                        'Custom allergens or dietary requirements',
                         style: ElioText.headingMedium,
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Add anything not listed above — e.g. sesame, shellfish, mustard.',
+                        'Add anything not covered above — e.g. sesame, shellfish, no red meat.',
                         style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
                       ),
                       const SizedBox(height: 12),

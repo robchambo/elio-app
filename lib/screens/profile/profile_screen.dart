@@ -20,6 +20,8 @@ import '../recipe/recipe_screen.dart';
 import 'notification_prefs_screen.dart';
 import 'settings_screen.dart';
 import '../scanner/scanner_screen.dart';
+import 'recipe_import_screen.dart';
+import '../paywall/paywall_screen.dart';
 
 // ─────────────────────────────────────────────
 // ProfileScreen
@@ -62,11 +64,15 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   final TextEditingController _shoppingAddController = TextEditingController();
 
   // ── Available options ──────────────────────────────────────────────
-  static const List<String> _allStyleOptions = [
-    'Italian', 'Asian', 'Middle Eastern', 'Mexican',
-    'Mediterranean', 'Indian', 'American', 'French',
-    'Japanese', 'Thai', 'Greek', 'British',
-    'Comfort food', 'Healthy', 'Quick & easy', 'Smoothies',
+  static const List<String> _cuisineOptions = [
+    'Italian', 'Mediterranean', 'Asian', 'Chinese', 'Japanese', 'Thai',
+    'Korean', 'Indian', 'Middle Eastern', 'Mexican', 'American', 'Southern',
+    'French', 'Caribbean',
+  ];
+
+  static const List<String> _styleOptions = [
+    'Comfort food', 'Light & healthy', 'Quick & easy', 'High protein',
+    'Vegetable-forward', 'Budget-friendly', 'One-pot',
   ];
 
   @override
@@ -1368,10 +1374,44 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
         ),
         const SizedBox(height: 20),
+        Text('Cuisines', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 10,
           runSpacing: 10,
-          children: _allStyleOptions.map((style) {
+          children: _cuisineOptions.map((style) {
+            final isSelected = _stylePreferences.contains(style);
+            return GestureDetector(
+              onTap: () => _toggleStyle(style),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isSelected ? ElioColors.amber : ElioColors.offWhite,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isSelected ? ElioColors.amber : ElioColors.border,
+                    width: isSelected ? 1.5 : 1,
+                  ),
+                ),
+                child: Text(
+                  style,
+                  style: ElioText.label.copyWith(
+                    color: isSelected ? Colors.white : ElioColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 20),
+        Text('Styles', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: _styleOptions.map((style) {
             final isSelected = _stylePreferences.contains(style);
             return GestureDetector(
               onTap: () => _toggleStyle(style),
@@ -1909,6 +1949,23 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
     }
   }
 
+  void _importRecipe(BuildContext context) {
+    if (!EntitlementService.instance.isPro) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const PaywallScreen(
+            trigger: PaywallTrigger.lockedFeature,
+            lockedFeatureName: 'Recipe Import',
+          ),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const RecipeImportScreen()),
+    ).then((_) => _load()); // Refresh list after import
+  }
+
   String _formatDate(String iso) {
     try {
       final dt = DateTime.parse(iso).toLocal();
@@ -1949,21 +2006,37 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
             ),
           ),
         ),
-        // Clear history button (only on history tab with items)
-        if (_selectedTab == 1 && _history.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: GestureDetector(
-                onTap: _clearHistory,
-                child: Text(
-                  'Clear history',
-                  style: ElioText.label.copyWith(color: ElioColors.error, fontSize: 12),
+        // Import + Clear history row
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+          child: Row(
+            children: [
+              GestureDetector(
+                onTap: () => _importRecipe(context),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add_photo_alternate_rounded, size: 14, color: ElioColors.amber),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Import recipe',
+                      style: ElioText.label.copyWith(color: ElioColors.amber, fontSize: 12),
+                    ),
+                  ],
                 ),
               ),
-            ),
+              const Spacer(),
+              if (_selectedTab == 1 && _history.isNotEmpty)
+                GestureDetector(
+                  onTap: _clearHistory,
+                  child: Text(
+                    'Clear history',
+                    style: ElioText.label.copyWith(color: ElioColors.error, fontSize: 12),
+                  ),
+                ),
+            ],
           ),
+        ),
         const SizedBox(height: 8),
         // Recipe list
         Expanded(
@@ -2091,7 +2164,7 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
       ),
       child: GestureDetector(
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => RecipeScreen(recipe: recipe)),
+          MaterialPageRoute(builder: (_) => RecipeScreen(recipe: recipe, savedAt: saved.savedAt)),
         ).then((_) => _load()),
         child: Container(
           margin: const EdgeInsets.only(bottom: 12),

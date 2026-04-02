@@ -352,6 +352,18 @@ class _ScannerScreenState extends State<ScannerScreen> {
                     color: Colors.white38,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    'Receipt quality varies — Elio may not extract every item. You can always add missing items manually.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: Colors.white24,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

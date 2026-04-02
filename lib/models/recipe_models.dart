@@ -140,6 +140,9 @@ class GeneratedRecipe {
   /// Gemini-estimated cost per serving in GBP (budget/own-brand tier). Nullable for backwards compat.
   final double? estimatedCostPerServingGBP;
 
+  /// Bulk prep info (freezing & storage instructions). Nullable — only present for bulk prep recipes.
+  final BulkPrepInfo? bulkPrepInfo;
+
   const GeneratedRecipe({
     required this.title,
     required this.prepTimeMinutes,
@@ -153,6 +156,7 @@ class GeneratedRecipe {
     this.nutrition,
     this.estimatedCostPerServingUSD,
     this.estimatedCostPerServingGBP,
+    this.bulkPrepInfo,
   });
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
@@ -181,6 +185,7 @@ class GeneratedRecipe {
           : null,
       estimatedCostPerServingUSD: (json['estimatedCostPerServingUSD'] as num?)?.toDouble(),
       estimatedCostPerServingGBP: (json['estimatedCostPerServingGBP'] as num?)?.toDouble(),
+      bulkPrepInfo: json['bulkPrepInfo'] != null ? BulkPrepInfo.fromJson(json['bulkPrepInfo'] as Map<String, dynamic>) : null,
     );
   }
 
@@ -198,11 +203,13 @@ class GeneratedRecipe {
     if (nutrition != null) 'nutrition': nutrition!.toMap(),
     if (estimatedCostPerServingUSD != null) 'estimatedCostPerServingUSD': estimatedCostPerServingUSD,
     if (estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': estimatedCostPerServingGBP,
+    if (bulkPrepInfo != null) 'bulkPrepInfo': bulkPrepInfo!.toMap(),
   };
 
   GeneratedRecipe copyWith({
     List<RecipeIngredient>? ingredients,
     List<RecipeSubstitution>? substitutions,
+    BulkPrepInfo? bulkPrepInfo,
   }) {
     return GeneratedRecipe(
       title: title,
@@ -217,6 +224,7 @@ class GeneratedRecipe {
       nutrition: nutrition,
       estimatedCostPerServingUSD: estimatedCostPerServingUSD,
       estimatedCostPerServingGBP: estimatedCostPerServingGBP,
+      bulkPrepInfo: bulkPrepInfo ?? this.bulkPrepInfo,
     );
   }
 }
@@ -350,6 +358,42 @@ class RecipeComplete extends RecipeGenerationStatus {
 class RecipeError extends RecipeGenerationStatus {
   final String message;
   RecipeError({required this.message});
+}
+
+// ─── Bulk prep info (freezing & storage) ────────────────────────────────────
+
+class BulkPrepInfo {
+  final int totalPortions;
+  final String freezingInstructions;
+  final String reheatingInstructions;
+  final String storageLife;
+  final String containerSuggestion;
+
+  const BulkPrepInfo({
+    required this.totalPortions,
+    required this.freezingInstructions,
+    required this.reheatingInstructions,
+    required this.storageLife,
+    required this.containerSuggestion,
+  });
+
+  factory BulkPrepInfo.fromJson(Map<String, dynamic> json) {
+    return BulkPrepInfo(
+      totalPortions: (json['totalPortions'] as num?)?.toInt() ?? 6,
+      freezingInstructions: json['freezingInstructions'] as String? ?? '',
+      reheatingInstructions: json['reheatingInstructions'] as String? ?? '',
+      storageLife: json['storageLife'] as String? ?? '',
+      containerSuggestion: json['containerSuggestion'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'totalPortions': totalPortions,
+    'freezingInstructions': freezingInstructions,
+    'reheatingInstructions': reheatingInstructions,
+    'storageLife': storageLife,
+    'containerSuggestion': containerSuggestion,
+  };
 }
 
 // ─── Ingredient substitution result (lightweight AI swap) ───────────────────

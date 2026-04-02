@@ -13,6 +13,7 @@ import '../../utils/region_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/error_service.dart';
 import '../../services/shopping_service.dart';
 
 // ─────────────────────────────────────────────
@@ -30,11 +31,23 @@ class RecipeScreen extends StatefulWidget {
   final RecipeGenerationRequest? originalRequest;
   final bool isGuest;
 
+  /// When true, the recipe is auto-saved as bookmarked on first open.
+  /// Used by recipe import to avoid double-saves.
+  /// When true, the recipe is auto-saved as bookmarked on first open.
+  /// Used by recipe import to avoid double-saves.
+  final bool autoSave;
+
+  /// The savedAt timestamp from history — enables bookmark toggling
+  /// instead of creating duplicates.
+  final String? savedAt;
+
   const RecipeScreen({
     super.key,
     required this.recipe,
     this.originalRequest,
     this.isGuest = false,
+    this.autoSave = false,
+    this.savedAt,
   });
 
   @override
@@ -49,10 +62,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool _handsFreeMode = false;
   int _currentStep = 0;
   final Set<int> _expandedSubstitutions = {};
+  bool _bulkPrepExpanded = true;
 
   // ── Save & Shopping state ───────────────────────────────────────────────────
   bool _isSaved = false;
   bool _isAddingToShop = false;
+  String? _savedAt; // history timestamp — set when recipe is from history
 
   // ── Regeneration state ──────────────────────────────────────────────────────────────────────────────
   bool _isRegenerating = false;
@@ -90,7 +105,22 @@ class _RecipeScreenState extends State<RecipeScreen> {
     super.initState();
     _servings = widget.recipe.servings;
     _currentRecipe = widget.recipe;
+    _savedAt = widget.savedAt;
     _initTts();
+    if (widget.autoSave) {
+      _isSaved = true;
+      // Save in background — recipe was just imported
+      HistoryService.saveRecipe(SavedRecipe.fromRecipe(widget.recipe, bookmarked: true));
+    } else if (_savedAt != null) {
+      // Opened from history — check if bookmarked
+      _isSaved = true; // It's in history, so it's "saved"
+      _checkBookmarkStatus();
+    }
+  }
+
+  Future<void> _checkBookmarkStatus() async {
+    final bookmarked = await HistoryService.isBookmarked(_savedAt!);
+    if (mounted) setState(() => _isSaved = bookmarked);
   }
 
   @override
@@ -545,7 +575,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     setState(() => _isRegenerating = true);
 
     try {
-      // Build updated request with exclusions and current recipe title as "recent"
+      // Build updated request — carry forward ALL fields, add exclusions + title
       final newRequest = RecipeGenerationRequest(
         perishables: request.perishables,
         alwaysHave: request.alwaysHave,
@@ -563,6 +593,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ...request.recentTitles,
           _currentRecipe.title,
         ],
+        runningLowItems: request.runningLowItems,
+        isLeftoverMode: request.isLeftoverMode,
+        leftoverItems: request.leftoverItems,
+        likedRecipes: request.likedRecipes,
+        dislikedRecipes: request.dislikedRecipes,
+        appliances: request.appliances,
+        isSaverMode: request.isSaverMode,
+        perishableInventoryDescriptions: request.perishableInventoryDescriptions,
       );
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);
@@ -592,6 +630,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         );
       }
     } catch (e) {
+      ErrorService.log('recipe_regeneration', e);
       if (mounted) {
         setState(() => _isRegenerating = false);
         final msg = e.toString().replaceFirst('Exception: ', '');
@@ -850,17 +889,136 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
-  // ─── Save recipe ────────────────────────────────────────────────────────────
+  // ─── Bulk Prep / Freezing & Storage ─────────────────────────────────────────
+  Widget _buildBulkPrepSection() {
+    final info = _currentRecipe.bulkPrepInfo!;
+    return Container(
+      decoration: BoxDecoration(
+        color: ElioColors.offWhite,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ElioColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // Header toggle
+          GestureDetector(
+            onTap: () => setState(() => _bulkPrepExpanded = !_bulkPrepExpanded),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              color: Colors.transparent,
+              child: Row(
+                children: [
+                  Icon(Icons.ac_unit_rounded, size: 20, color: ElioColors.sky),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Freezing & Storage',
+                      style: ElioText.bodyMedium.copyWith(
+                        color: ElioColors.sky,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _bulkPrepExpanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      size: 22,
+                      color: ElioColors.sky,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Body
+          AnimatedCrossFade(
+            firstChild: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Column(
+                children: [
+                  _buildBulkPrepRow(Icons.kitchen_outlined, 'Portions', '${info.totalPortions} portions'),
+                  _buildBulkPrepRow(Icons.ac_unit_rounded, 'Freezing', info.freezingInstructions),
+                  _buildBulkPrepRow(Icons.microwave_outlined, 'Reheating', info.reheatingInstructions),
+                  _buildBulkPrepRow(Icons.calendar_today_outlined, 'Storage', info.storageLife),
+                  _buildBulkPrepRow(Icons.inventory_2_outlined, 'Container', info.containerSuggestion),
+                ],
+              ),
+            ),
+            secondChild: const SizedBox.shrink(),
+            crossFadeState: _bulkPrepExpanded
+                ? CrossFadeState.showFirst
+                : CrossFadeState.showSecond,
+            duration: const Duration(milliseconds: 200),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBulkPrepRow(IconData icon, String label, String value) {
+    if (value.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: ElioColors.sky),
+          const SizedBox(width: 10),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.navy),
+                children: [
+                  TextSpan(
+                    text: '$label: ',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  TextSpan(text: value),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Save recipe (toggle bookmark) ──────────────────────────────────────────
   Future<void> _saveRecipe() async {
-    if (_isSaved) return; // Already saved
     try {
+      if (_savedAt != null) {
+        // Recipe is from history — toggle bookmark
+        await HistoryService.toggleBookmark(_savedAt!);
+        final nowBookmarked = !_isSaved;
+        if (mounted) {
+          setState(() => _isSaved = nowBookmarked);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(nowBookmarked ? 'Recipe saved' : 'Bookmark removed'),
+              backgroundColor: ElioColors.navy,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+      // New recipe — save fresh
+      final now = DateTime.now().toUtc().toIso8601String();
       await HistoryService.saveRecipe(SavedRecipe(
         recipe: _currentRecipe,
-        savedAt: DateTime.now().toUtc().toIso8601String(),
+        savedAt: now,
         isBookmarked: true,
       ));
       if (mounted) {
-        setState(() => _isSaved = true);
+        setState(() {
+          _isSaved = true;
+          _savedAt = now; // Now it's in history — future taps toggle
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Recipe saved'),
@@ -917,11 +1075,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
     setState(() => _isAddingToShop = true);
     try {
       final shop = ShoppingService.instance;
+      // Load existing items to check for duplicates
+      final existingItems = await shop.loadItems();
+      final existingNames = existingItems.map((i) => i.name.toLowerCase().trim()).toSet();
       int added = 0;
+      int updated = 0;
       for (final ing in _currentRecipe.ingredients) {
         // Skip items the user already has, and universal staples
         if (ing.fromInventory) continue;
         if (_isShoppingExclusion(ing.name)) continue;
+        final isExisting = existingNames.contains(ing.name.toLowerCase().trim());
         final qty = ing.unit.isEmpty
             ? _scaleQuantity(ing.quantity)
             : '${_scaleQuantity(ing.quantity)} ${ing.unit}';
@@ -930,13 +1093,24 @@ class _RecipeScreenState extends State<RecipeScreen> {
           quantity: qty,
           source: ShoppingSource.recipe,
         );
-        added++;
+        if (isExisting) {
+          updated++;
+        } else {
+          added++;
+        }
       }
       if (mounted) {
         setState(() => _isAddingToShop = false);
+        final msg = added > 0 && updated > 0
+            ? '$added item${added == 1 ? '' : 's'} added, $updated updated'
+            : added > 0
+                ? '$added item${added == 1 ? '' : 's'} added to shopping list'
+                : updated > 0
+                    ? '$updated item${updated == 1 ? '' : 's'} already on your list (updated)'
+                    : 'No new items to add';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('$added item${added == 1 ? '' : 's'} added to shopping list'),
+            content: Text(msg),
             backgroundColor: ElioColors.navy,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1034,6 +1208,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   ],
                   const SizedBox(height: 28),
                   _buildRatingRow(),
+                  if (_currentRecipe.bulkPrepInfo != null) ...[
+                    const SizedBox(height: 20),
+                    _buildBulkPrepSection(),
+                  ],
                   const SizedBox(height: 16),
                   _buildActionButtons(),
                 ],

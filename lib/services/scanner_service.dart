@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 
+import 'error_service.dart';
 import 'remote_config_service.dart';
 
 // ─────────────────────────────────────────────
@@ -135,6 +136,7 @@ class ScannerService {
         nonFoodFilteredCount: nonFoodCount,
       );
     } catch (e) {
+      ErrorService.log('receipt_scan', e);
       // Return empty result on failure so the UI can show an error message
       // rather than crashing.
       return ReceiptScanResult(

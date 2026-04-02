@@ -31,24 +31,31 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showScrollHint = true;
 
-  static const List<_StyleOption> _options = [
-    _StyleOption('Asian', '🍜'),
-    _StyleOption('Mediterranean', '🫒'),
-    _StyleOption('Indian', '🍛'),
-    _StyleOption('Mexican', '🌮'),
+  static const List<_StyleOption> _cuisines = [
     _StyleOption('Italian', '🍝'),
-    _StyleOption('Middle Eastern', '🧆'),
+    _StyleOption('Mediterranean', '🫒'),
+    _StyleOption('Asian', '🍜'),
+    _StyleOption('Chinese', '🥡'),
     _StyleOption('Japanese', '🍱'),
     _StyleOption('Thai', '🌶️'),
+    _StyleOption('Korean', '🥘'),
+    _StyleOption('Indian', '🍛'),
+    _StyleOption('Middle Eastern', '🧆'),
+    _StyleOption('Mexican', '🌮'),
     _StyleOption('American', '🍔'),
+    _StyleOption('Southern', '🍗'),
     _StyleOption('French', '🥐'),
+    _StyleOption('Caribbean', '🥥'),
+  ];
+
+  static const List<_StyleOption> _styles = [
     _StyleOption('Comfort food', '🥘'),
     _StyleOption('Light & healthy', '🥗'),
     _StyleOption('Quick & easy', '⚡'),
-    _StyleOption('Smoothies', '🥤'),
-    _StyleOption('Vegetable-forward', '🥦'),
     _StyleOption('High protein', '💪'),
+    _StyleOption('Vegetable-forward', '🥦'),
     _StyleOption('Budget-friendly', '💰'),
+    _StyleOption('One-pot', '🍲'),
   ];
 
   @override
@@ -140,30 +147,75 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
 
             const SizedBox(height: 20),
 
-            // ── Style grid with scroll indicator ──────────────
+            // ── Style grid with grouped sections ──────────────
             Expanded(
               child: Stack(
                 children: [
-                  Padding(
+                  SingleChildScrollView(
+                    controller: _scrollController,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: GridView.builder(
-                      controller: _scrollController,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 2.6,
-                      ),
-                      itemCount: _options.length,
-                      itemBuilder: (context, i) {
-                        final opt = _options[i];
-                        final isSelected = _selected.contains(opt.label);
-                        return _StyleChip(
-                          option: opt,
-                          isSelected: isSelected,
-                          onTap: () => _toggle(opt.label),
-                        );
-                      },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Cuisines',
+                          style: ElioText.label.copyWith(
+                            color: ElioColors.textSecondary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 2.6,
+                          ),
+                          itemCount: _cuisines.length,
+                          itemBuilder: (context, i) {
+                            final opt = _cuisines[i];
+                            final isSelected = _selected.contains(opt.label);
+                            return _StyleChip(
+                              option: opt,
+                              isSelected: isSelected,
+                              onTap: () => _toggle(opt.label),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Styles',
+                          style: ElioText.label.copyWith(
+                            color: ElioColors.textSecondary,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 2.6,
+                          ),
+                          itemCount: _styles.length,
+                          itemBuilder: (context, i) {
+                            final opt = _styles[i];
+                            final isSelected = _selected.contains(opt.label);
+                            return _StyleChip(
+                              option: opt,
+                              isSelected: isSelected,
+                              onTap: () => _toggle(opt.label),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                      ],
                     ),
                   ),
                   // Fade gradient + scroll hint at bottom

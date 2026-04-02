@@ -10,6 +10,7 @@ import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
 import '../../services/guest_pantry_service.dart';
 import '../recipe/recipe_screen.dart';
+import 'bulk_prep_results_screen.dart';
 import '../history/history_screen.dart';
 import '../meal_plan/meal_plan_screen.dart';
 import '../profile/profile_screen.dart';
@@ -17,6 +18,7 @@ import '../paywall/paywall_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/error_service.dart';
 
 // ─────────────────────────────────────────────
 // HomeScreen
@@ -72,6 +74,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isGenerating = false;
   String _generatingMessage = 'Generating recipe...';
   StreamSubscription<RecipeGenerationStatus>? _generationSub;
+
+  // ── Bulk prep mode ──────────────────────────────────────────────────
+  bool _isBulkPrep = false;
+  int _bulkMealCount = 2;
+  int _bulkPortionsPerMeal = 6;
 
   // ── Household profiles for dietary filter strip ────────────────────
   // Each entry: { 'id': String, 'name': String, 'dietaryRequirements': List<String>, 'isOwner': bool }
@@ -489,6 +496,12 @@ class _HomeScreenState extends State<HomeScreen> {
       perishableInventoryDescriptions: _isLeftoverMode ? [] : _perishableDescriptions,
     );
 
+    // If bulk prep mode, use the multi-meal generation flow
+    if (_isBulkPrep) {
+      _generateBulkRecipes(request);
+      return;
+    }
+
     int messageIndex = 0;
     _generationSub = GeminiService.generateRecipeStream(request).listen(
       (status) {
@@ -509,17 +522,25 @@ class _HomeScreenState extends State<HomeScreen> {
             _recentTitles.add(recipe.title);
             if (_recentTitles.length > 20) _recentTitles.removeAt(0);
 
+            // Save to history FIRST so RecipeScreen knows the savedAt
+            final savedAt = DateTime.now().toUtc().toIso8601String();
+            HistoryService.saveRecipe(SavedRecipe(
+              recipe: recipe,
+              savedAt: savedAt,
+            ));
+
             Navigator.of(context).push(
               MaterialPageRoute(
                 builder: (_) => RecipeScreen(
                   recipe: recipe,
                   originalRequest: request,
                   isGuest: widget.isGuest,
+                  savedAt: savedAt,
                 ),
               ),
             );
 
-            // Background saves — non-blocking, best-effort
+            // Background saves (Firestore, entitlements) — non-blocking
             _performBackgroundSaves(recipe);
 
             _analytics.logEvent('recipe_generated', {
@@ -573,16 +594,88 @@ class _HomeScreenState extends State<HomeScreen> {
       // Firestore save failure is non-critical — recipe is already shown
     }
 
-    // Always save to local history (works offline and for guests)
-    await HistoryService.saveRecipe(SavedRecipe(
-      recipe: recipe,
-      savedAt: DateTime.now().toUtc().toIso8601String(),
-    ));
-
+    // History save already done before navigation — just refresh the list
     _loadRecentHistory();
   }
 
+  Future<void> _generateBulkRecipes(RecipeGenerationRequest request) async {
+    final List<GeneratedRecipe> completedRecipes = [];
+    final List<String> previousTitles = [];
+
+    for (int meal = 1; meal <= _bulkMealCount; meal++) {
+      if (!mounted) return;
+      setState(() {
+        _generatingMessage = 'Generating meal $meal of $_bulkMealCount...';
+      });
+
+      GeneratedRecipe? result;
+      String? errorMsg;
+
+      await for (final status in GeminiService.generateBulkRecipeStream(
+        request,
+        portions: _bulkPortionsPerMeal,
+        mealNumber: meal,
+        totalMeals: _bulkMealCount,
+        previousMealTitles: previousTitles,
+      )) {
+        if (!mounted) return;
+        switch (status) {
+          case RecipeGenerating():
+            // Keep the "Generating meal X of Y..." message
+            break;
+          case RecipeComplete():
+            result = status.recipe;
+          case RecipeError():
+            errorMsg = status.message;
+        }
+      }
+
+      if (errorMsg != null) {
+        _showGenerationError(errorMsg);
+        setState(() => _isGenerating = false);
+        return;
+      }
+
+      if (result != null) {
+        completedRecipes.add(result);
+        previousTitles.add(result.title);
+        _recentTitles.add(result.title);
+        if (_recentTitles.length > 20) _recentTitles.removeAt(0);
+
+        // Save to history + background saves
+        HistoryService.saveRecipe(SavedRecipe(
+          recipe: result,
+          savedAt: DateTime.now().toUtc().toIso8601String(),
+        ));
+        _performBackgroundSaves(result);
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _isGenerating = false);
+
+    if (completedRecipes.isNotEmpty) {
+      _analytics.logEvent('bulk_prep_generated', {
+        'meal_count': _bulkMealCount,
+        'portions_per_meal': _bulkPortionsPerMeal,
+        'is_saver_mode': _saverMode,
+        'is_guest': widget.isGuest,
+      });
+
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => BulkPrepResultsScreen(
+            recipes: completedRecipes,
+            originalRequest: request,
+            isGuest: widget.isGuest,
+          ),
+        ),
+      );
+    }
+  }
+
   void _showGenerationError(String raw) {
+    ErrorService.log('recipe_generation', raw);
     if (!mounted) return;
     final String msg;
     if (raw.contains('SocketException') ||
@@ -1303,42 +1396,6 @@ class _HomeScreenState extends State<HomeScreen> {
       height: 56,
       child: Row(
         children: [
-          // Saver toggle
-          GestureDetector(
-            onTap: () {
-              setState(() => _saverMode = !_saverMode);
-              _analytics.logEvent('saver_mode_toggled', {'enabled': _saverMode});
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Saver',
-                  style: GoogleFonts.quicksand(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _saverMode ? ElioColors.amber : ElioColors.navy,
-                  ),
-                ),
-                const SizedBox(width: 2),
-                SizedBox(
-                  height: 32,
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: Switch.adaptive(
-                      value: _saverMode,
-                      activeTrackColor: ElioColors.amber,
-                      onChanged: (value) {
-                        setState(() => _saverMode = value);
-                        _analytics.logEvent('saver_mode_toggled', {'enabled': value});
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
           // Generate button
           Expanded(
             child: SizedBox(
@@ -1364,11 +1421,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          Text(
-                            _generatingMessage,
-                            style: const TextStyle(fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white),
+                          Flexible(
+                            child: Text(
+                              _generatingMessage,
+                              style: const TextStyle(fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white),
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ],
                       )
@@ -1381,7 +1441,184 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+          const SizedBox(width: 12),
+          // Stacked toggles on right
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildMiniToggle(
+                label: 'Saver',
+                value: _saverMode,
+                onChanged: (v) {
+                  setState(() => _saverMode = v);
+                  _analytics.logEvent('saver_mode_toggled', {'enabled': v});
+                },
+              ),
+              const SizedBox(height: 2),
+              _buildMiniToggle(
+                label: 'Bulk',
+                value: _isBulkPrep,
+                onChanged: (v) {
+                  if (v && !_entitlements.isPro && !widget.isGuest) {
+                    _showUpgradeDialog();
+                    return;
+                  }
+                  if (v && widget.isGuest) {
+                    _showUpgradeDialog();
+                    return;
+                  }
+                  setState(() => _isBulkPrep = v);
+                  if (v) _showBulkPrepConfig();
+                  _analytics.logEvent('bulk_prep_toggled', {'enabled': v});
+                },
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMiniToggle({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 36,
+            child: Text(
+              label,
+              textAlign: TextAlign.right,
+              style: GoogleFonts.quicksand(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: value ? ElioColors.amber : ElioColors.navy,
+              ),
+            ),
+          ),
+          const SizedBox(width: 2),
+          SizedBox(
+            height: 24,
+            width: 36,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: Switch.adaptive(
+                value: value,
+                activeTrackColor: ElioColors.amber,
+                onChanged: onChanged,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBulkPrepConfig() {
+    int tempMeals = _bulkMealCount;
+    int tempPortions = _bulkPortionsPerMeal;
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.ac_unit_rounded, color: ElioColors.amber, size: 20),
+              const SizedBox(width: 8),
+              Text('Bulk Prep Settings', style: ElioText.headingMedium),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Meals slider
+              Row(
+                children: [
+                  Text('Meals:', style: ElioText.bodyMedium),
+                  Expanded(
+                    child: Slider(
+                      value: tempMeals.toDouble(),
+                      min: 1,
+                      max: 3,
+                      divisions: 2,
+                      activeColor: ElioColors.amber,
+                      label: '$tempMeals',
+                      onChanged: (v) => setDialogState(() => tempMeals = v.round()),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 24,
+                    child: Text(
+                      '$tempMeals',
+                      style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w700),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Portions slider
+              Row(
+                children: [
+                  Text('Portions:', style: ElioText.bodyMedium),
+                  Expanded(
+                    child: Slider(
+                      value: tempPortions.toDouble(),
+                      min: 4,
+                      max: 12,
+                      divisions: 8,
+                      activeColor: ElioColors.amber,
+                      label: '$tempPortions',
+                      onChanged: (v) => setDialogState(() => tempPortions = v.round()),
+                    ),
+                  ),
+                  SizedBox(
+                    width: 24,
+                    child: Text(
+                      '$tempPortions',
+                      style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w700),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Elio will generate $tempMeals freezer-friendly ${tempMeals == 1 ? "meal" : "meals"}, each scaled for $tempPortions portions when you generate.',
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() => _isBulkPrep = false);
+                Navigator.pop(ctx);
+              },
+              child: Text('Cancel', style: TextStyle(color: ElioColors.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                setState(() {
+                  _bulkMealCount = tempMeals;
+                  _bulkPortionsPerMeal = tempPortions;
+                });
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ElioColors.amber,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1592,6 +1829,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   builder: (_) => RecipeScreen(
                     recipe: saved.recipe,
                     isGuest: widget.isGuest,
+                    savedAt: saved.savedAt,
                   ),
                 ),
               ),

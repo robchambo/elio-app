@@ -9,9 +9,13 @@
 enum DietaryRequirement {
   vegetarian('Vegetarian'),
   vegan('Vegan'),
+  pescatarian('Pescatarian'),
   glutenFree('Gluten-free'),
   dairyFree('Dairy-free'),
+  eggFree('Egg-free'),
   nutFree('Nut-free'),
+  soyFree('Soy-free'),
+  shellfishFree('Shellfish-free'),
   halalCertified('Halal'),
   kosher('Kosher'),
   lowFodmap('Low FODMAP'),

@@ -24,8 +24,9 @@ class _DietaryScreenState extends State<DietaryScreen> {
   final TextEditingController _allergenController = TextEditingController();
 
   static const List<String> _allOptions = [
-    'Vegetarian', 'Vegan', 'Gluten-free', 'Dairy-free',
-    'Nut-free', 'Halal', 'Kosher', 'Low FODMAP',
+    'Vegetarian', 'Vegan', 'Pescatarian', 'Gluten-free', 'Dairy-free',
+    'Egg-free', 'Nut-free', 'Soy-free', 'Shellfish-free',
+    'Halal', 'Kosher', 'Low FODMAP',
     'Diabetic-friendly', 'Low-carb', 'High-protein',
   ];
 
@@ -198,7 +199,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
                       }).toList(),
                     ),
                     const SizedBox(height: 28),
-                    Text('Custom allergens', style: ElioText.headingMedium.copyWith(fontSize: 16)),
+                    Text('Custom allergens or dietary requirements', style: ElioText.headingMedium.copyWith(fontSize: 16)),
                     const SizedBox(height: 4),
                     Text(
                       'Add any allergies or intolerances not listed above.',
