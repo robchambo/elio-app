@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 1 April 2026 (Sprint 15.3.13 — performance + voice control fixes)
+**Last updated:** 2 April 2026 (Sprint 15.3 complete — moving to Sprint 16)
 
 ---
 
@@ -60,7 +60,7 @@
 
 ---
 
-## Current: Sprint 15.3 — Recipe Import & UX Polish
+## Sprint 15.3 — Recipe Import & UX Polish ✅
 
 **Goal:** Let users bring external recipes into their Recipe Book via photo scan or manual entry, plus Pantry Builder improvements.
 
@@ -102,7 +102,7 @@
 
 ---
 
-## Next: Sprint 16 — Launch Preparation
+## Current: Sprint 16 — Launch Preparation
 
 **Goal:** Get the app ready for public release on Google Play.
 
