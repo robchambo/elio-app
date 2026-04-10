@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/meal_plan_models.dart';
+import '../utils/pantry_utils.dart';
+import '../utils/quantity_utils.dart';
 
 // ─────────────────────────────────────────────
 // ShoppingService
@@ -129,45 +131,68 @@ class ShoppingService {
 
     final haveSet = alreadyHave.map((s) => s.toLowerCase().trim()).toSet();
 
-    // Aggregate ingredients from all meals
-    final aggregated = <String, String>{};
+    // Universal staples to filter out
+    const staples = {'water', 'salt', 'pepper', 'black pepper'};
+
+    // Aggregate ingredients from all meals with proper quantity consolidation
+    final quantities = <String, List<ParsedQuantity>>{};
+    final displayNames = <String, String>{};
+
     for (final day in plan.days) {
       for (final meal in day.meals.values) {
         if (meal == null) continue;
         for (final ingredient in meal.ingredients) {
-          final key = ingredient.name.toLowerCase().trim();
-          if (haveSet.any((h) => key.contains(h) || h.contains(key))) continue;
-          final qtyStr = '${ingredient.quantity} ${ingredient.unit}'.trim();
-          // Keep the first quantity we see (or accumulate — keeping simple for now)
-          aggregated.putIfAbsent(key, () => qtyStr);
+          final key = PantryUtils.normalise(ingredient.name);
+
+          // Skip pantry items using fuzzy matching
+          if (haveSet.any((h) => PantryUtils.isFuzzyMatch(key, h))) continue;
+
+          // Skip universal staples
+          if (staples.contains(key)) continue;
+
+          // Parse and accumulate quantity
+          final parsed = QuantityUtils.parse(ingredient.quantity, ingredient.unit);
+          quantities.putIfAbsent(key, () => []).add(parsed);
+
+          // Keep the first capitalised display name seen
+          displayNames.putIfAbsent(key, () => ingredient.name.trim());
         }
       }
     }
 
     // Batch upsert
     final existing = await _collection.get();
-    final existingByName = <String, DocumentReference>{};
-    for (final doc in existing.docs) {
-      final name = (doc.data()['nameLower'] as String?) ??
-          (doc.data()['name'] as String? ?? '').toLowerCase().trim();
-      existingByName[name] = doc.reference;
-    }
+    final existingDocs = existing.docs;
 
     final batch = _db.batch();
-    for (final entry in aggregated.entries) {
-      if (existingByName.containsKey(entry.key)) {
+    for (final entry in quantities.entries) {
+      final combinedQty = QuantityUtils.combine(entry.value);
+      final displayName = displayNames[entry.key] ?? entry.key;
+
+      // Fuzzy match against existing shopping items
+      DocumentReference? existingRef;
+      for (final doc in existingDocs) {
+        final docName = (doc.data()['nameLower'] as String?) ??
+            (doc.data()['name'] as String? ?? '').toLowerCase().trim();
+        if (PantryUtils.isFuzzyMatch(entry.key, docName)) {
+          existingRef = doc.reference;
+          break;
+        }
+      }
+
+      if (existingRef != null) {
         // Update quantity, uncheck if it was checked
-        batch.update(existingByName[entry.key]!, {
-          'quantity': entry.value,
+        batch.update(existingRef, {
+          'quantity': combinedQty,
           'source': ShoppingSource.mealPlan.name,
           'isChecked': false,
         });
       } else {
         final ref = _collection.doc();
         batch.set(ref, {
-          'name': entry.key,
-          'nameLower': entry.key,
-          'quantity': entry.value,
+          'name': displayName,
+          'nameLower': displayName.toLowerCase().trim(),
+          'quantity': combinedQty,
           'source': ShoppingSource.mealPlan.name,
           'isChecked': false,
           'addedAt': Timestamp.fromDate(DateTime.now()),
