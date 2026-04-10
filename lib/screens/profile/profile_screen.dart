@@ -12,6 +12,7 @@ import '../onboarding/screen0_welcome.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/shopping_service.dart';
+import '../../utils/aisle_utils.dart';
 import 'notification_prefs_screen.dart';
 import 'settings_screen.dart';
 import '../scanner/scanner_screen.dart';
@@ -1489,9 +1490,26 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
     final unchecked = _shoppingItems.where((i) => !i.isChecked).toList();
     final checked = _shoppingItems.where((i) => i.isChecked).toList();
-    final restockItems = unchecked.where((i) => i.isRestock).toList();
-    final mealPlanItems = unchecked.where((i) => i.isMealPlan).toList();
-    final manualItems = unchecked.where((i) => i.isManual).toList();
+
+    // Group unchecked items by grocery aisle
+    final aisleGroups = <GroceryAisle, List<PersistentShoppingItem>>{};
+    for (final item in unchecked) {
+      final aisle = AisleUtils.classify(item.name);
+      aisleGroups.putIfAbsent(aisle, () => []).add(item);
+    }
+
+    const aisleIcons = <GroceryAisle, IconData>{
+      GroceryAisle.produce: Icons.eco_outlined,
+      GroceryAisle.meatAndFish: Icons.set_meal_outlined,
+      GroceryAisle.dairy: Icons.egg_outlined,
+      GroceryAisle.bakery: Icons.bakery_dining_outlined,
+      GroceryAisle.tinsAndDry: Icons.inventory_2_outlined,
+      GroceryAisle.condiments: Icons.local_dining_outlined,
+      GroceryAisle.spices: Icons.grass_outlined,
+      GroceryAisle.frozen: Icons.ac_unit_outlined,
+      GroceryAisle.drinks: Icons.local_cafe_outlined,
+      GroceryAisle.other: Icons.shopping_bag_outlined,
+    };
 
     return Column(
       children: [
@@ -1600,57 +1618,28 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               : ListView(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
                   children: [
-                    // Restock section
-                    if (restockItems.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          const Icon(Icons.warning_amber_rounded, size: 16, color: ElioColors.amber),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Restock (${restockItems.length})',
-                            style: ElioText.label.copyWith(
-                              color: ElioColors.amber,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
+                    // Aisle-based sections for unchecked items
+                    for (final aisle in AisleUtils.displayOrder)
+                      if (aisleGroups.containsKey(aisle)) ...[
+                        Row(
+                          children: [
+                            Icon(aisleIcons[aisle] ?? Icons.shopping_bag_outlined, size: 18, color: ElioColors.textSecondary),
+                            const SizedBox(width: 8),
+                            Text(
+                              AisleUtils.displayName(aisle),
+                              style: ElioText.label.copyWith(
+                                color: ElioColors.textSecondary,
+                                letterSpacing: 0.5,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ...restockItems.map((item) => _buildShoppingTile(item)),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Meal plan section
-                    if (mealPlanItems.isNotEmpty) ...[
-                      Text(
-                        'For recipes (${mealPlanItems.length})',
-                        style: ElioText.label.copyWith(
-                          color: ElioColors.textMuted,
-                          letterSpacing: 0.5,
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      ...mealPlanItems.map((item) => _buildShoppingTile(item)),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Manual items section
-                    if (manualItems.isNotEmpty) ...[
-                      if (restockItems.isNotEmpty || mealPlanItems.isNotEmpty)
-                        Text(
-                          'Added by you (${manualItems.length})',
-                          style: ElioText.label.copyWith(
-                            color: ElioColors.textMuted,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      if (restockItems.isNotEmpty || mealPlanItems.isNotEmpty)
                         const SizedBox(height: 8),
-                      ...manualItems.map((item) => _buildShoppingTile(item)),
-                    ],
+                        ...aisleGroups[aisle]!.map((item) => _buildShoppingTile(item)),
+                        const SizedBox(height: 16),
+                      ],
 
-                    // Checked items
+                    // Done section — all checked items grouped together
                     if (checked.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Row(
@@ -1734,15 +1723,38 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  _capitaliseShoppingName(item.name),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: item.isChecked ? ElioColors.textMuted : ElioColors.textPrimary,
-                    decoration: item.isChecked ? TextDecoration.lineThrough : null,
-                    decorationColor: ElioColors.textMuted,
-                  ),
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      _capitaliseShoppingName(item.name),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: item.isChecked ? ElioColors.textMuted : ElioColors.textPrimary,
+                        decoration: item.isChecked ? TextDecoration.lineThrough : null,
+                        decorationColor: ElioColors.textMuted,
+                      ),
+                    ),
+                    if (item.isRestock && !item.isChecked)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: ElioColors.amber.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'Restock',
+                          style: ElioText.label.copyWith(
+                            fontSize: 10,
+                            color: ElioColors.amber,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               if (item.quantity.isNotEmpty && !item.isChecked)

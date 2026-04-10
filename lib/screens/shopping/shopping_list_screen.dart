@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/meal_plan_models.dart';
+import '../../utils/aisle_utils.dart';
 
 // ─────────────────────────────────────────────
 // ShoppingListScreen
@@ -87,6 +88,26 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     final unchecked = _items.where((i) => !i.isChecked).toList();
     final checked = _items.where((i) => i.isChecked).toList();
 
+    // Group unchecked items by grocery aisle
+    final aisleGroups = <GroceryAisle, List<ShoppingItem>>{};
+    for (final item in unchecked) {
+      final aisle = AisleUtils.classify(item.name);
+      aisleGroups.putIfAbsent(aisle, () => []).add(item);
+    }
+
+    const aisleIcons = <GroceryAisle, IconData>{
+      GroceryAisle.produce: Icons.eco_outlined,
+      GroceryAisle.meatAndFish: Icons.set_meal_outlined,
+      GroceryAisle.dairy: Icons.egg_outlined,
+      GroceryAisle.bakery: Icons.bakery_dining_outlined,
+      GroceryAisle.tinsAndDry: Icons.inventory_2_outlined,
+      GroceryAisle.condiments: Icons.local_dining_outlined,
+      GroceryAisle.spices: Icons.grass_outlined,
+      GroceryAisle.frozen: Icons.ac_unit_outlined,
+      GroceryAisle.drinks: Icons.local_cafe_outlined,
+      GroceryAisle.other: Icons.shopping_bag_outlined,
+    };
+
     return Scaffold(
       backgroundColor: ElioColors.white,
       body: SafeArea(
@@ -158,13 +179,34 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
                       children: [
-                        // Restock section (Running Low items) — always at top
-                        ..._buildRestockSection(unchecked),
+                        // Aisle-based sections for unchecked items
+                        for (final aisle in AisleUtils.displayOrder)
+                          if (aisleGroups.containsKey(aisle)) ...[
+                            Row(
+                              children: [
+                                Icon(aisleIcons[aisle] ?? Icons.shopping_bag_outlined, size: 18, color: ElioColors.textSecondary),
+                                const SizedBox(width: 8),
+                                Text(
+                                  AisleUtils.displayName(aisle),
+                                  style: ElioText.label.copyWith(
+                                    color: ElioColors.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            ...aisleGroups[aisle]!.map((item) {
+                              final index = _items.indexOf(item);
+                              return _ShoppingItemTile(
+                                item: item,
+                                onTap: () => _toggleItem(index),
+                              );
+                            }),
+                            const SizedBox(height: 16),
+                          ],
 
-                        // Recipe ingredients section
-                        ..._buildRecipeSection(unchecked),
-
-                        // Checked items section
+                        // In basket section — all checked items grouped together
                         if (checked.isNotEmpty) ...[
                           const SizedBox(height: 16),
                           Row(
@@ -205,63 +247,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
         ),
       ),
     );
-  }
-
-  List<Widget> _buildRestockSection(List<ShoppingItem> unchecked) {
-    final restockItems = unchecked.where((i) => i.isRestock).toList();
-    if (restockItems.isEmpty) return [];
-
-    return [
-      Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded, size: 16, color: ElioColors.amber),
-          const SizedBox(width: 6),
-          Text(
-            'Restock (${restockItems.length})',
-            style: ElioText.label.copyWith(
-              color: ElioColors.amber,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 8),
-      ...restockItems.map((item) {
-        final index = _items.indexOf(item);
-        return _ShoppingItemTile(
-          item: item,
-          onTap: () => _toggleItem(index),
-        );
-      }),
-      const SizedBox(height: 16),
-    ];
-  }
-
-  List<Widget> _buildRecipeSection(List<ShoppingItem> unchecked) {
-    final recipeItems = unchecked.where((i) => !i.isRestock).toList();
-    if (recipeItems.isEmpty) return [];
-
-    final hasRestock = unchecked.any((i) => i.isRestock);
-    return [
-      if (hasRestock) ...[
-        Text(
-          'For recipes (${recipeItems.length})',
-          style: ElioText.label.copyWith(
-            color: ElioColors.textMuted,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
-      ...recipeItems.map((item) {
-        final index = _items.indexOf(item);
-        return _ShoppingItemTile(
-          item: item,
-          onTap: () => _toggleItem(index),
-        );
-      }),
-    ];
   }
 
   Widget _buildEmptyState() {
@@ -338,17 +323,40 @@ class _ShoppingItemTile extends StatelessWidget {
             ),
             const SizedBox(width: 12),
 
-            // Item name
+            // Item name + restock badge
             Expanded(
-              child: Text(
-                _capitalise(item.name),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: item.isChecked ? ElioColors.textMuted : ElioColors.textPrimary,
-                  decoration: item.isChecked ? TextDecoration.lineThrough : null,
-                  decorationColor: ElioColors.textMuted,
-                ),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    _capitalise(item.name),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: item.isChecked ? ElioColors.textMuted : ElioColors.textPrimary,
+                      decoration: item.isChecked ? TextDecoration.lineThrough : null,
+                      decorationColor: ElioColors.textMuted,
+                    ),
+                  ),
+                  if (item.isRestock && !item.isChecked)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: ElioColors.amber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Restock',
+                        style: ElioText.label.copyWith(
+                          fontSize: 10,
+                          color: ElioColors.amber,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 
