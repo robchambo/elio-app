@@ -282,7 +282,7 @@ class GeminiService {
       }
 
       if (request.perishables.isNotEmpty) {
-        buffer.writeln('Fresh items (use these): ${request.perishables.join(', ')}');
+        buffer.writeln('REQUIRED ingredients — you MUST use ALL of these in the recipe (not just some of them): ${request.perishables.join(', ')}. Every single one of these must appear in the ingredients list and be used meaningfully in the cooking steps.');
       } else if (request.perishableInventoryDescriptions.isEmpty) {
         buffer.writeln('No fresh items — use pantry staples.');
       }
