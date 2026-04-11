@@ -81,10 +81,68 @@ class PurchaseService {
 
     try {
       final offerings = await Purchases.getOfferings();
-      return offerings.current?.availablePackages ?? [];
+      final pkgs = offerings.current?.availablePackages ?? [];
+      _lastFetchedPackages = pkgs;
+      return pkgs;
     } catch (_) {
       return [];
     }
+  }
+
+  // ── Free trial helpers ─────────────────────────────────────────────
+  // RevenueCat exposes free-trial eligibility on the StoreProduct via
+  // introductoryPrice. If introductoryPrice is non-null and the period
+  // has units > 0, the user is eligible for a trial when subscribing
+  // to that package. RevenueCat handles eligibility server-side; the
+  // app must NOT track trial state itself.
+
+  /// Returns true if the package has a free trial available for the
+  /// current user (i.e. the StoreProduct exposes an introductoryPrice
+  /// with a non-zero period).
+  bool hasFreeTrial(Package package) {
+    final intro = package.storeProduct.introductoryPrice;
+    if (intro == null) return false;
+    return intro.periodNumberOfUnits > 0;
+  }
+
+  /// Returns a short human label for the trial duration, e.g. "7-day".
+  /// Returns an empty string if there is no trial.
+  String trialDurationLabel(Package package) {
+    final intro = package.storeProduct.introductoryPrice;
+    if (intro == null || intro.periodNumberOfUnits <= 0) return '';
+    final units = intro.periodNumberOfUnits;
+    final unit = intro.periodUnit;
+    // PeriodUnit values: day, week, month, year (lowercase from RC SDK)
+    final unitName = unit.name.toLowerCase();
+    switch (unitName) {
+      case 'day':
+        return '$units-day';
+      case 'week':
+        // Express weeks as days for the common 1-week trial case
+        return '${units * 7}-day';
+      case 'month':
+        return units == 1 ? '1-month' : '$units-month';
+      case 'year':
+        return units == 1 ? '1-year' : '$units-year';
+      default:
+        return '$units-$unitName';
+    }
+  }
+
+  /// Cached offerings result. Null until first checked.
+  /// Used by [isAnyTrialAvailable] for a synchronous getter — it reads
+  /// only what has already been fetched via [getPackages]. Call
+  /// [getPackages] first to populate.
+  List<Package> _lastFetchedPackages = const [];
+
+  /// Returns true if at least one currently-loaded package has a trial.
+  /// Note: this reads cached package data populated by [getPackages];
+  /// callers that need accurate state should await [getPackages] first.
+  bool get isAnyTrialAvailable {
+    for (final p in _lastFetchedPackages) {
+      if (hasFreeTrial(p)) return true;
+    }
+    return false;
   }
 
   // ── Purchase ───────────────────────────────────────────────────────

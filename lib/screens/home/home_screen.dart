@@ -706,7 +706,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showUpgradeDialog() {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const PaywallScreen(trigger: PaywallTrigger.capReached),
+        builder: (_) => const PaywallScreen(
+          triggerContext: 'weekly_limit',
+          trigger: PaywallTrigger.capReached,
+        ),
       ),
     );
   }
@@ -1091,7 +1094,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         if (_isLeftoverMode) ...[
           // ── Leftover quick-tap chips ─────────────────────────────────────────────────
-          SizedBox(
+          _FadeRightEdge(
             height: 38,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
@@ -1185,7 +1188,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ] else ...[
         // ── Quick-tap chips (normal mode) ─────────────────────────────────────────────────
-        SizedBox(
+        _FadeRightEdge(
           height: 38,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
@@ -1336,7 +1339,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        SizedBox(
+        _FadeRightEdge(
           height: 36,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
@@ -1900,6 +1903,33 @@ class _DietaryPill extends StatelessWidget {
 }
 
 // ─── Selected perishable tag ──────────────────────────────────────────────────
+/// Wraps a horizontally scrollable child in a ShaderMask that fades the
+/// last 15% to transparent on the right edge, signalling more content offscreen.
+class _FadeRightEdge extends StatelessWidget {
+  final double height;
+  final Widget child;
+  const _FadeRightEdge({required this.height, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: height,
+      child: ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [Colors.white, Colors.white, Colors.transparent],
+            stops: [0.0, 0.85, 1.0],
+          ).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn,
+        child: child,
+      ),
+    );
+  }
+}
+
 class _SelectedTag extends StatelessWidget {
   final String label;
   final VoidCallback onRemove;

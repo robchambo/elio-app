@@ -226,8 +226,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     }
   }
 
-  void _openShoppingList() {
+  Future<void> _openShoppingList() async {
     if (_plan == null) return;
+    await _entitlements.refresh();
+    if (!mounted) return;
     if (!_entitlements.canUseShoppingList) {
       _showProRequiredSnack('Shopping lists');
       return;
@@ -247,10 +249,19 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     );
   }
 
+  String? _contextForFeature(String feature) {
+    final f = feature.toLowerCase();
+    if (f.contains('shop')) return 'shopping_list';
+    if (f.contains('meal') || f.contains('plan')) return 'meal_planner';
+    if (f.contains('household')) return 'household';
+    return null;
+  }
+
   void _showProRequiredSnack(String feature) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => PaywallScreen(
+          triggerContext: _contextForFeature(feature),
           trigger: PaywallTrigger.lockedFeature,
           lockedFeatureName: feature,
         ),

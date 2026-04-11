@@ -8,21 +8,37 @@ import '../../services/entitlement_service.dart';
 
 // ─────────────────────────────────────────────
 // PaywallScreen
-// Design: approachable utility.
+// Lead with a 7-day free trial when the user is eligible.
+// RevenueCat manages trial eligibility server-side via the
+// StoreProduct introductoryPrice — the app does not track trial state.
 //
-// Annual plan pre-selected, monthly shown as secondary.
-// 7-day opt-in trial (no card required).
-// Can be shown post-onboarding, on cap hit, or from locked features.
+// Two visual states:
+//   1. Trial-eligible:    "Start Your 7-Day Free Trial"
+//   2. Already used trial: "Upgrade to Pro" (direct purchase)
+//
+// Both states share the same feature checklist and plan toggle.
 // ─────────────────────────────────────────────
 
+/// Legacy trigger enum — retained for backward compatibility with existing
+/// callers and integration tests. New callers should prefer [triggerContext].
 enum PaywallTrigger { onboarding, capReached, lockedFeature }
 
 class PaywallScreen extends StatefulWidget {
+  /// Optional context describing where the paywall was opened from.
+  /// Recognised values: 'weekly_limit', 'meal_planner', 'shopping_list',
+  /// 'household'. Any other value (or null) shows the default headline.
+  final String? triggerContext;
+
+  /// Legacy trigger — kept for backward compatibility. Maps onto
+  /// [triggerContext] when [triggerContext] is null.
   final PaywallTrigger trigger;
+
+  /// Legacy locked-feature name — kept so older callers still compile.
   final String? lockedFeatureName;
 
   const PaywallScreen({
     super.key,
+    this.triggerContext,
     this.trigger = PaywallTrigger.lockedFeature,
     this.lockedFeatureName,
   });
@@ -34,7 +50,8 @@ class PaywallScreen extends StatefulWidget {
 class _PaywallScreenState extends State<PaywallScreen> {
   final AnalyticsService _analytics = AnalyticsService.instance;
   final PurchaseService _purchases = PurchaseService.instance;
-  bool _isAnnual = true; // Annual pre-selected
+
+  bool _isAnnual = true; // Annual pre-selected (best value)
   bool _isLoading = false;
   List<Package> _packages = [];
 
@@ -42,8 +59,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
   void initState() {
     super.initState();
     _analytics.logEvent('paywall_viewed', {
-      'trigger': widget.trigger.name,
-      'locked_feature': widget.lockedFeatureName ?? 'none',
+      'trigger_context': _resolvedContext ?? 'none',
+      'legacy_trigger': widget.trigger.name,
     });
     _loadPackages();
   }
@@ -54,28 +71,86 @@ class _PaywallScreenState extends State<PaywallScreen> {
     if (mounted) setState(() => _packages = packages);
   }
 
-  String get _headline {
+  /// Resolves the effective context string. If [triggerContext] is set,
+  /// use it directly. Otherwise map the legacy [trigger] enum onto a
+  /// reasonable context value.
+  String? get _resolvedContext {
+    if (widget.triggerContext != null) return widget.triggerContext;
     switch (widget.trigger) {
-      case PaywallTrigger.onboarding:
-        return 'Unlock the full kitchen';
       case PaywallTrigger.capReached:
-        return "You've used all 7 this week";
+        return 'weekly_limit';
+      case PaywallTrigger.onboarding:
+        return null;
       case PaywallTrigger.lockedFeature:
-        return '${widget.lockedFeatureName ?? 'This feature'} is Pro';
+        final name = widget.lockedFeatureName?.toLowerCase() ?? '';
+        if (name.contains('meal')) return 'meal_planner';
+        if (name.contains('shop')) return 'shopping_list';
+        if (name.contains('household')) return 'household';
+        return null;
     }
   }
 
-  String get _subtitle {
-    switch (widget.trigger) {
-      case PaywallTrigger.onboarding:
-        return 'Start your 7-day free trial — no card required.';
-      case PaywallTrigger.capReached:
-        return 'Go Pro for unlimited recipes, meal plans, and more.';
-      case PaywallTrigger.lockedFeature:
-        return 'Upgrade to unlock ${widget.lockedFeatureName?.toLowerCase() ?? 'this feature'} and everything else.';
+  String get _contextHeadline {
+    switch (_resolvedContext) {
+      case 'weekly_limit':
+        return 'Unlock unlimited recipes';
+      case 'meal_planner':
+        return 'Plan your whole week';
+      case 'shopping_list':
+        return 'Shop smarter with one list';
+      case 'household':
+        return 'Cook for your whole household';
+      default:
+        return 'Go Pro with Elio';
     }
   }
 
+  // ── Trial / package helpers ─────────────────────────────────────────
+  Package? get _selectedPackage {
+    if (_packages.isEmpty) return null;
+    final targetId = _isAnnual
+        ? PurchaseService.annualProductId
+        : PurchaseService.monthlyProductId;
+    for (final p in _packages) {
+      if (p.storeProduct.identifier == targetId) return p;
+    }
+    return _packages.first;
+  }
+
+  /// Trial state is "lead with trial" in two cases:
+  ///   1. Packages are loaded AND at least one has a trial configured
+  ///      (live RevenueCat with trial-enabled Play Store SKUs).
+  ///   2. Packages are empty — either still loading or running in
+  ///      "dry mode" (no RC key). In that case we optimistically show
+  ///      the trial copy so pre-launch and testing match the intended
+  ///      live experience. RevenueCat remains the source of truth at
+  ///      purchase time — if the user isn't eligible, it won't grant one.
+  bool get _showTrialState {
+    if (_packages.isEmpty) return true;
+    for (final p in _packages) {
+      if (_purchases.hasFreeTrial(p)) return true;
+    }
+    return false;
+  }
+
+  String get _trialDurationLabel {
+    final pkg = _selectedPackage;
+    if (pkg == null) return '7-day';
+    final label = _purchases.trialDurationLabel(pkg);
+    return label.isEmpty ? '7-day' : label;
+  }
+
+  String get _selectedPriceString {
+    final pkg = _selectedPackage;
+    if (pkg == null) {
+      return _isAnnual ? '£27.99' : '£4.49';
+    }
+    return pkg.storeProduct.priceString;
+  }
+
+  String get _selectedPeriodString => _isAnnual ? 'year' : 'month';
+
+  // ── Build ───────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -83,15 +158,15 @@ class _PaywallScreenState extends State<PaywallScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // ── Close button ─────────────────────────────
+            // Close button (top-LEFT per spec)
             Align(
-              alignment: Alignment.topRight,
+              alignment: Alignment.topLeft,
               child: Padding(
-                padding: const EdgeInsets.only(top: 12, right: 16),
+                padding: const EdgeInsets.only(top: 12, left: 16),
                 child: GestureDetector(
                   onTap: () {
                     _analytics.logEvent('paywall_dismissed', {
-                      'trigger': widget.trigger.name,
+                      'trigger_context': _resolvedContext ?? 'none',
                     });
                     Navigator.of(context).pop();
                   },
@@ -103,7 +178,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       shape: BoxShape.circle,
                       border: Border.all(color: ElioColors.border),
                     ),
-                    child: const Icon(Icons.close, size: 18, color: ElioColors.textSecondary),
+                    child: const Icon(
+                      Icons.close,
+                      size: 18,
+                      color: ElioColors.textSecondary,
+                    ),
                   ),
                 ),
               ),
@@ -113,55 +192,65 @@ class _PaywallScreenState extends State<PaywallScreen> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ── Icon ─────────────────────────────────
-                    Container(
-                      width: 72,
-                      height: 72,
-                      decoration: BoxDecoration(
-                        color: ElioColors.amber.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.auto_awesome, color: ElioColors.amber, size: 36),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // ── Headline ─────────────────────────────
+                    // ── Context headline ────────────────────────
                     Text(
-                      _headline,
-                      style: GoogleFonts.playfairDisplay(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w700,
+                      _contextHeadline,
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: ElioColors.amber,
+                        letterSpacing: 0.4,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ── Hero ────────────────────────────────────
+                    Text(
+                      _showTrialState
+                          ? 'Start Your $_trialDurationLabel Free Trial'
+                          : 'Upgrade to Pro',
+                      style: GoogleFonts.outfit(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
                         color: ElioColors.navy,
+                        height: 1.2,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     Text(
-                      _subtitle,
-                      style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+                      _showTrialState
+                          ? 'All Pro features. Cancel anytime. No charge for 7 days.'
+                          : 'All Pro features. Cancel anytime in Google Play.',
+                      style: ElioText.bodyLarge.copyWith(
+                        color: ElioColors.textSecondary,
+                      ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 28),
 
-                    // ── Feature list ─────────────────────────
+                    // ── Feature checklist ───────────────────────
                     ..._buildFeatureList(),
-                    const SizedBox(height: 32),
-
-                    // ── Plan toggle ──────────────────────────
-                    _buildPlanCards(),
                     const SizedBox(height: 24),
 
-                    // ── CTA ──────────────────────────────────
+                    // ── Plan toggle ─────────────────────────────
+                    _buildPlanCards(),
+                    const SizedBox(height: 20),
+
+                    // ── Primary CTA ─────────────────────────────
                     SizedBox(
                       width: double.infinity,
-                      height: 56,
+                      height: 54,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _onSubscribe,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: ElioColors.amber,
                           foregroundColor: Colors.white,
-                          disabledBackgroundColor: ElioColors.amber.withValues(alpha: 0.5),
+                          disabledBackgroundColor:
+                              ElioColors.amber.withValues(alpha: 0.5),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -177,11 +266,9 @@ class _PaywallScreenState extends State<PaywallScreen> {
                                 ),
                               )
                             : Text(
-                                widget.trigger == PaywallTrigger.onboarding
+                                _showTrialState
                                     ? 'Start Free Trial'
-                                    : _isAnnual
-                                        ? 'Go Pro — £27.99/year'
-                                        : 'Go Pro — £4.49/month',
+                                    : 'Subscribe — $_selectedPriceString/$_selectedPeriodString',
                                 style: GoogleFonts.outfit(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w700,
@@ -189,40 +276,31 @@ class _PaywallScreenState extends State<PaywallScreen> {
                               ),
                       ),
                     ),
+                    const SizedBox(height: 10),
+
+                    // ── Fine print ──────────────────────────────
+                    Text(
+                      _showTrialState
+                          ? '7 days free, then $_selectedPriceString/$_selectedPeriodString. Cancel anytime in Google Play.'
+                          : '$_selectedPriceString billed every $_selectedPeriodString. Cancel anytime in Google Play.',
+                      style: ElioText.bodyMedium.copyWith(
+                        color: ElioColors.textMuted,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                     const SizedBox(height: 12),
 
-                    // ── Secondary CTAs ───────────────────────
-                    if (widget.trigger == PaywallTrigger.onboarding)
-                      TextButton(
-                        onPressed: _isLoading ? null : () {
-                          _analytics.logEvent('paywall_skip_trial');
-                          Navigator.of(context).pop();
-                        },
-                        child: Text(
-                          'Continue with free plan',
-                          style: ElioText.bodyMedium.copyWith(
-                            color: ElioColors.textSecondary,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-
-                    // ── Restore purchases ────────────────────
+                    // ── Restore purchases ───────────────────────
                     TextButton(
                       onPressed: _isLoading ? null : _onRestore,
                       child: Text(
                         'Restore purchases',
                         style: ElioText.bodyMedium.copyWith(
                           color: ElioColors.textSecondary,
+                          decoration: TextDecoration.underline,
                         ),
                       ),
-                    ),
-
-                    const SizedBox(height: 4),
-                    Text(
-                      'Cancel anytime. No commitment.',
-                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
-                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
@@ -234,75 +312,75 @@ class _PaywallScreenState extends State<PaywallScreen> {
     );
   }
 
-  // ── Feature list ─────────────────────────────────────────────────────
+  // ── Feature checklist ────────────────────────────────────────────────
   List<Widget> _buildFeatureList() {
     const features = [
-      ('Unlimited recipe generations', 'No weekly cap'),
-      ('Weekly meal planner', 'Auto-generated plans for your household'),
-      ('Shopping lists', 'Aggregated from your meal plan'),
-      ('Up to 6 household members', 'Everyone\'s diet covered'),
-      ('Unlimited recipe history', 'Never lose a favourite'),
+      'Unlimited AI recipe generation',
+      'Weekly meal planner',
+      'Smart shopping list',
+      'Household sharing (up to 6 members)',
+      'Unlimited recipe history',
+      'Priority recipe regeneration',
     ];
 
     return features
-        .map((f) => Padding(
-              padding: const EdgeInsets.only(bottom: 14),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 24,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: ElioColors.amber.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.check, size: 14, color: ElioColors.amber),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          f.$1,
-                          style: ElioText.bodyLarge.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        Text(
-                          f.$2,
-                          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                        ),
-                      ],
+        .map(
+          (f) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.check_circle_rounded,
+                  size: 22,
+                  color: ElioColors.success,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    f,
+                    style: ElioText.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: ElioColors.navy,
                     ),
                   ),
-                ],
-              ),
-            ))
+                ),
+              ],
+            ),
+          ),
+        )
         .toList();
   }
 
   // ── Plan cards ───────────────────────────────────────────────────────
   Widget _buildPlanCards() {
+    // Pull live prices from packages when available; fall back to defaults.
+    String? annualPrice;
+    String? monthlyPrice;
+    for (final p in _packages) {
+      if (p.storeProduct.identifier == PurchaseService.annualProductId) {
+        annualPrice = p.storeProduct.priceString;
+      } else if (p.storeProduct.identifier == PurchaseService.monthlyProductId) {
+        monthlyPrice = p.storeProduct.priceString;
+      }
+    }
+
     return Row(
       children: [
-        // Annual
         Expanded(
           child: _PlanCard(
             label: 'Annual',
-            price: '£27.99/yr',
-            perMonth: '£2.33/mo',
-            badge: 'Save 48%',
+            price: annualPrice ?? '£27.99/yr',
+            badge: 'Best value — save ~30%',
             isSelected: _isAnnual,
             onTap: () => setState(() => _isAnnual = true),
           ),
         ),
         const SizedBox(width: 12),
-        // Monthly
         Expanded(
           child: _PlanCard(
             label: 'Monthly',
-            price: '£4.49/mo',
-            perMonth: null,
+            price: monthlyPrice ?? '£4.49/mo',
             badge: null,
             isSelected: !_isAnnual,
             onTap: () => setState(() => _isAnnual = false),
@@ -315,7 +393,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Future<void> _onSubscribe() async {
     _analytics.logEvent('paywall_subscribe_tapped', {
       'plan': _isAnnual ? 'annual' : 'monthly',
-      'trigger': widget.trigger.name,
+      'trigger_context': _resolvedContext ?? 'none',
+      'is_trial': _showTrialState,
     });
 
     if (!_purchases.isAvailable) {
@@ -327,15 +406,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
       return;
     }
 
-    // Find the right package
-    final targetId = _isAnnual
-        ? PurchaseService.annualProductId
-        : PurchaseService.monthlyProductId;
-    final package = _packages.cast<Package?>().firstWhere(
-      (p) => p!.storeProduct.identifier == targetId,
-      orElse: () => _packages.isNotEmpty ? _packages.first : null,
-    );
-
+    final package = _selectedPackage;
     if (package == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -346,6 +417,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
     }
 
     setState(() => _isLoading = true);
+    // RevenueCat auto-applies the configured Play Store free trial when
+    // the user is eligible — no manual trial flag needed.
     final success = await _purchases.purchasePackage(package);
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -354,6 +427,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
       await EntitlementService.instance.refresh();
       _analytics.logEvent('purchase_completed', {
         'plan': _isAnnual ? 'annual' : 'monthly',
+        'is_trial': _showTrialState,
       });
       if (mounted) Navigator.of(context).pop(true);
     }
@@ -388,7 +462,6 @@ class _PaywallScreenState extends State<PaywallScreen> {
 class _PlanCard extends StatelessWidget {
   final String label;
   final String price;
-  final String? perMonth;
   final String? badge;
   final bool isSelected;
   final VoidCallback onTap;
@@ -396,7 +469,6 @@ class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.label,
     required this.price,
-    required this.perMonth,
     required this.badge,
     required this.isSelected,
     required this.onTap,
@@ -408,9 +480,11 @@ class _PlanCard extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
         decoration: BoxDecoration(
-          color: isSelected ? ElioColors.amber.withValues(alpha: 0.08) : ElioColors.offWhite,
+          color: isSelected
+              ? ElioColors.amber.withValues(alpha: 0.08)
+              : ElioColors.offWhite,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? ElioColors.amber : ElioColors.border,
@@ -428,7 +502,8 @@ class _PlanCard extends StatelessWidget {
                 ),
                 child: Text(
                   badge!,
-                  style: const TextStyle(
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.outfit(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -436,10 +511,12 @@ class _PlanCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
+            ] else ...[
+              const SizedBox(height: 19),
             ],
             Text(
               label,
-              style: TextStyle(
+              style: GoogleFonts.outfit(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: isSelected ? ElioColors.navy : ElioColors.textSecondary,
@@ -448,23 +525,12 @@ class _PlanCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               price,
-              style: TextStyle(
-                fontSize: 20,
+              style: GoogleFonts.outfit(
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: isSelected ? ElioColors.navy : ElioColors.textPrimary,
               ),
             ),
-            if (perMonth != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                perMonth!,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isSelected ? ElioColors.amber : ElioColors.textMuted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
           ],
         ),
       ),

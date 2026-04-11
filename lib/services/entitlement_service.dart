@@ -42,19 +42,39 @@ class EntitlementService {
 
   int get maxHouseholdMembers => isPro ? proHouseholdLimit : freeHouseholdLimit;
 
-  // ── Dev accounts: always Pro regardless of Firestore tier ─────────
-  static const Set<String> _devEmails = {
-    'info.autex@gmail.com',
-    'kate.d.r.taylor@gmail.com',
-  };
+  // ── Pro tester list (loaded from Firestore: config/proTesters) ────
+  static Set<String> _proTesterEmails = {};
+  static bool _proTestersLoaded = false;
+
+  /// Fetches the pro tester email list from Firestore.
+  /// Called once per session; cached after that.
+  static Future<void> _loadProTesters() async {
+    if (_proTestersLoaded) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('config')
+          .doc('proTesters')
+          .get();
+      if (doc.exists) {
+        final emails = (doc.data()?['emails'] as List?)?.cast<String>() ?? [];
+        _proTesterEmails = emails.map((e) => e.toLowerCase().trim()).toSet();
+      }
+    } catch (_) {
+      // Config doc may not exist yet — not an error
+    }
+    _proTestersLoaded = true;
+  }
 
   // ── Refresh from Firestore ─────────────────────────────────────────
   Future<void> refresh() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Dev accounts are always Pro — no Firestore check needed
-    if (_devEmails.contains(user.email)) {
+    // Load pro tester list (cached after first call)
+    await _loadProTesters();
+
+    // Pro testers are always Pro — no billing check needed
+    if (_proTesterEmails.contains(user.email?.toLowerCase())) {
       _tier = 'pro';
       return;
     }

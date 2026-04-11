@@ -5,8 +5,7 @@ import '../../services/firestore_service.dart';
 import '../../services/guest_pantry_service.dart';
 import '../../services/analytics_service.dart';
 import '../../utils/region_utils.dart';
-import '../home/home_screen.dart';
-import '../paywall/paywall_screen.dart';
+import 'screen8_complete.dart';
 import 'screen1_dietary.dart';
 import 'screen2_preset.dart';
 import 'screen3_pantry.dart';
@@ -119,35 +118,33 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
     RegionUtils.setRegion(updated.region == 'UK' ? AppRegion.uk : AppRegion.us);
     RegionUtils.setMeasurementUnits(updated.measurementUnits);
 
-    // Guest mode: persist pantry data locally then navigate
+    // Guest mode: persist pantry data locally then route to completion screen
     if (widget.isGuest) {
       await GuestPantryService.save(_state);
       _analytics.logEvent('onboarding_completed', {'auth_method': 'guest'});
       if (mounted) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen(isGuest: true)),
+          MaterialPageRoute(
+            builder: (_) => const OnboardingCompleteScreen(isGuest: true),
+          ),
           (route) => false,
         );
       }
       return;
     }
 
-    // Signed-in mode: save to Firestore then navigate directly
+    // Signed-in mode: save to Firestore then route to completion screen
     try {
       await _firestore.completeOnboarding(_state, widget.displayName);
       _analytics.logEvent('onboarding_completed', {'auth_method': 'google'});
       _analytics.setDietaryProfile(_state.dietaryRequirements.map((d) => d.label).toList());
       _analytics.setHouseholdSize(_state.additionalMembers.length + 1);
       if (mounted) {
-        // Navigate to Home, then show paywall on top
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-          (route) => false,
-        );
-        Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => const PaywallScreen(trigger: PaywallTrigger.onboarding),
+            builder: (_) => const OnboardingCompleteScreen(),
           ),
+          (route) => false,
         );
       }
     } catch (e) {
