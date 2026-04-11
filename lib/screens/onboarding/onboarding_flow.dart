@@ -173,7 +173,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
               const SizedBox(height: 20),
               Text(
                 widget.isGuest ? 'Getting Elio ready...' : 'Setting up your kitchen...',
-                style: GoogleFonts.outfit(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: const Color(0xFF6B6B6B),

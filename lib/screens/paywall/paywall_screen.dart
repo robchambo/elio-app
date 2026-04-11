@@ -182,7 +182,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                                     : _isAnnual
                                         ? 'Go Pro — £27.99/year'
                                         : 'Go Pro — £4.49/month',
-                                style: GoogleFonts.outfit(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w700,
                                 ),

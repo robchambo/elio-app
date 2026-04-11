@@ -115,7 +115,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Manage household members',
-                                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
                                     const SizedBox(height: 2),
                                     Text('Add or remove people and their dietary needs',
                                         style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),

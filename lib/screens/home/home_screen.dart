@@ -635,9 +635,9 @@ class _HomeScreenState extends State<HomeScreen> {
           RichText(
             text: TextSpan(
               children: [
-                TextSpan(text: 'EL', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
-                TextSpan(text: 'i', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.sky)),
-                TextSpan(text: 'O', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
+                TextSpan(text: 'EL', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
+                TextSpan(text: 'i', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.sky)),
+                TextSpan(text: 'O', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
               ],
             ),
           ),

@@ -120,7 +120,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
                               ),
                               child: Text(
                                 req.label,
-                                style: GoogleFonts.outfit(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                   color: isSelected ? Colors.white : ElioColors.textPrimary,
@@ -163,7 +163,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
                                 children: [
                                   Text(
                                     allergen,
-                                    style: GoogleFonts.outfit(
+                                    style: GoogleFonts.plusJakartaSans(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       color: ElioColors.navy,

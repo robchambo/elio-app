@@ -97,7 +97,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           Expanded(
             child: Text(
               'Elio remembered tier preferences for $_tierMemoryCount item${_tierMemoryCount == 1 ? '' : 's'} from previous receipts',
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: ElioColors.sky,
@@ -125,7 +125,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
               ),
             Text(
               '${_foodItems.length} food item${_foodItems.length == 1 ? '' : 's'} found',
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 color: ElioColors.textSecondary,
               ),
@@ -141,7 +141,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           ),
           child: Text(
             '${_items.length} total',
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: ElioColors.amber,
@@ -204,7 +204,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                 Expanded(
                   child: Text(
                     item.name,
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: item.isNonFood ? ElioColors.textMuted : ElioColors.textPrimary,
@@ -217,7 +217,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                   const SizedBox(width: 10),
                   Text(
                     '\$${item.price!}',
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       color: ElioColors.textSecondary,
                     ),
@@ -256,7 +256,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
       ),
       child: Text(
         label,
-        style: GoogleFonts.outfit(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 10,
           fontWeight: FontWeight.w700,
           color: fg,
@@ -298,7 +298,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
             ),
             child: Text(
               tier.$2,
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 12,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected ? ElioColors.amber : ElioColors.textSecondary,
@@ -321,7 +321,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
       children: [
         Text(
           'Expires in:',
-          style: GoogleFonts.outfit(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 11,
             fontWeight: FontWeight.w600,
             color: ElioColors.textSecondary,
@@ -349,7 +349,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                 ),
                 child: Text(
                   preset,
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: isSelected ? ElioColors.amber : ElioColors.textSecondary,
@@ -374,7 +374,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           const SizedBox(width: 6),
           Text(
             '$_nonFoodCount non-food item${_nonFoodCount == 1 ? '' : 's'} filtered',
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
               color: ElioColors.textMuted,
             ),
@@ -417,7 +417,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
             ),
             child: Text(
               'Add $count Item${count == 1 ? '' : 's'} to Pantry',
-              style: GoogleFonts.outfit(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,

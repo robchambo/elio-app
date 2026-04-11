@@ -66,7 +66,7 @@ class ScanSuccessScreen extends StatelessWidget {
               // Subtitle breakdown
               Text(
                 _buildSubtitle(),
-                style: GoogleFonts.outfit(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   color: ElioColors.textSecondary,
                   height: 1.4,
@@ -81,7 +81,7 @@ class ScanSuccessScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   '+ $remainingCount more item${remainingCount == 1 ? '' : 's'}',
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     color: ElioColors.textMuted,
                     fontWeight: FontWeight.w500,
@@ -139,7 +139,7 @@ class ScanSuccessScreen extends StatelessWidget {
               children: [
                 Text(
                   item.name,
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: ElioColors.textPrimary,
@@ -148,7 +148,7 @@ class ScanSuccessScreen extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   'Perishable',
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     color: ElioColors.amber,
                     fontWeight: FontWeight.w600,
@@ -193,7 +193,7 @@ class ScanSuccessScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              textStyle: GoogleFonts.outfit(
+              textStyle: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -219,7 +219,7 @@ class ScanSuccessScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              textStyle: GoogleFonts.outfit(
+              textStyle: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
               ),

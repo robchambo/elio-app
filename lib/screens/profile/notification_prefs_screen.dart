@@ -119,7 +119,7 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: ElioColors.textPrimary,

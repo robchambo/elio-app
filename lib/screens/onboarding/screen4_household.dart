@@ -140,7 +140,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                             const SizedBox(width: 8),
                             Text(
                               '+ Add a person',
-                              style: GoogleFonts.outfit(fontSize: 15,
+                              style: GoogleFonts.plusJakartaSans(fontSize: 15,
                                 fontWeight: FontWeight.w700,
                                 color: ElioColors.amber,
                               ),

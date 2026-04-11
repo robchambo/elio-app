@@ -108,7 +108,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
           SnackBar(
             content: Text(
               'Password reset email sent to $email',
-              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+              style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
             ),
             backgroundColor: ElioColors.success,
           ),
@@ -126,7 +126,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
       SnackBar(
         content: Text(
           message,
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
         ),
         backgroundColor: ElioColors.error,
       ),
@@ -270,7 +270,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     ),
                     child: Text(
                       'Forgot password?',
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: ElioColors.amber,
@@ -307,7 +307,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                           )
                         : Text(
                             'Sign in',
-                            style: GoogleFonts.outfit(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                               color: ElioColors.white,
@@ -338,7 +338,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                         },
                         child: Text(
                           'Register',
-                          style: GoogleFonts.outfit(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: ElioColors.amber,

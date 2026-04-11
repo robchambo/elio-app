@@ -360,7 +360,7 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                               controller: _addController,
                               textCapitalization:
                                   TextCapitalization.sentences,
-                              style: GoogleFonts.outfit(fontSize: 15),
+                              style: GoogleFonts.plusJakartaSans(fontSize: 15),
                               decoration: const InputDecoration(
                                 hintText: 'e.g. Miso paste',
                               ),

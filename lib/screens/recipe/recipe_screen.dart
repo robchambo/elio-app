@@ -1087,7 +1087,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       expandedHeight: 0,
       title: Text(
         _currentRecipe.title,
-        style: GoogleFonts.outfit(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 17,
           fontWeight: FontWeight.w700,
           color: ElioColors.navy,
@@ -1369,7 +1369,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   child: Center(
                     child: Text(
                       '$stepNum',
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -1482,7 +1482,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 15),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                textStyle: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700),
+                textStyle: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700),
                 elevation: 0,
               ),
             ),
@@ -1684,7 +1684,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   children: [
                     Text(
                       'Step ${_currentStep + 1}',
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: ElioColors.amber,
@@ -1762,7 +1762,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         ),
                         child: Text(
                           isLast ? 'Done ✓' : 'Next →',
-                          style: GoogleFonts.outfit(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                           ),

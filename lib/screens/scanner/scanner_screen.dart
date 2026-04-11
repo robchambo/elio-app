@@ -148,7 +148,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           alignment: Alignment.center,
           child: Text(
             label,
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
               color: isActive ? ElioColors.navy : ElioColors.textSecondary,
@@ -240,7 +240,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           ),
           child: Text(
             text,
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
               color: Colors.white70,
               fontWeight: FontWeight.w500,
@@ -330,7 +330,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'Capture your receipt',
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
@@ -339,7 +339,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 const SizedBox(height: 4),
                 Text(
                   "Hold steady — we'll extract the items",
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     color: Colors.white54,
                   ),
@@ -347,7 +347,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 const SizedBox(height: 20),
                 Text(
                   'Tip: Lay receipt flat for best results',
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     color: Colors.white38,
                   ),
@@ -407,7 +407,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           backgroundColor: ElioColors.amber,
           foregroundColor: ElioColors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700),
+          textStyle: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w700),
           elevation: 0,
         ),
       ),
@@ -425,7 +425,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           foregroundColor: ElioColors.navy,
           side: const BorderSide(color: ElioColors.border, width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -508,7 +508,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 onTap: _editAllItems,
                 child: Text(
                   'Edit all',
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: ElioColors.amber,
@@ -559,7 +559,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
               children: [
                 Text(
                   item.name,
-                  style: GoogleFonts.outfit(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: item.isNonFood ? ElioColors.textMuted : ElioColors.textPrimary,
@@ -569,7 +569,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 if (item.brand != null && item.brand!.isNotEmpty)
                   Text(
                     item.brand!,
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       color: ElioColors.textSecondary,
                     ),
@@ -604,7 +604,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       ),
       child: Text(
         label,
-        style: GoogleFonts.outfit(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: fg,
@@ -673,7 +673,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   )
                 : Text(
                     'Add ${foodItems.length} Item${foodItems.length == 1 ? '' : 's'} to Pantry',
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,

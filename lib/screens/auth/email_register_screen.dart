@@ -95,7 +95,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
       SnackBar(
         content: Text(
           message,
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+          style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
         ),
         backgroundColor: ElioColors.error,
       ),
@@ -327,7 +327,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                           )
                         : Text(
                             'Create account',
-                            style: GoogleFonts.outfit(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                               color: ElioColors.white,
@@ -358,7 +358,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                         },
                         child: Text(
                           'Sign in',
-                          style: GoogleFonts.outfit(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: ElioColors.amber,

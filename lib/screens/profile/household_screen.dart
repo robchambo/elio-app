@@ -321,7 +321,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(member['name'] as String? ?? 'Member',
-                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
                 if (reqs.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Wrap(

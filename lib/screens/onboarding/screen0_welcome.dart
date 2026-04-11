@@ -121,7 +121,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   children: [
                     TextSpan(
                       text: 'EL',
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 52,
                         fontWeight: FontWeight.w800,
                         color: ElioColors.navy,
@@ -130,7 +130,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     ),
                     TextSpan(
                       text: 'i',
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 52,
                         fontWeight: FontWeight.w800,
                         color: ElioColors.amber,
@@ -139,7 +139,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                     ),
                     TextSpan(
                       text: 'O',
-                      style: GoogleFonts.outfit(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 52,
                         fontWeight: FontWeight.w800,
                         color: ElioColors.navy,
@@ -232,7 +232,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                             const SizedBox(width: 10),
                             Text(
                               'Continue with Google',
-                              style: GoogleFonts.outfit(
+                              style: GoogleFonts.plusJakartaSans(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: ElioColors.navy,
@@ -271,7 +271,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       const SizedBox(width: 10),
                       Text(
                         'Sign in with email',
-                        style: GoogleFonts.outfit(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: ElioColors.navy,
@@ -295,7 +295,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   child: Text(
                     'Try without an account',
-                    style: GoogleFonts.outfit(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,
                       color: ElioColors.textMuted,

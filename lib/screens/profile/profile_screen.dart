@@ -582,8 +582,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               unselectedLabelColor: ElioColors.textMuted,
               indicatorColor: ElioColors.amber,
               indicatorWeight: 2.5,
-              labelStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600),
-              unselectedLabelStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w400),
+              labelStyle: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
+              unselectedLabelStyle: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w400),
               isScrollable: true,
               tabAlignment: TabAlignment.start,
               tabs: const [
@@ -672,7 +672,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     children: [
                       const Icon(Icons.receipt_long_rounded, size: 26, color: ElioColors.amber),
                       const SizedBox(height: 4),
-                      Text('Scan Receipt', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: ElioColors.navy)),
+                      Text('Scan Receipt', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: ElioColors.navy)),
                       Text('Photo or camera', style: GoogleFonts.quicksand(fontSize: 11, color: ElioColors.textSecondary)),
                     ],
                   ),
@@ -696,7 +696,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     children: [
                       const Icon(Icons.qr_code_scanner_rounded, size: 26, color: ElioColors.navy),
                       const SizedBox(height: 4),
-                      Text('Scan Barcode', style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w700, color: ElioColors.navy)),
+                      Text('Scan Barcode', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: ElioColors.navy)),
                       Text('Product lookup', style: GoogleFonts.quicksand(fontSize: 11, color: ElioColors.textSecondary)),
                     ],
                   ),
