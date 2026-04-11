@@ -588,6 +588,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           // ── Featured Selection hero card ──────────
                           _buildFeaturedCard(),
                           const SizedBox(height: 24),
+                          // ── Intelligence Report Card ──────────────
+                          _buildIntelligenceCard(),
+                          const SizedBox(height: 48),
+                          // ── Pantry Alerts ─────────────────────────
+                          _buildPantryAlertsSection(),
+                          const SizedBox(height: 48),
+                          // ── Fresh Recommendations ─────────────────
+                          _buildFreshRecommendationsSection(),
+                          const SizedBox(height: 48),
                           // ── Expiry banner ─────────────────────────
                           if (_expiringItemCount > 0 && _showExpiryBanner)
                             _buildExpiryBanner(),
@@ -792,6 +801,454 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  // ─── Intelligence Report Card ────────────────────────────────────────────────
+  // Vibrant Editorial bento card — pantry analytics summary with mini bar chart.
+  Widget _buildIntelligenceCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: ElioColors.cardSurface,
+        borderRadius: BorderRadius.circular(32),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Heading
+          Text(
+            'Weekly Consumption\nIntelligence Report',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: ElioColors.textPrimary,
+              letterSpacing: -0.6,
+              height: 1.33,
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Body
+          Text(
+            'Your waste reduction is up 14% this week. We\'ve identified 3 pantry items reaching peak flavour profiles.',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: ElioColors.textPrimary.withOpacity(0.7),
+              height: 1.6,
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Mini bar chart
+          SizedBox(
+            height: 96,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                _buildBar(0.40),
+                const SizedBox(width: 6),
+                _buildBar(0.65),
+                const SizedBox(width: 6),
+                _buildBar(0.45),
+                const SizedBox(width: 6),
+                _buildBar(0.85),
+                const SizedBox(width: 6),
+                _buildBar(1.0),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          // "View Full Analysis" outlined button
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: ElioColors.heroOrange, width: 2),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: TextButton(
+              onPressed: () {},
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              ),
+              child: Text(
+                'View Full Analysis',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: ElioColors.heroOrange,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBar(double heightFraction) {
+    return Expanded(
+      child: FractionallySizedBox(
+        heightFactor: heightFraction,
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          decoration: BoxDecoration(
+            color: ElioColors.warmOrange.withOpacity(heightFraction),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Pantry Alerts section ────────────────────────────────────────────────────
+  // Vibrant Editorial — shows low stock and depleted pantry items.
+  Widget _buildPantryAlertsSection() {
+    // Build alert items from _runningLowItems if available, otherwise use placeholders
+    final alerts = _runningLowItems.isNotEmpty
+        ? _runningLowItems
+            .take(3)
+            .map((item) => _PantryAlertItem(
+                  name: item,
+                  status: 'LOW STOCK',
+                  statusColor: ElioColors.darkAmber,
+                  iconBg: const Color(0xFFFFDCBB),
+                  progress: 0.15,
+                ))
+            .toList()
+        : const [
+            _PantryAlertItem(
+              name: 'Extra Virgin Oil',
+              status: 'LOW STOCK',
+              statusColor: ElioColors.darkAmber,
+              iconBg: Color(0xFFFFDCBB),
+              progress: 0.15,
+            ),
+            _PantryAlertItem(
+              name: 'Carnaroli Rice',
+              status: 'LOW STOCK',
+              statusColor: ElioColors.taupe,
+              iconBg: Color(0xFFFFDBCB),
+              progress: 0.22,
+            ),
+            _PantryAlertItem(
+              name: 'Maldon Sea Salt',
+              status: 'DEPLETED',
+              statusColor: ElioColors.error,
+              iconBg: Color(0xFFFFF0EE),
+              progress: 0.02,
+            ),
+          ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pantry Alerts',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w400,
+                    color: ElioColors.textPrimary,
+                    letterSpacing: -0.75,
+                    height: 1.2,
+                  ),
+                ),
+                Text(
+                  'Critical stock levels',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    color: ElioColors.textPrimary.withOpacity(0.6),
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 0)),
+              ).then((_) => _loadUserData()),
+              child: Row(
+                children: [
+                  Text(
+                    'View Inventory',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: ElioColors.heroOrange,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  const Icon(Icons.arrow_forward, color: ElioColors.heroOrange, size: 16),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        // Alert cards
+        ...alerts.map((alert) => Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _buildAlertCard(alert),
+            )),
+      ],
+    );
+  }
+
+  Widget _buildAlertCard(_PantryAlertItem alert) {
+    return Container(
+      height: 112,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(32),
+        boxShadow: [
+          BoxShadow(
+            color: ElioColors.dark.withOpacity(0.06),
+            blurRadius: 40,
+            offset: const Offset(0, 20),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Icon area
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: alert.iconBg,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Icon(Icons.inventory_2_outlined, size: 24, color: ElioColors.taupe),
+          ),
+          const SizedBox(width: 24),
+          // Text + progress
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  alert.status,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    color: alert.statusColor,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  alert.name,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w400,
+                    color: ElioColors.textPrimary,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Progress bar
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(9999),
+                  child: SizedBox(
+                    width: 128,
+                    height: 6,
+                    child: LinearProgressIndicator(
+                      value: alert.progress,
+                      backgroundColor: ElioColors.cardSurface,
+                      valueColor: AlwaysStoppedAnimation<Color>(alert.statusColor),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Fresh Recommendations section ───────────────────────────────────────────
+  // Vibrant Editorial asymmetric layout — illustration card + editorial headline.
+  Widget _buildFreshRecommendationsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Illustration card — "seasonal harvest."
+        Container(
+          width: double.infinity,
+          height: 300,
+          decoration: BoxDecoration(
+            color: ElioColors.cardSurface,
+            borderRadius: BorderRadius.circular(32),
+          ),
+          child: Stack(
+            children: [
+              // Decorative geometric shapes
+              Positioned(
+                top: 24,
+                right: 24,
+                child: Container(
+                  width: 160,
+                  height: 160,
+                  decoration: BoxDecoration(
+                    color: ElioColors.warmOrange.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 60,
+                right: 60,
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: ElioColors.amber.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  transform: Matrix4.rotationZ(0.785),
+                ),
+              ),
+              // "seasonal harvest." text overlay
+              Positioned(
+                left: 32,
+                bottom: 32,
+                child: Text(
+                  'seasonal\nharvest.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w600,
+                    color: ElioColors.textPrimary,
+                    letterSpacing: -1.8,
+                    height: 1.1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 32),
+        // Editorial headline
+        RichText(
+          text: TextSpan(
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 48,
+              fontWeight: FontWeight.w600,
+              color: ElioColors.textPrimary,
+              letterSpacing: -2.4,
+              height: 1.25,
+            ),
+            children: [
+              const TextSpan(text: 'Your taste,\nscientifically\n'),
+              TextSpan(
+                text: 'curated',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 48,
+                  fontWeight: FontWeight.w600,
+                  color: ElioColors.warmOrange,
+                  letterSpacing: -2.4,
+                  height: 1.25,
+                ),
+              ),
+              const TextSpan(text: '.'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Body text
+        Text(
+          'We\'ve analysed your consumption patterns and local harvest schedules to suggest ingredients that maximise nutritional value and minimise ecological footprint.',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 18,
+            fontWeight: FontWeight.w400,
+            color: ElioColors.textPrimary.withOpacity(0.7),
+            height: 1.55,
+          ),
+        ),
+        const SizedBox(height: 24),
+        // Stat boxes
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: ElioColors.cardSurface,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Nutrient\nDensity',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        color: ElioColors.heroOrange,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '+24%',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: ElioColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: ElioColors.cardSurface,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Local\nSourcing',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 16,
+                        color: ElioColors.heroOrange,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '88%',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: ElioColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -1681,4 +2138,21 @@ class _RecentRecipeCard extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Data class for pantry alert items ───────────────────────────────────────
+class _PantryAlertItem {
+  final String name;
+  final String status;
+  final Color statusColor;
+  final Color iconBg;
+  final double progress;
+
+  const _PantryAlertItem({
+    required this.name,
+    required this.status,
+    required this.statusColor,
+    required this.iconBg,
+    required this.progress,
+  });
 }
