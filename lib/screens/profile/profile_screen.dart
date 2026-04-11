@@ -816,6 +816,205 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
+  // ─── Edit item name ─────────────────────────────────────────────────────────
+  void _showEditNameDialog(Map<String, dynamic> item) {
+    final itemId = item['id'] as String;
+    final currentName = item['name'] as String? ?? '';
+    final tier = item['tier'] as String? ?? '';
+    final isPerishable = tier == 'perishable';
+    final rawExpiry = item['expiryDate'] as String?;
+    final currentExpiry = rawExpiry != null ? DateTime.tryParse(rawExpiry) : null;
+
+    final controller = TextEditingController(text: currentName);
+    controller.selection = TextSelection(baseOffset: 0, extentOffset: currentName.length);
+
+    // Determine which preset is closest to the current expiry, if any.
+    // null = no selection yet (no change), 'none' = explicitly No expiry, int = days
+    Object? selectedPreset;
+    if (isPerishable && currentExpiry != null) {
+      final daysAway = currentExpiry.difference(DateTime.now()).inDays;
+      const presets = [3, 7, 14];
+      int closest = presets.first;
+      int bestDiff = (daysAway - closest).abs();
+      for (final p in presets) {
+        final d = (daysAway - p).abs();
+        if (d < bestDiff) {
+          bestDiff = d;
+          closest = p;
+        }
+      }
+      selectedPreset = closest;
+    } else if (isPerishable && currentExpiry == null) {
+      selectedPreset = 'none';
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocalState) => AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            isPerishable ? 'Edit item' : 'Edit item name',
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: ElioColors.navy,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                style: GoogleFonts.outfit(fontSize: 16, color: ElioColors.navy),
+                decoration: InputDecoration(
+                  hintText: 'Item name',
+                  hintStyle: GoogleFonts.outfit(color: ElioColors.textMuted),
+                  filled: true,
+                  fillColor: ElioColors.offWhite,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ElioColors.border),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ElioColors.border),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide(color: ElioColors.amber, width: 2),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              ),
+              if (isPerishable) ...[
+                const SizedBox(height: 14),
+                Text(
+                  'Expiry',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: ElioColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    _editExpiryChip('3 days', 3, selectedPreset, () => setLocalState(() => selectedPreset = 3)),
+                    _editExpiryChip('1 week', 7, selectedPreset, () => setLocalState(() => selectedPreset = 7)),
+                    _editExpiryChip('2 weeks', 14, selectedPreset, () => setLocalState(() => selectedPreset = 14)),
+                    _editExpiryChip('No expiry', null, selectedPreset, () => setLocalState(() => selectedPreset = 'none')),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.outfit(color: ElioColors.textSecondary, fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final newName = controller.text.trim();
+                if (newName.isEmpty) return;
+
+                DateTime? newExpiry;
+                bool clearExpiry = false;
+                if (isPerishable) {
+                  if (selectedPreset == 'none') {
+                    if (currentExpiry != null) clearExpiry = true;
+                  } else if (selectedPreset is int) {
+                    final days = selectedPreset as int;
+                    final candidate = DateTime.now().add(Duration(days: days));
+                    // Only treat as a change if the user picked something different
+                    // from the closest preset to the existing expiry.
+                    if (currentExpiry == null) {
+                      newExpiry = candidate;
+                    } else {
+                      final daysAway = currentExpiry.difference(DateTime.now()).inDays;
+                      if ((daysAway - days).abs() > 0) {
+                        newExpiry = candidate;
+                      }
+                    }
+                  }
+                }
+
+                final nameChanged = newName != currentName;
+                if (!nameChanged && newExpiry == null && !clearExpiry) {
+                  Navigator.pop(ctx);
+                  return;
+                }
+
+                Navigator.pop(ctx);
+                _updateItem(
+                  itemId,
+                  name: nameChanged ? newName : null,
+                  expiryDate: newExpiry,
+                  clearExpiry: clearExpiry,
+                );
+              },
+              child: Text(
+                'Save',
+                style: GoogleFonts.outfit(color: ElioColors.amber, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _editExpiryChip(String label, int? days, Object? selectedPreset, VoidCallback onTap) {
+    final isSelected = (days == null && selectedPreset == 'none') ||
+        (days != null && selectedPreset is int && selectedPreset == days);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? ElioColors.amber : ElioColors.amber.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? ElioColors.amber : ElioColors.amber.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.white : ElioColors.amber,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateItem(
+    String itemId, {
+    String? name,
+    DateTime? expiryDate,
+    bool clearExpiry = false,
+  }) async {
+    await _firestore.updateInventoryItem(
+      itemId,
+      name: name,
+      expiryDate: expiryDate,
+      clearExpiry: clearExpiry,
+    );
+    await _loadData();
+  }
+
   // ─── Perishable section ────────────────────────────────────────────────────
   Widget _buildPerishableSection() {
     final items = _perishableItems;
@@ -865,11 +1064,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 12),
+            _buildPerishableAddRow(),
+            const SizedBox(height: 8),
             if (items.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
-                  'No perishables yet. Add some below.',
+                  'No perishables yet.',
                   style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
                 ),
               ),
@@ -880,8 +1081,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 child: _buildPerishableRow(item),
               ),
             )),
-            const SizedBox(height: 8),
-            _buildPerishableAddRow(),
           ],
         ],
       ),
@@ -934,11 +1133,29 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    name,
-                    style: ElioText.bodyMedium.copyWith(
-                      color: isExpired ? ElioColors.error : ElioColors.textPrimary,
-                      fontWeight: (isExpired || isExpiringSoon) ? FontWeight.w600 : FontWeight.w400,
+                  child: GestureDetector(
+                    onTap: () => _showEditNameDialog(item),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: ElioText.bodyMedium.copyWith(
+                              color: isExpired ? ElioColors.error : ElioColors.textPrimary,
+                              fontWeight: (isExpired || isExpiringSoon) ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                        if (expiryDate == null)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 4),
+                            child: Icon(Icons.event_outlined, size: 16, color: ElioColors.textMuted),
+                          ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(Icons.edit_rounded, size: 14, color: ElioColors.textMuted.withValues(alpha: 0.5)),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1154,11 +1371,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             const SizedBox(height: 2),
             Text(subtitle, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 13)),
             const SizedBox(height: 12),
+            _buildAddItemRow(tier),
+            const SizedBox(height: 8),
             if (items.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text(
-                  'No items yet. Add some below.',
+                  'No items yet.',
                   style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
                 ),
               )
@@ -1172,8 +1391,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   child: _buildInventoryRowContent(item, item['runningLow'] as bool? ?? false, item['id'] as String),
                 ),
               )),
-            const SizedBox(height: 8),
-            _buildAddItemRow(tier),
           ],
         ],
       ),
@@ -1247,11 +1464,24 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             child: Row(
               children: [
                 Expanded(
-                  child: Text(
-                    item['name'] as String? ?? '',
-                    style: ElioText.bodyMedium.copyWith(
-                      color: isRunningLow ? const Color(0xFFE65100) : ElioColors.textPrimary,
-                      fontWeight: isRunningLow ? FontWeight.w600 : FontWeight.w400,
+                  child: GestureDetector(
+                    onTap: () => _showEditNameDialog(item),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            item['name'] as String? ?? '',
+                            style: ElioText.bodyMedium.copyWith(
+                              color: isRunningLow ? const Color(0xFFE65100) : ElioColors.textPrimary,
+                              fontWeight: isRunningLow ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Icon(Icons.edit_rounded, size: 14, color: ElioColors.textMuted.withValues(alpha: 0.5)),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1662,6 +1892,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       onDismissed: (_) => _removeShoppingItem(item),
       child: GestureDetector(
         onTap: () => _toggleShoppingItem(item),
+        onLongPress: () => _showEditShoppingDialog(item),
         child: Container(
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1727,6 +1958,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     try {
       final item = await ShoppingService.instance.addItem(name: text);
       if (!mounted) return;
+      if (item == null) return; // silently dropped — staple item
       setState(() {
         // Remove existing if it was updated (same name)
         _shoppingItems.removeWhere((i) => i.id == item.id);
@@ -1754,6 +1986,99 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       await ShoppingService.instance.removeItem(item.id);
     } catch (_) {
       if (mounted) setState(() => _shoppingItems.insert(index, item));
+    }
+  }
+
+  Future<void> _showEditShoppingDialog(PersistentShoppingItem item) async {
+    final nameController = TextEditingController(text: _capitaliseShoppingName(item.name));
+    final quantityController = TextEditingController(text: item.quantity);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Edit Item',
+          style: GoogleFonts.outfit(
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+            color: ElioColors.navy,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              style: GoogleFonts.outfit(fontSize: 15, color: ElioColors.navy),
+              decoration: InputDecoration(
+                labelText: 'Name',
+                labelStyle: GoogleFonts.outfit(color: ElioColors.textMuted),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: ElioColors.amber),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: quantityController,
+              style: GoogleFonts.outfit(fontSize: 15, color: ElioColors.navy),
+              decoration: InputDecoration(
+                labelText: 'Quantity',
+                labelStyle: GoogleFonts.outfit(color: ElioColors.textMuted),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: ElioColors.amber),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.outfit(color: ElioColors.textMuted),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(
+              'Save',
+              style: GoogleFonts.outfit(
+                color: ElioColors.amber,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) {
+      nameController.dispose();
+      quantityController.dispose();
+      return;
+    }
+
+    final newName = nameController.text.trim();
+    final newQuantity = quantityController.text.trim();
+    nameController.dispose();
+    quantityController.dispose();
+
+    if (newName.isEmpty) return;
+
+    try {
+      await ShoppingService.instance.updateItem(
+        item.id,
+        name: newName,
+        quantity: newQuantity,
+      );
+      if (mounted) await _loadShoppingItems();
+    } catch (_) {
+      if (mounted) _showSnack('Could not update item.');
     }
   }
 
@@ -1866,10 +2191,31 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
   bool _loading = true;
   bool _historyTrimmed = false;
 
+  // ── Search ─────────────────────────────────────────────────────────
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
     _load();
+    _searchController.addListener(() {
+      setState(() => _searchQuery = _searchController.text.trim());
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  bool _matchesQuery(SavedRecipe saved, String query) {
+    final q = query.toLowerCase();
+    final r = saved.recipe;
+    if (r.title.toLowerCase().contains(q)) return true;
+    if (r.description.toLowerCase().contains(q)) return true;
+    return r.ingredients.any((i) => i.name.toLowerCase().contains(q));
   }
 
   Future<void> _load() async {
@@ -1986,61 +2332,110 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
       return const Center(child: CircularProgressIndicator(color: ElioColors.amber));
     }
 
+    final bool isSearching = _searchQuery.isNotEmpty;
+
     return Column(
       children: [
-        // Segmented control
+        // Search bar
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: ElioColors.offWhite,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: ElioColors.border),
+          child: TextField(
+            controller: _searchController,
+            style: GoogleFonts.outfit(
+              color: ElioColors.navy,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
+            decoration: InputDecoration(
+              hintText: 'Search recipes, ingredients…',
+              hintStyle: GoogleFonts.outfit(
+                color: ElioColors.textMuted,
+                fontSize: 14,
+              ),
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                color: isSearching ? ElioColors.amber : ElioColors.textMuted,
+                size: 20,
+              ),
+              suffixIcon: isSearching
+                  ? GestureDetector(
+                      onTap: () {
+                        _searchController.clear();
+                        FocusScope.of(context).unfocus();
+                      },
+                      child: const Icon(Icons.close_rounded, color: ElioColors.textMuted, size: 18),
+                    )
+                  : null,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              filled: true,
+              fillColor: ElioColors.offWhite,
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: ElioColors.border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: ElioColors.amber, width: 1.5),
+              ),
+            ),
+          ),
+        ),
+        // Segment tabs + action row — hidden while searching
+        if (!isSearching) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: ElioColors.offWhite,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: ElioColors.border),
+              ),
+              child: Row(
+                children: [
+                  _segmentButton(0, Icons.bookmark_rounded, 'Saved', _saved.length),
+                  _segmentButton(1, Icons.history_rounded, 'History', _history.length),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
             child: Row(
               children: [
-                _segmentButton(0, Icons.bookmark_rounded, 'Saved', _saved.length),
-                _segmentButton(1, Icons.history_rounded, 'History', _history.length),
+                GestureDetector(
+                  onTap: () => _importRecipe(context),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.add_photo_alternate_rounded, size: 14, color: ElioColors.amber),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Import recipe',
+                        style: ElioText.label.copyWith(color: ElioColors.amber, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                if (_selectedTab == 1 && _history.isNotEmpty)
+                  GestureDetector(
+                    onTap: _clearHistory,
+                    child: Text(
+                      'Clear history',
+                      style: ElioText.label.copyWith(color: ElioColors.error, fontSize: 12),
+                    ),
+                  ),
               ],
             ),
           ),
-        ),
-        // Import + Clear history row
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: () => _importRecipe(context),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.add_photo_alternate_rounded, size: 14, color: ElioColors.amber),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Import recipe',
-                      style: ElioText.label.copyWith(color: ElioColors.amber, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              const Spacer(),
-              if (_selectedTab == 1 && _history.isNotEmpty)
-                GestureDetector(
-                  onTap: _clearHistory,
-                  child: Text(
-                    'Clear history',
-                    style: ElioText.label.copyWith(color: ElioColors.error, fontSize: 12),
-                  ),
-                ),
-            ],
-          ),
-        ),
+        ],
         const SizedBox(height: 8),
-        // Recipe list
+        // Recipe list — search results or normal tab view
         Expanded(
-          child: _selectedTab == 0 ? _buildSavedList() : _buildHistoryList(),
+          child: isSearching
+              ? _buildSearchResults(_searchQuery)
+              : (_selectedTab == 0 ? _buildSavedList() : _buildHistoryList()),
         ),
       ],
     );
@@ -2081,6 +2476,66 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
     );
   }
 
+  Widget _buildSearchResults(String query) {
+    final filteredSaved = _saved.where((r) => _matchesQuery(r, query)).toList();
+    final filteredHistory = _history.where((r) => _matchesQuery(r, query)).toList();
+
+    final emptyLabelStyle = GoogleFonts.outfit(
+      fontSize: 13,
+      color: ElioColors.textMuted,
+      fontWeight: FontWeight.w500,
+    );
+    final sectionLabelStyle = GoogleFonts.outfit(
+      fontSize: 11,
+      color: ElioColors.textSecondary,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.8,
+    );
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
+      children: [
+        // ── Saved section ───────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.bookmark_rounded, size: 13, color: ElioColors.textSecondary),
+              const SizedBox(width: 5),
+              Text('SAVED', style: sectionLabelStyle),
+            ],
+          ),
+        ),
+        if (filteredSaved.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+            child: Text('No saved recipes match', style: emptyLabelStyle),
+          )
+        else
+          ...filteredSaved.map((r) => _buildRecipeCard(r, showBookmark: true)),
+        const SizedBox(height: 8),
+        // ── History section ─────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
+          child: Row(
+            children: [
+              const Icon(Icons.history_rounded, size: 13, color: ElioColors.textSecondary),
+              const SizedBox(width: 5),
+              Text('HISTORY', style: sectionLabelStyle),
+            ],
+          ),
+        ),
+        if (filteredHistory.isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+            child: Text('No history matches', style: emptyLabelStyle),
+          )
+        else
+          ...filteredHistory.map((r) => _buildRecipeCard(r, showBookmark: true)),
+      ],
+    );
+  }
+
   Widget _buildSavedList() {
     if (_saved.isEmpty) {
       return Center(
@@ -2091,10 +2546,10 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
             children: [
               const Icon(Icons.bookmark_border_rounded, size: 56, color: ElioColors.border),
               const SizedBox(height: 16),
-              Text('No saved recipes', style: ElioText.headingMedium),
+              Text('No saved recipes yet', style: ElioText.headingMedium),
               const SizedBox(height: 8),
               Text(
-                'Tap the bookmark icon on any recipe to save it here.',
+                "Bookmark recipes you love and they'll appear here.",
                 textAlign: TextAlign.center,
                 style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
               ),
@@ -2121,10 +2576,10 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
             children: [
               const Icon(Icons.menu_book_rounded, size: 56, color: ElioColors.border),
               const SizedBox(height: 16),
-              Text('No recipes yet', style: ElioText.headingMedium),
+              Text('No history yet', style: ElioText.headingMedium),
               const SizedBox(height: 8),
               Text(
-                'Recipes you generate will appear here automatically.',
+                'Generate your first recipe to start building your history.',
                 textAlign: TextAlign.center,
                 style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
               ),

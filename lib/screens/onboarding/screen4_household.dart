@@ -66,7 +66,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: ElioProgressBar(currentStep: 4, totalSteps: 5),
+              child: ElioProgressBar(currentStep: 4, totalSteps: 8),
             ),
             Expanded(
               child: SingleChildScrollView(

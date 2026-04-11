@@ -105,7 +105,7 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
             // ── Progress bar ──────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: ElioProgressBar(currentStep: 5, totalSteps: 5),
+              child: ElioProgressBar(currentStep: 5, totalSteps: 8),
             ),
 
             // ── Back button ───────────────────────────────────────

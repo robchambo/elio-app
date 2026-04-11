@@ -1192,6 +1192,23 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Widget _buildNormalMode() {
     return Scaffold(
       backgroundColor: ElioColors.white,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          setState(() {
+            _handsFreeMode = true;
+            _currentStep = 0;
+          });
+          _analytics.logEvent('hands_free_started', {
+            'step_count': _currentRecipe.steps.length,
+          });
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        },
+        backgroundColor: ElioColors.navy,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        icon: const Icon(Icons.visibility_outlined, size: 20),
+        label: const Text('Hands-Free'),
+      ),
       body: CustomScrollView(
         slivers: [
           _buildSliverAppBar(),
@@ -1257,7 +1274,35 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   width: 18, height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.navy),
                 )
-              : const Icon(Icons.add_shopping_cart_rounded, color: ElioColors.navy, size: 22),
+              : Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.add_shopping_cart_rounded, color: ElioColors.navy, size: 22),
+                    if (_currentRecipe.ingredients.isNotEmpty)
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 16),
+                          height: 16,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: ElioColors.amber,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            '${_currentRecipe.ingredients.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
           tooltip: 'Add to shopping list',
           onPressed: _isAddingToShop ? null : _addToShoppingList,
         ),
@@ -1761,8 +1806,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     onTap: _toggleVoiceControl,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 250),
-                      width: 40,
-                      height: 40,
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
                         color: _voiceEnabled
                             ? ElioColors.amber.withValues(alpha: 0.15)
@@ -1784,7 +1829,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       ),
                       child: Icon(
                         _voiceEnabled ? Icons.mic_rounded : Icons.mic_off_rounded,
-                        size: 20,
+                        size: 24,
                         color: _voiceEnabled ? ElioColors.amber : ElioColors.textMuted,
                       ),
                     ),

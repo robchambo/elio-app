@@ -24,6 +24,60 @@ class ReceiptResultsScreen extends StatefulWidget {
 class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
   late List<ScannedItem> _items;
   int? _expandedIndex; // which item is expanded for tier editing
+  bool _showTierHint = true; // one-time hint dismissed after first tier tap
+
+  // ─── Name Edit Dialog ────────────────────────────────────────────
+
+  Future<void> _showNameEditDialog(int index) async {
+    final controller = TextEditingController(text: _items[index].name);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Text('Edit Name', style: GoogleFonts.outfit(
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: ElioColors.navy,
+        )),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          style: GoogleFonts.outfit(fontSize: 14, color: ElioColors.navy),
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: ElioColors.amber, width: 1.5),
+            ),
+          ),
+          onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: ElioColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
+            child: Text('Save', style: GoogleFonts.outfit(
+              fontWeight: FontWeight.w700,
+              color: ElioColors.amber,
+            )),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result != null && result.isNotEmpty && result != _items[index].name) {
+      setState(() {
+        _items[index] = _items[index].copyWith(name: result);
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -186,6 +240,8 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
   }
 
   Widget _buildReceiptItemTile(ScannedItem item, int index, bool isExpanded) {
+    final firstFoodIndex = _items.indexWhere((i) => !i.isNonFood);
+    final isFirstFood = !item.isNonFood && index == firstFoodIndex;
     return InkWell(
       onTap: item.isNonFood
           ? null
@@ -202,17 +258,47 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
             Row(
               children: [
                 Expanded(
-                  child: Text(
-                    item.name,
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: item.isNonFood ? ElioColors.textMuted : ElioColors.textPrimary,
-                      decoration: item.isNonFood ? TextDecoration.lineThrough : null,
-                    ),
-                  ),
+                  child: isExpanded && !item.isNonFood
+                      ? GestureDetector(
+                          onTap: () => _showNameEditDialog(index),
+                          child: Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  item.name,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: ElioColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.edit_rounded, size: 14, color: ElioColors.amber),
+                            ],
+                          ),
+                        )
+                      : Text(
+                          item.name,
+                          style: GoogleFonts.outfit(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: item.isNonFood ? ElioColors.textMuted : ElioColors.textPrimary,
+                            decoration: item.isNonFood ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
                 ),
-                if (!item.isNonFood) _buildTierBadge(item.suggestedTier),
+                if (!item.isNonFood)
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      setState(() {
+                        _expandedIndex = isExpanded ? null : index;
+                        _showTierHint = false;
+                      });
+                    },
+                    child: _buildTierBadge(item.suggestedTier),
+                  ),
                 if (item.price != null) ...[
                   const SizedBox(width: 10),
                   Text(
@@ -223,8 +309,33 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                     ),
                   ),
                 ],
+                if (!item.isNonFood) ...[
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _items.removeAt(index);
+                      if (_expandedIndex == index) _expandedIndex = null;
+                      if (_expandedIndex != null && _expandedIndex! > index) {
+                        _expandedIndex = _expandedIndex! - 1;
+                      }
+                    }),
+                    child: const Icon(Icons.close_rounded, size: 18, color: ElioColors.textMuted),
+                  ),
+                ],
               ],
             ),
+            // One-time hint shown beneath the first food item.
+            if (isFirstFood && _showTierHint)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Tap tier badge to change category',
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    color: ElioColors.textMuted,
+                  ),
+                ),
+              ),
             // Expanded tier editor
             if (isExpanded && !item.isNonFood) ...[
               const SizedBox(height: 10),
@@ -249,18 +360,24 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.fromLTRB(8, 3, 4, 3),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(6),
       ),
-      child: Text(
-        label,
-        style: GoogleFonts.outfit(
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-          color: fg,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.outfit(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: fg,
+            ),
+          ),
+          Icon(Icons.arrow_drop_down, size: 14, color: fg),
+        ],
       ),
     );
   }

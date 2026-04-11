@@ -48,7 +48,7 @@ class _KitchenPresetScreenState extends State<KitchenPresetScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Progress ──────────────────────────────────────
-              const ElioProgressBar(currentStep: 2, totalSteps: 5),
+              const ElioProgressBar(currentStep: 2, totalSteps: 8),
               const SizedBox(height: 28),
 
               // ── Header ────────────────────────────────────────

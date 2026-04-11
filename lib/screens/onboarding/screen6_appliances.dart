@@ -94,7 +94,7 @@ class _KitchenAppliancesScreenState extends State<KitchenAppliancesScreen> {
             // ── Progress bar ──────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: ElioProgressBar(currentStep: 6, totalSteps: 6),
+              child: ElioProgressBar(currentStep: 6, totalSteps: 8),
             ),
 
             // ── Back button ───────────────────────────────────────

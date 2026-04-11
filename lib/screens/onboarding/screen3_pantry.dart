@@ -269,7 +269,7 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Progress ──────────────────────────────────────
-              const ElioProgressBar(currentStep: 3, totalSteps: 5),
+              const ElioProgressBar(currentStep: 3, totalSteps: 8),
               const SizedBox(height: 28),
 
               // ── Header ────────────────────────────────────────

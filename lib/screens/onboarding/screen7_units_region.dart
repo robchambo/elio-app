@@ -64,7 +64,7 @@ class _UnitsRegionScreenState extends State<UnitsRegionScreen> {
             // ── Progress bar ──────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-              child: ElioProgressBar(currentStep: 7, totalSteps: 7),
+              child: ElioProgressBar(currentStep: 7, totalSteps: 8),
             ),
 
             // ── Back button ───────────────────────────────────────

@@ -698,6 +698,24 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   // ─── Add to Pantry Logic ────────────────────────────────────────
 
+  /// Convert a preset expiry label (e.g. "3 days", "1 week") into a concrete
+  /// [DateTime]. Returns null when the label is missing, "No expiry", or
+  /// unrecognised.
+  DateTime? _expiryDateFromLabel(String? label) {
+    if (label == null || label.isEmpty) return null;
+    final now = DateTime.now();
+    switch (label) {
+      case '3 days':
+        return now.add(const Duration(days: 3));
+      case '1 week':
+        return now.add(const Duration(days: 7));
+      case '2 weeks':
+        return now.add(const Duration(days: 14));
+      default:
+        return null;
+    }
+  }
+
   Future<void> _addToPantry(List<ScannedItem> items) async {
     setState(() => _isAddingToPantry = true);
     final firestore = FirestoreService();
@@ -712,8 +730,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
         // Save tier memory for future scans
         await scanner.saveTierMemory(item.name, item.suggestedTier);
 
+        // Convert expiry preset label into a concrete DateTime.
+        final expiryDate = _expiryDateFromLabel(item.expiryLabel);
+
         // Add to the appropriate inventory tier
-        await firestore.addInventoryItem(item.name, item.suggestedTier);
+        await firestore.addInventoryItem(
+          item.name,
+          item.suggestedTier,
+          expiryDate: expiryDate,
+          price: item.price,
+        );
 
         switch (item.suggestedTier) {
           case 'perishable':

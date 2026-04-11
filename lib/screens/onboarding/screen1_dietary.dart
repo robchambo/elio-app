@@ -81,7 +81,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Progress ──────────────────────────────────────
-              const ElioProgressBar(currentStep: 1, totalSteps: 5),
+              const ElioProgressBar(currentStep: 1, totalSteps: 8),
               const SizedBox(height: 28),
 
               // ── Header ────────────────────────────────────────
