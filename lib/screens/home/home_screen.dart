@@ -568,7 +568,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.scaffold,
       body: SafeArea(
         child: Column(
           children: [
@@ -584,7 +584,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 20),
+                          // ── Featured Selection hero card ──────────
+                          _buildFeaturedCard(),
+                          const SizedBox(height: 24),
                           // ── Expiry banner ─────────────────────────
                           if (_expiringItemCount > 0 && _showExpiryBanner)
                             _buildExpiryBanner(),
@@ -612,85 +615,182 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ─── App bar ─────────────────────────────────────────────────────────────────
+  // Vibrant Editorial — cardSurface bar, lowercase "elio" wordmark in heroOrange,
+  // hamburger menu left, profile icon right.
   Widget _buildAppBar() {
-    User? user;
-    try {
-      user = FirebaseAuth.instance.currentUser;
-    } catch (_) {}
-    final initials = widget.isGuest
-        ? 'G'
-        : (user?.displayName ?? 'U')
-            .split(' ')
-            .map((w) => w.isNotEmpty ? w[0] : '')
-            .take(2)
-            .join()
-            .toUpperCase();
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      color: ElioColors.cardSurface,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // ELiO wordmark
-          RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(text: 'EL', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
-                TextSpan(text: 'i', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.sky)),
-                TextSpan(text: 'O', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy)),
-              ],
-            ),
-          ),
+          // Left: menu icon + "elio" wordmark
           Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              // Quick pantry access
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 0)),
                   ).then((_) => _loadUserData());
                 },
-                child: Container(
-                  width: 34,
-                  height: 34,
-                  margin: const EdgeInsets.only(right: 10),
-                  decoration: BoxDecoration(
-                    color: ElioColors.offWhite,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: ElioColors.border),
-                  ),
-                  child: const Icon(Icons.kitchen_outlined, size: 17, color: ElioColors.navy),
+                child: const Icon(Icons.menu, color: ElioColors.dark, size: 22),
+              ),
+              const SizedBox(width: 16),
+              Text(
+                'elio',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w400,
+                  color: ElioColors.heroOrange,
+                  letterSpacing: -1.2,
                 ),
               ),
-              // Profile avatar
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                  ).then((_) => _loadUserData());
-                },
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: const BoxDecoration(
-                    color: ElioColors.navy,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      initials,
-                      style: const TextStyle(fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                  ),
+            ],
+          ),
+          // Right: profile icon
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ProfileScreen()),
+              ).then((_) => _loadUserData());
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              child: const Icon(Icons.person_outline, color: ElioColors.dark, size: 22),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Featured Selection hero card ────────────────────────────────────────────
+  // Vibrant Editorial hero card. Uses the most recent saved recipe if available;
+  // falls back to a placeholder when history is empty (e.g. fresh install / guest).
+  Widget _buildFeaturedCard() {
+    final recipe = _recentRecipes.isNotEmpty ? _recentRecipes.first : null;
+    final title = recipe?.recipe.title ?? 'Something\nDelicious\nAwaits';
+
+    return GestureDetector(
+      onTap: recipe != null
+          ? () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => RecipeScreen(recipe: recipe.recipe),
+                ),
+              )
+          : null,
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 280),
+        padding: const EdgeInsets.all(32),
+        decoration: BoxDecoration(
+          color: ElioColors.warmOrange,
+          borderRadius: BorderRadius.circular(32),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // ── Geometric overlay decorations ─────────────────────
+            Positioned(
+              top: -64,
+              right: -64,
+              child: Container(
+                width: 240,
+                height: 240,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  shape: BoxShape.circle,
                 ),
               ),
             ),
-          ),
-            ],
-          ),
-        ],
+            Positioned(
+              bottom: -80,
+              right: 20,
+              child: Container(
+                width: 180,
+                height: 180,
+                decoration: BoxDecoration(
+                  border: Border.all(
+                    color: ElioColors.peach.withOpacity(0.45),
+                    width: 28,
+                  ),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            // ── Card content ──────────────────────────────────────
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // "FEATURED SELECTION" pill label
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(9999),
+                  ),
+                  child: Text(
+                    'FEATURED SELECTION',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Recipe title — large editorial display
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 40,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
+                    letterSpacing: -1.2,
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 28),
+                // "Start Cooking" CTA button
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: ElioColors.dark.withOpacity(0.08),
+                        blurRadius: 40,
+                        offset: const Offset(0, 20),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Start Cooking',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w400,
+                          color: ElioColors.heroOrange,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Icon(
+                        Icons.arrow_forward,
+                        color: ElioColors.heroOrange,
+                        size: 20,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
