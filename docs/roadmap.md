@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 2 April 2026 (Sprint 15.3 complete — moving to Sprint 16)
+**Last updated:** 5 April 2026 (Sprint 15.3.19 — UX audit + free trial + paywall fix)
 
 ---
 
@@ -102,39 +102,70 @@
 
 ---
 
-## Current: Sprint 16 — Launch Preparation
+## Launch Strategy
 
-**Goal:** Get the app ready for public release on Google Play.
+**Goal:** Launch Android and iOS together. Android builds first and may reach production a few days earlier, but both platforms are worked toward a coordinated public release. No dedicated "Android-only" launch — iOS parity is part of the launch deliverable.
+
+Work is grouped into three parallel tracks:
+1. **Shared platform work** (security, legal, assets, regression) — blocks both stores.
+2. **Android track** — Play Console, internal testing, staged rollout.
+3. **iOS track** — Xcode config, Apple Sign-In, Siri Shortcuts, TestFlight, App Store review.
+
+---
+
+## Sprint 16 — Shared Launch Preparation
+
+**Goal:** Everything that must be true before either store accepts a submission.
 
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
 | 1 | Performance audit (DevTools profiling, list optimisation, cold start time) | 3–4 | ✅ Done |
 | 2 | **Firestore security rules audit** — rules are currently permissive (dev mode); must be locked down before public launch. Firebase console already flagging this. Also: data retention policy, input sanitisation | 2–3 | Not started |
 | 3 | GDPR compliance (data export, account deletion, consent tracking) | 2–3 | Not started |
-| 4 | Privacy policy + Terms of Service (in-app screens + hosted URLs) | 2–3 | Not started |
+| 4 | Privacy policy + Terms of Service (in-app screens + hosted URLs — shared across both stores) | 2–3 | Not started |
 | 5 | Remove temporary debug messages from home_screen.dart | 0.5 | Not started |
-| 6 | Full regression test — Android physical device | 3–4 | Not started |
-| 7 | App Store assets (screenshots, feature graphic, store listing copy) | 2–3 | Not started |
-| 8 | Submit to Google Play Console (internal testing track) | 1–2 | Not started |
-| 9 | Crashlytics → Slack/Discord webhook (real-time error alerts via Cloud Function) | 1–2 | Not started |
+| 6 | Crashlytics → Slack/Discord webhook (real-time error alerts via Cloud Function) | 1–2 | Not started |
+| 7 | Wire `REVENUECAT_API_KEY` through build.ps1 / `.env.local` + configure live Play Store + App Store SKUs with 7-day free trial | 2–3 | Not started |
+| 8 | Expand `ErrorService` coverage to GeminiService, FirestoreService, VoiceControlService, PurchaseService (currently only 4 call sites) | 1–2 | Not started |
 
-**Estimate:** 17–24 hours
+**Estimate:** 13–21 hours
 
 ---
 
-## Sprint 17 — iOS & App Store Launch
+## Sprint 17 — Android Track
 
-| # | Task | Est. Hours |
-|---|------|-----------|
-| 1 | iOS build configuration and signing | 2–3 |
-| 2 | Apple Sign-In integration | 3–4 |
-| 3 | iOS-specific UI adjustments | 2–3 |
-| 4 | Full regression test — iOS physical device | 3–4 |
-| 5 | App Store assets (iOS screenshots, App Store listing) | 2–3 |
-| 6 | Submit to TestFlight | 1–2 |
-| 7 | App Store review submission | 1 |
+**Goal:** Play Store submission-ready. Runs in parallel with Sprint 18 iOS work.
 
-**Estimate:** 14–20 hours
+| # | Task | Est. Hours | Status |
+|---|------|-----------|--------|
+| 1 | Full regression test — Android physical device | 3–4 | Not started |
+| 2 | Play Store assets (screenshots, feature graphic, store listing copy) | 2–3 | Not started |
+| 3 | Submit to Google Play Console (internal testing track) | 1–2 | Not started |
+| 4 | Closed beta feedback loop (pro-tester Firestore list) | 2–3 | Not started |
+| 5 | Production staged rollout (10% → 50% → 100%) | 1 | Not started |
+
+**Estimate:** 9–13 hours
+
+---
+
+## Sprint 18 — iOS Track
+
+**Goal:** App Store submission-ready in parallel with Android. Target a coordinated launch window — Android may go live a few days earlier if Apple review is slower.
+
+| # | Task | Est. Hours | Status |
+|---|------|-----------|--------|
+| 1 | iOS build configuration and signing (Xcode, provisioning profiles, bundle ID) | 2–3 | Not started |
+| 2 | Apple Sign-In integration (required by App Store when Google Sign-In is present) | 3–4 | Not started |
+| 3 | iOS-specific UI adjustments (safe areas, haptics, keyboard behaviour) | 2–3 | Not started |
+| 4 | Replace `com.elio/audio` platform channel with iOS equivalent (AVAudioSession) OR gate voice-beep suppression to Android only | 1–2 | Not started |
+| 5 | **Siri Shortcuts** — donate `NSUserActivity` for "Generate a recipe", "Open my shopping list", "What's in my pantry", "Start cooking last recipe". Must be done before launch so iOS users get voice entry points on day one. | 3–4 | Not started |
+| 6 | iOS permissions plist (NSMicrophoneUsageDescription, NSCameraUsageDescription, NSSpeechRecognitionUsageDescription) | 0.5 | Not started |
+| 7 | Full regression test — iOS physical device | 3–4 | Not started |
+| 8 | App Store assets (iOS screenshots at required sizes, App Store listing) | 2–3 | Not started |
+| 9 | Submit to TestFlight | 1–2 | Not started |
+| 10 | App Store review submission | 1 | Not started |
+
+**Estimate:** 18.5–26.5 hours
 
 ---
 

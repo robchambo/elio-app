@@ -1,6 +1,6 @@
 # Elio Technical Design Document
 
-**Version:** Sprint 15.3.13 | **Date:** 2 April 2026 | **Status:** Pre-launch
+**Version:** Sprint 15.3.19 | **Date:** 5 April 2026 | **Status:** Pre-launch
 
 ---
 
@@ -32,6 +32,8 @@ powershell -ExecutionPolicy Bypass -File build.ps1 -sprint <version>
 - Creates git tag `build/sprint-<version>`
 
 **Critical:** Never use raw `flutter build`. API calls return 403 without the injected key.
+
+**Pre-launch TODO:** `build.ps1` does not currently pass `REVENUECAT_API_KEY`. Until this is wired through, `PurchaseService.init()` exits early ("dry mode") and `getPackages()` returns an empty list — which is why the paywall falls back to its optimistic trial copy in release builds today. Before Sprint 16 launch: add `REVENUECAT_API_KEY` to `.env.local` and pass it via `--dart-define` alongside `GEMINI_API_KEY`.
 
 ### 1.3 Project Structure
 ```
@@ -76,9 +78,9 @@ lib/
     scanner/scan_success_screen.dart
     meal_plan/meal_plan_screen.dart
     history/history_screen.dart
-    onboarding/                # 8 screens (0-7)
+    onboarding/                # 8 screens: screen1_dietary -> screen7_units_region + screen8_complete
     auth/                      # Welcome, email login/register
-    paywall/paywall_screen.dart
+    paywall/paywall_screen.dart  # Trial-first, context-aware headlines
   widgets/
     pantry_builder_sheet.dart  # Categorised item browser
   utils/
@@ -113,6 +115,7 @@ users/{uid}
   /inventory/{docId}
     name, tier: "alwaysHave"|"almostAlwaysHave"|"perishable"
     runningLow: bool, expiryDate: Timestamp?, category: String?
+    price: String?  # optional, captured from receipt scans for future cost estimation
 
   /recipes/{docId}
     [GeneratedRecipe fields], isBookmarked: bool, savedAt: Timestamp
@@ -222,9 +225,16 @@ Receipt photo -> Gemini Vision (Flash-Lite) -> item list + prices
   -> Non-food items filtered during parsing
   -> ScannerService.suggestTier() batched via Future.wait()
      (memory -> category heuristic -> name heuristic -> fallback)
-  -> ReceiptResultsScreen: user reviews, edits tiers, sets expiry
+  -> ReceiptResultsScreen: user reviews items
+       * edit icon -> rename dialog
+       * × icon -> remove before commit
+       * tier badge (with dropdown chevron + first-run hint) -> tier picker
+       * expiry presets (3 days / 1 week / 2 weeks / none) for perishables
   -> ScannerScreen: user taps "Add X Items to Pantry"
-  -> _addToPantry(): saves tier memory + writes to Firestore inventory
+  -> _addToPantry():
+       * _expiryDateFromLabel() converts shelf-life strings to Timestamps
+       * saves tier memory
+       * addInventoryItem(name, tier, category, expiryDate, price)
   -> ScanSuccessScreen: confirms counts by tier
 ```
 
@@ -280,14 +290,38 @@ User taps "Start Hands-Free Mode"
 
 ## 7. Error Reporting
 
+### 7.1 Wiring
+`main.dart` routes uncaught errors to Crashlytics:
+```dart
+FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+PlatformDispatcher.instance.onError = (error, stack) {
+  FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+  return true;
+};
+```
+
+### 7.2 Non-fatal logging
 `ErrorService` (lib/services/error_service.dart):
 ```dart
 static void log(String feature, dynamic error, [StackTrace? stack])
 ```
 - Wraps `FirebaseCrashlytics.instance.recordError()` as non-fatal
-- Tags errors with feature name (e.g. `recipe_generation`, `receipt_scan`, `bulk_prep`)
-- Used across all major try/catch blocks
-- Visible in Firebase Crashlytics console under non-fatal issues
+- Sets `feature` custom key for filtering in the console (e.g. `recipe_generation`, `receipt_scan`, `bulk_prep`)
+- **Current coverage:** only ~4 call sites (home, recipe, recipe import, scanner service). **Sprint 16 task:** expand to GeminiService, FirestoreService, VoiceControlService, PurchaseService — these currently swallow errors silently in their outer try/catch blocks.
+
+### 7.3 Reading Crashlytics
+1. Open https://console.firebase.google.com
+2. Select the **Elio** project
+3. Left rail: **Release & Monitor → Crashlytics**
+4. Dashboards: Crash-free users, crash-free sessions, top issues, device/OS breakdowns
+5. **Non-fatal issues** tab shows everything logged via `ErrorService.log()` — filter by the `feature` custom key to find feature-specific problems
+6. Each issue opens a stack trace, breadcrumb timeline, and affected device list
+7. First reports can take 5–15 minutes to appear after a crash; subsequent reports are near real-time
+
+### 7.4 Pre-launch improvements (Sprint 16)
+- **Slack/Discord webhook** via a Cloud Function that fires on new Crashlytics issues — so regressions surface without having to check the console
+- **Expanded coverage** as above
+- **Breadcrumb logging** — `Crashlytics.log("...")` before high-risk operations (Gemini calls, receipt OCR, purchase flow) so crash reports include the last few actions
 
 ---
 
@@ -304,9 +338,76 @@ Called from `RecipeScreen`:
 - `muteBeep` on voice control activation (stays muted for entire session)
 - `restoreBeep` on: mic toggle off, "Hey Elio done", exit hands-free, screen dispose
 
+**iOS parity (Sprint 18):** `com.elio/audio` is Android-only. For iOS we either (a) implement the equivalent via `AVAudioSession` in `AppDelegate.swift`, or (b) gate the platform-channel calls so they no-op on iOS and rely on iOS's quieter built-in recognition beep. Decide during iOS QA.
+
+## 9. Monetisation & Paywall
+
+### 9.1 RevenueCat integration
+- **SDK:** `purchases_flutter` 8.x
+- **Entitlement:** `"pro"` — attached to both `elio_pro_monthly` and `elio_pro_annual` products
+- **Init:** Lazy (`_ensureInitialised()` on every public method). If `REVENUECAT_API_KEY` is empty, runs in "dry mode" — purchase methods return false without crashing.
+- **Trial eligibility:** Determined by RevenueCat server-side via `StoreProduct.introductoryPrice`. The app does **not** track trial state locally — RC is the source of truth.
+- **Sync:** `addCustomerInfoUpdateListener()` writes `subscription.tier` + `lastSyncedAt` to the user's Firestore doc, then refreshes `EntitlementService`.
+
+### 9.2 Trial helpers (PurchaseService)
+| Method | Returns |
+|--------|---------|
+| `hasFreeTrial(Package)` | `true` if `introductoryPrice.periodNumberOfUnits > 0` |
+| `trialDurationLabel(Package)` | e.g. `"7-day"`, `"1-month"` — weeks normalised to days |
+| `isAnyTrialAvailable` | Sync getter over cached `_lastFetchedPackages` |
+
+### 9.3 Paywall display logic
+`_showTrialState` in `paywall_screen.dart`:
+1. Packages loaded AND at least one has `hasFreeTrial == true` → **trial state**.
+2. Packages empty (dry mode / still loading) → **trial state** (optimistic). RevenueCat remains authoritative at purchase time.
+3. Packages loaded AND none have a trial → **upgrade state** ("Upgrade to Pro").
+
+Context-specific headlines are keyed off `triggerContext`:
+| Context | Headline |
+|---------|----------|
+| `weekly_limit` | Unlock unlimited recipes |
+| `meal_planner` | Plan your whole week |
+| `shopping_list` | Shop smarter with one list |
+| `household` | Cook for your whole household |
+| `null` | Go Pro with Elio |
+
+Legacy `PaywallTrigger` enum + `lockedFeatureName` are retained for existing callers and integration tests (which still compile but need copy updates for the new strings).
+
+### 9.4 Pre-launch checklist
+- [ ] Add `REVENUECAT_API_KEY` to `.env.local`
+- [ ] Pass it through `build.ps1` as `--dart-define=REVENUECAT_API_KEY=<key>`
+- [ ] Create `elio_pro_monthly` + `elio_pro_annual` in Play Console **with a 7-day free trial** attached to each
+- [ ] Create matching products in App Store Connect **with a 7-day introductory offer**
+- [ ] Create the `pro` entitlement in RevenueCat and attach all 4 SKUs
+- [ ] Update `integration_test/paywall_test.dart` assertions for the new trial-first copy
+
 ---
 
-## 9. Key Architectural Decisions
+## 10. Launch Architecture (Sprint 16–18)
+
+Elio is being prepared for a **coordinated Android + iOS launch**. Android builds first and may ship to production a few days ahead of iOS, but iOS parity is part of the launch deliverable — not a follow-up release.
+
+Three parallel tracks:
+
+| Track | Scope |
+|-------|-------|
+| **Shared** (Sprint 16) | Firestore security rules, GDPR, privacy/ToS, RevenueCat wiring, ErrorService coverage, Crashlytics webhook |
+| **Android** (Sprint 17) | Regression on physical device, Play Store assets, internal testing, closed beta, staged rollout |
+| **iOS** (Sprint 18) | Xcode config, Apple Sign-In, iOS UI adjustments, iOS audio platform channel parity, **Siri Shortcuts**, permissions plist, regression, App Store assets, TestFlight, review |
+
+### 10.1 Siri Shortcuts (iOS pre-launch)
+- **Mechanism:** `NSUserActivity` donation from key screens, eligible for Siri suggestions and prediction
+- **Shortcuts to ship on day one:**
+  - "Generate a recipe" → opens the app on the Home tab with recipe generation primed
+  - "Open my shopping list" → deep-links to the Shopping tab (Pro gate still enforced)
+  - "What's in my pantry" → opens the Pantry tab
+  - "Start cooking [last recipe]" → opens the most recent recipe directly in hands-free mode
+- **Implementation notes:** Donate `NSUserActivity` from the relevant screen `initState`/`didChangeAppLifecycleState` hooks via a thin platform channel (`com.elio/siri`). Parse the activity identifier on cold start in `AppDelegate.swift` and route through Flutter's initial-route mechanism.
+- **Why pre-launch:** Voice-first entry points are an iOS-native expectation, and they're the iOS analogue of Elio's hands-free voice control — launching without them leaves a visible gap on iOS vs Android.
+
+---
+
+## 11. Key Architectural Decisions
 
 1. **Local-first history:** SharedPreferences for speed + offline. Firestore backup for signed-in users. In-memory cache invalidated on mutation.
 2. **Save before navigate:** Recipe saved to history (with `savedAt`) before `Navigator.push(RecipeScreen)`. RecipeScreen receives `savedAt` — bookmark toggle uses it to update existing record rather than create duplicates.

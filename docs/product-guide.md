@@ -1,6 +1,6 @@
 # Elio Product Guide
 
-**Version:** Sprint 15.3.13 | **Date:** 2 April 2026 | **Status:** Pre-launch
+**Version:** Sprint 15.3.19 | **Date:** 5 April 2026 | **Status:** Pre-launch
 
 ---
 
@@ -10,7 +10,7 @@ Elio is an AI-powered recipe generator that knows your kitchen. Unlike generic r
 
 **Core principle:** Remove friction. Every interaction should be quick, minimal taps, zero frustration. Simplicity over completeness.
 
-**Target platforms:** Android (primary), iOS (scaffolded)
+**Target platforms:** Android and iOS (coordinated launch — Android built first, both released in the same window)
 **Target markets:** United States (primary), United Kingdom (secondary)
 
 ---
@@ -88,6 +88,7 @@ Located in the Profile section, the Recipe Book has two views:
 
 - **Saved** — Recipes you've bookmarked. Manually saving a recipe from the recipe screen automatically bookmarks it. You can also toggle the bookmark from history.
 - **History** — All previously generated recipes, newest first. Free tier: 20 recipes. Pro tier: 50 recipes.
+- **Search** — A search bar at the top of Recipe Book filters both Saved and History simultaneously, matching against titles, cuisines, descriptions **and ingredients**. Handy for "what did I make with halloumi last month?"
 
 Both views show recipe cards with title, cuisine, time, difficulty, and nutrition. Tap to view the full recipe. Swipe left to delete with undo.
 
@@ -120,8 +121,11 @@ Two scanning modes for quickly adding items to your pantry:
 - Take a photo of a grocery receipt
 - AI extracts item names and prices
 - Non-food items filtered automatically
+- **Inline editing** — Tap the edit icon to rename any extracted item. Tap the × to remove items you don't want imported before committing.
+- **Tap tier badge to change category** — Each item shows a dropdown chevron on its tier badge; tap to reassign Always / Almost / Perishable. A one-time hint points this out on first use.
+- **Expiry dates carry through to pantry** — Perishables with a detected shelf-life label ("3 days", "1 week", "2 weeks") are stored as real expiry dates on the pantry item, not just labels.
+- **Prices preserved silently** — The extracted price is saved on the pantry item for future cost estimation, without cluttering the pantry UI.
 - Bulk-add to pantry with tier assignment
-- Receipts also feed into cost estimation
 
 A disclaimer on the receipt tab notes that receipt quality varies and not all items may be extracted — missing items can always be added manually.
 
@@ -175,16 +179,16 @@ Free tier: Owner profile only.
 
 ### 13. Onboarding
 
-An 8-screen guided setup that builds your kitchen profile:
+An 8-screen guided setup that builds your kitchen profile. All screens share a single progress bar (`totalSteps: 8`) so progress feels consistent throughout.
 
-1. Welcome
-2. Dietary requirements
-3. Kitchen presets (quick-start pantry packs like "Asian Kitchen", "Mediterranean Kitchen")
-4. Pantry inventory (add individual items + packs)
-5. Household members
-6. Cooking style preferences
-7. Kitchen appliances
-8. Measurement units and region
+1. Dietary requirements
+2. Kitchen presets (quick-start pantry packs like "Asian Kitchen", "Mediterranean Kitchen")
+3. Pantry inventory (add individual items + packs)
+4. Household members
+5. Cooking style preferences
+6. Kitchen appliances
+7. Measurement units and region
+8. **All set!** — A warm completion screen ("You're all set!") with a summary checklist and a single "Let's Get Started" CTA. For signed-in users, the paywall is shown on top of this screen so the free trial offer is the first thing they see after setup.
 
 ### 14. Settings
 
@@ -220,9 +224,16 @@ Accessible from the Profile section:
 **Pricing:**
 - US: $4.99/month or $29.99/year
 - UK: £4.49/month or £27.99/year
-- 7-day free trial (no card required), shown at end of onboarding
+- **7-day free trial** — configured at the store level (Play Store + App Store), surfaced by RevenueCat via `StoreProduct.introductoryPrice`. No manual trial tracking in the app.
 
-**Payment processing:** RevenueCat SDK (runs in dry mode if no API key configured).
+**Paywall behaviour:**
+- **Leads with the trial** — "Start Your 7-Day Free Trial" is the primary hero whenever packages indicate a trial is available, OR whenever packages haven't loaded yet (dry mode / pre-live RC). Fine print clearly states "7 days free, then [price]/[period]. Cancel anytime in Google Play."
+- **Falls back** to "Upgrade to Pro" only when packages have loaded and none expose an introductory price (i.e. the user has already used a trial).
+- **Context-specific headlines** — The small kicker above the hero adapts to where the paywall was opened from: "Unlock unlimited recipes" (weekly cap), "Plan your whole week" (meal planner), "Shop smarter with one list" (shopping list), "Cook for your whole household" (household), or "Go Pro with Elio" (default).
+- **Six-item feature checklist** — Unlimited recipes, meal planner, shopping list, household sharing, unlimited history, priority regeneration.
+- **Plan toggle** — Monthly / Annual, with Annual pre-selected and marked "Best value — save ~30%".
+
+**Payment processing:** RevenueCat SDK (runs in dry mode if no API key configured — the paywall still shows the trial copy so the experience is representative in development).
 
 ---
 
@@ -238,9 +249,13 @@ Users can try Elio without creating an account:
 
 ---
 
+## Planned Features — Pre-Launch (iOS track)
+
+- **Apple Sign-In** — required by App Store when Google Sign-In is present
+- **Siri Shortcuts** — `NSUserActivity` donations for "Generate a recipe", "Open my shopping list", "What's in my pantry", and "Start cooking last recipe", so iOS users have voice entry points into Elio from day one
+
 ## Planned Features (Post-Launch)
 
-- iOS production build with Apple Sign-In
 - Accurate cost estimation via supermarket API integration
 - Grocery affiliate integration (shopping list to delivery)
 - Social sharing (recipe card as shareable image)
