@@ -711,4 +711,102 @@ class GeminiService {
 
     return GeneratedRecipe.fromJson(json);
   }
+
+  // ── Side dish generation ──────────────────────────────────────────────────────
+  // Uses flash-lite batch call to generate a complementary side dish.
+  static Future<GeneratedRecipe> generateSideDish({
+    required String mainRecipeTitle,
+    required List<String> mainIngredientNames,
+    required List<String> dietaryTags,
+    int servings = 2,
+  }) async {
+    final units = RegionUtils.measurementUnits;
+    final region = RegionUtils.region;
+    final unitLine = units == 'imperial'
+        ? 'Use imperial measurements (ounces, cups, Fahrenheit).'
+        : 'Use metric measurements (grams, millilitres, Celsius).';
+    final regionLine = region == AppRegion.uk
+        ? 'User is in the UK — use GBP for cost and UK ingredient names.'
+        : 'User is in the US — use USD for cost and US ingredient names.';
+
+    final prompt = StringBuffer()
+      ..writeln('You are Elio, a friendly AI cooking assistant.')
+      ..writeln()
+      ..writeln('The user has made "$mainRecipeTitle". Suggest ONE complementary side dish or accompaniment.')
+      ..writeln()
+      ..writeln('Rules:')
+      ..writeln('- This MUST be a side dish — think: salad, bread, roasted veg, rice, slaw, dipping sauce, gratin, etc.')
+      ..writeln('- It should complement the main dish: if the main is heavy, suggest something light/fresh; if light, something more substantial.')
+      ..writeln('- Quick to prepare: under 15 minutes total.')
+      ..writeln('- Max 6 ingredients, max 5 steps (1-2 sentences each).')
+      ..writeln('- $servings servings.')
+      ..writeln('- $unitLine')
+      ..writeln('- $regionLine');
+
+    if (dietaryTags.isNotEmpty) {
+      prompt.writeln('- Dietary requirements (strict): ${dietaryTags.join(', ')}');
+    }
+
+    if (mainIngredientNames.isNotEmpty) {
+      prompt.writeln('- The main recipe uses these ingredients — do NOT make them the star of the side dish (basic seasonings like salt/oil are fine to share): ${mainIngredientNames.join(', ')}');
+    }
+
+    prompt.writeln();
+    prompt.writeln('Return a single JSON object:');
+    prompt.writeln('{"title":"string","description":"string (1-2 sentences)","prepTimeMinutes":int,"cookTimeMinutes":int,"servings":int,'
+        '"dietaryTags":["string"],"ingredients":[{"name":"string","quantity":"string","unit":"string","fromInventory":false}],'
+        '"steps":["string"],"substitutions":[],"tips":"string (optional)"}');
+
+    const sideDishModel = 'gemini-2.5-flash-lite';
+    const sideDishEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/$sideDishModel:generateContent';
+
+    final response = await http.post(
+      Uri.parse('$sideDishEndpoint?key=$_apiKey'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'contents': [
+          {
+            'parts': [{'text': prompt.toString()}]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.8,
+          'topK': 40,
+          'topP': 0.95,
+          'maxOutputTokens': 768,
+          'responseMimeType': 'application/json',
+        },
+      }),
+    ).timeout(const Duration(seconds: 20), onTimeout: () {
+      throw Exception('Side dish generation timed out. Please try again.');
+    });
+
+    if (response.statusCode != 200) {
+      throw Exception('Side dish generation failed (${response.statusCode}). Please try again.');
+    }
+
+    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+    final candidates = responseData['candidates'] as List<dynamic>?;
+    if (candidates == null || candidates.isEmpty) {
+      throw Exception('No side dish generated. Please try again.');
+    }
+
+    final content = candidates[0]['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List<dynamic>?;
+    if (parts == null || parts.isEmpty) {
+      throw Exception('Empty response. Please try again.');
+    }
+
+    final textParts = parts.where((p) => p['thought'] != true).toList();
+    final rawText = textParts.isNotEmpty
+        ? (textParts.last['text'] as String? ?? '')
+        : (parts.last['text'] as String? ?? '');
+
+    if (rawText.isEmpty) {
+      throw Exception('Empty side dish response.');
+    }
+
+    final json = _extractJson(rawText);
+    return GeneratedRecipe.fromJson(json);
+  }
 }

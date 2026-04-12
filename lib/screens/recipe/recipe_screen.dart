@@ -15,6 +15,7 @@ import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
 import '../../services/shopping_service.dart';
+import '../paywall/paywall_screen.dart';
 
 // ─────────────────────────────────────────────
 // RecipeScreen — Sprint 4 patch
@@ -76,6 +77,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   // ── Regeneration state ──────────────────────────────────────────────────────────────────────────────
   bool _isRegenerating = false;
+  bool _isGeneratingSideDish = false;
   late int _regenCount;
   final Set<String> _excludedIngredients = {};
   final FirestoreService _firestore = FirestoreService();
@@ -678,6 +680,67 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ),
         );
       }
+    }
+  }
+
+  // ── Side dish generation ────────────────────────────────────────────────────
+  Future<void> _generateSideDish() async {
+    if (_isGeneratingSideDish) return;
+
+    // Pro-only feature
+    if (!EntitlementService.instance.isPro) {
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => PaywallScreen(triggerContext: 'side_dish'),
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() => _isGeneratingSideDish = true);
+
+    try {
+      final ingredientNames = _currentRecipe.ingredients
+          .map((i) => i.name)
+          .toList();
+
+      final sideDish = await GeminiService.generateSideDish(
+        mainRecipeTitle: _currentRecipe.title,
+        mainIngredientNames: ingredientNames,
+        dietaryTags: _currentRecipe.dietaryTags,
+        servings: _servings,
+      );
+
+      _analytics.logEvent('side_dish_generated', {
+        'main_recipe': _currentRecipe.title,
+        'side_dish': sideDish.title,
+      });
+
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => RecipeScreen(
+              recipe: sideDish,
+              isGuest: widget.isGuest,
+              // No originalRequest — "Generate Another" won't appear
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      ErrorService.log('side_dish_generation', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: ElioColors.navy,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGeneratingSideDish = false);
     }
   }
 
@@ -1956,6 +2019,28 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ),
           const SizedBox(height: 12),
         ],
+        // Suggest a Side Dish
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _isGeneratingSideDish ? null : _generateSideDish,
+            icon: _isGeneratingSideDish
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.amber),
+                  )
+                : const Icon(Icons.restaurant_menu_rounded, size: 20),
+            label: Text(_isGeneratingSideDish ? 'Finding a side dish...' : 'Suggest a Side Dish'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: ElioColors.amber,
+              side: const BorderSide(color: ElioColors.amber, width: 1.5),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
         // Hands-Free Mode — always available
         SizedBox(
           width: double.infinity,
