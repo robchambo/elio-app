@@ -309,7 +309,10 @@ class GeminiService {
     if (request.stylePreference == 'Surprise me') {
       buffer.writeln('Style: Be creative — any cuisine.');
     }
-    if (request.moodPreference != null) buffer.writeln('Mood: ${request.moodPreference}');
+    if (request.moodPreference != null) {
+      buffer.writeln('Mood: ${request.moodPreference}');
+      buffer.writeln(_expandMoodGuidance(request.moodPreference!));
+    }
     buffer.writeln('Servings: ${request.servings}');
 
     if (request.runningLowItems.isNotEmpty) {
@@ -411,6 +414,35 @@ class GeminiService {
 }''');
 
     return buffer.toString();
+  }
+
+  /// Expand a mood chip label into specific, actionable prompt guidance
+  /// so Gemini generates recipes that actually match the mood.
+  static String _expandMoodGuidance(String mood) {
+    switch (mood) {
+      case 'Impress someone':
+        return 'This meal is for a special occasion or to impress a guest. '
+            'Choose a dish that looks and tastes restaurant-quality. '
+            'Use at least one elevated technique (e.g. searing, reducing a sauce, '
+            'caramelising, layering flavours, making a dressing or glaze from scratch). '
+            'Avoid anything that looks like a basic weeknight dinner. '
+            'Include a brief plating or presentation tip in the final step. '
+            'The title should sound appealing and sophisticated.';
+      case 'Something hearty':
+        return 'Make this a filling, comforting, warming dish. '
+            'Think stews, braises, bakes, curries, hearty pastas, or one-pot meals. '
+            'Generous portions, rich flavours, the kind of meal that satisfies completely.';
+      case 'Light bite':
+        return 'Keep this light and fresh. Salads, wraps, grain bowls, broth-based soups, '
+            'or small plates. Lower calorie, not heavy or stodgy. '
+            'Prioritise vegetables, lean proteins, and bright flavours.';
+      case 'Use everything up':
+        return 'The goal is to use up as many of the available fresh/perishable ingredients '
+            'as possible in a single recipe. Prioritise ingredients that spoil fastest. '
+            'A stir-fry, frittata, soup, curry, or similar flexible dish works well.';
+      default:
+        return '';
+    }
   }
 
   /// Builds a bulk-prep-specific prompt by extending the base prompt with
