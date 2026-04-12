@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/meal_plan_models.dart';
+import '../../utils/aisle_utils.dart';
 
 // ─────────────────────────────────────────────
 // ShoppingListScreen
@@ -158,11 +159,8 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                   : ListView(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
                       children: [
-                        // Restock section (Running Low items) — always at top
-                        ..._buildRestockSection(unchecked),
-
-                        // Recipe ingredients section
-                        ..._buildRecipeSection(unchecked),
+                        // Aisle-grouped sections for all unchecked items
+                        ..._buildAisleSections(unchecked),
 
                         // Checked items section
                         if (checked.isNotEmpty) ...[
@@ -207,61 +205,71 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     );
   }
 
-  List<Widget> _buildRestockSection(List<ShoppingItem> unchecked) {
-    final restockItems = unchecked.where((i) => i.isRestock).toList();
-    if (restockItems.isEmpty) return [];
-
-    return [
-      Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded, size: 16, color: ElioColors.amber),
-          const SizedBox(width: 6),
-          Text(
-            'Restock (${restockItems.length})',
-            style: ElioText.label.copyWith(
-              color: ElioColors.amber,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-      const SizedBox(height: 8),
-      ...restockItems.map((item) {
-        final index = _items.indexOf(item);
-        return _ShoppingItemTile(
-          item: item,
-          onTap: () => _toggleItem(index),
-        );
-      }),
-      const SizedBox(height: 16),
-    ];
+  static IconData _aisleIcon(GroceryAisle aisle) {
+    switch (aisle) {
+      case GroceryAisle.produce:
+        return Icons.eco_outlined;
+      case GroceryAisle.meatAndFish:
+        return Icons.set_meal_outlined;
+      case GroceryAisle.dairy:
+        return Icons.egg_outlined;
+      case GroceryAisle.bakery:
+        return Icons.bakery_dining_outlined;
+      case GroceryAisle.tinsAndDry:
+        return Icons.inventory_2_outlined;
+      case GroceryAisle.condiments:
+        return Icons.local_dining_outlined;
+      case GroceryAisle.spices:
+        return Icons.grass_outlined;
+      case GroceryAisle.frozen:
+        return Icons.ac_unit_outlined;
+      case GroceryAisle.drinks:
+        return Icons.local_cafe_outlined;
+      case GroceryAisle.other:
+        return Icons.shopping_bag_outlined;
+    }
   }
 
-  List<Widget> _buildRecipeSection(List<ShoppingItem> unchecked) {
-    final recipeItems = unchecked.where((i) => !i.isRestock).toList();
-    if (recipeItems.isEmpty) return [];
+  List<Widget> _buildAisleSections(List<ShoppingItem> unchecked) {
+    // Group items by aisle
+    final grouped = <GroceryAisle, List<ShoppingItem>>{};
+    for (final item in unchecked) {
+      final aisle = AisleUtils.classify(item.name);
+      grouped.putIfAbsent(aisle, () => []).add(item);
+    }
 
-    final hasRestock = unchecked.any((i) => i.isRestock);
-    return [
-      if (hasRestock) ...[
-        Text(
-          'For recipes (${recipeItems.length})',
-          style: ElioText.label.copyWith(
-            color: ElioColors.textMuted,
-            letterSpacing: 0.5,
-          ),
+    final sections = <Widget>[];
+    for (final aisle in AisleUtils.displayOrder) {
+      final items = grouped[aisle];
+      if (items == null || items.isEmpty) continue;
+
+      sections.addAll([
+        Row(
+          children: [
+            Icon(_aisleIcon(aisle), size: 16, color: ElioColors.navy),
+            const SizedBox(width: 6),
+            Text(
+              AisleUtils.displayName(aisle),
+              style: ElioText.label.copyWith(
+                color: ElioColors.navy,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-      ],
-      ...recipeItems.map((item) {
-        final index = _items.indexOf(item);
-        return _ShoppingItemTile(
-          item: item,
-          onTap: () => _toggleItem(index),
-        );
-      }),
-    ];
+        ...items.map((item) {
+          final index = _items.indexOf(item);
+          return _ShoppingItemTile(
+            item: item,
+            onTap: () => _toggleItem(index),
+          );
+        }),
+        const SizedBox(height: 16),
+      ]);
+    }
+    return sections;
   }
 
   Widget _buildEmptyState() {
@@ -338,22 +346,45 @@ class _ShoppingItemTile extends StatelessWidget {
             ),
             const SizedBox(width: 12),
 
-            // Item name
+            // Item name + optional Restock badge
             Expanded(
-              child: Text(
-                _capitalise(item.name),
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: item.isChecked ? ElioColors.textMuted : ElioColors.textPrimary,
-                  decoration: item.isChecked ? TextDecoration.lineThrough : null,
-                  decorationColor: ElioColors.textMuted,
-                ),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                children: [
+                  Text(
+                    _capitalise(item.name),
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: item.isChecked ? ElioColors.textMuted : ElioColors.textPrimary,
+                      decoration: item.isChecked ? TextDecoration.lineThrough : null,
+                      decorationColor: ElioColors.textMuted,
+                    ),
+                  ),
+                  if (item.isRestock && !item.isChecked)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: ElioColors.amber.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: ElioColors.amber.withValues(alpha: 0.4)),
+                      ),
+                      child: Text(
+                        'Restock',
+                        style: ElioText.label.copyWith(
+                          color: ElioColors.amber,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
 
             // Quantity hint (first occurrence)
-            if (item.quantities.isNotEmpty && !item.isChecked)
+            if (item.quantities.isNotEmpty && !item.isChecked && !item.isRestock)
               Text(
                 item.quantities.first,
                 style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),

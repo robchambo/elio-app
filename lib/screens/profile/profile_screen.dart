@@ -15,6 +15,7 @@ import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/history_service.dart';
 import '../../services/shopping_service.dart';
+import '../../utils/aisle_utils.dart';
 import '../../models/recipe_models.dart';
 import '../recipe/recipe_screen.dart';
 import 'notification_prefs_screen.dart';
@@ -1679,9 +1680,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
     final unchecked = _shoppingItems.where((i) => !i.isChecked).toList();
     final checked = _shoppingItems.where((i) => i.isChecked).toList();
-    final restockItems = unchecked.where((i) => i.isRestock).toList();
-    final mealPlanItems = unchecked.where((i) => i.isMealPlan).toList();
-    final manualItems = unchecked.where((i) => i.isManual).toList();
 
     return Column(
       children: [
@@ -1790,55 +1788,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               : ListView(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
                   children: [
-                    // Restock section
-                    if (restockItems.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          const Icon(Icons.warning_amber_rounded, size: 16, color: ElioColors.amber),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Restock (${restockItems.length})',
-                            style: ElioText.label.copyWith(
-                              color: ElioColors.amber,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      ...restockItems.map((item) => _buildShoppingTile(item)),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Meal plan section
-                    if (mealPlanItems.isNotEmpty) ...[
-                      Text(
-                        'For recipes (${mealPlanItems.length})',
-                        style: ElioText.label.copyWith(
-                          color: ElioColors.textMuted,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ...mealPlanItems.map((item) => _buildShoppingTile(item)),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Manual items section
-                    if (manualItems.isNotEmpty) ...[
-                      if (restockItems.isNotEmpty || mealPlanItems.isNotEmpty)
-                        Text(
-                          'Added by you (${manualItems.length})',
-                          style: ElioText.label.copyWith(
-                            color: ElioColors.textMuted,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      if (restockItems.isNotEmpty || mealPlanItems.isNotEmpty)
-                        const SizedBox(height: 8),
-                      ...manualItems.map((item) => _buildShoppingTile(item)),
-                    ],
+                    // Aisle-grouped sections for all unchecked items
+                    ..._buildShoppingAisleSections(unchecked),
 
                     // Checked items
                     if (checked.isNotEmpty) ...[
@@ -1873,6 +1824,67 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         ),
       ],
     );
+  }
+
+  static IconData _aisleIcon(GroceryAisle aisle) {
+    switch (aisle) {
+      case GroceryAisle.produce:
+        return Icons.eco_outlined;
+      case GroceryAisle.meatAndFish:
+        return Icons.set_meal_outlined;
+      case GroceryAisle.dairy:
+        return Icons.egg_outlined;
+      case GroceryAisle.bakery:
+        return Icons.bakery_dining_outlined;
+      case GroceryAisle.tinsAndDry:
+        return Icons.inventory_2_outlined;
+      case GroceryAisle.condiments:
+        return Icons.local_dining_outlined;
+      case GroceryAisle.spices:
+        return Icons.grass_outlined;
+      case GroceryAisle.frozen:
+        return Icons.ac_unit_outlined;
+      case GroceryAisle.drinks:
+        return Icons.local_cafe_outlined;
+      case GroceryAisle.other:
+        return Icons.shopping_bag_outlined;
+    }
+  }
+
+  List<Widget> _buildShoppingAisleSections(List<PersistentShoppingItem> unchecked) {
+    // Group items by aisle
+    final grouped = <GroceryAisle, List<PersistentShoppingItem>>{};
+    for (final item in unchecked) {
+      final aisle = AisleUtils.classify(item.name);
+      grouped.putIfAbsent(aisle, () => []).add(item);
+    }
+
+    final sections = <Widget>[];
+    for (final aisle in AisleUtils.displayOrder) {
+      final items = grouped[aisle];
+      if (items == null || items.isEmpty) continue;
+
+      sections.addAll([
+        Row(
+          children: [
+            Icon(_aisleIcon(aisle), size: 16, color: ElioColors.navy),
+            const SizedBox(width: 6),
+            Text(
+              AisleUtils.displayName(aisle),
+              style: ElioText.label.copyWith(
+                color: ElioColors.navy,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...items.map((item) => _buildShoppingTile(item)),
+        const SizedBox(height: 16),
+      ]);
+    }
+    return sections;
   }
 
   Widget _buildShoppingTile(PersistentShoppingItem item) {
@@ -1925,18 +1937,41 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  _capitaliseShoppingName(item.name),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: item.isChecked ? ElioColors.textMuted : ElioColors.textPrimary,
-                    decoration: item.isChecked ? TextDecoration.lineThrough : null,
-                    decorationColor: ElioColors.textMuted,
-                  ),
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  children: [
+                    Text(
+                      _capitaliseShoppingName(item.name),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: item.isChecked ? ElioColors.textMuted : ElioColors.textPrimary,
+                        decoration: item.isChecked ? TextDecoration.lineThrough : null,
+                        decorationColor: ElioColors.textMuted,
+                      ),
+                    ),
+                    if (item.isRestock && !item.isChecked)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: ElioColors.amber.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: ElioColors.amber.withValues(alpha: 0.4)),
+                        ),
+                        child: Text(
+                          'Restock',
+                          style: ElioText.label.copyWith(
+                            color: ElioColors.amber,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (item.quantity.isNotEmpty && !item.isChecked)
+              if (item.quantity.isNotEmpty && !item.isChecked && !item.isRestock)
                 Text(
                   item.quantity,
                   style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
@@ -2195,6 +2230,14 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  // ── Collections filter ────────────────────────────────────────────
+  String? _selectedCollection; // null = "All"
+
+  // ── Makeable now ─────────────────────────────────────────────────
+  List<String> _pantryItems = [];
+  Set<String> _makeableNow = {};
+  bool _makeableFilter = false;
+
   @override
   void initState() {
     super.initState();
@@ -2231,11 +2274,47 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
       trimmed = true;
     }
 
+    // Load pantry for "Makeable now" feature (non-blocking on failure)
+    List<String> pantryItems = _pantryItems;
+    try {
+      final userData = await FirestoreService().getUserData();
+      final alwaysHave = List<String>.from(userData['alwaysHave'] ?? []);
+      final almostAlwaysHave = List<String>.from(userData['almostAlwaysHave'] ?? []);
+      final inventoryWithIds = List<Map<String, dynamic>>.from(
+        (userData['inventoryWithIds'] as List<dynamic>? ?? []).map((e) => e as Map<String, dynamic>),
+      );
+      final perishables = inventoryWithIds
+          .where((i) => i['tier'] == 'perishable')
+          .map((i) => i['name'] as String? ?? '')
+          .where((n) => n.isNotEmpty)
+          .toList();
+      pantryItems = [
+        ...alwaysHave,
+        ...almostAlwaysHave,
+        ...perishables,
+      ].map((s) => s.toLowerCase()).toList();
+    } catch (_) {
+      // Keep previous pantry if Firestore unavailable
+    }
+
+    // Compute makeable recipes: all ingredients fuzzy-match pantry
+    final makeableNow = <String>{};
+    for (final saved in allRecipes) {
+      final ingredients = saved.recipe.ingredients;
+      if (ingredients.isEmpty) { makeableNow.add(saved.savedAt); continue; }
+      final allMatch = ingredients.every(
+        (ing) => pantryItems.any((p) => PantryUtils.isFuzzyMatch(ing.name, p)),
+      );
+      if (allMatch) makeableNow.add(saved.savedAt);
+    }
+
     if (mounted) {
       setState(() {
         _saved = bookmarked;
         _history = history;
         _historyTrimmed = trimmed;
+        _pantryItems = pantryItems;
+        _makeableNow = makeableNow;
         _loading = false;
       });
     }
@@ -2312,6 +2391,166 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
     ).then((_) => _load()); // Refresh list after import
   }
 
+  /// Returns all unique collection names across saved recipes, sorted.
+  List<String> get _allCollections {
+    final names = <String>{};
+    for (final r in _saved) {
+      names.addAll(r.collections);
+    }
+    final sorted = names.toList()..sort();
+    return sorted;
+  }
+
+  Future<void> _showTagDialog(BuildContext ctx, SavedRecipe saved) async {
+    final allCollections = _allCollections;
+    final selected = List<String>.from(saved.collections);
+    final textController = TextEditingController();
+
+    await showDialog<void>(
+      context: ctx,
+      builder: (dCtx) {
+        return StatefulBuilder(
+          builder: (dCtx, setDialogState) {
+            return AlertDialog(
+              backgroundColor: ElioColors.offWhite,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text('Tag recipe', style: ElioText.headingMedium),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // New collection input
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: textController,
+                            style: ElioText.bodyMedium,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: InputDecoration(
+                              hintText: 'New collection…',
+                              hintStyle: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              filled: true,
+                              fillColor: ElioColors.white,
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide(color: ElioColors.border),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: const BorderSide(color: ElioColors.amber, width: 1.5),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            final name = textController.text.trim();
+                            if (name.isNotEmpty && !selected.contains(name)) {
+                              setDialogState(() {
+                                selected.add(name);
+                                textController.clear();
+                              });
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: ElioColors.amber,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.add, size: 18, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Existing collections
+                    if (allCollections.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Collections',
+                        style: ElioText.label.copyWith(
+                          color: ElioColors.textSecondary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Flexible(
+                        child: SingleChildScrollView(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: allCollections.map((col) {
+                              final isOn = selected.contains(col);
+                              return GestureDetector(
+                                onTap: () => setDialogState(() {
+                                  if (isOn) {
+                                    selected.remove(col);
+                                  } else {
+                                    selected.add(col);
+                                  }
+                                }),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: isOn ? ElioColors.amber : ElioColors.offWhite,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: isOn ? ElioColors.amber : ElioColors.border,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    col,
+                                    style: ElioText.label.copyWith(
+                                      color: isOn ? Colors.white : ElioColors.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dCtx),
+                  child: Text(
+                    'Cancel',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    Navigator.pop(dCtx);
+                    await HistoryService.updateCollections(saved.savedAt, selected);
+                    await _load();
+                  },
+                  child: Text(
+                    'Save',
+                    style: ElioText.bodyMedium.copyWith(
+                      color: ElioColors.amber,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   String _formatDate(String iso) {
     try {
       final dt = DateTime.parse(iso).toLocal();
@@ -2333,51 +2572,98 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
     }
 
     final bool isSearching = _searchQuery.isNotEmpty;
+    final collections = _allCollections;
 
     return Column(
       children: [
-        // Search bar
+        // Search bar + makeable toggle row
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-          child: TextField(
-            controller: _searchController,
-            style: GoogleFonts.outfit(
-              color: ElioColors.navy,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Search recipes, ingredients…',
-              hintStyle: GoogleFonts.outfit(
-                color: ElioColors.textMuted,
-                fontSize: 14,
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  style: GoogleFonts.outfit(
+                    color: ElioColors.navy,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Search recipes, ingredients…',
+                    hintStyle: GoogleFonts.outfit(
+                      color: ElioColors.textMuted,
+                      fontSize: 14,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: isSearching ? ElioColors.amber : ElioColors.textMuted,
+                      size: 20,
+                    ),
+                    suffixIcon: isSearching
+                        ? GestureDetector(
+                            onTap: () {
+                              _searchController.clear();
+                              FocusScope.of(context).unfocus();
+                            },
+                            child: const Icon(Icons.close_rounded, color: ElioColors.textMuted, size: 18),
+                          )
+                        : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    filled: true,
+                    fillColor: ElioColors.offWhite,
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: ElioColors.border),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: ElioColors.amber, width: 1.5),
+                    ),
+                  ),
+                ),
               ),
-              prefixIcon: Icon(
-                Icons.search_rounded,
-                color: isSearching ? ElioColors.amber : ElioColors.textMuted,
-                size: 20,
+              const SizedBox(width: 8),
+              // Makeable now toggle button
+              GestureDetector(
+                onTap: () => setState(() => _makeableFilter = !_makeableFilter),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _makeableFilter
+                        ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
+                        : ElioColors.offWhite,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _makeableFilter ? const Color(0xFF2E7D32) : ElioColors.border,
+                      width: _makeableFilter ? 1.5 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.kitchen_rounded,
+                        size: 15,
+                        color: _makeableFilter ? const Color(0xFF2E7D32) : ElioColors.textMuted,
+                      ),
+                      if (_makeableFilter) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          'Makeable',
+                          style: ElioText.label.copyWith(
+                            fontSize: 11,
+                            color: const Color(0xFF2E7D32),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
-              suffixIcon: isSearching
-                  ? GestureDetector(
-                      onTap: () {
-                        _searchController.clear();
-                        FocusScope.of(context).unfocus();
-                      },
-                      child: const Icon(Icons.close_rounded, color: ElioColors.textMuted, size: 18),
-                    )
-                  : null,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              filled: true,
-              fillColor: ElioColors.offWhite,
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: ElioColors.border),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: ElioColors.amber, width: 1.5),
-              ),
-            ),
+            ],
           ),
         ),
         // Segment tabs + action row — hidden while searching
@@ -2429,6 +2715,19 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
               ],
             ),
           ),
+          // Collection filter chips — only on Saved tab when collections exist
+          if (_selectedTab == 0 && collections.isNotEmpty)
+            SizedBox(
+              height: 40,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                children: [
+                  _collectionChip(null),
+                  ...collections.map((col) => _collectionChip(col)),
+                ],
+              ),
+            ),
         ],
         const SizedBox(height: 8),
         // Recipe list — search results or normal tab view
@@ -2438,6 +2737,34 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
               : (_selectedTab == 0 ? _buildSavedList() : _buildHistoryList()),
         ),
       ],
+    );
+  }
+
+  Widget _collectionChip(String? col) {
+    final label = col ?? 'All';
+    final isSelected = _selectedCollection == col;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCollection = col),
+      child: Container(
+        margin: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? ElioColors.amber : ElioColors.offWhite,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? ElioColors.amber : ElioColors.border,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: ElioText.label.copyWith(
+            fontSize: 12,
+            color: isSelected ? Colors.white : ElioColors.textPrimary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 
@@ -2559,10 +2886,32 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
       );
     }
 
+    // Apply collection and makeable filters
+    var filtered = _saved.where((r) {
+      if (_selectedCollection != null && !r.collections.contains(_selectedCollection)) return false;
+      if (_makeableFilter && !_makeableNow.contains(r.savedAt)) return false;
+      return true;
+    }).toList();
+
+    if (filtered.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Text(
+            _makeableFilter
+                ? 'No saved recipes are makeable with your current pantry.'
+                : 'No recipes in this collection.',
+            textAlign: TextAlign.center,
+            style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-      itemCount: _saved.length,
-      itemBuilder: (context, index) => _buildRecipeCard(_saved[index], showBookmark: true),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) => _buildRecipeCard(filtered[index], showBookmark: true),
     );
   }
 
@@ -2589,20 +2938,39 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
       );
     }
 
+    // Apply makeable filter only (no collection filter in History tab)
+    final filtered = _makeableFilter
+        ? _history.where((r) => _makeableNow.contains(r.savedAt)).toList()
+        : _history;
+
+    if (_makeableFilter && filtered.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Text(
+            'No history recipes are makeable with your current pantry.',
+            textAlign: TextAlign.center,
+            style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
-      itemCount: _history.length + (_historyTrimmed ? 1 : 0),
+      itemCount: filtered.length + (_historyTrimmed && !_makeableFilter ? 1 : 0),
       itemBuilder: (context, index) {
-        if (_historyTrimmed && index == _history.length) {
+        if (_historyTrimmed && !_makeableFilter && index == filtered.length) {
           return _buildUpgradeBanner();
         }
-        return _buildRecipeCard(_history[index], showBookmark: true);
+        return _buildRecipeCard(filtered[index], showBookmark: true);
       },
     );
   }
 
   Widget _buildRecipeCard(SavedRecipe saved, {bool showBookmark = false}) {
     final recipe = saved.recipe;
+    final isMakeable = _makeableNow.contains(saved.savedAt);
     return Dismissible(
       key: Key(saved.savedAt),
       direction: DismissDirection.endToStart,
@@ -2649,6 +3017,65 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    // Collection badge
+                    if (saved.collections.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 4,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: ElioColors.amber.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              saved.collections.first,
+                              style: ElioText.label.copyWith(
+                                fontSize: 10,
+                                color: ElioColors.amber,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          if (saved.collections.length > 1)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: ElioColors.amber.withValues(alpha: 0.10),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '+${saved.collections.length - 1} more',
+                                style: ElioText.label.copyWith(
+                                  fontSize: 10,
+                                  color: ElioColors.amber,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                    // Makeable now badge
+                    if (isMakeable) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2E7D32).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '\u2713 Makeable now',
+                          style: ElioText.label.copyWith(
+                            fontSize: 10,
+                            color: const Color(0xFF2E7D32),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -2672,20 +3099,37 @@ class _RecipeBookContentState extends State<_RecipeBookContent> {
                 ),
               ),
               const SizedBox(width: 8),
-              if (showBookmark)
-                GestureDetector(
-                  onTap: () => _toggleBookmark(saved),
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Icon(
-                      saved.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-                      size: 22,
-                      color: saved.isBookmarked ? ElioColors.amber : ElioColors.textMuted,
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Tag button — always shown
+                  GestureDetector(
+                    onTap: () => _showTagDialog(context, saved),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 6),
+                      child: Icon(
+                        Icons.label_outline_rounded,
+                        size: 20,
+                        color: saved.collections.isNotEmpty ? ElioColors.amber : ElioColors.textMuted,
+                      ),
                     ),
                   ),
-                )
-              else
-                const Icon(Icons.chevron_right_rounded, color: ElioColors.border, size: 22),
+                  if (showBookmark)
+                    GestureDetector(
+                      onTap: () => _toggleBookmark(saved),
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          saved.isBookmarked ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                          size: 22,
+                          color: saved.isBookmarked ? ElioColors.amber : ElioColors.textMuted,
+                        ),
+                      ),
+                    )
+                  else
+                    const Icon(Icons.chevron_right_rounded, color: ElioColors.border, size: 22),
+                ],
+              ),
             ],
           ),
         ),

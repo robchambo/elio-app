@@ -271,14 +271,21 @@ class SavedRecipe {
   final GeneratedRecipe recipe;
   final String savedAt; // ISO8601 string, used as unique ID
   final bool isBookmarked;
+  final List<String> collections;
 
-  const SavedRecipe({required this.recipe, required this.savedAt, this.isBookmarked = false});
+  const SavedRecipe({
+    required this.recipe,
+    required this.savedAt,
+    this.isBookmarked = false,
+    this.collections = const [],
+  });
 
   factory SavedRecipe.fromJson(Map<String, dynamic> json) {
     return SavedRecipe(
       recipe: GeneratedRecipe.fromJson(json['recipe'] as Map<String, dynamic>),
       savedAt: json['savedAt'] as String? ?? DateTime.now().toIso8601String(),
       isBookmarked: json['isBookmarked'] as bool? ?? false,
+      collections: List<String>.from(json['collections'] ?? []),
     );
   }
 
@@ -300,13 +307,20 @@ class SavedRecipe {
     },
     'savedAt': savedAt,
     'isBookmarked': isBookmarked,
+    'collections': collections,
   };
 
-  SavedRecipe copyWith({GeneratedRecipe? recipe, String? savedAt, bool? isBookmarked}) {
+  SavedRecipe copyWith({
+    GeneratedRecipe? recipe,
+    String? savedAt,
+    bool? isBookmarked,
+    List<String>? collections,
+  }) {
     return SavedRecipe(
       recipe: recipe ?? this.recipe,
       savedAt: savedAt ?? this.savedAt,
       isBookmarked: isBookmarked ?? this.isBookmarked,
+      collections: collections ?? this.collections,
     );
   }
 

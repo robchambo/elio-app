@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/meal_plan_models.dart';
+import '../utils/quantity_utils.dart';
 
 // ─────────────────────────────────────────────
 // ShoppingService
@@ -187,8 +188,9 @@ class ShoppingService {
 
     final haveSet = alreadyHave.map((s) => s.toLowerCase().trim()).toSet();
 
-    // Aggregate ingredients from all meals
-    final aggregated = <String, String>{};
+    // Aggregate ingredients from all meals, consolidating quantities per ingredient
+    final quantities = <String, List<ParsedQuantity>>{};
+    final displayNames = <String, String>{}; // first display name wins
     for (final day in plan.days) {
       for (final meal in day.meals.values) {
         if (meal == null) continue;
@@ -196,9 +198,9 @@ class ShoppingService {
           final key = ingredient.name.toLowerCase().trim();
           if (haveSet.any((h) => key.contains(h) || h.contains(key))) continue;
           if (_isStaple(key)) continue;
-          final qtyStr = '${ingredient.quantity} ${ingredient.unit}'.trim();
-          // Keep the first quantity we see (or accumulate — keeping simple for now)
-          aggregated.putIfAbsent(key, () => qtyStr);
+          displayNames.putIfAbsent(key, () => ingredient.name.trim());
+          final parsed = QuantityUtils.parse(ingredient.quantity, ingredient.unit);
+          quantities.putIfAbsent(key, () => []).add(parsed);
         }
       }
     }
@@ -213,20 +215,22 @@ class ShoppingService {
     }
 
     final batch = _db.batch();
-    for (final entry in aggregated.entries) {
-      if (existingByName.containsKey(entry.key)) {
+    for (final key in quantities.keys) {
+      final combinedQty = QuantityUtils.combine(quantities[key]!);
+      final displayName = displayNames[key] ?? key;
+      if (existingByName.containsKey(key)) {
         // Update quantity, uncheck if it was checked
-        batch.update(existingByName[entry.key]!, {
-          'quantity': entry.value,
+        batch.update(existingByName[key]!, {
+          'quantity': combinedQty,
           'source': ShoppingSource.mealPlan.name,
           'isChecked': false,
         });
       } else {
         final ref = _collection.doc();
         batch.set(ref, {
-          'name': entry.key,
-          'nameLower': entry.key,
-          'quantity': entry.value,
+          'name': displayName,
+          'nameLower': key,
+          'quantity': combinedQty,
           'source': ShoppingSource.mealPlan.name,
           'isChecked': false,
           'addedAt': Timestamp.fromDate(DateTime.now()),

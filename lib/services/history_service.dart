@@ -94,6 +94,19 @@ class HistoryService {
     _cache = null;
   }
 
+  /// Update collections for a recipe by its savedAt timestamp.
+  static Future<void> updateCollections(String savedAt, List<String> collections) async {
+    final prefs = await SharedPreferences.getInstance();
+    final existing = await getHistory();
+    final idx = existing.indexWhere((r) => r.savedAt == savedAt);
+    if (idx != -1) {
+      existing[idx] = existing[idx].copyWith(collections: collections);
+      final encoded = jsonEncode(existing.map((r) => r.toJson()).toList());
+      await prefs.setString(_key, encoded);
+    }
+    _cache = null;
+  }
+
   /// Clear all history including bookmarks.
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
