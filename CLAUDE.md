@@ -8,7 +8,7 @@ Flutter app. Gemini AI generates recipes from your actual pantry. Android-primar
 - **Who for:** Busy households (couples, families, flatshares) who want to eat well without daily meal-planning friction. US primary, UK secondary.
 - **Core principle:** Remove friction. Minimal taps, simplicity over completeness. Every screen earns its place.
 - **Repo:** `https://github.com/robchambo/elio-app` (private, `main` branch)
-- **Local path:** `C:\Users\kated\.claude\Elio`
+- **Local path:** `C:\Users\robth\.claude\ELio\elio-app` (Rob's device) / `C:\Users\kated\.claude\Elio` (Kate's device)
 - **Stack:** Flutter/Dart, Firebase (Auth/Firestore/Crashlytics/Analytics/FCM/Remote Config), Gemini (2.5-flash streaming + 2.5-flash-lite batch), RevenueCat, mobile_scanner, shimmer
 - **Flutter:** 3.27.x | Dart SDK `>=3.4.0 <4.0.0` | AGP 8.9.1 | Gradle 8.11.1
 
@@ -64,7 +64,7 @@ lib/
     meal_plan/   — Lazy-load detail on tap
     paywall/     — RevenueCat paywall (trial-first design)
   widgets/       — pantry_builder_sheet (dialog-based tier picker for custom items)
-  utils/         — region_utils, pantry_utils (fuzzy dedup)
+  utils/         — region_utils, pantry_utils (fuzzy dedup), quantity_utils (ingredient consolidation), aisle_utils (grocery aisle classification)
 ```
 
 ### Firestore Schema
@@ -175,9 +175,10 @@ Agent D waits for A/B/C, runs `git status` + `flutter analyze`, fixes conflicts,
 
 Coordinated Android + iOS launch. Android built first, both released in the same window.
 
-- **Sprint 16:** Shared launch preparation — Firestore security rules, GDPR, privacy/ToS, RC wiring, ErrorService coverage, Crashlytics webhook
-- **Sprint 17:** Android track — regression, Play Store listing, internal test, beta, staged rollout
-- **Sprint 18:** iOS track — Apple Sign-In, Siri Shortcuts (pre-launch), TestFlight, App Store submission
+- **Sprint 16:** UI Overhaul — brand/art pass, design system, visual refresh across all screens
+- **Sprint 17:** Shared launch preparation — Firestore security rules, GDPR, privacy/ToS, RC wiring, ErrorService coverage, Crashlytics webhook
+- **Sprint 18:** Android track — regression, Play Store listing, internal test, beta, staged rollout
+- **Sprint 19:** iOS track — Apple Sign-In, Siri Shortcuts (pre-launch), TestFlight, App Store submission
 
 ## Doc Pointers — READ BEFORE EDITING
 
@@ -192,24 +193,31 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 | Launch architecture | `docs/technical-design.md` Section 10 |
 | Brand / art direction | `docs/brand-art-concept.md` |
 
-## Last Session (11 April 2026) — Sprint 15.3.20
+## Last Session (11 April 2026) — Sprint 15.4
 
-### Completed
-- **Gemini prompt fix (build 15.3.20):** User-selected perishables prompt tightened from "Fresh items (use these):" to "REQUIRED ingredients — you MUST use ALL of these in the recipe (not just some of them)... Every single one must appear in the ingredients list and be used meaningfully in the cooking steps." Fixed bug where Gemini was dropping selected ingredients (e.g., selecting chicken + peppers but only getting peppers in the recipe).
-- **Brand & art concept doc:** Created `docs/brand-art-concept.md` one-pager for brand/art pass with Kate — personality, visual system, 6 open design decisions, constraints.
-- **CLAUDE.md comprehensive rewrite:** Migrated all knowledge from memory files + conversation into CLAUDE.md for cross-device portability.
+### Completed (Sprint 15.4)
+- **Recipe Book — Collections/tags:** Tag saved recipes, filter by collection chips, tag dialog (showDialog)
+- **Recipe Book — "Makeable now" filter:** Cross-references saved recipe ingredients vs current pantry (PantryUtils.isFuzzyMatch), toggle button, green badge
+- **Shopping list — Ingredient quantity consolidation:** `QuantityUtils` handles fractions, Unicode, mixed numbers, smart unit pluralisation. `mergeFromMealPlan()` aggregates per ingredient.
+- **Shopping list — Aisle-based grouping:** `AisleUtils` with ~200 keywords, 10 aisles, replaces source-based sections
+- **URL recipe import:** Import from URL on Recipe Book import screen (GeminiService.importRecipeFromUrl — fetches HTML, strips tags, sends to Flash-Lite)
+- **Style hard constraint:** User-selected style moved from soft preference to hard requirement in Gemini prompt
+- **Swipeable meal plan days:** TabBarView linked to existing TabController for swipe navigation
+- **Regen preference dialog:** After 3+ regenerations, offers style/preference adjustment via showDialog
+- **Google Sign-In SHA-1:** Fixed for new device (fingerprint added to Firebase Console)
+- **New files:** `lib/utils/quantity_utils.dart`, `lib/utils/aisle_utils.dart`
+- **Models updated:** `SavedRecipe` now has `collections` field; `HistoryService.updateCollections()` added
 
-### Prior Session (5 April 2026) — Sprint 15.3.17 → 15.3.19
-- UX audit Pass 1 (15.3.17): onboarding progress bars, fade gradients, receipt edit/delete, expiry dates + prices, recipe screen FAB/mic/cart badge, pantry expiry editing
-- UX audit Pass 2 (15.3.18): onboarding screen8_complete, trial-first paywall with triggerContext, feature checklist, Monthly/Annual toggle
-- Paywall dry-mode fix (15.3.19): `_showTrialState` returns true when packages empty
+### Prior Sessions
+- Sprint 15.3.20 (11 Apr): Gemini prompt fix (selected perishables REQUIRED), brand & art concept doc, CLAUDE.md rewrite
+- Sprint 15.3.17–19 (5 Apr): UX audit Pass 1+2, trial-first paywall, dry-mode fix
 
 ### Needs Testing
-- Build 15.3.20: generate recipe with 2+ selected items, confirm ALL appear. Test "Generate Another" too.
-- Build 15.3.19 paywall: onboarding + meal-plan triggers should show trial hero
+- Sprint 15.4: collections tagging, makeable-now filter, aisle grouping, quantity consolidation, URL import, swipeable days, style hard constraint, regen preference dialog
+- Build 15.3.20: generate recipe with 2+ selected items, confirm ALL appear
 - Receipt scanner edit/delete/expiry, pantry expiry chips, onboarding success screen
 
 ### Gemini API State
 - **Streaming**: gemini-2.5-flash via SSE, maxOutputTokens 1024 (standard) / 2048 (bulk prep), thinking disabled (thinkingBudget: 0), responseMimeType: application/json
-- **Batch**: gemini-2.5-flash-lite, responseMimeType: application/json
+- **Batch**: gemini-2.5-flash-lite, responseMimeType: application/json, also used for URL recipe import (maxOutputTokens 1024)
 - **Connection**: static http.Client reused across calls

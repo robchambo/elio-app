@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 5 April 2026 (Sprint 15.3.19 — UX audit + free trial + paywall fix)
+**Last updated:** 11 April 2026 (Sprint 15.4 complete — recipe book & shopping list improvements + bug fixes)
 
 ---
 
@@ -113,7 +113,61 @@ Work is grouped into three parallel tracks:
 
 ---
 
-## Sprint 16 — Shared Launch Preparation
+## Sprint 15.4 — Recipe Book & Shopping List Improvements ✅
+
+**Goal:** Strengthen the two areas identified in competitor analysis — recipe organisation and shopping list intelligence.
+
+| # | Task | Est. Hours | Status |
+|---|------|-----------|--------|
+| 1 | Recipe Book — Collections/tags (tag saved recipes, filter by collection) | 2–3 | ✅ Done |
+| 2 | Recipe Book — "Makeable now" filter (cross-reference saved recipes vs current pantry) | 1–2 | ✅ Done |
+| 3 | Shopping list — Ingredient quantity consolidation (combine "1 cup flour" + "2 cups flour" = "3 cups") | 2–3 | ✅ Done |
+| 4 | Shopping list — Aisle-based grouping (Produce, Meat & Fish, Dairy, Bakery, etc.) | 2–3 | ✅ Done |
+| 5 | URL recipe import — import from URL on Recipe Book import screen | 1 | ✅ Done |
+| 6 | Style hard constraint — user-selected style enforced as hard requirement in Gemini prompt | 0.5 | ✅ Done |
+| 7 | Swipeable meal plan days — TabBarView for swipe navigation between days | 0.5 | ✅ Done |
+| 8 | Regen preference dialog — after 3+ regenerations, offer style/preference adjustment | 1 | ✅ Done |
+
+**New files:** `lib/utils/quantity_utils.dart`, `lib/utils/aisle_utils.dart`
+
+---
+
+## Sprint 15.5 — Bug Fixes
+
+**Goal:** Address known bugs before UI overhaul and launch.
+
+| # | Task | Est. Hours | Status |
+|---|------|-----------|--------|
+| 1 | Google Sign-In SHA-1 fix for new devices | 0.5 | ✅ Done |
+| 2 | Paywall appearing unexpectedly — audit trigger logic | 1–2 | Not started |
+| 3 | Notification service — wire `requestPermissionAndRegister()` to a trigger | 1 | Not started |
+| 4 | Paywall integration tests — update stale assertions from trial-first rewrite | 1 | Not started |
+| 5 | RevenueCat API key — wire through `build.ps1` / `.env.local` | 1 | Not started |
+| 6 | `ErrorService` coverage — add to GeminiService, FirestoreService, VoiceControlService, PurchaseService | 1–2 | Not started |
+
+**Estimate:** 5–7 hours
+
+---
+
+## Sprint 16 — UI Overhaul
+
+**Goal:** Brand/art pass across the entire app. Coordinate with Kate on `docs/brand-art-concept.md`. Visual consistency, typography, colour system, component library.
+
+| # | Task | Est. Hours | Status |
+|---|------|-----------|--------|
+| 1 | Design system finalised — colours, typography, spacing, component specs | 2–3 | Not started |
+| 2 | Home screen — visual refresh | 2–3 | Not started |
+| 3 | Recipe screen — visual refresh | 1–2 | Not started |
+| 4 | Profile / pantry / recipe book — visual refresh | 2–3 | Not started |
+| 5 | Onboarding — visual refresh | 1–2 | Not started |
+| 6 | Paywall — visual refresh | 1 | Not started |
+| 7 | Cross-app consistency pass | 1–2 | Not started |
+
+**Estimate:** 10–16 hours
+
+---
+
+## Sprint 17 — Shared Launch Preparation
 
 **Goal:** Everything that must be true before either store accepts a submission.
 
@@ -132,7 +186,7 @@ Work is grouped into three parallel tracks:
 
 ---
 
-## Sprint 17 — Android Track
+## Sprint 18 — Android Track
 
 **Goal:** Play Store submission-ready. Runs in parallel with Sprint 18 iOS work.
 
@@ -148,7 +202,7 @@ Work is grouped into three parallel tracks:
 
 ---
 
-## Sprint 18 — iOS Track
+## Sprint 19 — iOS Track
 
 **Goal:** App Store submission-ready in parallel with Android. Target a coordinated launch window — Android may go live a few days earlier if Apple review is slower.
 
@@ -180,6 +234,7 @@ Work is grouped into three parallel tracks:
 | P2 | Recipe ratings & feedback loop | Like/dislike influences future generation |
 | P3 | Multilingual support | Full app translation |
 | P3 | Tablet/web layout optimisation | Responsive layouts for larger screens |
+| P2 | Linked accounts — shared household shopping list | Requires: householdId on user doc, shared Firestore collection, invite code system, security rules. Current household members are local profiles under one UID — true sharing needs separate auth accounts linked to a household group. |
 | P3 | Offline mode | Cache recent recipes, local-first pantry for all users |
 
 ---
