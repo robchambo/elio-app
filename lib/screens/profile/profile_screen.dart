@@ -500,7 +500,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     final user = FirebaseAuth.instance.currentUser;
     final isGuest = user?.isAnonymous ?? true;
 
-    if (isGuest) {
+    if (isGuest || _inventoryItems.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -512,10 +512,38 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               Text('Your pantry is empty', style: ElioText.headingMedium),
               const SizedBox(height: 8),
               Text(
-                'Sign in with Google to complete setup and fill your pantry.',
+                'Add your kitchen staples so Elio can generate recipes from what you have.',
                 textAlign: TextAlign.center,
                 style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
               ),
+              if (!isGuest) ...[
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: _openPantryBuilder,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+                    decoration: BoxDecoration(
+                      color: ElioColors.navy,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.construction_rounded, size: 20, color: Colors.white),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Pantry Builder',
+                          style: GoogleFonts.outfit(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
