@@ -6,6 +6,7 @@ import '../models/meal_plan_models.dart';
 import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
 import '../utils/pantry_utils.dart';
+import 'error_service.dart';
 
 // ─────────────────────────────────────────────
 // FirestoreService
@@ -100,7 +101,12 @@ class FirestoreService {
       batch.set(memberRef, member.toFirestore());
     }
 
-    await batch.commit();
+    try {
+      await batch.commit();
+    } catch (e) {
+      ErrorService.log('onboarding_complete', e);
+      rethrow; // Onboarding failure is critical — caller should handle
+    }
   }
 
   // ─── Check if onboarding is complete ────────────────────────────
@@ -535,7 +541,8 @@ class FirestoreService {
 
       await prefs.setBool('inventory_deduped_v1', true);
       return toDelete.length;
-    } catch (_) {
+    } catch (e) {
+      ErrorService.log('inventory_deduplication', e);
       // Migration must not block the user — silently fail
       return 0;
     }

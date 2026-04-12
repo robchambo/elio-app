@@ -148,16 +148,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
       await _tts.setLanguage('en-US');
       await _tts.setSpeechRate(0.45);
       await _tts.setVolume(1.0);
-    } catch (_) {
-      // TTS init failure is non-critical
+    } catch (e) {
+      ErrorService.log('voice_tts_init', e);
     }
   }
 
   Future<void> _speakText(String text) async {
     try {
       await _tts.speak(text);
-    } catch (_) {
-      // TTS failure is non-critical — silently ignore
+    } catch (e) {
+      ErrorService.log('voice_tts_speak', e);
     }
   }
 
@@ -237,7 +237,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ),
       );
       if (mounted) setState(() => _isListening = true);
-    } catch (_) {
+    } catch (e) {
+      ErrorService.log('voice_start_listening', e);
       if (mounted) setState(() => _isListening = false);
     }
   }
@@ -2462,6 +2463,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
         });
       }
     } catch (e) {
+      ErrorService.log('substitution_generation', e);
       if (mounted) {
         setState(() {
           _errorMessage = e.toString().replaceFirst('Exception: ', '');

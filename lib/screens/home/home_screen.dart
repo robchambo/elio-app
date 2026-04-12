@@ -19,6 +19,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
+import '../../services/notification_service.dart';
 
 // ─────────────────────────────────────────────
 // HomeScreen
@@ -132,6 +133,10 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUserData();
     _loadRecentHistory();
     _checkSavedMealPlan();
+    // Request notification permission on first HomeScreen load (non-blocking)
+    if (!widget.isGuest) {
+      NotificationService.instance.requestPermissionAndRegister();
+    }
     // Custom styles are session-only — not loaded from storage
 
     // If scanned items were passed in, pre-fill and auto-generate

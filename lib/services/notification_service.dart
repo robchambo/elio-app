@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'error_service.dart';
 
 // ─────────────────────────────────────────────
 // NotificationService
@@ -90,6 +91,7 @@ class NotificationService {
         await _saveToken(token);
       }
     } catch (e) {
+      ErrorService.log('notification_get_token', e);
       debugPrint('[Elio] Failed to get FCM token: $e');
     }
   }
@@ -114,6 +116,7 @@ class NotificationService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
+      ErrorService.log('notification_save_token', e);
       debugPrint('[Elio] Failed to save FCM token: $e');
     }
   }

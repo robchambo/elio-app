@@ -3,6 +3,7 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'entitlement_service.dart';
+import 'error_service.dart';
 
 // ─────────────────────────────────────────────
 // PurchaseService
@@ -63,7 +64,8 @@ class PurchaseService {
 
       // Listen for subscription changes and sync to Firestore + EntitlementService
       Purchases.addCustomerInfoUpdateListener(_onCustomerInfoUpdated);
-    } catch (_) {
+    } catch (e) {
+      ErrorService.log('purchase_init', e);
       // RevenueCat init failed — continue in dry mode
     }
   }
@@ -84,7 +86,8 @@ class PurchaseService {
       final pkgs = offerings.current?.availablePackages ?? [];
       _lastFetchedPackages = pkgs;
       return pkgs;
-    } catch (_) {
+    } catch (e) {
+      ErrorService.log('purchase_get_packages', e);
       return [];
     }
   }
@@ -153,10 +156,11 @@ class PurchaseService {
     try {
       final customerInfo = await Purchases.purchasePackage(package);
       return customerInfo.entitlements.all[entitlementId]?.isActive ?? false;
-    } on PurchasesErrorCode catch (_) {
-      // User cancelled, network error, etc.
+    } on PurchasesErrorCode catch (e) {
+      ErrorService.log('purchase_package', e);
       return false;
-    } catch (_) {
+    } catch (e) {
+      ErrorService.log('purchase_package', e);
       return false;
     }
   }
@@ -169,7 +173,8 @@ class PurchaseService {
     try {
       final customerInfo = await Purchases.restorePurchases();
       return customerInfo.entitlements.all[entitlementId]?.isActive ?? false;
-    } catch (_) {
+    } catch (e) {
+      ErrorService.log('purchase_restore', e);
       return false;
     }
   }
@@ -182,7 +187,8 @@ class PurchaseService {
     try {
       final customerInfo = await Purchases.getCustomerInfo();
       return customerInfo.entitlements.all[entitlementId]?.isActive ?? false;
-    } catch (_) {
+    } catch (e) {
+      ErrorService.log('purchase_check_pro', e);
       return false;
     }
   }
@@ -202,7 +208,8 @@ class PurchaseService {
 
       // Refresh local entitlements
       await EntitlementService.instance.refresh();
-    } catch (_) {
+    } catch (e) {
+      ErrorService.log('purchase_sync_firestore', e);
       // Firestore sync failed — will retry on next app launch
     }
   }
@@ -213,7 +220,9 @@ class PurchaseService {
     if (!_initialised) return;
     try {
       await Purchases.logIn(userId);
-    } catch (_) {}
+    } catch (e) {
+      ErrorService.log('purchase_identify', e);
+    }
   }
 
   // ── Log out (call on sign-out) ─────────────────────────────────────
@@ -221,6 +230,8 @@ class PurchaseService {
     if (!_initialised) return;
     try {
       await Purchases.logOut();
-    } catch (_) {}
+    } catch (e) {
+      ErrorService.log('purchase_logout', e);
+    }
   }
 }

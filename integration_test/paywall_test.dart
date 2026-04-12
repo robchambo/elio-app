@@ -10,10 +10,11 @@ import 'package:elio_app/theme/elio_theme.dart';
 /// Requires Firebase (AnalyticsService depends on it).
 ///
 /// Verifies:
-///   - All three trigger modes render with correct headlines
-///   - Annual plan is pre-selected by default
+///   - All three trigger modes render with correct context headlines
+///   - Trial hero copy is shown (dry mode = optimistic trial state)
 ///   - Feature list items are displayed
 ///   - Close/skip and subscribe buttons exist
+///   - Fallback prices shown when RevenueCat is in dry mode
 ///
 /// Run with: flutter test integration_test/paywall_test.dart --flavor prod -d [device-id]
 void main() {
@@ -26,25 +27,40 @@ void main() {
   Widget buildPaywall({
     PaywallTrigger trigger = PaywallTrigger.lockedFeature,
     String? lockedFeatureName,
+    String? triggerContext,
   }) {
     return MaterialApp(
       theme: elioTheme(),
       home: PaywallScreen(
         trigger: trigger,
         lockedFeatureName: lockedFeatureName,
+        triggerContext: triggerContext,
       ),
     );
   }
 
   group('PaywallScreen — Onboarding trigger', () {
-    testWidgets('Shows "Unlock the full kitchen" headline', (tester) async {
+    testWidgets('Shows "Go Pro with Elio" context headline', (tester) async {
       await tester.pumpWidget(buildPaywall(trigger: PaywallTrigger.onboarding));
       await tester.pumpAndSettle();
 
+      // Onboarding trigger has no resolved context, so falls through to default
       expect(
-        find.text('Unlock the full kitchen'),
+        find.text('Go Pro with Elio'),
         findsOneWidget,
-        reason: 'Onboarding trigger should show "Unlock the full kitchen"',
+        reason: 'Onboarding trigger should show "Go Pro with Elio" context headline',
+      );
+    });
+
+    testWidgets('Shows trial hero copy', (tester) async {
+      await tester.pumpWidget(buildPaywall(trigger: PaywallTrigger.onboarding));
+      await tester.pumpAndSettle();
+
+      // In dry mode (no RC key), _showTrialState is true, so hero shows trial copy
+      expect(
+        find.textContaining('Free Trial'),
+        findsOneWidget,
+        reason: 'Onboarding trigger should show trial hero (dry mode = optimistic)',
       );
     });
 
@@ -53,28 +69,31 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('7-day free trial'),
+        find.textContaining('No charge for 7 days'),
         findsOneWidget,
-        reason: 'Onboarding trigger should mention free trial',
+        reason: 'Trial subtitle should mention no charge for 7 days',
       );
     });
   });
 
   group('PaywallScreen — Cap reached trigger', () {
-    testWidgets('Shows "used all 7 this week" headline', (tester) async {
-      await tester.pumpWidget(buildPaywall(trigger: PaywallTrigger.capReached));
+    testWidgets('Shows "Unlock unlimited recipes" headline', (tester) async {
+      await tester.pumpWidget(buildPaywall(
+        trigger: PaywallTrigger.capReached,
+        triggerContext: 'weekly_limit',
+      ));
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('used all 7 this week'),
+        find.text('Unlock unlimited recipes'),
         findsOneWidget,
-        reason: 'Cap reached trigger should mention 7 weekly limit',
+        reason: 'Cap reached trigger should show "Unlock unlimited recipes"',
       );
     });
   });
 
   group('PaywallScreen — Locked feature trigger', () {
-    testWidgets('Shows feature name in headline', (tester) async {
+    testWidgets('Shows "Plan your whole week" for Meal Planner', (tester) async {
       await tester.pumpWidget(buildPaywall(
         trigger: PaywallTrigger.lockedFeature,
         lockedFeatureName: 'Meal Planner',
@@ -82,34 +101,43 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('Meal Planner'),
+        find.text('Plan your whole week'),
         findsOneWidget,
-        reason: 'Locked feature trigger should show the feature name',
+        reason: 'Meal Planner locked feature should show "Plan your whole week"',
       );
+    });
+
+    testWidgets('Shows "Shop smarter with one list" for Shopping List', (tester) async {
+      await tester.pumpWidget(buildPaywall(
+        trigger: PaywallTrigger.lockedFeature,
+        lockedFeatureName: 'Shopping List',
+      ));
+      await tester.pumpAndSettle();
 
       expect(
-        find.textContaining('is Pro'),
+        find.text('Shop smarter with one list'),
         findsOneWidget,
-        reason: 'Locked feature headline should include "is Pro"',
+        reason: 'Shopping List locked feature should show "Shop smarter with one list"',
       );
     });
   });
 
   group('PaywallScreen — Plan selection', () {
-    testWidgets('Annual and monthly prices are shown', (tester) async {
+    testWidgets('Fallback prices shown in dry mode', (tester) async {
       await tester.pumpWidget(buildPaywall(trigger: PaywallTrigger.onboarding));
       await tester.pumpAndSettle();
 
+      // In dry mode, _selectedPriceString falls back to hardcoded prices
       expect(
         find.textContaining('27.99'),
         findsOneWidget,
-        reason: 'Annual price should be displayed',
+        reason: 'Annual fallback price should be displayed',
       );
 
       expect(
         find.textContaining('4.49'),
         findsOneWidget,
-        reason: 'Monthly price should be displayed',
+        reason: 'Monthly fallback price should be displayed',
       );
     });
 
@@ -130,9 +158,11 @@ void main() {
       await tester.pumpWidget(buildPaywall(trigger: PaywallTrigger.onboarding));
       await tester.pumpAndSettle();
 
-      final hasClose = find.byIcon(Icons.close).evaluate().isNotEmpty ||
-          find.textContaining('Skip').evaluate().isNotEmpty;
-      expect(hasClose, isTrue, reason: 'Paywall should have a way to dismiss');
+      expect(
+        find.byIcon(Icons.close),
+        findsOneWidget,
+        reason: 'Paywall should have a close button',
+      );
     });
 
     testWidgets('Subscribe/trial button exists', (tester) async {

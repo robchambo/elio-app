@@ -44,8 +44,11 @@ void main() async {
       RemoteConfigService.instance.init(),
     ]);
 
-    // PurchaseService + NotificationService are deferred to first use
-    // (lazy init) to reduce cold-start time.
+    // Lightweight notification init (register background handler + listeners only)
+    // Permission request is deferred to HomeScreen first load.
+    await NotificationService.instance.init();
+
+    // PurchaseService is deferred to first use (lazy init) to reduce cold-start time.
   } catch (_) {
     // Firebase init may fail with placeholder credentials — app still
     // functions in guest mode.

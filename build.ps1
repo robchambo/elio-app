@@ -21,6 +21,13 @@ if (-not $apiKey) {
     exit 1
 }
 
+# RevenueCat API key (optional — omit for dry mode during development)
+$rcKeyMatch = Get-Content $envFile | Select-String "REVENUECAT_API_KEY=(.+)"
+$rcKey = if ($rcKeyMatch) { $rcKeyMatch.Matches[0].Groups[1].Value.Trim() } else { "" }
+if (-not $rcKey) {
+    Write-Host "WARNING: REVENUECAT_API_KEY not found in .env.local — building in dry mode (no purchases)" -ForegroundColor Yellow
+}
+
 # Build output paths
 $buildOutput = Join-Path $PSScriptRoot "build\app\outputs\flutter-apk\app-prod-release.apk"
 $releaseDir  = Join-Path $PSScriptRoot "releases"
@@ -37,7 +44,13 @@ Write-Host "Building Elio - Sprint $sprint release APK..." -ForegroundColor Cyan
 Write-Host ""
 
 # Build
-flutter build apk --release --flavor prod -t lib/main.dart --dart-define="GEMINI_API_KEY=$apiKey"
+# Build dart-define flags
+$dartDefines = "--dart-define=`"GEMINI_API_KEY=$apiKey`""
+if ($rcKey) {
+    $dartDefines += " --dart-define=`"REVENUECAT_API_KEY=$rcKey`""
+}
+
+Invoke-Expression "flutter build apk --release --flavor prod -t lib/main.dart $dartDefines"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""

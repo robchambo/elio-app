@@ -5,6 +5,7 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
 import '../models/recipe_models.dart';
 import '../utils/region_utils.dart';
+import 'error_service.dart';
 import 'remote_config_service.dart';
 
 // ─────────────────────────────────────────────
@@ -48,6 +49,7 @@ class GeminiService {
         throw Exception('Recipe generation completed without a result.');
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
+        ErrorService.log('recipe_generation', lastError);
         if (e.toString().contains('rate limit') ||
             e.toString().contains('access denied') ||
             e.toString().contains('Invalid request')) {
@@ -181,6 +183,7 @@ class GeminiService {
       final recipeJson = _extractJson(rawText);
       yield RecipeComplete(recipe: GeneratedRecipe.fromJson(recipeJson));
     } catch (e) {
+      ErrorService.log('recipe_generation_stream', e);
       yield RecipeError(
         message: e is Exception ? e.toString().replaceFirst('Exception: ', '') : 'Recipe generation failed. Please try again.',
       );
