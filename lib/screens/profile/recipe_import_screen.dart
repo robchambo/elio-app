@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../theme/elio_theme.dart';
@@ -24,6 +25,11 @@ class RecipeImportScreen extends StatefulWidget {
 class _RecipeImportScreenState extends State<RecipeImportScreen> {
   int _activeTab = 0; // 0 = Photo, 1 = Manual
   bool _isProcessing = false;
+  bool _isImportingUrl = false;
+
+  // ── URL import ────────────────────────────────────────────────────
+  final _urlController = TextEditingController();
+  String? _clipboardUrl;
 
   // ── Manual entry controllers ──────────────────────────────────────
   final _titleController = TextEditingController();
@@ -33,6 +39,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
 
   @override
   void dispose() {
+    _urlController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
     _instructionsController.dispose();
@@ -40,6 +47,71 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
       row.dispose();
     }
     super.dispose();
+  }
+
+  /// Check clipboard for a URL when switching to the Manual tab.
+  Future<void> _checkClipboardForUrl() async {
+    try {
+      final data = await Clipboard.getData('text/plain');
+      final text = data?.text?.trim() ?? '';
+      if (text.isNotEmpty && (text.startsWith('http://') || text.startsWith('https://'))) {
+        if (mounted) setState(() => _clipboardUrl = text);
+      } else {
+        if (mounted) setState(() => _clipboardUrl = null);
+      }
+    } catch (_) {
+      // Clipboard access may fail — not critical
+    }
+  }
+
+  Future<void> _importFromUrl() async {
+    final url = _urlController.text.trim();
+    if (url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a URL.'),
+          backgroundColor: ElioColors.navy,
+        ),
+      );
+      return;
+    }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid URL starting with http:// or https://'),
+          backgroundColor: ElioColors.navy,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isImportingUrl = true);
+
+    try {
+      final recipe = await GeminiService.importRecipeFromUrl(url);
+
+      if (!mounted) return;
+      setState(() => _isImportingUrl = false);
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => RecipeScreen(recipe: recipe, autoSave: true),
+        ),
+      );
+    } catch (e) {
+      ErrorService.log('recipe_import_url', e);
+      if (!mounted) return;
+      setState(() => _isImportingUrl = false);
+
+      final msg = e.toString().replaceFirst('Exception: ', '');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg.length > 100 ? '${msg.substring(0, 100)}...' : msg),
+          backgroundColor: ElioColors.navy,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
   }
 
   @override
@@ -90,7 +162,10 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
     final isSelected = _activeTab == index;
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() => _activeTab = index),
+        onTap: () {
+          setState(() => _activeTab = index);
+          if (index == 1) _checkClipboardForUrl();
+        },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -257,6 +332,82 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── URL import section ──────────────────────────────────────
+          Text('Import from URL', style: ElioText.label.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          _buildTextField(_urlController, 'Paste a recipe URL'),
+          if (_clipboardUrl != null && _urlController.text.isEmpty) ...[
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  _urlController.text = _clipboardUrl!;
+                  _clipboardUrl = null;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: ElioColors.sky.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: ElioColors.sky.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.content_paste_rounded, size: 14, color: ElioColors.sky),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        'Paste from clipboard',
+                        style: GoogleFonts.quicksand(fontSize: 12, fontWeight: FontWeight.w600, color: ElioColors.sky),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: _isImportingUrl ? null : _importFromUrl,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ElioColors.amber,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                elevation: 0,
+              ),
+              child: _isImportingUrl
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                    )
+                  : const Text(
+                      'Import from URL',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // ── Divider ─────────────────────────────────────────────────
+          Row(
+            children: [
+              const Expanded(child: Divider(color: ElioColors.border)),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'Or enter manually',
+                  style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textMuted, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const Expanded(child: Divider(color: ElioColors.border)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          // ── Manual form fields ──────────────────────────────────────
           // Title
           Text('Title', style: ElioText.label.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),

@@ -43,7 +43,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   // ── State ──────────────────────────────────────────────────────────
   MealPlan? _plan;
   bool _isGenerating = false;
-  int _selectedDayIndex = 0;
+  // _selectedDayIndex removed — TabBarView drives day rendering via _tabController
 
   // Track which individual slots are regenerating
   final Set<String> _regeneratingSlots = {}; // "dayIndex_mealType"
@@ -71,11 +71,6 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 7, vsync: this);
-    _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) {
-        setState(() => _selectedDayIndex = _tabController.index);
-      }
-    });
     _loadUserData();
   }
 
@@ -146,7 +141,6 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       if (mounted) {
         setState(() {
           _plan = plan;
-          _selectedDayIndex = 0;
           _tabController.animateTo(0);
         });
         _savePlan();
@@ -436,18 +430,25 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       return _buildEmptyState();
     }
 
-    // Map tab index → full day name → find in plan (plan may not include all 7 days)
-    const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    final selectedDayName = fullDayNames[_selectedDayIndex];
-    final dayOrNull = _plan!.days.where((d) => d.dayName == selectedDayName).firstOrNull;
+    // TabBarView with 7 children — one per day, synced with the TabBar
+    return TabBarView(
+      controller: _tabController,
+      children: List.generate(7, (dayIndex) => _buildDayContent(dayIndex)),
+    );
+  }
 
-    // Show meal cards for every day — null slots show "Tap ↺ to generate"
+  /// Builds the meal card column for a single day by index (0=Mon .. 6=Sun).
+  Widget _buildDayContent(int dayIndex) {
+    const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayName = fullDayNames[dayIndex];
+    final dayOrNull = _plan!.days.where((d) => d.dayName == dayName).firstOrNull;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
       child: Column(
         children: MealType.values.map((type) {
           final meal = dayOrNull?.meals[type];
-          final slotKey = '${_selectedDayIndex}_${type.name}';
+          final slotKey = '${dayIndex}_${type.name}';
           final isRegenerating = _regeneratingSlots.contains(slotKey);
           return Padding(
             padding: const EdgeInsets.only(bottom: 14),
@@ -455,8 +456,8 @@ class _MealPlanScreenState extends State<MealPlanScreen>
               mealType: type,
               meal: meal,
               isRegenerating: isRegenerating,
-              onRegenerate: () => _regenerateMeal(_selectedDayIndex, type),
-              onTap: meal != null && !isRegenerating ? () => _openMealDetail(meal, _selectedDayIndex, type) : null,
+              onRegenerate: () => _regenerateMeal(dayIndex, type),
+              onTap: meal != null && !isRegenerating ? () => _openMealDetail(meal, dayIndex, type) : null,
             ),
           );
         }).toList(),

@@ -259,6 +259,11 @@ class GeminiService {
       buffer.writeln('No dietary restrictions.');
     }
 
+    // Style as a hard constraint (unless "Surprise me")
+    if (request.stylePreference != null && request.stylePreference != 'Surprise me') {
+      buffer.writeln('You MUST make a ${request.stylePreference} recipe. This is a hard requirement — the recipe\'s cuisine/style must clearly be ${request.stylePreference}.');
+    }
+
     // ── Leftover mode: completely different framing ──────────────────
     if (request.isLeftoverMode && request.leftoverItems.isNotEmpty) {
       buffer.writeln();
@@ -298,10 +303,8 @@ class GeminiService {
     buffer.writeln();
     buffer.writeln('## PREFERENCES:');
     if (request.timePreference != null) buffer.writeln('Time: ${request.timePreference}');
-    if (request.stylePreference != null) {
-      buffer.writeln(request.stylePreference == 'Surprise me'
-          ? 'Style: Be creative — any cuisine.'
-          : 'Style: ${request.stylePreference}');
+    if (request.stylePreference == 'Surprise me') {
+      buffer.writeln('Style: Be creative — any cuisine.');
     }
     if (request.moodPreference != null) buffer.writeln('Mood: ${request.moodPreference}');
     buffer.writeln('Servings: ${request.servings}');
@@ -572,6 +575,98 @@ class GeminiService {
     final rawText = response.text ?? '';
     if (rawText.isEmpty) {
       throw Exception('Empty response from AI. Please try a clearer photo.');
+    }
+
+    final json = _extractJson(rawText);
+    if (json.containsKey('error')) {
+      throw Exception(json['error'] as String);
+    }
+
+    return GeneratedRecipe.fromJson(json);
+  }
+
+  /// Import a recipe from a URL by fetching the webpage, stripping HTML,
+  /// and sending the text to Gemini Flash-Lite for extraction.
+  static Future<GeneratedRecipe> importRecipeFromUrl(String url) async {
+    // Fetch the webpage
+    final response = await _httpClient.get(Uri.parse(url)).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => throw Exception('Could not reach that URL. Please check it and try again.'),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Could not fetch the page (${response.statusCode}). Please check the URL.');
+    }
+
+    // Strip HTML tags to get plain text
+    final plainText = response.body
+        .replaceAll(RegExp(r'<script[^>]*>[\s\S]*?</script>', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'<style[^>]*>[\s\S]*?</style>', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'<[^>]*>'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+
+    // Truncate to ~8000 chars (webpages are big)
+    final truncated = plainText.length > 8000 ? plainText.substring(0, 8000) : plainText;
+
+    final prompt = 'Extract the recipe from this webpage text. Return a JSON object with: '
+        '{"title":"string","description":"string (1-2 sentences)","prepTimeMinutes":int,"cookTimeMinutes":int,"servings":int,'
+        '"dietaryTags":["string"],"ingredients":[{"name":"string","quantity":"string","unit":"string","fromInventory":false}],'
+        '"steps":["string"],"substitutions":[],"tips":"string (optional, empty string if none)"}. '
+        'If prep/cook time is not visible, estimate based on the recipe. '
+        'If servings is not visible, default to 2. '
+        'Keep steps concise (1-2 sentences each). '
+        'If the text does not contain a recipe, return {"error":"Could not extract a recipe from this page"}.\n\n'
+        'Webpage text:\n$truncated';
+
+    const urlModel = 'gemini-2.5-flash-lite';
+    const urlEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/$urlModel:generateContent';
+
+    final aiResponse = await http.post(
+      Uri.parse('$urlEndpoint?key=$_apiKey'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'contents': [
+          {
+            'parts': [
+              {'text': prompt}
+            ]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.6,
+          'maxOutputTokens': 1024,
+          'responseMimeType': 'application/json',
+        },
+      }),
+    ).timeout(const Duration(seconds: 30), onTimeout: () {
+      throw Exception('Recipe extraction timed out. Please try again.');
+    });
+
+    if (aiResponse.statusCode != 200) {
+      throw Exception('Recipe extraction failed (${aiResponse.statusCode}). Please try again.');
+    }
+
+    final responseData = jsonDecode(aiResponse.body) as Map<String, dynamic>;
+    final candidates = responseData['candidates'] as List<dynamic>?;
+    if (candidates == null || candidates.isEmpty) {
+      throw Exception('No recipe extracted. Please try a different URL.');
+    }
+
+    final content = candidates[0]['content'] as Map<String, dynamic>?;
+    final parts = content?['parts'] as List<dynamic>?;
+    if (parts == null || parts.isEmpty) {
+      throw Exception('Empty response from AI. Please try again.');
+    }
+
+    // Skip thinking parts if present
+    final textParts = parts.where((p) => p['thought'] != true).toList();
+    final rawText = textParts.isNotEmpty
+        ? (textParts.last['text'] as String? ?? '')
+        : (parts.last['text'] as String? ?? '');
+
+    if (rawText.isEmpty) {
+      throw Exception('Empty text in recipe extraction response.');
     }
 
     final json = _extractJson(rawText);

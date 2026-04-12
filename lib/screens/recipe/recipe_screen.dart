@@ -41,6 +41,10 @@ class RecipeScreen extends StatefulWidget {
   /// instead of creating duplicates.
   final String? savedAt;
 
+  /// Tracks how many times "Generate Another" has been tapped across
+  /// screen replacements. After 3, a preference adjustment dialog appears.
+  final int regenCount;
+
   const RecipeScreen({
     super.key,
     required this.recipe,
@@ -48,6 +52,7 @@ class RecipeScreen extends StatefulWidget {
     this.isGuest = false,
     this.autoSave = false,
     this.savedAt,
+    this.regenCount = 0,
   });
 
   @override
@@ -71,6 +76,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   // ── Regeneration state ──────────────────────────────────────────────────────────────────────────────
   bool _isRegenerating = false;
+  late int _regenCount;
   final Set<String> _excludedIngredients = {};
   final FirestoreService _firestore = FirestoreService();
   final AnalyticsService _analytics = AnalyticsService.instance;
@@ -107,6 +113,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _servings = widget.recipe.servings;
     _currentRecipe = widget.recipe;
     _savedAt = widget.savedAt;
+    _regenCount = widget.regenCount;
     _initTts();
     if (widget.autoSave) {
       _isSaved = true;
@@ -578,6 +585,26 @@ class _RecipeScreenState extends State<RecipeScreen> {
       return;
     }
 
+    _regenCount++;
+
+    // After 3 failed regenerations, show preference adjustment dialog
+    if (_regenCount >= 3) {
+      final adjustedRequest = await _showPreferenceAdjustmentDialog(request);
+      if (adjustedRequest == null) {
+        // User cancelled — don't generate
+        return;
+      }
+      // Reset count and generate with adjusted preferences
+      _regenCount = 0;
+      await _executeGeneration(adjustedRequest);
+      return;
+    }
+
+    await _executeGeneration(request);
+  }
+
+  /// Executes the actual regeneration with the given base request.
+  Future<void> _executeGeneration(RecipeGenerationRequest request) async {
     setState(() => _isRegenerating = true);
 
     try {
@@ -631,6 +658,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
               recipe: newRecipe,
               originalRequest: newRequest,
               isGuest: widget.isGuest,
+              regenCount: _regenCount,
             ),
           ),
         );
@@ -649,6 +677,228 @@ class _RecipeScreenState extends State<RecipeScreen> {
         );
       }
     }
+  }
+
+  /// Shows a dialog letting the user adjust style/time/mood preferences
+  /// after multiple unsuccessful "Generate Another" attempts.
+  /// Returns a modified [RecipeGenerationRequest] or null if cancelled.
+  Future<RecipeGenerationRequest?> _showPreferenceAdjustmentDialog(
+    RecipeGenerationRequest request,
+  ) async {
+    String? selectedStyle = request.stylePreference;
+    String? selectedTime = request.timePreference;
+    String? selectedMood = request.moodPreference;
+
+    const alternativeStyles = [
+      'Italian', 'Asian', 'Mexican', 'Mediterranean',
+      'Indian', 'American', 'British', 'One-pot', 'Quick & Easy',
+    ];
+
+    return showDialog<RecipeGenerationRequest>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Widget buildRemovableChip(String label, String? value, void Function() onRemove) {
+              if (value == null) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(right: 8, bottom: 8),
+                child: InputChip(
+                  label: Text(
+                    label,
+                    style: GoogleFonts.quicksand(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  backgroundColor: ElioColors.amber,
+                  deleteIconColor: Colors.white.withValues(alpha: 0.8),
+                  onDeleted: () {
+                    setDialogState(onRemove);
+                  },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  side: BorderSide.none,
+                ),
+              );
+            }
+
+            return AlertDialog(
+              backgroundColor: ElioColors.offWhite,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+              title: Text(
+                'Not finding what you want?',
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: ElioColors.navy,
+                ),
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Adjust your preferences and try again',
+                      style: GoogleFonts.quicksand(
+                        fontSize: 14,
+                        color: ElioColors.navy.withValues(alpha: 0.7),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Current selections
+                    if (selectedStyle != null || selectedTime != null || selectedMood != null) ...[
+                      Text(
+                        'Current selections:',
+                        style: GoogleFonts.outfit(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: ElioColors.navy,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        children: [
+                          buildRemovableChip(
+                            selectedStyle ?? '',
+                            selectedStyle,
+                            () => selectedStyle = null,
+                          ),
+                          buildRemovableChip(
+                            selectedTime ?? '',
+                            selectedTime,
+                            () => selectedTime = null,
+                          ),
+                          buildRemovableChip(
+                            selectedMood ?? '',
+                            selectedMood,
+                            () => selectedMood = null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    // Alternative styles
+                    Text(
+                      'Try something different:',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: ElioColors.navy,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: alternativeStyles.map((style) {
+                        final isSelected = selectedStyle == style;
+                        return ChoiceChip(
+                          label: Text(
+                            style,
+                            style: GoogleFonts.quicksand(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected ? Colors.white : ElioColors.navy,
+                            ),
+                          ),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setDialogState(() {
+                              selectedStyle = selected ? style : null;
+                            });
+                          },
+                          selectedColor: ElioColors.amber,
+                          backgroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isSelected
+                                  ? ElioColors.amber
+                                  : ElioColors.navy.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          showCheckmark: false,
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final adjusted = RecipeGenerationRequest(
+                            perishables: request.perishables,
+                            alwaysHave: request.alwaysHave,
+                            almostAlwaysHave: request.almostAlwaysHave,
+                            dietaryRequirements: request.dietaryRequirements,
+                            timePreference: selectedTime,
+                            stylePreference: selectedStyle,
+                            moodPreference: selectedMood,
+                            servings: request.servings,
+                            excludedIngredients: request.excludedIngredients,
+                            recentTitles: request.recentTitles,
+                            runningLowItems: request.runningLowItems,
+                            isLeftoverMode: request.isLeftoverMode,
+                            leftoverItems: request.leftoverItems,
+                            likedRecipes: request.likedRecipes,
+                            dislikedRecipes: request.dislikedRecipes,
+                            appliances: request.appliances,
+                            isSaverMode: request.isSaverMode,
+                            perishableInventoryDescriptions: request.perishableInventoryDescriptions,
+                          );
+                          Navigator.of(dialogContext).pop(adjusted);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: ElioColors.amber,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          textStyle: GoogleFonts.outfit(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text('Generate with these'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(dialogContext).pop(null),
+                        child: Text(
+                          'Cancel',
+                          style: GoogleFonts.quicksand(
+                            color: ElioColors.navy.withValues(alpha: 0.6),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _rateRecipe(bool liked) async {
