@@ -53,7 +53,18 @@ if ($rcKey) {
     $buildArgs += "--dart-define=REVENUECAT_API_KEY=$rcKey"
 }
 
-& flutter @buildArgs
+# Locate flutter - try PATH first, then known install location
+$flutterCmd = Get-Command flutter -ErrorAction SilentlyContinue
+if ($flutterCmd) {
+    $flutterPath = $flutterCmd.Source
+} elseif (Test-Path "C:\src\flutter\bin\flutter.bat") {
+    $flutterPath = "C:\src\flutter\bin\flutter.bat"
+} else {
+    Write-Host "ERROR: flutter not found on PATH or at C:\src\flutter\bin\flutter.bat" -ForegroundColor Red
+    exit 1
+}
+
+& $flutterPath @buildArgs
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
