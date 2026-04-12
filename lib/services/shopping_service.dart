@@ -48,6 +48,9 @@ class ShoppingService {
 
   /// Returns true when [normalisedName] is a common household staple that
   /// should never be added to a shopping list automatically.
+  /// Public accessor for use in UI filtering (e.g. meal plan shopping dialog).
+  bool isStaplePublic(String normalisedName) => _isStaple(normalisedName);
+
   bool _isStaple(String normalisedName) {
     // Exact-match generic oils first.
     if (_genericOilsExact.contains(normalisedName)) return true;

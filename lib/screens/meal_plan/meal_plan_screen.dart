@@ -3,12 +3,13 @@ import '../../theme/elio_theme.dart';
 import '../../models/meal_plan_models.dart';
 import '../../services/meal_plan_service.dart';
 import '../../services/firestore_service.dart';
-import '../shopping/shopping_list_screen.dart';
 import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/shopping_service.dart';
 import '../paywall/paywall_screen.dart';
+import '../profile/profile_screen.dart';
+import '../../utils/quantity_utils.dart';
 
 // ─────────────────────────────────────────────
 // MealPlanScreen
@@ -144,11 +145,6 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _tabController.animateTo(0);
         });
         _savePlan();
-        // Auto-populate persistent shopping list
-        ShoppingService.instance.mergeFromMealPlan(
-          plan,
-          alreadyHave: [..._alwaysHave, ..._almostAlwaysHave],
-        );
         _analytics.logEvent('meal_plan_generated', {
           'days': orderedDays.length,
           'meal_types': orderedTypes.length,
@@ -220,7 +216,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     }
   }
 
-  Future<void> _openShoppingList() async {
+  Future<void> _showAddToShoppingDialog() async {
     if (_plan == null) return;
     await _entitlements.refresh();
     if (!mounted) return;
@@ -228,19 +224,102 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       _showProRequiredSnack('Shopping lists');
       return;
     }
-    final shoppingList = ShoppingList.fromMealPlan(
-      _plan!,
-      alreadyHave: [..._alwaysHave, ..._almostAlwaysHave],
-      runningLowItems: _runningLowItems,
+
+    // Build ingredient list from meal plan, excluding pantry items
+    final haveSet = [..._alwaysHave, ..._almostAlwaysHave]
+        .map((s) => s.toLowerCase().trim())
+        .toSet();
+
+    // Aggregate ingredients, consolidating quantities per ingredient
+    final quantities = <String, List<ParsedQuantity>>{};
+    final displayNames = <String, String>{};
+    for (final day in _plan!.days) {
+      for (final meal in day.meals.values) {
+        if (meal == null) continue;
+        for (final ingredient in meal.ingredients) {
+          final cleanName = ShoppingService.cleanForShopping(ingredient.name);
+          final key = cleanName.toLowerCase().trim();
+          if (haveSet.any((h) => key.contains(h) || h.contains(key))) continue;
+          if (ShoppingService.instance.isStaplePublic(key)) continue;
+          displayNames.putIfAbsent(key, () => cleanName);
+          final parsed = QuantityUtils.parse(ingredient.quantity, ingredient.unit);
+          quantities.putIfAbsent(key, () => []).add(parsed);
+        }
+      }
+    }
+
+    // Build editable item list
+    final items = <_ShoppingDialogItem>[];
+    for (final key in quantities.keys) {
+      final combinedQty = QuantityUtils.combine(quantities[key]!);
+      items.add(_ShoppingDialogItem(
+        name: displayNames[key] ?? key,
+        quantity: combinedQty,
+        included: true,
+      ));
+    }
+
+    // Add running low items
+    final existingKeys = items.map((i) => i.name.toLowerCase().trim()).toSet();
+    for (final item in _runningLowItems) {
+      final key = item.toLowerCase().trim();
+      if (!existingKeys.contains(key)) {
+        items.add(_ShoppingDialogItem(
+          name: item,
+          quantity: 'Restock',
+          included: true,
+          isRestock: true,
+        ));
+        existingKeys.add(key);
+      }
+    }
+
+    items.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+    if (!mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _AddToShoppingDialog(items: items),
     );
-    _analytics.logEvent('shopping_list_viewed', {
-      'item_count': shoppingList.items.length,
-    });
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ShoppingListScreen(shoppingList: shoppingList),
-      ),
-    );
+
+    if (confirmed == true && mounted) {
+      // Add selected items to persistent shopping list
+      final shop = ShoppingService.instance;
+      int addedCount = 0;
+      for (final item in items) {
+        if (!item.included) continue;
+        final result = await shop.addItem(
+          name: item.name.trim(),
+          quantity: item.quantity.trim(),
+          source: item.isRestock ? ShoppingSource.restock : ShoppingSource.mealPlan,
+        );
+        if (result != null) addedCount++;
+      }
+      _analytics.logEvent('meal_plan_shopping_added', {
+        'item_count': addedCount,
+        'total_available': items.length,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
+            backgroundColor: ElioColors.navy,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            action: SnackBarAction(
+              label: 'View',
+              textColor: ElioColors.amber,
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                );
+              },
+            ),
+          ),
+        );
+      }
+    }
   }
 
   String? _contextForFeature(String feature) {
@@ -320,12 +399,12 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       ),
       floatingActionButton: _plan != null
           ? FloatingActionButton.extended(
-              onPressed: _openShoppingList,
+              onPressed: _showAddToShoppingDialog,
               backgroundColor: ElioColors.navy,
               foregroundColor: Colors.white,
-              icon: const Icon(Icons.shopping_cart_outlined, size: 20),
+              icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
               label: const Text(
-                'Shopping List',
+                'Add to shopping list',
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
               ),
             )
@@ -908,6 +987,334 @@ class _DietaryTag extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w600,
           color: ElioColors.navy,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Shopping dialog item model ──────────────────────────────────────────────
+
+class _ShoppingDialogItem {
+  String name;
+  String quantity;
+  bool included;
+  final bool isRestock;
+
+  _ShoppingDialogItem({
+    required this.name,
+    required this.quantity,
+    this.included = true,
+    this.isRestock = false,
+  });
+}
+
+// ─── Add to shopping list dialog ─────────────────────────────────────────────
+
+class _AddToShoppingDialog extends StatefulWidget {
+  final List<_ShoppingDialogItem> items;
+
+  const _AddToShoppingDialog({required this.items});
+
+  @override
+  State<_AddToShoppingDialog> createState() => _AddToShoppingDialogState();
+}
+
+class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
+  late List<_ShoppingDialogItem> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = widget.items;
+  }
+
+  int get _includedCount => _items.where((i) => i.included).length;
+
+  void _toggleAll(bool include) {
+    setState(() {
+      for (final item in _items) {
+        item.included = include;
+      }
+    });
+  }
+
+  void _editItem(int index) {
+    final item = _items[index];
+    final nameController = TextEditingController(text: item.name);
+    final qtyController = TextEditingController(text: item.quantity);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Edit item', style: ElioText.headingMedium),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Item name'),
+              textCapitalization: TextCapitalization.sentences,
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: qtyController,
+              decoration: const InputDecoration(labelText: 'Quantity'),
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                item.name = nameController.text.trim().isEmpty ? item.name : nameController.text.trim();
+                item.quantity = qtyController.text.trim();
+              });
+              Navigator.pop(ctx);
+            },
+            child: Text('Save', style: ElioText.bodyMedium.copyWith(
+              color: ElioColors.navy,
+              fontWeight: FontWeight.w600,
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _capitalise(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: ElioColors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Add to shopping list', style: ElioText.headingMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$_includedCount of ${_items.length} items selected',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => _toggleAll(true),
+                        child: Text(
+                          'Select all',
+                          style: ElioText.label.copyWith(
+                            color: ElioColors.sky,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: () => _toggleAll(false),
+                        child: Text(
+                          'Deselect all',
+                          style: ElioText.label.copyWith(
+                            color: ElioColors.textMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Item list ─────────────────────────────────────
+            Flexible(
+              child: _items.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Text(
+                          'All ingredients are already in your pantry!',
+                          style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: _items.length,
+                      itemBuilder: (ctx, i) {
+                        final item = _items[i];
+                        return GestureDetector(
+                          onTap: () => setState(() => item.included = !item.included),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: item.included ? Colors.transparent : ElioColors.offWhite.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              children: [
+                                // Checkbox
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  width: 22,
+                                  height: 22,
+                                  decoration: BoxDecoration(
+                                    color: item.included ? ElioColors.navy : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: item.included ? ElioColors.navy : ElioColors.border,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: item.included
+                                      ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                      : null,
+                                ),
+                                const SizedBox(width: 10),
+                                // Name
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _capitalise(item.name),
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: item.included
+                                              ? ElioColors.textPrimary
+                                              : ElioColors.textMuted,
+                                          decoration: item.included
+                                              ? null
+                                              : TextDecoration.lineThrough,
+                                          decorationColor: ElioColors.textMuted,
+                                        ),
+                                      ),
+                                      if (item.quantity.isNotEmpty)
+                                        Text(
+                                          item.quantity,
+                                          style: ElioText.label.copyWith(
+                                            color: ElioColors.textMuted,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                // Restock badge
+                                if (item.isRestock)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: ElioColors.amber.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: ElioColors.amber.withValues(alpha: 0.4)),
+                                    ),
+                                    child: Text(
+                                      'Restock',
+                                      style: ElioText.label.copyWith(
+                                        color: ElioColors.amber,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ),
+                                // Edit button
+                                GestureDetector(
+                                  onTap: () => _editItem(i),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+
+            // ── Buttons ───────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: Column(
+                children: [
+                  // Add to shopping list button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _includedCount > 0
+                          ? () => Navigator.pop(context, true)
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ElioColors.amber,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: ElioColors.border,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        _includedCount > 0
+                            ? 'Add $_includedCount item${_includedCount == 1 ? '' : 's'} to shopping list'
+                            : 'No items selected',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // View shopping list link
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context, false);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'View shopping list',
+                        style: ElioText.bodyMedium.copyWith(
+                          color: ElioColors.sky,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
