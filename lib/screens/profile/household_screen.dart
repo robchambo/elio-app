@@ -125,9 +125,71 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     );
   }
 
-  void _showAddMemberSheet() {
-    final nameController = TextEditingController();
-    final selectedDietary = <String>[];
+  Future<void> _updateMember(String profileId, String name, List<String> dietary) async {
+    if (name.trim().isEmpty) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .collection('profiles')
+          .doc(profileId)
+          .update({
+        'name': name.trim(),
+        'dietaryRequirements': dietary,
+      });
+      if (mounted) {
+        setState(() {
+          final idx = _members.indexWhere((m) => m['id'] == profileId);
+          if (idx != -1) {
+            _members[idx] = {
+              ..._members[idx],
+              'name': name.trim(),
+              'dietaryRequirements': dietary,
+            };
+          }
+        });
+      }
+    } catch (_) {
+      _showSnack('Could not update member. Please try again.');
+    }
+  }
+
+  Future<void> _confirmDelete(Map<String, dynamic> member) async {
+    final name = member['name'] as String? ?? 'this member';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Remove $name?', style: ElioText.headingMedium),
+        content: Text(
+          'This will remove $name and their dietary requirements from your household.',
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('Remove', style: ElioText.bodyMedium.copyWith(
+              color: Colors.red,
+              fontWeight: FontWeight.w600,
+            )),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      _deleteMember(member['id'] as String);
+    }
+  }
+
+  void _showMemberSheet({Map<String, dynamic>? existing}) {
+    final isEdit = existing != null;
+    final nameController = TextEditingController(text: isEdit ? existing['name'] as String? ?? '' : '');
+    final selectedDietary = List<String>.from(isEdit ? existing['dietaryRequirements'] ?? [] : []);
 
     showModalBottomSheet(
       context: context,
@@ -146,13 +208,16 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Add household member', style: ElioText.headingMedium),
+              Text(
+                isEdit ? 'Edit household member' : 'Add household member',
+                style: ElioText.headingMedium,
+              ),
               const SizedBox(height: 16),
               TextField(
                 controller: nameController,
                 decoration: const InputDecoration(hintText: 'Name (e.g. Partner, Child)'),
                 textCapitalization: TextCapitalization.words,
-                autofocus: true,
+                autofocus: !isEdit,
               ),
               const SizedBox(height: 16),
               Text('Dietary requirements', style: ElioText.label),
@@ -182,22 +247,47 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 }).toList(),
               ),
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _addMember(nameController.text, List.from(selectedDietary));
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ElioColors.amber,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    elevation: 0,
+              Row(
+                children: [
+                  if (isEdit) ...[
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _confirmDelete(existing);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Remove'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        if (isEdit) {
+                          _updateMember(existing['id'] as String, nameController.text, List.from(selectedDietary));
+                        } else {
+                          _addMember(nameController.text, List.from(selectedDietary));
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ElioColors.amber,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: 0,
+                      ),
+                      child: Text(isEdit ? 'Save' : 'Add member'),
+                    ),
                   ),
-                  child: const Text('Add member'),
-                ),
+                ],
               ),
             ],
           ),
@@ -262,7 +352,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     const SizedBox(height: 16),
                     // Add member button
                     GestureDetector(
-                      onTap: _showAddMemberSheet,
+                      onTap: () => _showMemberSheet(),
                       child: Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
@@ -291,62 +381,68 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
 
   Widget _buildMemberCard(Map<String, dynamic> member) {
     final reqs = List<String>.from(member['dietaryRequirements'] ?? []);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: ElioColors.offWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ElioColors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: const BoxDecoration(color: ElioColors.navy, shape: BoxShape.circle),
-            child: Center(
-              child: Text(
-                (member['name'] as String? ?? '?').isNotEmpty
-                    ? (member['name'] as String)[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+    return GestureDetector(
+      onTap: () => _showMemberSheet(existing: member),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: ElioColors.offWhite,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: ElioColors.border),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: const BoxDecoration(color: ElioColors.navy, shape: BoxShape.circle),
+              child: Center(
+                child: Text(
+                  (member['name'] as String? ?? '?').isNotEmpty
+                      ? (member['name'] as String)[0].toUpperCase()
+                      : '?',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 15),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(member['name'] as String? ?? 'Member',
-                    style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
-                if (reqs.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: reqs.map((r) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: ElioColors.navy.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(12),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(member['name'] as String? ?? 'Member',
+                            style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
                       ),
-                      child: Text(r, style: ElioText.label.copyWith(fontSize: 11, color: ElioColors.navy)),
-                    )).toList(),
+                      Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted.withValues(alpha: 0.5)),
+                    ],
                   ),
-                ] else
-                  Text('No dietary requirements',
-                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted, fontSize: 13)),
-              ],
+                  if (reqs.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: reqs.map((r) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: ElioColors.navy.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(r, style: ElioText.label.copyWith(fontSize: 11, color: ElioColors.navy)),
+                      )).toList(),
+                    ),
+                  ] else
+                    Text('No dietary requirements',
+                        style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted, fontSize: 13)),
+                ],
+              ),
             ),
-          ),
-          GestureDetector(
-            onTap: () => _deleteMember(member['id'] as String),
-            child: const Icon(Icons.close, size: 18, color: ElioColors.textMuted),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
