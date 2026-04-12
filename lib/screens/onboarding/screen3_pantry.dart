@@ -241,12 +241,9 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
         (i) => PantryUtils.isFuzzyMatch(name, i.name),
       );
       if (matchIdx != -1) {
-        // Only remove if the exact name matches (user added via pack)
-        // If it was from a preset with a different name, don't remove it
-        if (_items[matchIdx].name == name) {
-          _items.removeAt(matchIdx);
-        }
-        // If fuzzy match but different name, it's a preset item — do nothing
+        // Remove the matched item — whether it came from a preset or a pack,
+        // the user is explicitly toggling it off.
+        _items.removeAt(matchIdx);
       } else {
         _items.add(InventoryItem(name: name, tier: 'alwaysHave'));
       }
