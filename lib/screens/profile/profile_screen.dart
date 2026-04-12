@@ -54,7 +54,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   // ── Pantry state ───────────────────────────────────────────────────
   List<Map<String, dynamic>> _inventoryItems = [];
   final Set<String> _collapsedTiers = {}; // tracks which tiers are collapsed
-  bool _groupByCategory = false; // global toggle for grouped view
+  // Pantry items are always displayed grouped by category
 
   // ── Style preferences ──────────────────────────────────────────────
   List<String> _stylePreferences = [];
@@ -538,40 +538,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 12),
                   ),
                 ],
-              ),
-            ),
-            // Group toggle
-            GestureDetector(
-              onTap: () => setState(() => _groupByCategory = !_groupByCategory),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _groupByCategory ? ElioColors.navy.withValues(alpha: 0.08) : ElioColors.offWhite,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _groupByCategory ? ElioColors.navy : ElioColors.border,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.grid_view_rounded,
-                      size: 14,
-                      color: _groupByCategory ? ElioColors.navy : ElioColors.textMuted,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'Group',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: _groupByCategory ? FontWeight.w700 : FontWeight.w500,
-                        color: _groupByCategory ? ElioColors.navy : ElioColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ],
@@ -1382,16 +1348,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
                 ),
               )
-            else if (_groupByCategory)
-              _buildGroupedItems(items, tier, color)
             else
-              ...items.map((item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: GestureDetector(
-                  onLongPress: () => _showItemMoveMenu(item),
-                  child: _buildInventoryRowContent(item, item['runningLow'] as bool? ?? false, item['id'] as String),
-                ),
-              )),
+              _buildGroupedItems(items, tier, color),
           ],
         ],
       ),
