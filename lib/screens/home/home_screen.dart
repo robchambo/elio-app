@@ -12,6 +12,7 @@ import '../history/history_screen.dart';
 import '../meal_plan/meal_plan_screen.dart';
 import '../profile/profile_screen.dart';
 import '../paywall/paywall_screen.dart';
+import '../add/add_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
@@ -1662,6 +1663,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.add, color: Colors.white, size: 22),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Open AddScreen (scan receipt / snap photo / manual entry hub)
+            GestureDetector(
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const AddScreen()),
+              ).then((_) => _loadUserData()),
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: ElioColors.warmOrange,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 22),
               ),
             ),
           ],
