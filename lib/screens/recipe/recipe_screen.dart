@@ -1010,10 +1010,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
   // ─── Normal mode ─────────────────────────────────────────────────────────────
   Widget _buildNormalMode() {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.scaffold,
+      bottomNavigationBar: _buildMarkAsCookedBar(),
       body: CustomScrollView(
         slivers: [
           _buildSliverAppBar(),
+          // Hero illustration
+          SliverToBoxAdapter(child: _buildHeroSection()),
+          // Title, stats and content
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
@@ -1021,11 +1025,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildMetaRow(),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 28),
                   _buildServingScaler(),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 40),
                   _buildIngredientsSection(),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 40),
                   _buildMethodSection(),
                   if (_currentRecipe.substitutions.isNotEmpty) ...[
                     const SizedBox(height: 28),
@@ -1044,107 +1048,305 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
+  // ─── Hero illustration section ────────────────────────────────────────────────
+  // Vibrant Editorial — warmOrange full-width hero with abstract pasta bowl shapes.
+  Widget _buildHeroSection() {
+    return Container(
+      width: double.infinity,
+      height: 300,
+      color: ElioColors.warmOrange,
+      child: Stack(
+        clipBehavior: Clip.hardEdge,
+        children: [
+          // Glow behind bowl
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 220,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: ElioColors.amber.withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(9999),
+                ),
+              ),
+            ),
+          ),
+          // Bowl base
+          Positioned(
+            bottom: 40,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Container(
+                width: 200,
+                height: 80,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(80),
+                    bottomRight: Radius.circular(80),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Pasta strands (abstract pill shapes)
+          Positioned(
+            bottom: 100,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: SizedBox(
+                width: 180,
+                height: 100,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Transform.rotate(
+                      angle: 0.21,
+                      child: Container(height: 14, width: 128, decoration: BoxDecoration(color: const Color(0xFFFFDBCB), borderRadius: BorderRadius.circular(9999))),
+                    ),
+                    Transform.translate(
+                      offset: const Offset(0, 22),
+                      child: Transform.rotate(
+                        angle: -0.10,
+                        child: Container(height: 14, width: 96, decoration: BoxDecoration(color: const Color(0xFFE2BFB0), borderRadius: BorderRadius.circular(9999))),
+                      ),
+                    ),
+                    Transform.translate(
+                      offset: const Offset(0, 42),
+                      child: Transform.rotate(
+                        angle: 0.05,
+                        child: Container(height: 14, width: 144, decoration: BoxDecoration(color: const Color(0xFFFFDBCB), borderRadius: BorderRadius.circular(9999))),
+                      ),
+                    ),
+                    Transform.translate(
+                      offset: const Offset(0, 60),
+                      child: Transform.rotate(
+                        angle: -0.21,
+                        child: Container(height: 14, width: 112, decoration: BoxDecoration(color: const Color(0xFFFFDCBB), borderRadius: BorderRadius.circular(9999))),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // Lemon wedge — top right
+          Positioned(
+            top: 36,
+            right: 72,
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: ElioColors.amber,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white.withOpacity(0.3), width: 3),
+              ),
+            ),
+          ),
+          // Lemon wedge — smaller, left
+          Positioned(
+            top: 72,
+            left: 80,
+            child: Transform.rotate(
+              angle: -0.52,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: ElioColors.amber,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 3),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Mark as Cooked bottom bar ────────────────────────────────────────────────
+  Widget _buildMarkAsCookedBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      color: ElioColors.scaffold,
+      child: SizedBox(
+        width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          icon: const Icon(Icons.check_circle_outline, size: 20, color: Colors.white),
+          label: Text(
+            'Mark as Cooked',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 18,
+              fontWeight: FontWeight.w400,
+              color: Colors.white,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: ElioColors.heroOrange,
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSliverAppBar() {
     return SliverAppBar(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cardSurface,
       surfaceTintColor: Colors.transparent,
       pinned: true,
       elevation: 0,
+      expandedHeight: 0,
+      titleSpacing: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.navy, size: 20),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.dark, size: 20),
         onPressed: () => Navigator.of(context).pop(),
       ),
+      title: Text(
+        'elio',
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 24,
+          fontWeight: FontWeight.w400,
+          color: ElioColors.heroOrange,
+          letterSpacing: -1.2,
+        ),
+      ),
       actions: [
-        // Save recipe
+        // Save / heart
         IconButton(
           icon: Icon(
-            _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-            color: _isSaved ? ElioColors.amber : ElioColors.navy,
+            _isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            color: _isSaved ? ElioColors.heroOrange : ElioColors.dark,
             size: 22,
           ),
           tooltip: _isSaved ? 'Saved' : 'Save recipe',
           onPressed: _saveRecipe,
         ),
-        // Add ingredients to shopping list
-        IconButton(
-          icon: _isAddingToShop
-              ? const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.navy),
-                )
-              : const Icon(Icons.add_shopping_cart_rounded, color: ElioColors.navy, size: 22),
-          tooltip: 'Add to shopping list',
-          onPressed: _isAddingToShop ? null : _addToShoppingList,
-        ),
         // Share
         IconButton(
-          icon: const Icon(Icons.ios_share_rounded, color: ElioColors.navy, size: 22),
+          icon: const Icon(Icons.ios_share_rounded, color: ElioColors.dark, size: 22),
           tooltip: 'Share recipe',
           onPressed: _shareRecipe,
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
       ],
-      expandedHeight: 0,
-      title: Text(
-        _currentRecipe.title,
-        style: GoogleFonts.plusJakartaSans(
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          color: ElioColors.navy,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
     );
   }
 
   Widget _buildMetaRow() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(_currentRecipe.title, style: ElioText.displayMedium),
-        const SizedBox(height: 8),
-        if (_currentRecipe.description.isNotEmpty) ...[
-          Text(_currentRecipe.description, style: ElioText.bodyLarge),
-          const SizedBox(height: 12),
+    // Difficulty derived from dietary tags or defaulted to "Easy"
+    final difficulty = _currentRecipe.dietaryTags.isNotEmpty
+        ? _currentRecipe.dietaryTags.first
+        : 'Easy';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: const BoxDecoration(
+        color: ElioColors.cardSurface,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // "RECIPE OF THE DAY" amber pill
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            decoration: BoxDecoration(
+              color: ElioColors.amber,
+              borderRadius: BorderRadius.circular(9999),
+            ),
+            child: Text(
+              'RECIPE OF THE DAY',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10,
+                fontWeight: FontWeight.w400,
+                color: const Color(0xFF663C00),
+                letterSpacing: 1.0,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Large editorial title — lowercase, heroOrange
+          Text(
+            _currentRecipe.title.toLowerCase(),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 56,
+              fontWeight: FontWeight.w700,
+              color: ElioColors.heroOrange,
+              letterSpacing: -3.0,
+              height: 0.9,
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Stats bento grid — TIME · SERVINGS · DIFFICULTY
+          Row(
+            children: [
+              Expanded(child: _buildStatCard(
+                label: 'TIME',
+                value: '${_currentRecipe.totalTimeMinutes}m',
+                icon: Icons.timer_outlined,
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: _buildStatCard(
+                label: 'SERVINGS',
+                value: '$_servings',
+                icon: Icons.people_outline,
+              )),
+              const SizedBox(width: 12),
+              Expanded(child: _buildStatCard(
+                label: 'DIFFICULTY',
+                value: difficulty,
+                icon: Icons.star_outline_rounded,
+              )),
+            ],
+          ),
         ],
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _MetaBadge(
-              icon: Icons.timer_outlined,
-              label: '${_currentRecipe.totalTimeMinutes} min',
+      ),
+    );
+  }
+
+  Widget _buildStatCard({required String label, required String value, required IconData icon}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: ElioColors.scaffold,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: ElioColors.textPrimary.withOpacity(0.4)),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10,
+              color: ElioColors.textPrimary.withOpacity(0.4),
+              letterSpacing: 1.0,
             ),
-            _MetaBadge(
-              icon: Icons.restaurant_outlined,
-              label: '${_currentRecipe.prepTimeMinutes} min prep',
+          ),
+          Text(
+            value,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 20,
+              fontWeight: FontWeight.w400,
+              color: ElioColors.textPrimary,
             ),
-            if (_currentRecipe.dietaryTags.isNotEmpty)
-              _MetaBadge(
-                icon: Icons.local_dining_outlined,
-                label: _currentRecipe.dietaryTags.first,
-                color: ElioColors.sky,
-              ),
-            if (_currentRecipe.nutrition != null)
-              GestureDetector(
-                onTap: _showNutritionSheet,
-                child: _MetaBadge(
-                  icon: Icons.monitor_heart_outlined,
-                  label: '${_currentRecipe.nutrition!.calories} kcal',
-                ),
-              ),
-            if (_costLabel != null)
-              GestureDetector(
-                onTap: _showCostInfoSheet,
-                child: _MetaBadge(
-                  icon: Icons.shopping_basket_outlined,
-                  label: _costLabel!,
-                ),
-              ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1238,97 +1440,81 @@ class _RecipeScreenState extends State<RecipeScreen> {
           'Tap any ingredient for options',
           style: ElioText.label.copyWith(color: ElioColors.textMuted),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 24),
         ..._currentRecipe.ingredients.map((ingredient) {
           final isExcluded = _excludedIngredients.contains(ingredient.name);
           final isFromInventory = ingredient.fromInventory && !isExcluded;
           return GestureDetector(
             onTap: () => _showIngredientOptions(ingredient),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: isExcluded
-                    ? const Color(0xFFF5F5F5)
-                    : isFromInventory
-                        ? ElioColors.amber.withValues(alpha: 0.07)
-                        : ElioColors.offWhite,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isExcluded
-                      ? ElioColors.border
-                      : isFromInventory
-                          ? ElioColors.amber.withValues(alpha: 0.4)
-                          : ElioColors.border,
-                ),
-              ),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 24),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Colour dot
-                  Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.only(right: 10),
-                    decoration: BoxDecoration(
-                      color: isExcluded
-                          ? ElioColors.border
-                          : isFromInventory
-                              ? ElioColors.amber
-                              : ElioColors.border,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  // Name
-                  Expanded(
-                    child: Text(
-                      ingredient.name,
-                      style: ElioText.bodyMedium.copyWith(
-                        fontWeight: isFromInventory ? FontWeight.w600 : FontWeight.w400,
-                        color: isExcluded ? ElioColors.textMuted : ElioColors.textPrimary,
-                        decoration: isExcluded ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                  ),
-                  // Quantity (constrained so name always gets space)
-                  if (!isExcluded)
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.35),
-                      child: Text(
-                        ingredient.unit.isEmpty
-                            ? _scaleQuantity(ingredient.quantity)
-                            : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
-                        style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.right,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  // ✕ options button
-                  ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _showIngredientOptions(ingredient),
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
+                  // Circle outline bullet — Figma style
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
                           color: isExcluded
-                              ? ElioColors.navy.withValues(alpha: 0.08)
-                              : Colors.transparent,
-                          shape: BoxShape.circle,
+                              ? ElioColors.border
+                              : isFromInventory
+                                  ? ElioColors.amber
+                                  : ElioColors.heroOrange,
+                          width: 2,
                         ),
-                        child: Icon(
-                          isExcluded ? Icons.add_rounded : Icons.close_rounded,
-                          size: 16,
-                          color: isExcluded ? ElioColors.navy : ElioColors.textMuted,
-                        ),
+                        color: isExcluded ? ElioColors.border.withOpacity(0.2) : Colors.transparent,
                       ),
                     ),
-                  ],
+                  ),
+                  const SizedBox(width: 16),
+                  // Name + quantity + hint
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                ingredient.name,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 18,
+                                  fontWeight: isFromInventory ? FontWeight.w600 : FontWeight.w400,
+                                  color: isExcluded ? ElioColors.textMuted : ElioColors.textPrimary,
+                                  decoration: isExcluded ? TextDecoration.lineThrough : null,
+                                  height: 1.55,
+                                ),
+                              ),
+                            ),
+                            if (!isExcluded)
+                              Text(
+                                ingredient.unit.isEmpty
+                                    ? _scaleQuantity(ingredient.quantity)
+                                    : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  color: ElioColors.textPrimary.withOpacity(0.6),
+                                ),
+                              ),
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: () => _showIngredientOptions(ingredient),
+                              child: Icon(
+                                isExcluded ? Icons.add_rounded : Icons.close_rounded,
+                                size: 16,
+                                color: ElioColors.textMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -1345,44 +1531,68 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
+  // ─── Method section ──────────────────────────────────────────────────────────
+  // Vibrant Editorial — large warmOrange step numbers, editorial typography.
   Widget _buildMethodSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Method', style: ElioText.headingMedium),
-        const SizedBox(height: 12),
+        // Section heading
+        Text(
+          'Method',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: ElioColors.taupe,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 24),
         ..._currentRecipe.steps.asMap().entries.map((entry) {
           final stepNum = entry.key + 1;
           final step = entry.value;
           return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
+            padding: const EdgeInsets.only(bottom: 40),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Divider line above each step
                 Container(
-                  width: 28,
-                  height: 28,
-                  decoration: const BoxDecoration(
-                    color: ElioColors.navy,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
+                  height: 1,
+                  color: ElioColors.taupe.withOpacity(0.15),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Large editorial step number
+                    Text(
                       '$stepNum',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
+                        fontSize: 64,
+                        fontWeight: FontWeight.w800,
+                        color: ElioColors.warmOrange,
+                        height: 0.85,
+                        letterSpacing: -3,
                       ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(step, style: ElioText.bodyLarge),
-                  ),
+                    const SizedBox(width: 20),
+                    // Step text
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          step,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w400,
+                            color: ElioColors.dark.withOpacity(0.80),
+                            height: 1.55,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
