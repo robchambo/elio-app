@@ -13,6 +13,7 @@ import '../meal_plan/meal_plan_screen.dart';
 import '../profile/profile_screen.dart';
 import '../paywall/paywall_screen.dart';
 import '../add/add_screen.dart';
+import '../pantry/pantry_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
@@ -978,7 +979,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             GestureDetector(
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 0)),
+                MaterialPageRoute(builder: (_) => const PantryScreen()),
               ).then((_) => _loadUserData()),
               child: Row(
                 children: [
