@@ -14,7 +14,8 @@ import 'remote_config_service.dart';
 //   • Prompts compressed ~50% — fewer input tokens per call
 //   • Two-phase generation: weekly call returns summaries only (Phase 1),
 //     detail (steps, nutrition, substitutions) loaded on-demand (Phase 2)
-//   • maxOutputTokens: 4096 weekly / 1024 single meal / 512 detail
+//   • maxOutputTokens: 6144 weekly / 1024 single meal / 512 detail
+//   • HTTP timeouts: 90s weekly / 60s single / 45s detail
 // ─────────────────────────────────────────────
 
 class MealPlanService {
@@ -97,11 +98,11 @@ class MealPlanService {
           'temperature': 0.85,
           'topK': 40,
           'topP': 0.95,
-          'maxOutputTokens': 4096,
+          'maxOutputTokens': 6144,
           'responseMimeType': 'application/json',
         },
       }),
-    );
+    ).timeout(const Duration(seconds: 90));
 
     _checkHttpErrors(response);
 
@@ -211,7 +212,7 @@ class MealPlanService {
           'responseMimeType': 'application/json',
         },
       }),
-    );
+    ).timeout(const Duration(seconds: 60));
 
     _checkHttpErrors(response);
 
@@ -263,7 +264,7 @@ class MealPlanService {
           'responseMimeType': 'application/json',
         },
       }),
-    );
+    ).timeout(const Duration(seconds: 45));
 
     _checkHttpErrors(response);
 

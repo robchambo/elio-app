@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/meal_plan_models.dart';
@@ -44,6 +45,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   // ── State ──────────────────────────────────────────────────────────
   MealPlan? _plan;
   bool _isGenerating = false;
+  String _generatingMessage = '';
   // _selectedDayIndex removed — TabBarView drives day rendering via _tabController
 
   // Track which individual slots are regenerating
@@ -122,7 +124,28 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       return;
     }
 
-    setState(() => _isGenerating = true);
+    setState(() {
+      _isGenerating = true;
+      _generatingMessage = 'Planning your week...';
+    });
+
+    // Staggered progress messages so the user sees activity
+    final messages = [
+      'Picking recipes...',
+      'Balancing nutrition...',
+      'Maximising ingredient crossover...',
+      'Checking dietary requirements...',
+      'Estimating costs...',
+      'Finalising your meal plan...',
+    ];
+    int msgIndex = 0;
+    final messageTimer = Stream.periodic(const Duration(seconds: 8), (i) => i)
+        .listen((_) {
+      if (mounted && _isGenerating && msgIndex < messages.length) {
+        setState(() => _generatingMessage = messages[msgIndex]);
+        msgIndex++;
+      }
+    });
 
     try {
       final orderedDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -151,6 +174,15 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           'total_meals': orderedDays.length * orderedTypes.length,
         });
       }
+    } on TimeoutException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Meal plan took too long. Try fewer days or meal types.'),
+            backgroundColor: ElioColors.navy,
+          ),
+        );
+      }
     } catch (e) {
       _analytics.logEvent('meal_plan_generation_failed', {
         'error_type': e.runtimeType.toString(),
@@ -164,7 +196,13 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         );
       }
     } finally {
-      if (mounted) setState(() => _isGenerating = false);
+      messageTimer.cancel();
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+          _generatingMessage = '';
+        });
+      }
     }
   }
 
@@ -470,6 +508,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           ],
           _GenerateButton(
             isGenerating: _isGenerating,
+            generatingMessage: _generatingMessage,
             hasExistingPlan: _plan != null,
             onTap: _generateWeeklyPlan,
           ),
@@ -705,10 +744,27 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                   ? null
                   : _generateWeeklyPlan,
               child: _isGenerating
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                        ),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 400),
+                            child: Text(
+                              _generatingMessage,
+                              key: ValueKey(_generatingMessage),
+                              style: const TextStyle(fontSize: 14, color: Colors.white),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
                     )
                   : Text('Generate ${_selectedDays.length == 7 ? 'My Week' : '${_selectedDays.length} Days'} →'),
             ),
@@ -722,11 +778,13 @@ class _MealPlanScreenState extends State<MealPlanScreen>
 // ─── Generate button ──────────────────────────────────────────────────────────
 class _GenerateButton extends StatelessWidget {
   final bool isGenerating;
+  final String generatingMessage;
   final bool hasExistingPlan;
   final VoidCallback onTap;
 
   const _GenerateButton({
     required this.isGenerating,
+    required this.generatingMessage,
     required this.hasExistingPlan,
     required this.onTap,
   });
@@ -740,10 +798,30 @@ class _GenerateButton extends StatelessWidget {
           color: ElioColors.amber.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: const SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(color: ElioColors.amber, strokeWidth: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(color: ElioColors.amber, strokeWidth: 2),
+            ),
+            if (generatingMessage.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  child: Text(
+                    generatingMessage,
+                    key: ValueKey(generatingMessage),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ElioColors.amber),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       );
     }

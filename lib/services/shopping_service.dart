@@ -73,6 +73,25 @@ class ShoppingService {
   CollectionReference<Map<String, dynamic>> get _collection =>
       _db.collection('users').doc(_uid!).collection('shoppingItems');
 
+  // ── Purge residual staples from Firestore ────────────────────────────
+  // One-time cleanup for items that were added before staple filtering
+  // existed. Safe to call multiple times — only deletes matching docs.
+  Future<void> purgeStaples() async {
+    if (_uid == null) return;
+    final snapshot = await _collection.get();
+    final batch = _db.batch();
+    int purged = 0;
+    for (final doc in snapshot.docs) {
+      final name = (doc.data()['nameLower'] as String?) ??
+          (doc.data()['name'] as String? ?? '').toLowerCase().trim();
+      if (_isStaple(name)) {
+        batch.delete(doc.reference);
+        purged++;
+      }
+    }
+    if (purged > 0) await batch.commit();
+  }
+
   // ── Load all items ─────────────────────────────────────────────────
   Future<List<PersistentShoppingItem>> loadItems() async {
     if (_uid == null) return [];

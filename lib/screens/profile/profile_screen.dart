@@ -110,6 +110,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   // ── Shopping list loading ───────────────────────────────────────────
   Future<void> _loadShoppingItems() async {
     try {
+      // One-time cleanup: remove residual staples (water, salt, etc.)
+      // that were added before staple filtering existed.
+      await ShoppingService.instance.purgeStaples();
       final items = await ShoppingService.instance.loadItems();
       if (!mounted) return;
       setState(() {

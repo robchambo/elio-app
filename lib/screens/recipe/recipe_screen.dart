@@ -1445,23 +1445,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Widget _buildNormalMode() {
     return Scaffold(
       backgroundColor: ElioColors.white,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          setState(() {
-            _handsFreeMode = true;
-            _currentStep = 0;
-          });
-          _analytics.logEvent('hands_free_started', {
-            'step_count': _currentRecipe.steps.length,
-          });
-          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        },
-        backgroundColor: ElioColors.navy,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        icon: const Icon(Icons.visibility_outlined, size: 20),
-        label: const Text('Hands-Free'),
-      ),
       body: CustomScrollView(
         slivers: [
           _buildSliverAppBar(),
