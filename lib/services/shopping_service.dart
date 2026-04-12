@@ -195,10 +195,11 @@ class ShoppingService {
       for (final meal in day.meals.values) {
         if (meal == null) continue;
         for (final ingredient in meal.ingredients) {
-          final key = ingredient.name.toLowerCase().trim();
+          final cleanName = cleanForShopping(ingredient.name);
+          final key = cleanName.toLowerCase().trim();
           if (haveSet.any((h) => key.contains(h) || h.contains(key))) continue;
           if (_isStaple(key)) continue;
-          displayNames.putIfAbsent(key, () => ingredient.name.trim());
+          displayNames.putIfAbsent(key, () => cleanName);
           final parsed = QuantityUtils.parse(ingredient.quantity, ingredient.unit);
           quantities.putIfAbsent(key, () => []).add(parsed);
         }
@@ -261,6 +262,81 @@ class ShoppingService {
       batch.delete(doc.reference);
     }
     await batch.commit();
+  }
+
+  // ── Ingredient name cleaning ────────────────────────────────────────
+  // Recipe ingredients carry preparation details ("Ham, cut into cubes",
+  // "Shrimp (raw, peeled and deveined)", "Butter, melted") that are useful
+  // for cooking but clutter the shopping list. This strips them down to
+  // just the item you need to buy.
+
+  /// Prep-related words found in parentheses or after commas — if a
+  /// parenthetical or comma-clause contains any of these, strip it.
+  static const _prepWords = <String>{
+    'chopped', 'diced', 'sliced', 'minced', 'grated', 'shredded',
+    'crushed', 'melted', 'softened', 'cubed', 'julienned', 'peeled',
+    'deveined', 'trimmed', 'deboned', 'halved', 'quartered', 'torn',
+    'cut', 'beaten', 'whisked', 'sifted', 'toasted', 'roasted',
+    'grilled', 'blanched', 'drained', 'rinsed', 'soaked', 'thawed',
+    'frozen', 'raw', 'cooked', 'boiled', 'steamed', 'fried',
+    'thinly', 'finely', 'roughly', 'freshly', 'lightly',
+    'at room temperature', 'room temperature', 'to taste',
+    'for garnish', 'for serving', 'optional', 'divided',
+  };
+
+  /// Size adjectives to strip from the start of a name.
+  static const _sizeAdjectives = <String>{
+    'large', 'small', 'medium', 'extra-large', 'extra large',
+    'big', 'thin', 'thick',
+  };
+
+  /// Clean a recipe ingredient name for the shopping list.
+  /// "Ham, cut into cubes or thin strips" → "Ham"
+  /// "Shrimp (raw, peeled and deveined)" → "Shrimp"
+  /// "Large Eggs" → "Eggs"
+  /// "Butter, melted" → "Butter"
+  static String cleanForShopping(String name) {
+    var cleaned = name.trim();
+
+    // 1. Strip comma-clauses that contain prep words
+    //    "Ham, cut into cubes" → "Ham"
+    //    "Butter, melted" → "Butter"
+    //    But keep "Rice, white" style commas that are product descriptors
+    final commaIdx = cleaned.indexOf(',');
+    if (commaIdx > 0) {
+      final afterComma = cleaned.substring(commaIdx + 1).toLowerCase().trim();
+      if (_prepWords.any((w) => afterComma.contains(w))) {
+        cleaned = cleaned.substring(0, commaIdx).trim();
+      }
+    }
+
+    // 2. Strip parentheticals that contain prep words
+    //    "Shrimp (raw, peeled and deveined)" → "Shrimp"
+    //    But keep "(white)", "(brown)", "(basmati)" — product variants
+    final parenMatch = RegExp(r'\s*\([^)]+\)\s*$').firstMatch(cleaned);
+    if (parenMatch != null) {
+      final parenContent = parenMatch.group(0)!.toLowerCase();
+      if (_prepWords.any((w) => parenContent.contains(w))) {
+        cleaned = cleaned.substring(0, parenMatch.start).trim();
+      }
+    }
+
+    // 3. Strip leading size adjectives
+    //    "Large Eggs" → "Eggs", "Small eggs" → "eggs"
+    final lower = cleaned.toLowerCase();
+    for (final adj in _sizeAdjectives) {
+      if (lower.startsWith('$adj ')) {
+        cleaned = cleaned.substring(adj.length).trim();
+        break;
+      }
+    }
+
+    // 4. Capitalise first letter
+    if (cleaned.isNotEmpty) {
+      cleaned = cleaned[0].toUpperCase() + cleaned.substring(1);
+    }
+
+    return cleaned;
   }
 
   // ── Helpers ────────────────────────────────────────────────────────

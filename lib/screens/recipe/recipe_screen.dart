@@ -540,18 +540,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
       return;
     }
     try {
+      final cleanName = ShoppingService.cleanForShopping(ingredient.name);
       final qty = ingredient.unit.isEmpty
           ? _scaleQuantity(ingredient.quantity)
           : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}';
       await ShoppingService.instance.addItem(
-        name: ingredient.name,
+        name: cleanName,
         quantity: qty,
         source: ShoppingSource.recipe,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${ingredient.name} added to shopping list'),
+            content: Text('$cleanName added to shopping list'),
             backgroundColor: ElioColors.navy,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1341,12 +1342,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
         // Skip items the user already has, and universal staples
         if (ing.fromInventory) continue;
         if (_isShoppingExclusion(ing.name)) continue;
-        final isExisting = existingNames.contains(ing.name.toLowerCase().trim());
+        final cleanName = ShoppingService.cleanForShopping(ing.name);
+        final isExisting = existingNames.contains(cleanName.toLowerCase().trim());
         final qty = ing.unit.isEmpty
             ? _scaleQuantity(ing.quantity)
             : '${_scaleQuantity(ing.quantity)} ${ing.unit}';
         await shop.addItem(
-          name: ing.name,
+          name: cleanName,
           quantity: qty,
           source: ShoppingSource.recipe,
         );
