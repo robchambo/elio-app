@@ -77,8 +77,11 @@ class PantryUtils {
   }
 
   /// Check if two normalised names are a fuzzy match.
-  /// Returns true if: exact match, one contains the other (shorter >= 3 chars),
-  /// or Levenshtein distance is within threshold.
+  /// Returns true if: exact match after normalisation, or Levenshtein
+  /// distance is within threshold (catches typos like "Salf" → "Salt").
+  ///
+  /// Does NOT use substring containment — "Rice" vs "Rice vinegar" and
+  /// "Eggs" vs "Noodles (egg)" are completely different items.
   static bool isFuzzyMatch(String a, String b) {
     final na = normalise(a);
     final nb = normalise(b);
@@ -86,13 +89,13 @@ class PantryUtils {
     // Exact match after normalisation
     if (na == nb) return true;
 
-    // Containment check — shorter string must be >= 3 chars
+    // Levenshtein distance check (typo detection only)
     final shorter = na.length <= nb.length ? na : nb;
     final longer = na.length <= nb.length ? nb : na;
-    if (shorter.length >= 3 && longer.contains(shorter)) return true;
-
-    // Levenshtein distance check
     final maxLen = longer.length;
+    // Only flag if the names are similar length — large length differences
+    // mean fundamentally different items (e.g. "rice" vs "rice vinegar")
+    if ((longer.length - shorter.length) > 3) return false;
     final threshold = maxLen <= 8 ? 1 : 2;
     return _levenshtein(na, nb) <= threshold;
   }
