@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 11 April 2026 (Sprint 15.4 complete — recipe book & shopping list improvements + bug fixes)
+**Last updated:** 11 April 2026 (Sprint 15.5 complete — bug fixes done, ready for Sprint 16 UI overhaul)
 
 ---
 
@@ -132,20 +132,18 @@ Work is grouped into three parallel tracks:
 
 ---
 
-## Sprint 15.5 — Bug Fixes
+## Sprint 15.5 — Bug Fixes ✅
 
 **Goal:** Address known bugs before UI overhaul and launch.
 
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
 | 1 | Google Sign-In SHA-1 fix for new devices | 0.5 | ✅ Done |
-| 2 | Paywall appearing unexpectedly — audit trigger logic | 1–2 | Not started |
-| 3 | Notification service — wire `requestPermissionAndRegister()` to a trigger | 1 | Not started |
-| 4 | Paywall integration tests — update stale assertions from trial-first rewrite | 1 | Not started |
-| 5 | RevenueCat API key — wire through `build.ps1` / `.env.local` | 1 | Not started |
-| 6 | `ErrorService` coverage — add to GeminiService, FirestoreService, VoiceControlService, PurchaseService | 1–2 | Not started |
-
-**Estimate:** 5–7 hours
+| 2 | Paywall appearing unexpectedly — audit trigger logic | 1–2 | ✅ Done (audited — all 4 triggers properly gated, no issue found) |
+| 3 | Notification service — wire `requestPermissionAndRegister()` to a trigger | 1 | ✅ Done (`init()` at startup, permission request on first HomeScreen load) |
+| 4 | Paywall integration tests — update stale assertions from trial-first rewrite | 1 | ✅ Done (headlines updated to match context-based copy) |
+| 5 | RevenueCat API key — wire through `build.ps1` / `.env.local` | 1 | ✅ Done (optional — warns in dry mode, passes via `--dart-define`) |
+| 6 | `ErrorService` coverage — add to GeminiService, FirestoreService, VoiceControlService, PurchaseService | 1–2 | ✅ Done (~15 new call sites across 6 services) |
 
 ---
 

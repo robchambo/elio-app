@@ -162,14 +162,11 @@ Agent D waits for A/B/C, runs `git status` + `flutter analyze`, fixes conflicts,
 
 ## Known Issues
 
-- **`REVENUECAT_API_KEY` not wired through `build.ps1`** — PurchaseService dry mode. Paywall relies on optimistic fallback. Sprint 16 blocker.
 - **`google-services.json` not in git** — must add manually after fresh clone.
-- **ErrorService coverage thin** — only ~4 call sites. GeminiService / FirestoreService / VoiceControlService / PurchaseService all swallow errors silently. Sprint 16 task.
-- **`integration_test/paywall_test.dart`** has stale string assertions from before the trial-first rewrite.
 - **APK size 72.4 MB** — mobile_scanner ML Kit. May need app bundles for Play Store.
 - **iOS not built/tested** — URL scheme placeholder must be filled first.
-- **`NotificationService.requestPermissionAndRegister()`** deferred but never wired to a trigger.
 - **`mockup/` directory** untracked.
+- **`REVENUECAT_API_KEY`** — wired through `build.ps1` but actual key not yet in `.env.local` (need RC project setup first).
 
 ## Launch Strategy
 
