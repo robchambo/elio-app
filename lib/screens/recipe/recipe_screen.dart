@@ -1531,7 +1531,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   clipBehavior: Clip.none,
                   children: [
                     const Icon(Icons.add_shopping_cart_rounded, color: ElioColors.navy, size: 22),
-                    if (_currentRecipe.ingredients.isNotEmpty)
+                    // Show count of ingredients NOT already in the pantry
+                    if (_currentRecipe.ingredients.any((i) => !i.fromInventory))
                       Positioned(
                         right: 0,
                         top: 0,
@@ -1545,7 +1546,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            '${_currentRecipe.ingredients.length}',
+                            '${_currentRecipe.ingredients.where((i) => !i.fromInventory).length}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 10,
