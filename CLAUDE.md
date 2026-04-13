@@ -51,8 +51,8 @@ powershell -ExecutionPolicy Bypass -File build.ps1 -sprint <version>
 lib/
   models/        — elio_models, recipe_models (RecipeGenerationStatus sealed class), meal_plan_models, onboarding_state
   data/          — pantry_categories (12 categories, lazy lookup)
-  services/      — gemini (SSE streaming, JSON mode, thinking off), firestore, auth, scanner, shopping,
-                   meal_plan, history (bookmarking), entitlement, analytics, notification, remote_config,
+  services/      — gemini (SSE streaming, JSON mode, thinking off, side dish generation), firestore, auth, scanner, shopping,
+                   meal_plan (timeouts, staggered progress), history (bookmarking), entitlement, analytics, notification, remote_config,
                    guest_pantry, purchase, error_service, voice_control
   screens/
     home/        — Generate button with streaming shimmer skeleton
@@ -190,31 +190,38 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 | Launch architecture | `docs/technical-design.md` Section 10 |
 | Brand / art direction | `docs/brand-art-concept.md` |
 
-## Last Session (11 April 2026) — Sprint 15.4
+## Last Session (12 April 2026) — Sprint 15.6
 
-### Completed (Sprint 15.4)
-- **Recipe Book — Collections/tags:** Tag saved recipes, filter by collection chips, tag dialog (showDialog)
-- **Recipe Book — "Makeable now" filter:** Cross-references saved recipe ingredients vs current pantry (PantryUtils.isFuzzyMatch), toggle button, green badge
-- **Shopping list — Ingredient quantity consolidation:** `QuantityUtils` handles fractions, Unicode, mixed numbers, smart unit pluralisation. `mergeFromMealPlan()` aggregates per ingredient.
-- **Shopping list — Aisle-based grouping:** `AisleUtils` with ~200 keywords, 10 aisles, replaces source-based sections
-- **URL recipe import:** Import from URL on Recipe Book import screen (GeminiService.importRecipeFromUrl — fetches HTML, strips tags, sends to Flash-Lite)
-- **Style hard constraint:** User-selected style moved from soft preference to hard requirement in Gemini prompt
-- **Swipeable meal plan days:** TabBarView linked to existing TabController for swipe navigation
-- **Regen preference dialog:** After 3+ regenerations, offers style/preference adjustment via showDialog
-- **Google Sign-In SHA-1:** Fixed for new device (fingerprint added to Firebase Console)
-- **New files:** `lib/utils/quantity_utils.dart`, `lib/utils/aisle_utils.dart`
-- **Models updated:** `SavedRecipe` now has `collections` field; `HistoryService.updateCollections()` added
+### Completed (Sprint 15.6)
+- **Shopping cart badge fix:** Shows only non-pantry ingredient count (not total)
+- **Meal plan shopping dialog:** Confirmation dialog with editable items, checkboxes, select/deselect all, "View shopping list" link. Replaces silent auto-merge.
+- **Recipe screen shopping dialog:** Same confirmation dialog for individual recipe add-to-shopping (works for all recipe types — generated, imported, meal plan, side dish)
+- **Suggest a Side Dish:** Pro feature — amber outline button on recipe screen, flash-lite batch call generates a complementary side dish (under 15 min, max 6 ingredients), opens in new RecipeScreen via push. Does not count against weekly quota.
+- **Residual staple purge:** `purgeStaples()` on `ShoppingService` cleans water/salt/pepper/sugar from Firestore on shopping tab load
+- **Meal plan timeout fix:** HTTP timeouts (90s weekly, 60s single, 45s detail), token budget 4096→6144, staggered progress messages with `AnimatedSwitcher`
+- **Duplicate hands-free FAB removed:** Single "Start Hands-Free Mode" button remains
+- **Household edit/delete:** Unified add/edit bottom sheet, confirmation dialog for delete, tappable cards with edit icon
+- **build.ps1:** Auto-finds flutter at `C:\src\flutter\bin\flutter.bat` when not on PATH
+- **Mood prompt strengthening:** `_expandMoodGuidance()` for all 4 moods (Impress someone = restaurant-quality)
+- **Pantry fixes:** Group toggle removed (always grouped), empty pantry shows Pantry Builder button, fuzzy matching false positives fixed (removed substring containment)
+- **Shopping list cleaning:** `cleanForShopping()` strips prep words, parentheticals, size adjectives from ingredient names
+- **Onboarding fix:** Pack items now deselectable
+- **ErrorService expansion:** ~15 new call sites across 6 services
+- **Notification wiring:** `init()` at startup, permission request on first HomeScreen load
 
 ### Prior Sessions
-- Sprint 15.3.20 (11 Apr): Gemini prompt fix (selected perishables REQUIRED), brand & art concept doc, CLAUDE.md rewrite
+- Sprint 15.5 (12 Apr): Bug fixes — paywall audit, notification wiring, paywall test assertions, RevenueCat key wiring, ErrorService coverage
+- Sprint 15.4 (11 Apr): Collections/tags, makeable-now filter, aisle grouping, quantity consolidation, URL import, swipeable days, regen dialog
+- Sprint 15.3.20 (11 Apr): Gemini prompt fix (selected perishables REQUIRED), brand & art concept doc
 - Sprint 15.3.17–19 (5 Apr): UX audit Pass 1+2, trial-first paywall, dry-mode fix
 
 ### Needs Testing
-- Sprint 15.4: collections tagging, makeable-now filter, aisle grouping, quantity consolidation, URL import, swipeable days, style hard constraint, regen preference dialog
-- Build 15.3.20: generate recipe with 2+ selected items, confirm ALL appear
+- Sprint 15.6: side dish generation, shopping confirmation dialogs (meal plan + recipe), staggered meal plan progress, household edit/delete, staple purge
+- Sprint 15.4: collections tagging, makeable-now filter, aisle grouping, quantity consolidation, URL import
 - Receipt scanner edit/delete/expiry, pantry expiry chips, onboarding success screen
 
 ### Gemini API State
 - **Streaming**: gemini-2.5-flash via SSE, maxOutputTokens 1024 (standard) / 2048 (bulk prep), thinking disabled (thinkingBudget: 0), responseMimeType: application/json
-- **Batch**: gemini-2.5-flash-lite, responseMimeType: application/json, also used for URL recipe import (maxOutputTokens 1024)
+- **Batch**: gemini-2.5-flash-lite, responseMimeType: application/json, used for: URL recipe import (1024 tokens), substitutions, meal plans (6144 weekly / 1024 single / 512 detail), **side dish generation (768 tokens)**
+- **Timeouts**: 60s streaming, 90s meal plan weekly, 60s meal plan single, 45s meal plan detail, 20s side dish, 30s URL import
 - **Connection**: static http.Client reused across calls

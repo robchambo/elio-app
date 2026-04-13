@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 11 April 2026 (Sprint 15.5 complete — bug fixes done, ready for Sprint 16 UI overhaul)
+**Last updated:** 12 April 2026 (Sprint 15.6 complete — side dish feature, shopping dialog, bug fixes)
 
 ---
 
@@ -147,6 +147,26 @@ Work is grouped into three parallel tracks:
 
 ---
 
+## Sprint 15.6 — Side Dishes, Shopping UX & Bug Fixes ✅
+
+**Goal:** New side dish feature, shopping list UX improvements, and bug fixes from on-device testing.
+
+| # | Task | Est. Hours | Status |
+|---|------|-----------|--------|
+| 1 | Shopping cart badge — show only non-pantry ingredient count | 0.5 | ✅ Done |
+| 2 | Meal plan shopping — confirmation dialog with editable items, select/deselect, "View shopping list" link | 2 | ✅ Done |
+| 3 | Recipe screen shopping — same confirmation dialog for individual recipe add-to-shopping | 1.5 | ✅ Done |
+| 4 | Purge residual staples (water/salt) from Firestore shopping items | 0.5 | ✅ Done |
+| 5 | Meal plan timeout fix — HTTP timeouts (90s/60s/45s), token budget 4096→6144, staggered progress messages | 1.5 | ✅ Done |
+| 6 | Remove duplicate hands-free FAB on recipe screen | 0.5 | ✅ Done |
+| 7 | Household members — edit and delete functionality (unified add/edit sheet, confirmation dialog) | 1.5 | ✅ Done |
+| 8 | **Suggest a Side Dish** — Pro feature, flash-lite batch call, complementary side dish generation with ingredient dedup, opens in new RecipeScreen | 2 | ✅ Done |
+| 9 | build.ps1 — auto-find flutter when not on PATH | 0.5 | ✅ Done |
+
+**Build:** `elio-sprint-15.6.apk` (72.9 MB)
+
+---
+
 ## Sprint 16 — UI Overhaul
 
 **Goal:** Brand/art pass across the entire app. Coordinate with Kate on `docs/brand-art-concept.md`. Visual consistency, typography, colour system, component library.
@@ -177,8 +197,8 @@ Work is grouped into three parallel tracks:
 | 4 | Privacy policy + Terms of Service (in-app screens + hosted URLs — shared across both stores) | 2–3 | Not started |
 | 5 | Remove temporary debug messages from home_screen.dart | 0.5 | Not started |
 | 6 | Crashlytics → Slack/Discord webhook (real-time error alerts via Cloud Function) | 1–2 | Not started |
-| 7 | Wire `REVENUECAT_API_KEY` through build.ps1 / `.env.local` + configure live Play Store + App Store SKUs with 7-day free trial | 2–3 | Not started |
-| 8 | Expand `ErrorService` coverage to GeminiService, FirestoreService, VoiceControlService, PurchaseService (currently only 4 call sites) | 1–2 | Not started |
+| 7 | Wire `REVENUECAT_API_KEY` through build.ps1 / `.env.local` + configure live Play Store + App Store SKUs with 7-day free trial | 2–3 | Partially done (build.ps1 wired, key not yet in .env.local) |
+| 8 | Expand `ErrorService` coverage to GeminiService, FirestoreService, VoiceControlService, PurchaseService (currently only 4 call sites) | 1–2 | ✅ Done (Sprint 15.5 — ~15 call sites across 6 services) |
 
 **Estimate:** 13–21 hours
 
@@ -242,4 +262,5 @@ Work is grouped into three parallel tracks:
 - `google-services.json` not in git — must be added manually after fresh clone
 - Dev flavor broken — always use `--flavor prod`
 - iOS URL scheme placeholder needs filling before any iOS build
-- APK size 71.3 MB (mobile_scanner ML Kit) — may need app bundles for Play Store
+- APK size 72.9 MB (mobile_scanner ML Kit) — may need app bundles for Play Store
+- `REVENUECAT_API_KEY` wired in build.ps1 but actual key not yet in `.env.local` (need RC project setup)
