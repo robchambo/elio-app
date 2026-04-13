@@ -65,13 +65,16 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     final removed = _members.firstWhere((p) => p['id'] == profileId, orElse: () => {});
     setState(() => _members.removeWhere((p) => p['id'] == profileId));
     try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) throw Exception('Not signed in');
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .doc(uid)
           .collection('profiles')
           .doc(profileId)
           .delete();
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Household delete error: $e');
       if (mounted && removed.isNotEmpty) {
         setState(() => _members.add(removed));
         _showSnack('Could not remove member. Please try again.');
@@ -128,15 +131,20 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   Future<void> _updateMember(String profileId, String name, List<String> dietary) async {
     if (name.trim().isEmpty) return;
     try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) throw Exception('Not signed in');
+      // Use set with merge instead of update — more resilient if doc
+      // was created via batch during onboarding
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(FirebaseAuth.instance.currentUser!.uid)
+          .doc(uid)
           .collection('profiles')
           .doc(profileId)
-          .update({
+          .set({
         'name': name.trim(),
         'dietaryRequirements': dietary,
-      });
+        'isOwner': false,
+      }, SetOptions(merge: true));
       if (mounted) {
         setState(() {
           final idx = _members.indexWhere((m) => m['id'] == profileId);
@@ -149,7 +157,8 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
           }
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Household update error: $e');
       _showSnack('Could not update member. Please try again.');
     }
   }
