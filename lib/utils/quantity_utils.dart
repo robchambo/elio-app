@@ -104,6 +104,15 @@ class QuantityUtils {
 
   // ── Public API ──────────────────────────────
 
+  /// Normalise a raw unit string to its short display form.
+  ///
+  /// e.g. "grams" → "g", "millilitres" → "ml", "tablespoons" → "tbsp".
+  /// Returns the original string if no alias is found.
+  static String normalizeUnit(String unit) {
+    final u = unit.trim().toLowerCase();
+    return _unitAliases[u] ?? unit;
+  }
+
   /// Parse a quantity string and unit into a [ParsedQuantity].
   ///
   /// Handles integers, decimals, fractions ("1/2"), mixed fractions ("1 1/2"),

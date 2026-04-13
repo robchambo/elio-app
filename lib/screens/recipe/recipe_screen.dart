@@ -15,6 +15,7 @@ import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
 import '../../services/shopping_service.dart';
+import '../../utils/quantity_utils.dart';
 import '../paywall/paywall_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -121,7 +122,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
     if (widget.autoSave) {
       _isSaved = true;
       // Save in background — recipe was just imported
-      HistoryService.saveRecipe(SavedRecipe.fromRecipe(widget.recipe, bookmarked: true));
+      final saved = SavedRecipe.fromRecipe(widget.recipe, bookmarked: true);
+      _savedAt = saved.savedAt; // Capture so bookmark toggle works
+      HistoryService.saveRecipe(saved);
     } else if (_savedAt != null) {
       // Opened from history — check if bookmarked
       _isSaved = true; // It's in history, so it's "saved"
@@ -546,7 +549,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       final cleanName = ShoppingService.cleanForShopping(ingredient.name);
       final qty = ingredient.unit.isEmpty
           ? _scaleQuantity(ingredient.quantity)
-          : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}';
+          : '${_scaleQuantity(ingredient.quantity)} ${QuantityUtils.normalizeUnit(ingredient.unit)}';
       await ShoppingService.instance.addItem(
         name: cleanName,
         quantity: qty,
@@ -1404,7 +1407,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       if (ShoppingService.instance.isStaplePublic(cleanName.toLowerCase().trim())) continue;
       final qty = ing.unit.isEmpty
           ? _scaleQuantity(ing.quantity)
-          : '${_scaleQuantity(ing.quantity)} ${ing.unit}';
+          : '${_scaleQuantity(ing.quantity)} ${QuantityUtils.normalizeUnit(ing.unit)}';
       items.add(_RecipeShoppingItem(name: cleanName, quantity: qty));
     }
 
@@ -1492,7 +1495,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     for (final ing in r.ingredients) {
       final qty = ing.unit.isEmpty
           ? _scaleQuantity(ing.quantity)
-          : '${_scaleQuantity(ing.quantity)} ${ing.unit}';
+          : '${_scaleQuantity(ing.quantity)} ${QuantityUtils.normalizeUnit(ing.unit)}';
       buffer.writeln('• ${ing.name}${qty.isNotEmpty ? " — $qty" : ""}');
     }
     buffer.writeln();
@@ -1847,7 +1850,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       child: Text(
                         ingredient.unit.isEmpty
                             ? _scaleQuantity(ingredient.quantity)
-                            : '${_scaleQuantity(ingredient.quantity)} ${ingredient.unit}',
+                            : '${_scaleQuantity(ingredient.quantity)} ${QuantityUtils.normalizeUnit(ingredient.unit)}',
                         style: ElioText.bodyMedium.copyWith(
                           color: ElioColors.textSecondary,
                           fontWeight: FontWeight.w600,
@@ -2600,7 +2603,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
 
   Widget _buildOptions() {
     final ing = widget.ingredient;
-    final qty = ing.unit.isEmpty ? ing.quantity : '${ing.quantity} ${ing.unit}';
+    final qty = ing.unit.isEmpty ? ing.quantity : '${ing.quantity} ${QuantityUtils.normalizeUnit(ing.unit)}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2763,7 +2766,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
 
   Widget _buildResult() {
     final r = _result!;
-    final qty = r.unit.isEmpty ? r.adjustedQuantity : '${r.adjustedQuantity} ${r.unit}';
+    final qty = r.unit.isEmpty ? r.adjustedQuantity : '${r.adjustedQuantity} ${QuantityUtils.normalizeUnit(r.unit)}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -23,6 +23,7 @@ import 'settings_screen.dart';
 import '../scanner/scanner_screen.dart';
 import 'recipe_import_screen.dart';
 import '../paywall/paywall_screen.dart';
+import 'package:share_plus/share_plus.dart';
 
 // ─────────────────────────────────────────────
 // ProfileScreen
@@ -405,7 +406,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1737,16 +1741,24 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
         const SizedBox(height: 4),
 
-        // ── Item count ─────────────────────────────────────────
+        // ── Item count + share ─────────────────────────────────
         if (_shoppingItems.isNotEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                '${_shoppingItems.length} items · ${checked.length} done',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-              ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${_shoppingItems.length} items · ${checked.length} done',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  ),
+                ),
+                if (unchecked.isNotEmpty)
+                  GestureDetector(
+                    onTap: () => _shareShoppingList(unchecked),
+                    child: const Icon(Icons.share_outlined, size: 20, color: ElioColors.navy),
+                  ),
+              ],
             ),
           ),
 
@@ -1974,6 +1986,30 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   String _capitaliseShoppingName(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  void _shareShoppingList(List<PersistentShoppingItem> unchecked) {
+    final grouped = <GroceryAisle, List<PersistentShoppingItem>>{};
+    for (final item in unchecked) {
+      final aisle = AisleUtils.classify(item.name);
+      grouped.putIfAbsent(aisle, () => []).add(item);
+    }
+    final buffer = StringBuffer();
+    buffer.writeln('Shopping List');
+    buffer.writeln('─────────────');
+    for (final aisle in AisleUtils.displayOrder) {
+      final items = grouped[aisle];
+      if (items == null || items.isEmpty) continue;
+      buffer.writeln();
+      buffer.writeln(AisleUtils.displayName(aisle));
+      for (final item in items) {
+        final qty = item.quantity.isNotEmpty ? '${item.quantity} ' : '';
+        buffer.writeln('  • $qty${_capitaliseShoppingName(item.name)}');
+      }
+    }
+    buffer.writeln();
+    buffer.writeln('Shared from ELiO — AI Recipe Generator');
+    Share.share(buffer.toString(), subject: 'Shopping List');
+  }
 
   Future<void> _addShoppingItem() async {
     final text = _shoppingAddController.text.trim();

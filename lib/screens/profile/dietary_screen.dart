@@ -147,7 +147,10 @@ class _DietaryScreenState extends State<DietaryScreen> {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text('Dietary & Allergens', style: ElioText.headingLarge),

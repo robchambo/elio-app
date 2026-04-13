@@ -133,29 +133,18 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
   }
 
   void _showTierPickerForItem(String itemName, String? categoryName) {
-    showModalBottomSheet(
+    // Must use showDialog — not showModalBottomSheet — because the Pantry
+    // Builder is already a bottom sheet and nested sheets fail silently.
+    showDialog(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(
-                child: Container(
-                  width: 36, height: 4,
-                  decoration: BoxDecoration(
-                    color: ElioColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
               Text('Add "$itemName"', style: ElioText.headingMedium),
               const SizedBox(height: 4),
               Text(
@@ -226,7 +215,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                   });
                 },
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
             ],
           ),
         ),
@@ -236,8 +225,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
 
   void _longPressItem(String itemName, String categoryName) {
     HapticFeedback.mediumImpact();
-    if (_existingLower.contains(itemName.toLowerCase().trim())) return;
-
+    // Allow long-press even for items already in pantry — lets user change tier
     _showTierPickerForItem(itemName, categoryName);
   }
 

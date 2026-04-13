@@ -44,6 +44,9 @@ powershell -ExecutionPolicy Bypass -File build.ps1 -sprint <version>
 - **Fuzzy matching for toggle UIs** — never. Exact matching only. Fuzzy is for add-item duplicate warnings.
 - **`showModalBottomSheet` in immersive/hands-free mode** — fails silently. Use `showDialog` instead.
 - **Android speech recogniser beep** — mute NOTIFICATION + MUSIC + SYSTEM streams via platform channel for entire voice session, restore on exit. Per-listen mute/restore doesn't work (restart cycle re-triggers beep).
+- **`GestureDetector` touch targets** — bare `GestureDetector` wrapping a small icon has a tiny hit area. Always add `Padding(padding: EdgeInsets.all(8))` inside the child, or use `IconButton` which has Material's 48px minimum built in.
+- **`showDialog` after `Navigator.pop(bottomSheet)`** — the sheet dismiss animation takes ~300ms. If you call `showDialog` immediately after popping, it can fail silently. Add `await Future.delayed(Duration(milliseconds: 350))` before showing the dialog.
+- **Auto-saved recipes need `_savedAt`** — when saving a recipe via `autoSave` in `initState`, capture the `savedAt` timestamp so bookmark toggling works. Without it, subsequent taps treat the recipe as new and create duplicates.
 
 ## Architecture Quick Reference
 
@@ -64,7 +67,7 @@ lib/
     meal_plan/   — Lazy-load detail on tap
     paywall/     — RevenueCat paywall (trial-first design)
   widgets/       — pantry_builder_sheet (dialog-based tier picker for custom items)
-  utils/         — region_utils, pantry_utils (fuzzy dedup), quantity_utils (ingredient consolidation), aisle_utils (grocery aisle classification)
+  utils/         — region_utils, pantry_utils (fuzzy dedup), quantity_utils (ingredient consolidation + unit normalisation), aisle_utils (grocery aisle classification)
 ```
 
 ### Firestore Schema
@@ -190,33 +193,30 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 | Launch architecture | `docs/technical-design.md` Section 10 |
 | Brand / art direction | `docs/brand-art-concept.md` |
 
-## Last Session (12 April 2026) — Sprint 15.6
+## Last Session (13 April 2026) — Sprint 15.7 & 15.8
 
-### Completed (Sprint 15.6)
-- **Shopping cart badge fix:** Shows only non-pantry ingredient count (not total)
-- **Meal plan shopping dialog:** Confirmation dialog with editable items, checkboxes, select/deselect all, "View shopping list" link. Replaces silent auto-merge.
-- **Recipe screen shopping dialog:** Same confirmation dialog for individual recipe add-to-shopping (works for all recipe types — generated, imported, meal plan, side dish)
-- **Suggest a Side Dish:** Pro feature — amber outline button on recipe screen, flash-lite batch call generates a complementary side dish (under 15 min, max 6 ingredients), opens in new RecipeScreen via push. Does not count against weekly quota.
-- **Residual staple purge:** `purgeStaples()` on `ShoppingService` cleans water/salt/pepper/sugar from Firestore on shopping tab load
-- **Meal plan timeout fix:** HTTP timeouts (90s weekly, 60s single, 45s detail), token budget 4096→6144, staggered progress messages with `AnimatedSwitcher`
-- **Duplicate hands-free FAB removed:** Single "Start Hands-Free Mode" button remains
-- **Household edit/delete:** Unified add/edit bottom sheet, confirmation dialog for delete, tappable cards with edit icon
-- **build.ps1:** Auto-finds flutter at `C:\src\flutter\bin\flutter.bat` when not on PATH
-- **Mood prompt strengthening:** `_expandMoodGuidance()` for all 4 moods (Impress someone = restaurant-quality)
-- **Pantry fixes:** Group toggle removed (always grouped), empty pantry shows Pantry Builder button, fuzzy matching false positives fixed (removed substring containment)
-- **Shopping list cleaning:** `cleanForShopping()` strips prep words, parentheticals, size adjectives from ingredient names
-- **Onboarding fix:** Pack items now deselectable
-- **ErrorService expansion:** ~15 new call sites across 6 services
-- **Notification wiring:** `init()` at startup, permission request on first HomeScreen load
+### Completed (Sprint 15.7)
+- **Shopping list share button:** Share icon on shopping tab, formats unchecked items grouped by grocery aisle, shares via `share_plus` system share sheet
+- **Unit abbreviations:** `QuantityUtils.normalizeUnit()` maps "grams"→"g", "millilitres"→"ml", "tablespoons"→"tbsp" etc. Applied to all 6 display locations in recipe_screen.dart
+- **Pantry Builder tier picker:** Changed `showModalBottomSheet` → `showDialog` (nested sheet was failing silently — known Flutter gotcha)
+
+### Completed (Sprint 15.8)
+- **Pantry Builder long-press fix:** Removed guard that blocked tier change for items already in pantry — now you can long-press any item to change its tier
+- **Bookmark toggle fix for imported recipes:** `_savedAt` now captured immediately on `autoSave` so subsequent bookmark taps toggle correctly instead of creating duplicates
+- **Back button touch targets:** Added 8px padding to all 7 bare `GestureDetector` back buttons (profile, settings, household, dietary, kitchen, meal plan, shopping list screens) — ~36px touch area, up from 20px
+- **Household member delete:** Added 350ms delay after bottom sheet dismiss before opening confirmation dialog (animation race condition was preventing dialog from appearing)
 
 ### Prior Sessions
+- Sprint 15.6 (12 Apr): Shopping cart badge, meal plan & recipe shopping dialogs, side dish feature, staple purge, meal plan timeout fix, household edit/delete, build.ps1 flutter detection
 - Sprint 15.5 (12 Apr): Bug fixes — paywall audit, notification wiring, paywall test assertions, RevenueCat key wiring, ErrorService coverage
 - Sprint 15.4 (11 Apr): Collections/tags, makeable-now filter, aisle grouping, quantity consolidation, URL import, swipeable days, regen dialog
 - Sprint 15.3.20 (11 Apr): Gemini prompt fix (selected perishables REQUIRED), brand & art concept doc
 - Sprint 15.3.17–19 (5 Apr): UX audit Pass 1+2, trial-first paywall, dry-mode fix
 
 ### Needs Testing
-- Sprint 15.6: side dish generation, shopping confirmation dialogs (meal plan + recipe), staggered meal plan progress, household edit/delete, staple purge
+- Sprint 15.8: pantry builder long-press tier change, bookmark toggle on imported recipes, household member delete, back button targets
+- Sprint 15.7: shopping list share, unit abbreviations
+- Sprint 15.6: side dish generation, shopping confirmation dialogs (meal plan + recipe), staggered meal plan progress, staple purge
 - Sprint 15.4: collections tagging, makeable-now filter, aisle grouping, quantity consolidation, URL import
 - Receipt scanner edit/delete/expiry, pantry expiry chips, onboarding success screen
 

@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 12 April 2026 (Sprint 15.6 complete — side dish feature, shopping dialog, bug fixes)
+**Last updated:** 13 April 2026 (Sprint 15.8 complete — share shopping list, unit abbreviations, pantry builder fix, bookmark fix, back button targets, household delete fix)
 
 ---
 
@@ -164,6 +164,35 @@ Work is grouped into three parallel tracks:
 | 9 | build.ps1 — auto-find flutter when not on PATH | 0.5 | ✅ Done |
 
 **Build:** `elio-sprint-15.6.apk` (72.9 MB)
+
+---
+
+## Sprint 15.7 — Shopping Share & Unit Abbreviations ✅
+
+**Goal:** Share shopping list, abbreviate ingredient units, fix pantry builder tier picker.
+
+| # | Task | Est. Hours | Status |
+|---|------|-----------|--------|
+| 1 | Shopping list share button — formats unchecked items by aisle, shares via system share sheet | 1 | ✅ Done |
+| 2 | Unit abbreviations — `QuantityUtils.normalizeUnit()` maps "grams"→"g", "millilitres"→"ml" etc. across all recipe screen display locations | 1 | ✅ Done |
+| 3 | Pantry Builder tier picker — changed `showModalBottomSheet` → `showDialog` (nested sheet was failing silently) | 0.5 | ✅ Done |
+
+**Build:** `elio-sprint-15.7.apk` (72.9 MB)
+
+---
+
+## Sprint 15.8 — Bug Fixes & UX Polish ✅
+
+**Goal:** Fix remaining bugs found during on-device testing.
+
+| # | Task | Est. Hours | Status |
+|---|------|-----------|--------|
+| 1 | Pantry Builder long-press — removed guard that blocked tier change for items already in pantry | 0.5 | ✅ Done |
+| 2 | Bookmark toggle on imported recipes — `_savedAt` now captured on auto-save so toggle works | 0.5 | ✅ Done |
+| 3 | Back button touch targets — added 8px padding to all 7 bare `GestureDetector` back buttons across screens | 0.5 | ✅ Done |
+| 4 | Household member delete — 350ms delay after sheet dismiss before opening confirmation dialog (animation race condition) | 0.5 | ✅ Done |
+
+**Build:** `elio-sprint-15.8.apk` (72.9 MB)
 
 ---
 

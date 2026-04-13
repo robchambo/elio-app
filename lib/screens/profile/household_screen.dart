@@ -261,9 +261,12 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                   if (isEdit) ...[
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () {
+                        onPressed: () async {
                           Navigator.pop(ctx);
-                          _confirmDelete(existing);
+                          // Wait for the bottom sheet dismiss animation to
+                          // fully complete before opening the confirm dialog.
+                          await Future.delayed(const Duration(milliseconds: 350));
+                          if (mounted) _confirmDelete(existing);
                         },
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.red,
@@ -319,7 +322,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text('Household', style: ElioText.headingLarge),

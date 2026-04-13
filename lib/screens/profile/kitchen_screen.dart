@@ -87,7 +87,10 @@ class _KitchenScreenState extends State<KitchenScreen> {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.of(context).pop(),
-                    child: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text('Kitchen Appliances', style: ElioText.headingLarge),
