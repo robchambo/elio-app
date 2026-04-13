@@ -16,6 +16,7 @@ import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
 import '../../services/shopping_service.dart';
 import '../paywall/paywall_screen.dart';
+import '../profile/profile_screen.dart';
 
 // ─────────────────────────────────────────────
 // RecipeScreen — Sprint 4 patch
@@ -1380,7 +1381,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     return _shoppingExclusions.contains(name.toLowerCase().trim());
   }
 
-  // ─── Add ingredients to shopping list ──────────────────────────────────────
+  // ─── Add ingredients to shopping list (via confirmation dialog) ─────────────
   Future<void> _addToShoppingList() async {
     if (widget.isGuest) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1393,68 +1394,87 @@ class _RecipeScreenState extends State<RecipeScreen> {
       );
       return;
     }
-    setState(() => _isAddingToShop = true);
-    try {
-      final shop = ShoppingService.instance;
-      // Load existing items to check for duplicates
-      final existingItems = await shop.loadItems();
-      final existingNames = existingItems.map((i) => i.name.toLowerCase().trim()).toSet();
-      int added = 0;
-      int updated = 0;
-      for (final ing in _currentRecipe.ingredients) {
-        // Skip items the user already has, and universal staples
-        if (ing.fromInventory) continue;
-        if (_isShoppingExclusion(ing.name)) continue;
-        final cleanName = ShoppingService.cleanForShopping(ing.name);
-        final isExisting = existingNames.contains(cleanName.toLowerCase().trim());
-        final qty = ing.unit.isEmpty
-            ? _scaleQuantity(ing.quantity)
-            : '${_scaleQuantity(ing.quantity)} ${ing.unit}';
-        await shop.addItem(
-          name: cleanName,
-          quantity: qty,
-          source: ShoppingSource.recipe,
-        );
-        if (isExisting) {
-          updated++;
-        } else {
-          added++;
+
+    // Build editable item list from recipe ingredients
+    final items = <_RecipeShoppingItem>[];
+    for (final ing in _currentRecipe.ingredients) {
+      if (ing.fromInventory) continue;
+      if (_isShoppingExclusion(ing.name)) continue;
+      final cleanName = ShoppingService.cleanForShopping(ing.name);
+      if (ShoppingService.instance.isStaplePublic(cleanName.toLowerCase().trim())) continue;
+      final qty = ing.unit.isEmpty
+          ? _scaleQuantity(ing.quantity)
+          : '${_scaleQuantity(ing.quantity)} ${ing.unit}';
+      items.add(_RecipeShoppingItem(name: cleanName, quantity: qty));
+    }
+
+    if (items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('All ingredients are already in your pantry!'),
+          backgroundColor: ElioColors.navy,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => _RecipeShoppingDialog(items: items),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() => _isAddingToShop = true);
+      try {
+        final shop = ShoppingService.instance;
+        int addedCount = 0;
+        for (final item in items) {
+          if (!item.included) continue;
+          final result = await shop.addItem(
+            name: item.name.trim(),
+            quantity: item.quantity.trim(),
+            source: ShoppingSource.recipe,
+          );
+          if (result != null) addedCount++;
         }
-      }
-      if (mounted) {
-        setState(() => _isAddingToShop = false);
-        final msg = added > 0 && updated > 0
-            ? '$added item${added == 1 ? '' : 's'} added, $updated updated'
-            : added > 0
-                ? '$added item${added == 1 ? '' : 's'} added to shopping list'
-                : updated > 0
-                    ? '$updated item${updated == 1 ? '' : 's'} already on your list (updated)'
-                    : 'No new items to add';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: ElioColors.navy,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        AnalyticsService.instance.logEvent('recipe_added_to_shopping', {
-          'title': _currentRecipe.title,
-          'item_count': added,
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _isAddingToShop = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Could not add to shopping list'),
-            backgroundColor: ElioColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        );
+        if (mounted) {
+          setState(() => _isAddingToShop = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
+              backgroundColor: ElioColors.navy,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              action: SnackBarAction(
+                label: 'View',
+                textColor: ElioColors.amber,
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                  );
+                },
+              ),
+            ),
+          );
+          _analytics.logEvent('recipe_added_to_shopping', {
+            'title': _currentRecipe.title,
+            'item_count': addedCount,
+          });
+        }
+      } catch (_) {
+        if (mounted) {
+          setState(() => _isAddingToShop = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Could not add to shopping list'),
+              backgroundColor: ElioColors.navy,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
       }
     }
   }
@@ -2861,6 +2881,296 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Recipe shopping item model ──────────────────────────────────────────────
+
+class _RecipeShoppingItem {
+  String name;
+  String quantity;
+  bool included = true;
+
+  _RecipeShoppingItem({
+    required this.name,
+    required this.quantity,
+  });
+}
+
+// ─── Recipe shopping confirmation dialog ─────────────────────────────────────
+
+class _RecipeShoppingDialog extends StatefulWidget {
+  final List<_RecipeShoppingItem> items;
+
+  const _RecipeShoppingDialog({required this.items});
+
+  @override
+  State<_RecipeShoppingDialog> createState() => _RecipeShoppingDialogState();
+}
+
+class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
+  late List<_RecipeShoppingItem> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = widget.items;
+  }
+
+  int get _includedCount => _items.where((i) => i.included).length;
+
+  void _toggleAll(bool include) {
+    setState(() {
+      for (final item in _items) {
+        item.included = include;
+      }
+    });
+  }
+
+  void _editItem(int index) {
+    final item = _items[index];
+    final nameController = TextEditingController(text: item.name);
+    final qtyController = TextEditingController(text: item.quantity);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Edit item', style: ElioText.headingMedium),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Item name'),
+              textCapitalization: TextCapitalization.sentences,
+              autofocus: true,
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: qtyController,
+              decoration: const InputDecoration(labelText: 'Quantity'),
+              textCapitalization: TextCapitalization.sentences,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                item.name = nameController.text.trim().isEmpty ? item.name : nameController.text.trim();
+                item.quantity = qtyController.text.trim();
+              });
+              Navigator.pop(ctx);
+            },
+            child: Text('Save', style: ElioText.bodyMedium.copyWith(
+              color: ElioColors.navy,
+              fontWeight: FontWeight.w600,
+            )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _capitalise(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: ElioColors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ── Header ────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Add to shopping list', style: ElioText.headingMedium),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$_includedCount of ${_items.length} items selected',
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => _toggleAll(true),
+                        child: Text(
+                          'Select all',
+                          style: ElioText.label.copyWith(
+                            color: ElioColors.sky,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: () => _toggleAll(false),
+                        child: Text(
+                          'Deselect all',
+                          style: ElioText.label.copyWith(
+                            color: ElioColors.textMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ── Item list ─────────────────────────────────────
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                itemCount: _items.length,
+                itemBuilder: (ctx, i) {
+                  final item = _items[i];
+                  return GestureDetector(
+                    onTap: () => setState(() => item.included = !item.included),
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: item.included ? Colors.transparent : ElioColors.offWhite.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              color: item.included ? ElioColors.navy : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: item.included ? ElioColors.navy : ElioColors.border,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: item.included
+                                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                                : null,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _capitalise(item.name),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: item.included
+                                        ? ElioColors.textPrimary
+                                        : ElioColors.textMuted,
+                                    decoration: item.included
+                                        ? null
+                                        : TextDecoration.lineThrough,
+                                    decorationColor: ElioColors.textMuted,
+                                  ),
+                                ),
+                                if (item.quantity.isNotEmpty)
+                                  Text(
+                                    item.quantity,
+                                    style: ElioText.label.copyWith(
+                                      color: ElioColors.textMuted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => _editItem(i),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // ── Buttons ───────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _includedCount > 0
+                          ? () => Navigator.pop(context, true)
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: ElioColors.amber,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: ElioColors.border,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        _includedCount > 0
+                            ? 'Add $_includedCount item${_includedCount == 1 ? '' : 's'} to shopping list'
+                            : 'No items selected',
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context, false);
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                      );
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'View shopping list',
+                        style: ElioText.bodyMedium.copyWith(
+                          color: ElioColors.sky,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
