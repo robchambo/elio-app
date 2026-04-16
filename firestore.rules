@@ -1,0 +1,84 @@
+rules_version = '2';
+
+// ─────────────────────────────────────────────────────────────────────
+// Elio Firestore Security Rules
+//
+// Principle: default deny. Every user document is owner-only, and the
+// entitlement-critical fields on the user doc (subscription.tier,
+// subscription.proOverride, subscription.source, subscription.lastSyncedAt,
+// subscription.entitlementGrantedAt) can only be changed via the Admin SDK
+// — clients cannot self-upgrade to Pro by writing to their own doc.
+//
+// Writes NOT enforced here (but should be moved server-side later):
+//   - subscription.weeklyGenerations counter tampering. Clients have to
+//     write this today since there's no backend. A user who decompiles the
+//     APK can bypass the weekly limit regardless. Plan: move to a Cloud
+//     Function that calls Gemini and increments server-side, then lock this
+//     field too.
+// ─────────────────────────────────────────────────────────────────────
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ───────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function sub(data) {
+      return data.get('subscription', {});
+    }
+    // Protected subscription keys must never change via a client write.
+    function protectedSubKeysUnchanged() {
+      return sub(request.resource.data).get('tier', 'free')
+               == sub(resource.data).get('tier', 'free')
+        && sub(request.resource.data).get('proOverride', false)
+               == sub(resource.data).get('proOverride', false)
+        && sub(request.resource.data).get('source', '')
+               == sub(resource.data).get('source', '')
+        && sub(request.resource.data).get('lastSyncedAt', null)
+               == sub(resource.data).get('lastSyncedAt', null)
+        && sub(request.resource.data).get('entitlementGrantedAt', null)
+               == sub(resource.data).get('entitlementGrantedAt', null);
+    }
+    // On first create, the user must not smuggle in a Pro entitlement.
+    function initialSubscriptionSafe() {
+      let s = sub(request.resource.data);
+      return s.get('tier', 'free') == 'free'
+        && s.get('proOverride', false) == false;
+    }
+
+    // ── config/* — allowlists, dev tester emails, remote feature flags
+    // Readable by any signed-in user so EntitlementService can fetch the
+    // pro-tester list. Writes are admin-only (Firebase Console / Admin SDK).
+    match /config/{doc} {
+      allow read:  if isSignedIn();
+      allow write: if false;
+    }
+
+    // ── User doc ─────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read:   if isOwner(uid);
+      allow create: if isOwner(uid) && initialSubscriptionSafe();
+      allow update: if isOwner(uid) && protectedSubKeysUnchanged();
+      allow delete: if isOwner(uid); // self-serve account deletion (GDPR)
+
+      // ── Allowed sub-collections (owner read/write) ─────────────────
+      match /profiles/{id}      { allow read, write: if isOwner(uid); }
+      match /inventory/{id}     { allow read, write: if isOwner(uid); }
+      match /recipes/{id}       { allow read, write: if isOwner(uid); }
+      match /ratings/{id}       { allow read, write: if isOwner(uid); }
+      match /mealPlan/{id}      { allow read, write: if isOwner(uid); }
+      match /shoppingItems/{id} { allow read, write: if isOwner(uid); }
+      match /tierMemory/{id}    { allow read, write: if isOwner(uid); }
+      match /fcmTokens/{id}     { allow read, write: if isOwner(uid); }
+    }
+
+    // Default deny for anything not explicitly allowed above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
