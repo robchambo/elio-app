@@ -22,7 +22,7 @@ powershell -ExecutionPolicy Bypass -File build.ps1 -sprint <version>
 
 **Run command:** `flutter run --flavor prod -t lib/main.dart --dart-define=GEMINI_API_KEY=<key>`
 
-**Dev account testing:** Dev accounts auto-activate Pro via email allowlist in `EntitlementService`.
+**Dev account testing:** Dev accounts get Pro by adding their email (lowercase) to the `emails` array on Firestore doc `config/proTesters`. `EntitlementService._loadProTesters()` reads this once per session. The old hard-coded allowlist + `proOverride` flag were removed in Sprint 17; RevenueCat is the single source of truth for paying users.
 
 ## Rules
 
@@ -72,16 +72,27 @@ lib/
 
 ### Firestore Schema
 
+All user data lives under `users/{uid}` — there are no top-level `inventory` or `recipes` collections.
+
 ```
+config/{doc}              — readable by any signed-in user, admin-only writes
+  proTesters              — { emails: [...] } for dev/tester Pro override
+
 users/{uid}/
-  (user doc) — dietary, inventory[], appliances[], stylePreferences[], region, measurementUnits
-  householdProfiles/{id} — name, dietaryRequirements[], isOwner
-  shoppingItems/{id} — name, quantity, source, isChecked
-  tierMemory/{normalizedName} — tier, lastSeen
-  mealPlans/{id}
-inventory/{docId} — name, tier, category, expiryDate?, price?, runningLow
-recipes/{id} — generated recipe data
+  (user doc)              — dietary, appliances[], stylePreferences[], region,
+                            measurementUnits, subscription{tier, weeklyGenerations,
+                            weekStartedAt, ...} (entitlement keys client-locked)
+  profiles/{id}           — household members; name, dietaryRequirements[], isOwner
+  inventory/{id}          — name, tier, category, expiryDate?, price?, runningLow
+  recipes/{id}            — saved/bookmarked recipes
+  ratings/{id}            — recipe likes/dislikes for adaptive learning
+  mealPlan/{id}           — singular: weekly meal plan docs
+  shoppingItems/{id}      — name, quantity, source, isChecked
+  tierMemory/{name}       — normalised name → tier, lastSeen (scanner learning)
+  fcmTokens/{id}          — push notification tokens
 ```
+
+**Security (Sprint 17):** All sub-collections are owner-only via `firestore.rules`. The `subscription` keys `tier`, `proOverride`, `source`, `lastSyncedAt`, `entitlementGrantedAt` cannot be changed by clients (locked by `protectedSubKeysUnchanged()`). `weeklyGenerations` is still client-writable until the Cloud Functions backend lands.
 
 ## Gemini API
 
@@ -176,7 +187,7 @@ Agent D waits for A/B/C, runs `git status` + `flutter analyze`, fixes conflicts,
 Coordinated Android + iOS launch. Android built first, both released in the same window.
 
 - **Sprint 16:** UI Overhaul — brand/art pass, design system, visual refresh across all screens
-- **Sprint 17:** Shared launch preparation — Firestore security rules, GDPR, privacy/ToS, RC wiring, ErrorService coverage, Crashlytics webhook
+- **Sprint 17:** Shared launch preparation — *in progress.* ✅ Firestore security rules + entitlement hardening (commits `8a17e8c`, `8c9e318` on `sprint-17` branch). ❌ Outstanding: deploy rules, emulator rule tests, Cloud Functions backend (RC webhook + Gemini proxy + server-side rate limits), GCP budget caps, GDPR (export/delete/consent), privacy + ToS, Crashlytics webhook, debug-message removal, RC key in `.env.local`.
 - **Sprint 18:** Android track — regression, Play Store listing, internal test, beta, staged rollout
 - **Sprint 19:** iOS track — Apple Sign-In, Siri Shortcuts (pre-launch), TestFlight, App Store submission
 

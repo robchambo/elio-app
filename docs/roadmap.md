@@ -221,7 +221,7 @@ Work is grouped into three parallel tracks:
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
 | 1 | Performance audit (DevTools profiling, list optimisation, cold start time) | 3–4 | ✅ Done |
-| 2 | **Firestore security rules audit** — rules are currently permissive (dev mode); must be locked down before public launch. Firebase console already flagging this. Also: data retention policy, input sanitisation | 2–3 | Not started |
+| 2 | **Firestore security rules audit** — rules are currently permissive (dev mode); must be locked down before public launch. Firebase console already flagging this. Also: data retention policy, input sanitisation | 2–3 | ⚠️ Partially done — rules + entitlement hardening landed on `sprint-17` branch (commits `8a17e8c`, `8c9e318`). Still to do: `firebase deploy --only firestore:rules`, emulator rule test suite, Cloud Functions backend so `weeklyGenerations` can be locked too, GCP budget caps |
 | 3 | GDPR compliance (data export, account deletion, consent tracking) | 2–3 | Not started |
 | 4 | Privacy policy + Terms of Service (in-app screens + hosted URLs — shared across both stores) | 2–3 | Not started |
 | 5 | Remove temporary debug messages from home_screen.dart | 0.5 | Not started |
@@ -230,6 +230,8 @@ Work is grouped into three parallel tracks:
 | 8 | Expand `ErrorService` coverage to GeminiService, FirestoreService, VoiceControlService, PurchaseService (currently only 4 call sites) | 1–2 | ✅ Done (Sprint 15.5 — ~15 call sites across 6 services) |
 
 **Estimate:** 13–21 hours
+
+**Sprint 17 progress note (16 April 2026):** Firestore rules + entitlement hardening were committed on the `sprint-17` branch (currently unmerged). The old hard-coded dev-email allowlist and `proOverride` flag have been removed entirely; dev/tester Pro now comes from the Firestore doc `config/proTesters` (emails array). RevenueCat is the single source of truth for paying users. Branch needs `flutter analyze` + a PR to `main`.
 
 ---
 
