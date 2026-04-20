@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import '../../models/elio_models.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../widgets/elio_progress_bar.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_chip.dart';
+import '../../widgets/elio/elio_custom_field.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
 
 // ─────────────────────────────────────────────
 // DietaryScreen (Screen 1)
@@ -73,7 +78,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.offWhite,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
@@ -85,11 +90,16 @@ class _DietaryScreenState extends State<DietaryScreen> {
               const SizedBox(height: 28),
 
               // ── Header ────────────────────────────────────────
-              Text('Dietary requirements\n& Allergens', style: ElioText.displayMedium),
-              const SizedBox(height: 8),
+              const ElioEyebrow('step 1 of 8'),
+              const SizedBox(height: 12),
+              const ElioHeroHeading(
+                lines: ["what's your", 'diet?'],
+                amberLastLine: true,
+              ),
+              const SizedBox(height: 16),
               Text(
-                'Elio will never suggest something that doesn\'t work for you. Select all that apply.',
-                style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+                "elio will never suggest something that doesn't work for you. pick all that apply.",
+                style: ElioTextStyles.body,
               ),
               const SizedBox(height: 24),
 
@@ -105,45 +115,24 @@ class _DietaryScreenState extends State<DietaryScreen> {
                         runSpacing: 10,
                         children: DietaryRequirement.values.map((req) {
                           final isSelected = _selected.contains(req);
-                          return GestureDetector(
+                          return ElioChip(
+                            label: req.label,
+                            selected: isSelected,
                             onTap: () => _toggle(req),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 160),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: isSelected ? ElioColors.navy : ElioColors.offWhite,
-                                borderRadius: BorderRadius.circular(24),
-                                border: Border.all(
-                                  color: isSelected ? ElioColors.navy : ElioColors.border,
-                                  width: isSelected ? 1.5 : 1.0,
-                                ),
-                              ),
-                              child: Text(
-                                req.label,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected ? Colors.white : ElioColors.textPrimary,
-                                ),
-                              ),
-                            ),
                           );
                         }).toList(),
                       ),
 
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 28),
 
                       // Custom allergen section
+                      const ElioEyebrow('custom allergens'),
+                      const SizedBox(height: 10),
                       Text(
-                        'Custom allergens or dietary requirements',
-                        style: ElioText.headingMedium,
+                        'add anything not covered above — e.g. sesame, shellfish, no red meat.',
+                        style: ElioTextStyles.bodySmall,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Add anything not covered above — e.g. sesame, shellfish, no red meat.',
-                        style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                      ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
 
                       // Custom allergen chips
                       if (_customAllergens.isNotEmpty) ...[
@@ -151,34 +140,29 @@ class _DietaryScreenState extends State<DietaryScreen> {
                           spacing: 8,
                           runSpacing: 8,
                           children: _customAllergens.map((allergen) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFF3E0),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: ElioColors.amber.withValues(alpha: 0.5)),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    allergen,
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                      color: ElioColors.navy,
+                            return GestureDetector(
+                              onTap: () => _removeCustomAllergen(allergen),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: ElioColors.amber,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      allergen,
+                                      style: ElioTextStyles.body.copyWith(color: Colors.white),
                                     ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  GestureDetector(
-                                    onTap: () => _removeCustomAllergen(allergen),
-                                    child: const Icon(
+                                    const SizedBox(width: 6),
+                                    const Icon(
                                       Icons.close_rounded,
                                       size: 14,
-                                      color: ElioColors.textSecondary,
+                                      color: Colors.white,
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             );
                           }).toList(),
@@ -190,30 +174,9 @@ class _DietaryScreenState extends State<DietaryScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: TextField(
+                            child: ElioCustomField(
+                              placeholder: 'add custom allergy...',
                               controller: _customController,
-                              focusNode: _customFocus,
-                              textCapitalization: TextCapitalization.sentences,
-                              style: ElioText.bodyMedium,
-                              decoration: InputDecoration(
-                                hintText: 'Add custom allergy...',
-                                hintStyle: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
-                                filled: true,
-                                fillColor: ElioColors.offWhite,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(color: ElioColors.border),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(color: ElioColors.border),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: const BorderSide(color: ElioColors.navy, width: 1.5),
-                                ),
-                              ),
                               onSubmitted: (_) => _addCustomAllergen(),
                             ),
                           ),
@@ -221,11 +184,11 @@ class _DietaryScreenState extends State<DietaryScreen> {
                           GestureDetector(
                             onTap: _addCustomAllergen,
                             child: Container(
-                              width: 46,
-                              height: 46,
+                              width: 48,
+                              height: 48,
                               decoration: BoxDecoration(
                                 color: ElioColors.navy,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                               ),
                               child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
                             ),
@@ -243,24 +206,21 @@ class _DietaryScreenState extends State<DietaryScreen> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: Text(
-                    'No restrictions? That\'s fine — just tap Next.',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                    "no restrictions? that's fine — just tap continue.",
+                    style: ElioTextStyles.bodySmall,
                   ),
                 ),
 
-              // ── Next button ───────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: () {
-                    widget.onNext(widget.state.copyWith(
-                      dietaryRequirements: _selected.toList(),
-                      customAllergens: _customAllergens,
-                    ));
-                  },
-                  child: const Text('Next →'),
-                ),
+              // ── Continue button ───────────────────────────────
+              ElioBigButton(
+                label: 'Continue',
+                trailingIcon: Icons.chevron_right,
+                onTap: () {
+                  widget.onNext(widget.state.copyWith(
+                    dietaryRequirements: _selected.toList(),
+                    customAllergens: _customAllergens,
+                  ));
+                },
               ),
             ],
           ),

@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../utils/region_utils.dart';
 import '../../widgets/elio_progress_bar.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
 
 // ─────────────────────────────────────────────
 // Screen 7 — Units & Region
@@ -57,13 +61,13 @@ class _UnitsRegionScreenState extends State<UnitsRegionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.offWhite,
       body: SafeArea(
         child: Column(
           children: [
             // ── Progress bar ──────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(24, 20, 24, 0),
               child: ElioProgressBar(currentStep: 7, totalSteps: 8),
             ),
 
@@ -71,7 +75,7 @@ class _UnitsRegionScreenState extends State<UnitsRegionScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: const EdgeInsets.only(left: 8, top: 8),
+                padding: const EdgeInsets.only(left: 16, top: 4),
                 child: IconButton(
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                   color: ElioColors.navy,
@@ -82,21 +86,26 @@ class _UnitsRegionScreenState extends State<UnitsRegionScreen> {
 
             // ── Header ────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Units & Region', style: ElioText.displayMedium),
-                  const SizedBox(height: 8),
+                  const ElioEyebrow('step 7 of 8'),
+                  const SizedBox(height: 12),
+                  const ElioHeroHeading(
+                    lines: ['units &', 'region'],
+                    amberLastLine: true,
+                  ),
+                  const SizedBox(height: 16),
                   Text(
-                    "We'll use these for recipes and cost estimates",
-                    style: ElioText.bodyLarge,
+                    "we'll use these for recipes and cost estimates.",
+                    style: ElioTextStyles.body,
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
 
             // ── Content ───────────────────────────────────────────
             Expanded(
@@ -106,7 +115,7 @@ class _UnitsRegionScreenState extends State<UnitsRegionScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Measurement Units section
-                    Text('Measurement Units', style: ElioText.headingMedium),
+                    const ElioEyebrow('measurement units'),
                     const SizedBox(height: 12),
                     _SelectionCard(
                       label: 'Metric (g, ml, \u00B0C)',
@@ -123,7 +132,7 @@ class _UnitsRegionScreenState extends State<UnitsRegionScreen> {
                     const SizedBox(height: 28),
 
                     // Region section
-                    Text('Region', style: ElioText.headingMedium),
+                    const ElioEyebrow('region'),
                     const SizedBox(height: 12),
                     _SelectionCard(
                       emoji: '\u{1F1FA}\u{1F1F8}',
@@ -153,12 +162,10 @@ class _UnitsRegionScreenState extends State<UnitsRegionScreen> {
             // ── Continue button ───────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _complete,
-                  child: const Text('Continue'),
-                ),
+              child: ElioBigButton(
+                label: 'Continue',
+                trailingIcon: Icons.chevron_right,
+                onTap: _complete,
               ),
             ),
           ],
@@ -193,10 +200,10 @@ class _SelectionCard extends StatelessWidget {
         height: 80,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: isSelected ? ElioColors.amber.withValues(alpha: 0.12) : ElioColors.offWhite,
-          borderRadius: BorderRadius.circular(14),
+          color: isSelected ? ElioColors.amber.withValues(alpha: 0.14) : ElioColors.cream,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? ElioColors.amber : ElioColors.border,
+            color: isSelected ? ElioColors.amber : Colors.transparent,
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
@@ -211,9 +218,8 @@ class _SelectionCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: ElioText.bodyLarge.copyWith(
-                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected ? ElioColors.navy : ElioColors.textPrimary,
+                  style: ElioTextStyles.body.copyWith(
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   ),
                 ),
               ),

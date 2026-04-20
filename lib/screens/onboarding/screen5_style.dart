@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../widgets/elio_progress_bar.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
 
 // ─────────────────────────────────────────────
 // Screen 5 — Food Style Preferences (Optional)
@@ -98,13 +102,13 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.offWhite,
       body: SafeArea(
         child: Column(
           children: [
             // ── Progress bar ──────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(24, 20, 24, 0),
               child: ElioProgressBar(currentStep: 5, totalSteps: 8),
             ),
 
@@ -112,7 +116,7 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
             Align(
               alignment: Alignment.centerLeft,
               child: Padding(
-                padding: const EdgeInsets.only(left: 8, top: 8),
+                padding: const EdgeInsets.only(left: 16, top: 4),
                 child: IconButton(
                   icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
                   color: ElioColors.navy,
@@ -123,23 +127,25 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
 
             // ── Header ────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 4, 24, 0),
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('What do you like to cook?', style: ElioText.displayMedium),
-                  const SizedBox(height: 8),
-                  Text(
-                    'We\'ll use this to personalise your recipe suggestions. You can change this any time.',
-                    style: ElioText.bodyLarge,
+                  const ElioEyebrow('step 5 of 8'),
+                  const SizedBox(height: 12),
+                  const ElioHeroHeading(
+                    lines: ['what do you', 'like to cook?'],
+                    amberLastLine: true,
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 16),
                   Text(
-                    'Optional — tap Skip if you\'re not sure yet.',
-                    style: ElioText.bodyLarge.copyWith(
-                      color: ElioColors.textSecondary,
-                      fontStyle: FontStyle.italic,
-                    ),
+                    "we'll use this to personalise your recipes. you can change it any time.",
+                    style: ElioTextStyles.body,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    "optional — tap skip if you're not sure yet.",
+                    style: ElioTextStyles.bodySmall,
                   ),
                 ],
               ),
@@ -157,13 +163,7 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Cuisines',
-                          style: ElioText.label.copyWith(
-                            color: ElioColors.textSecondary,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                        const ElioEyebrow('cuisines'),
                         const SizedBox(height: 8),
                         GridView.builder(
                           shrinkWrap: true,
@@ -186,13 +186,7 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
                           },
                         ),
                         const SizedBox(height: 20),
-                        Text(
-                          'Styles',
-                          style: ElioText.label.copyWith(
-                            color: ElioColors.textSecondary,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
+                        const ElioEyebrow('styles'),
                         const SizedBox(height: 8),
                         GridView.builder(
                           shrinkWrap: true,
@@ -232,8 +226,8 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                ElioColors.white.withValues(alpha: 0.0),
-                                ElioColors.white.withValues(alpha: 0.95),
+                                ElioColors.offWhite.withValues(alpha: 0.0),
+                                ElioColors.offWhite.withValues(alpha: 0.95),
                               ],
                             ),
                           ),
@@ -268,23 +262,17 @@ class _StylePreferencesScreenState extends State<StylePreferencesScreen> {
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: Column(
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _complete,
-                      child: Text(
-                        _selected.isEmpty ? 'Continue' : 'Save preferences',
-                      ),
-                    ),
+                  ElioBigButton(
+                    label: _selected.isEmpty ? 'Continue' : 'Save preferences',
+                    trailingIcon: Icons.chevron_right,
+                    onTap: _complete,
                   ),
                   const SizedBox(height: 12),
                   TextButton(
                     onPressed: _complete, // skip = complete with empty list
                     child: Text(
-                      'Skip for now',
-                      style: ElioText.bodyMedium.copyWith(
-                        color: ElioColors.textSecondary,
-                      ),
+                      'skip for now',
+                      style: ElioTextStyles.bodySmall,
                     ),
                   ),
                 ],

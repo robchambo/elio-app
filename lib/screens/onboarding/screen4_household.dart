@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import '../../models/elio_models.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../widgets/elio_progress_bar.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_chip.dart';
+import '../../widgets/elio/elio_custom_field.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
 
 // ─────────────────────────────────────────────
 // Screen 4 — Add Household Members (Optional)
@@ -60,7 +65,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.offWhite,
       body: SafeArea(
         child: Column(
           children: [
@@ -70,45 +75,44 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     GestureDetector(
                       onTap: widget.onBack,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.arrow_back_ios, size: 16, color: ElioColors.textSecondary),
-                          const SizedBox(width: 4),
-                          Text('Back', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
-                        ],
+                      child: const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: ElioColors.navy),
                       ),
                     ),
-                    const SizedBox(height: 20),
-
-                    Text('Anyone else\neating with you?', style: ElioText.displayLarge),
+                    const SizedBox(height: 8),
+                    const ElioEyebrow('step 4 of 8'),
                     const SizedBox(height: 12),
-                    Text(
-                      'Add household members so Elio can respect everyone\'s dietary needs. This step is optional.',
-                      style: ElioText.bodyLarge,
+                    const ElioHeroHeading(
+                      lines: ["who's in", 'your household?'],
+                      amberLastLine: true,
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 16),
+                    Text(
+                      "add household members so elio can respect everyone's dietary needs. this step is optional.",
+                      style: ElioTextStyles.body,
+                    ),
+                    const SizedBox(height: 28),
 
                     // Member list
                     if (_members.isEmpty)
                       Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: ElioColors.offWhite,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: ElioColors.border),
+                          color: ElioColors.cream,
+                          borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
                           children: [
                             const Icon(Icons.people_outline, color: ElioColors.textMuted, size: 22),
                             const SizedBox(width: 12),
-                            Text('No household members added yet.', style: ElioText.bodyMedium),
+                            Text('no household members added yet.', style: ElioTextStyles.body),
                           ],
                         ),
                       )
@@ -130,7 +134,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: ElioColors.white,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(color: ElioColors.amber, width: 1.5),
                         ),
                         child: Row(
@@ -139,8 +143,8 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                             const Icon(Icons.add_circle_outline, color: ElioColors.amber, size: 20),
                             const SizedBox(width: 8),
                             Text(
-                              '+ Add a person',
-                              style: GoogleFonts.outfit(fontSize: 15,
+                              'add a person',
+                              style: ElioTextStyles.body.copyWith(
                                 fontWeight: FontWeight.w700,
                                 color: ElioColors.amber,
                               ),
@@ -159,19 +163,16 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
               child: Column(
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: _complete,
-                      child: Text(_members.isEmpty ? 'Skip for now →' : 'Next →'),
-                    ),
+                  ElioBigButton(
+                    label: _members.isEmpty ? 'Skip for now' : 'Continue',
+                    trailingIcon: Icons.chevron_right,
+                    onTap: _complete,
                   ),
                   if (_members.isEmpty) ...[
                     const SizedBox(height: 10),
                     Text(
-                      'You can add household members later in Settings.',
-                      style: ElioText.label.copyWith(color: ElioColors.textMuted),
+                      'you can add household members later in settings.',
+                      style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.textMuted),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -252,6 +253,12 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
   final Set<DietaryRequirement> _selected = {};
 
   @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(() => setState(() {}));
+  }
+
+  @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
@@ -302,60 +309,38 @@ class _AddMemberSheetState extends State<_AddMemberSheet> {
             ),
             const SizedBox(height: 20),
 
-            Text('Add a household member', style: ElioText.headingMedium),
+            Text('add a household member', style: ElioTextStyles.heading3),
             const SizedBox(height: 20),
 
-            Text('Their name', style: ElioText.label),
-            const SizedBox(height: 8),
-            TextField(
+            const ElioEyebrow('their name'),
+            const SizedBox(height: 10),
+            ElioCustomField(
+              placeholder: 'e.g. partner, child, flatmate',
               controller: _nameController,
-              decoration: const InputDecoration(hintText: 'e.g. Partner, Child, Flatmate'),
-              textCapitalization: TextCapitalization.words,
-              autofocus: true,
-              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => setState(() {}),
             ),
             const SizedBox(height: 24),
 
-            Text('Their dietary requirements (optional)', style: ElioText.label),
+            const ElioEyebrow('dietary requirements (optional)'),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               runSpacing: 8,
               children: DietaryRequirement.values.map((req) {
                 final isSelected = _selected.contains(req);
-                return GestureDetector(
+                return ElioChip(
+                  label: req.label,
+                  selected: isSelected,
                   onTap: () => _toggle(req),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: isSelected ? ElioColors.navy.withValues(alpha: 0.08) : ElioColors.offWhite,
-                      border: Border.all(
-                        color: isSelected ? ElioColors.navy : ElioColors.border,
-                        width: isSelected ? 2 : 1,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      req.label,
-                      style: TextStyle(fontSize: 13,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                        color: isSelected ? ElioColors.navy : ElioColors.textPrimary,
-                      ),
-                    ),
-                  ),
                 );
               }).toList(),
             ),
             const SizedBox(height: 28),
 
-            SizedBox(
-              width: double.infinity,
-              height: 54,
-              child: ElevatedButton(
-                onPressed: _nameController.text.isNotEmpty ? _save : null,
-                child: const Text('Add member'),
-              ),
+            ElioBigButton(
+              label: 'Add member',
+              trailingIcon: Icons.chevron_right,
+              onTap: _nameController.text.isNotEmpty ? _save : null,
             ),
           ]),
       ),

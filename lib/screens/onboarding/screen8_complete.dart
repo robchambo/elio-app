@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../widgets/elio_progress_bar.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
 import '../home/home_screen.dart';
 import '../paywall/paywall_screen.dart';
 
@@ -35,11 +38,12 @@ class OnboardingCompleteScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.offWhite,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── Progress bar ────────────────────────────────────
               const Padding(
@@ -47,74 +51,39 @@ class OnboardingCompleteScreen extends StatelessWidget {
                 child: ElioProgressBar(currentStep: 8, totalSteps: 8),
               ),
 
-              const Spacer(flex: 2),
+              const Spacer(flex: 1),
 
-              // ── Success checkmark ───────────────────────────────
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: ElioColors.success.withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check_circle_rounded,
-                  size: 56,
-                  color: ElioColors.success,
-                ),
+              // ── Hero ────────────────────────────────────────────
+              const ElioEyebrow('your kitchen is good to go'),
+              const SizedBox(height: 16),
+              const ElioHeroHeading(
+                lines: ['elio is', 'ready'],
+                amberLastLine: true,
               ),
-              const SizedBox(height: 28),
-
-              // ── Heading ─────────────────────────────────────────
-              Text(
-                "You're all set!",
-                style: ElioText.displayMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 20),
 
               // ── Subtitle ────────────────────────────────────────
               Text(
-                "Let's build your pantry and generate your first recipe.",
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  color: ElioColors.textSecondary,
-                  height: 1.45,
-                ),
-                textAlign: TextAlign.center,
+                "let's build your pantry and generate your first recipe.",
+                style: ElioTextStyles.body,
               ),
 
               const SizedBox(height: 32),
 
               // ── Summary bullets ─────────────────────────────────
-              const _SummaryBullet(text: 'Your pantry is ready'),
+              const _SummaryBullet(text: 'your pantry is ready'),
               const SizedBox(height: 12),
               const _SummaryBullet(text: '7 free recipes per week'),
               const SizedBox(height: 12),
-              const _SummaryBullet(text: 'Tap Generate to start cooking'),
+              const _SummaryBullet(text: 'tap generate to start cooking'),
 
-              const Spacer(flex: 3),
+              const Spacer(flex: 2),
 
               // ── Primary CTA ─────────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: () => _goHome(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ElioColors.amber,
-                    foregroundColor: ElioColors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    textStyle: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text("Let's Get Started"),
-                ),
+              ElioBigButton(
+                label: 'Start cooking',
+                trailingIcon: Icons.chevron_right,
+                onTap: () => _goHome(context),
               ),
               const SizedBox(height: 24),
             ],
@@ -153,11 +122,7 @@ class _SummaryBullet extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: GoogleFonts.outfit(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: ElioColors.textPrimary,
-            ),
+            style: ElioTextStyles.body,
           ),
         ),
       ],

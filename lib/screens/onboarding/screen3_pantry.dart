@@ -3,8 +3,12 @@ import 'package:flutter/services.dart';
 import '../../models/elio_models.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../utils/pantry_utils.dart';
 import '../../widgets/elio_progress_bar.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // ─────────────────────────────────────────────
@@ -258,7 +262,7 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.offWhite,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
@@ -267,39 +271,38 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
             children: [
               // ── Progress ──────────────────────────────────────
               const ElioProgressBar(currentStep: 3, totalSteps: 8),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
 
               // ── Header ────────────────────────────────────────
               GestureDetector(
                 onTap: widget.onBack,
-                child: Row(
-                  children: [
-                    const Icon(Icons.arrow_back_ios_new_rounded,
-                        size: 16, color: ElioColors.navy),
-                    const SizedBox(width: 4),
-                    Text('Back',
-                        style: ElioText.bodyMedium
-                            .copyWith(color: ElioColors.navy)),
-                  ],
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(Icons.arrow_back_ios_new_rounded,
+                      size: 18, color: ElioColors.navy),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text('Your pantry', style: ElioText.displayMedium),
-              const SizedBox(height: 4),
-              Text(
-                'Remove anything you don\'t have. Add anything that\'s missing.',
-                style: ElioText.bodyLarge
-                    .copyWith(color: ElioColors.textSecondary),
+              const SizedBox(height: 8),
+              const ElioEyebrow('step 3 of 8'),
+              const SizedBox(height: 12),
+              const ElioHeroHeading(
+                lines: ['your', 'pantry'],
+                amberLastLine: true,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 16),
+              Text(
+                "remove anything you don't have. add anything that's missing.",
+                style: ElioTextStyles.body,
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   const Icon(Icons.drag_indicator_rounded,
                       size: 14, color: ElioColors.textMuted),
                   const SizedBox(width: 4),
                   Text(
-                    'Hold & drag a chip to move it between sections.',
-                    style: ElioText.label
+                    'hold & drag a chip to move it between sections.',
+                    style: ElioTextStyles.bodySmall
                         .copyWith(color: ElioColors.textMuted),
                   ),
                 ],
@@ -411,16 +414,13 @@ class _PantryReviewScreenState extends State<PantryReviewScreen> {
                 ),
               ),
 
-              // ── Next button ───────────────────────────────────
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed: () {
-                    widget.onNext(widget.state.copyWith(inventory: _items));
-                  },
-                  child: const Text('Next →'),
-                ),
+              // ── Continue button ───────────────────────────────
+              ElioBigButton(
+                label: 'Continue',
+                trailingIcon: Icons.chevron_right,
+                onTap: () {
+                  widget.onNext(widget.state.copyWith(inventory: _items));
+                },
               ),
             ],
           ),

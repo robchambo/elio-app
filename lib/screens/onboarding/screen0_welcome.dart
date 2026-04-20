@@ -4,6 +4,10 @@ import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/analytics_service.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
 import 'onboarding_flow.dart';
 import '../shell/app_shell.dart';
 import '../auth/email_login_screen.dart';
@@ -106,7 +110,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.offWhite,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(28, 0, 28, 32),
@@ -115,54 +119,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
             children: [
               const Spacer(flex: 2),
 
-              // ── Wordmark ──────────────────────────────────────
-              RichText(
-                text: TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'EL',
-                      style: GoogleFonts.outfit(
-                        fontSize: 52,
-                        fontWeight: FontWeight.w800,
-                        color: ElioColors.navy,
-                        height: 1.0,
-                      ),
-                    ),
-                    TextSpan(
-                      text: 'i',
-                      style: GoogleFonts.outfit(
-                        fontSize: 52,
-                        fontWeight: FontWeight.w800,
-                        color: ElioColors.amber,
-                        height: 1.0,
-                      ),
-                    ),
-                    TextSpan(
-                      text: 'O',
-                      style: GoogleFonts.outfit(
-                        fontSize: 52,
-                        fontWeight: FontWeight.w800,
-                        color: ElioColors.navy,
-                        height: 1.0,
-                      ),
-                    ),
-                  ],
-                ),
+              // ── Eyebrow ──────────────────────────────────────
+              const ElioEyebrow('meet elio'),
+              const SizedBox(height: 16),
+
+              // ── Hero heading ──────────────────────────────────
+              const ElioHeroHeading(
+                lines: ['already knows', 'your kitchen'],
+                amberLastLine: true,
               ),
-              const SizedBox(height: 12),
+
+              const SizedBox(height: 20),
 
               // ── Tagline ───────────────────────────────────────
               Text(
-                'Already knows your kitchen.',
-                style: ElioText.headingLarge.copyWith(
-                  color: ElioColors.textSecondary,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Tell Elio what\'s fresh today.\nGet a recipe in seconds.',
-                style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+                "tell elio what's fresh today.\nget a recipe in seconds.",
+                style: ElioTextStyles.body,
               ),
 
               const Spacer(flex: 1),
@@ -198,49 +170,18 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   ),
                   child: Text(
                     _errorMessage!,
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.error),
+                    style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.error),
                   ),
                 ),
                 const SizedBox(height: 12),
               ],
 
               // ── Google Sign-In button ─────────────────────────
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton(
-                  onPressed: _isLoading ? null : _handleGoogleSignIn,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: ElioColors.navy,
-                    side: const BorderSide(color: ElioColors.border, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    backgroundColor: ElioColors.white,
-                  ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.5,
-                            color: ElioColors.navy,
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.g_mobiledata, size: 24, color: Colors.red),
-                            const SizedBox(width: 10),
-                            Text(
-                              'Continue with Google',
-                              style: GoogleFonts.outfit(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: ElioColors.navy,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
+              ElioBigButton(
+                label: 'Continue with Google',
+                trailingIcon: Icons.chevron_right,
+                loading: _isLoading,
+                onTap: _isLoading ? null : _handleGoogleSignIn,
               ),
               const SizedBox(height: 12),
 
@@ -260,9 +201,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                         },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: ElioColors.navy,
-                    side: const BorderSide(color: ElioColors.border, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    backgroundColor: ElioColors.white,
+                    side: const BorderSide(color: ElioColors.navy, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    backgroundColor: Colors.transparent,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -271,8 +212,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                       const SizedBox(width: 10),
                       Text(
                         'Sign in with email',
-                        style: GoogleFonts.outfit(
-                          fontSize: 16,
+                        style: ElioTextStyles.body.copyWith(
                           fontWeight: FontWeight.w600,
                           color: ElioColors.navy,
                         ),
@@ -310,11 +250,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               // ── Privacy note ──────────────────────────────────
               Center(
                 child: Text(
-                  'By continuing, you agree to our Terms & Privacy Policy.',
-                  style: ElioText.label.copyWith(
-                    color: ElioColors.textMuted,
-                    fontWeight: FontWeight.w400,
-                  ),
+                  'by continuing, you agree to our terms & privacy policy.',
+                  style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.textMuted),
                   textAlign: TextAlign.center,
                 ),
               ),
