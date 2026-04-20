@@ -1,0 +1,171 @@
+import 'package:flutter/material.dart';
+
+import '../../controllers/onboarding_controller.dart';
+import '../../theme/elio_spacing.dart';
+import '../../theme/elio_text_styles.dart';
+import '../../theme/elio_theme.dart';
+import '../../widgets/elio/elio_appliance_tile.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_onboarding_progress_bar.dart';
+
+// ─────────────────────────────────────────────
+// Screen 08 — Appliances
+//
+// Multi-select of 11 appliances in a 2-column grid. Oven / hob /
+// microwave are pre-selected on first render (spec §Copy). Continue
+// is always enabled — an empty array is a valid answer.
+//
+// See docs/onboarding/08-appliances.md for authoritative copy spec.
+// ─────────────────────────────────────────────
+
+class _Appliance {
+  final String value;
+  final String label;
+  final IconData icon;
+  const _Appliance(this.value, this.label, this.icon);
+}
+
+// Copy + order verbatim from docs/onboarding/08-appliances.md §Options.
+const List<_Appliance> _appliances = [
+  _Appliance('oven', 'Oven', Icons.microwave_outlined),
+  _Appliance('hob', 'Hob / stove', Icons.local_fire_department_outlined),
+  _Appliance('microwave', 'Microwave', Icons.settings_input_component),
+  _Appliance('airfryer', 'Air fryer', Icons.air),
+  _Appliance('slowcooker', 'Slow cooker', Icons.soup_kitchen),
+  _Appliance('pressure', 'Pressure cooker', Icons.compress),
+  _Appliance('blender', 'Blender', Icons.blender),
+  _Appliance('processor', 'Food processor', Icons.kitchen),
+  _Appliance('mixer', 'Stand mixer', Icons.cyclone),
+  _Appliance('ricecooker', 'Rice cooker', Icons.rice_bowl),
+  _Appliance('bbq', 'BBQ / grill', Icons.outdoor_grill),
+];
+
+const List<String> _defaultSelected = ['oven', 'hob', 'microwave'];
+
+class Screen08Appliances extends StatefulWidget {
+  final OnboardingController controller;
+  final VoidCallback onContinue;
+  final VoidCallback onBack;
+
+  const Screen08Appliances({
+    super.key,
+    required this.controller,
+    required this.onContinue,
+    required this.onBack,
+  });
+
+  @override
+  State<Screen08Appliances> createState() => _Screen08AppliancesState();
+}
+
+class _Screen08AppliancesState extends State<Screen08Appliances> {
+  @override
+  void initState() {
+    super.initState();
+    // Pre-select the three default appliances on first render if the user
+    // hasn't made any selection yet (appliances list is still empty).
+    if (widget.controller.state.appliances.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (widget.controller.state.appliances.isEmpty) {
+          widget.controller.setAppliances(List<String>.from(_defaultSelected));
+        }
+      });
+    }
+  }
+
+  void _toggle(String value) {
+    final current = List<String>.from(widget.controller.state.appliances);
+    if (current.contains(value)) {
+      current.remove(value);
+    } else {
+      current.add(value);
+    }
+    widget.controller.setAppliances(current);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ElioColors.offWhite,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(ElioSpacing.screenEdge),
+          child: AnimatedBuilder(
+            animation: widget.controller,
+            builder: (context, _) {
+              final selected = widget.controller.state.appliances;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      BackButton(
+                        color: ElioColors.navy,
+                        onPressed: widget.onBack,
+                      ),
+                      const SizedBox(width: ElioSpacing.sm),
+                      const Expanded(
+                        child: ElioOnboardingProgressBar(value: 8 / 15),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: ElioSpacing.lg),
+                  const ElioHeroHeading(
+                    lines: ["What's in", 'your kitchen?'],
+                    amberLastLine: true,
+                  ),
+                  const SizedBox(height: ElioSpacing.md),
+                  Text(
+                    "Tick everything you'll actually use. We'll only suggest recipes that match.",
+                    style: ElioTextStyles.body.copyWith(
+                      color: ElioColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: ElioSpacing.sm),
+                  Text(
+                    "We've ticked the usuals — untick if you don't have one.",
+                    style: ElioTextStyles.bodySmall.copyWith(
+                      color: ElioColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: ElioSpacing.lg),
+                  Expanded(
+                    child: GridView.builder(
+                      padding: EdgeInsets.zero,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        mainAxisSpacing: ElioSpacing.sm + 4,
+                        crossAxisSpacing: ElioSpacing.sm + 4,
+                        childAspectRatio: 1.1,
+                      ),
+                      itemCount: _appliances.length,
+                      itemBuilder: (context, i) {
+                        final a = _appliances[i];
+                        return ElioApplianceTile(
+                          value: a.value,
+                          label: a.label,
+                          icon: a.icon,
+                          selected: selected.contains(a.value),
+                          onTap: _toggle,
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: ElioSpacing.md),
+                  ElioBigButton(
+                    label: 'Continue',
+                    onTap: widget.onContinue,
+                    trailingIcon: Icons.arrow_forward,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
