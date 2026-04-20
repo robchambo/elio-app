@@ -9,7 +9,7 @@
 
 Capture the user's dietary *pattern* — the hard rules that govern what Elio will ever put in a recipe. Ethical, religious, and lifestyle-based (vegan, halal, pescatarian etc.). Allergies and one-off excludes are handled separately on screen 5 — that separation is deliberate (different mental model, different default for "None").
 
-If the household has more than one person (screen 3 count > 1), we also ask whether anyone *else* has different needs. Per-person capture is deferred to post-onboarding; here we just set a flag so the app can prompt for it later.
+If the household has more than one person (screen 3 count > 1), we also ask whether anyone *else* has different needs. When that toggle is ON, we reveal a second multi-select that captures the **union** of dietary needs across the whole household (no names, just the combined set). That union is what Gemini consumes on screen 13 so the first recipe actually works for everyone. Per-person detail (names, which member eats what) is still deferred to post-onboarding — but the recipe won't exclude a household member on first use.
 
 ## Copy
 
@@ -34,8 +34,15 @@ If the household has more than one person (screen 3 count > 1), we also ask whet
 
 > **Does anyone else in your household eat differently?**
 > `[ Toggle: off/on ]`
+
+**When the toggle flips ON, a second multi-select reveals beneath it:**
+
+> **What's the combination of needs across your household?**
+> *(Pick everything that applies to anyone — including you. We'll use this for recipe suggestions so no one gets left out.)*
 >
-> *(toggle subtext when on:)* We'll ask you about them inside the app — no need to do it here.
+> Same 6 options as above (No restrictions / Vegetarian / Vegan / Pescatarian / Halal / Kosher), same exclusion rules, seeded with the user's own selections from above.
+>
+> Names and per-person detail stay in the app — set those up later in Account → Household.
 
 **Primary CTA (full-width, always enabled after at least one option OR "No restrictions" is picked):**
 > Continue
@@ -96,19 +103,20 @@ If the household has more than one person (screen 3 count > 1), we also ask whet
 |---|---|
 | **Screen 5 Allergies** | If "No restrictions" picked here, screen 5 headline softens to "Anything we should avoid?" rather than "And any allergies?" |
 | **Screen 11 Pantry build** | Categories filtered — e.g. Vegan hides all meat/dairy/egg categories; Pescatarian hides meat but keeps fish; Halal/Kosher don't filter (just tag). |
-| **Screen 13 First recipe** | Gemini prompt receives the dietary array in its existing `dietary` field. Enforced as hard constraints (existing behaviour). |
-| **Post-onboarding nudge** | If the household-differs toggle was ON, show a one-time home-screen card: "Tell us about the others in your household → Add profile." Opens existing household profile flow. |
+| **Screen 13 First recipe** | Gemini prompt receives the **union** when `householdHasDifferingDiet=true` (i.e. `householdCombinedDietary`); otherwise the user's own `dietary` array. Enforced as hard constraints (existing behaviour). |
+| **Post-onboarding nudge** | If the household-differs toggle was ON, show a one-time home-screen card: "Tell us who eats what in your household → Add profiles." Opens existing household profile flow so users can put names + specific needs against individual members. |
 
 ### Data model
 
 Persists to onboarding state, then to Firestore on sign-in:
 
 ```
-users/{uid}.dietary: List<String>        // e.g. ["vegetarian", "halal"]
-users/{uid}.householdHasDifferingDiet: bool
+users/{uid}.dietary: List<String>                    // user's own diet, e.g. ["vegetarian", "halal"]
+users/{uid}.householdHasDifferingDiet: bool          // true → use combined on screen 13 + nudge post-onboarding
+users/{uid}.householdCombinedDietary: List<String>   // union of all household needs; [] when toggle is OFF
 ```
 
-Reuses the existing `dietary` field on `users/{uid}` — no schema change. The `householdHasDifferingDiet` flag is new; triggers the post-onboarding nudge.
+Reuses the existing `dietary` field on `users/{uid}` — no schema change there. Two new fields: `householdHasDifferingDiet` (flag) + `householdCombinedDietary` (the union set used by the first-recipe Gemini call and by post-onboarding meal planning until per-member profiles are filled in).
 
 ## What Kate decides
 
@@ -132,15 +140,20 @@ Reuses the existing `dietary` field on `users/{uid}` — no schema change. The `
 - **Vegan tapped while Vegetarian selected:** add Vegan, keep Vegetarian (vegan is a strict subset — user likely wants both flagged for clarity).
 - **Pescatarian tapped while Vegetarian or Vegan selected:** deselect the conflicting option, select Pescatarian.
 - **All options manually deselected:** Continue stays enabled but defaults to `dietary: []` with no "No restrictions" flag. A single hint appears: "No restrictions? Tap above to confirm." *(non-blocking.)*
-- **Household count = 1:** household-differs row is hidden entirely.
-- **Back from screen 5:** selections preserved.
+- **Household count = 1:** household-differs row is hidden entirely. `householdCombinedDietary` stays `[]`.
+- **Toggle flipped ON then OFF:** `householdHasDifferingDiet` goes back to `false`, `householdCombinedDietary` cleared to `[]`. Union section collapses.
+- **Toggle ON but union left empty:** non-blocking hint "Pick at least one — or turn the toggle off if everyone's the same." Continue disabled until union has ≥1 selection OR toggle is OFF.
+- **Toggle ON, union seeded from user's own selection:** when the toggle flips ON, the union multi-select pre-populates with whatever's selected above. User adds others' needs on top. (Flipping back OFF clears this.)
+- **Back from screen 5:** selections preserved (both user dietary and union).
 - **Accessibility:** each card announces as "<label>, <selected/unselected>, button". Silent exclusion changes are announced via live region ("Vegetarian deselected" when Pescatarian replaces it).
 - **Screen entrance:** cards stagger in (same rhythm as screens 2–3). Household toggle row fades in after a 100ms delay.
 
 ## Behaviour
 
 - Tap a card → toggles its selected state, applying the exclusion rules above.
-- Tap household toggle → flips `householdHasDifferingDiet`. No follow-up screen in this flow.
-- Tap **Continue** → persist `dietary` array + `householdHasDifferingDiet`; advance to screen 5 (Allergies).
+- Tap household toggle ON → flips `householdHasDifferingDiet=true`, reveals the union multi-select below, seeds union with the user's own selections.
+- Tap household toggle OFF → flips `householdHasDifferingDiet=false`, collapses the union section, clears `householdCombinedDietary` to `[]`.
+- Tap a union card → toggles that entry in `householdCombinedDietary`, same exclusion rules as the primary dietary multi-select.
+- Tap **Continue** → persist `dietary` + `householdHasDifferingDiet` + `householdCombinedDietary`; advance to screen 5 (Allergies).
 - Back arrow → returns to screen 3 (Household). All selections preserved on return.
 - No skip option. Continue is always available after first interaction; users who want no restrictions must tap "No restrictions" explicitly.
