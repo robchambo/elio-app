@@ -25,6 +25,16 @@ class OnboardingController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Ephemeral UI flag — screen 09 sets this when the user manually taps
+  /// the metric/imperial toggle, so subsequent region changes won't
+  /// overwrite their choice. Not persisted to Firestore.
+  bool _unitsManuallyEdited = false;
+  bool get unitsManuallyEdited => _unitsManuallyEdited;
+  void setUnitsManuallyEdited(bool v) {
+    _unitsManuallyEdited = v;
+    notifyListeners();
+  }
+
   void setUserGoal(String v) {
     _state = _state.copyWith(userGoal: v);
     notifyListeners();
