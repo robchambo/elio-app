@@ -1,0 +1,388 @@
+import 'package:flutter/material.dart';
+
+import '../../controllers/onboarding_controller.dart';
+import '../../data/pantry_categories.dart';
+import '../../models/elio_models.dart';
+import '../../services/guest_pantry_service.dart';
+import '../../theme/elio_radii.dart';
+import '../../theme/elio_spacing.dart';
+import '../../theme/elio_text_styles.dart';
+import '../../theme/elio_theme.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_onboarding_progress_bar.dart';
+import '../../widgets/elio/elio_pantry_item_tile.dart';
+import '../../widgets/elio/elio_sticky_category_header.dart';
+
+// ─────────────────────────────────────────────
+// Screen 11 — Pantry (staples)
+//
+// 12 category grid; tap cycles tile unselected → usually → always →
+// unselected. Long-press (300 ms via RawGestureDetector in
+// ElioPantryItemTile) jumps straight to always.
+//
+// ~16 items pre-selected in the "usually" tier, filtered against the
+// user's dietary + allergy selections from screens 04/05.
+//
+// On Continue:
+//   • staple tiers are mapped into InventoryItem with tier
+//     'alwaysHave' (always) / 'almostAlwaysHave' (usually);
+//   • any perishables already present in controller.state.inventory
+//     (user navigated back from screen 12) are preserved;
+//   • the selection is persisted to SharedPreferences via
+//     GuestPantryService.saveStaples for crash-resume.
+//
+// Copy + behaviour: docs/onboarding/11-pantry-staples.md.
+// ─────────────────────────────────────────────
+
+/// Category order shown on screen — matches the spec §Copy list.
+const List<String> _categoryOrder = [
+  'Oils & Vinegars',
+  'Spices & Seasonings',
+  'Sauces & Condiments',
+  'Canned & Jarred',
+  'Grains & Pasta',
+  'Dairy & Eggs',
+  'Baking Essentials',
+  'Frozen Staples',
+  'Asian Pantry',
+  'Indian Pantry',
+  'Mediterranean',
+  'Mexican & Latin',
+];
+
+/// Default-selected rule for a single item.
+///
+/// * [dietaryExcludes] — if any of the user's dietary selections match, the
+///   item is dropped from the pre-selected defaults. E.g. honey is excluded
+///   for vegans.
+/// * [allergyExcludes] — if any of the user's allergy tokens match, the item
+///   is dropped from defaults.
+class _DefaultRule {
+  final String category;
+  final List<String> dietaryExcludes;
+  final List<String> allergyExcludes;
+  const _DefaultRule({
+    required this.category,
+    this.dietaryExcludes = const [],
+    this.allergyExcludes = const [],
+  });
+}
+
+/// Pre-selected defaults per docs/onboarding/11-pantry-staples.md §Pre-selected
+/// defaults table — ~16 items, all entering in the "usually" tier.
+const Map<String, _DefaultRule> _kDefaultStaples = {
+  // Oils & Vinegars
+  'Olive oil': _DefaultRule(category: 'Oils & Vinegars'),
+  'Vegetable oil': _DefaultRule(category: 'Oils & Vinegars'),
+  // Spices & Seasonings
+  'Salt': _DefaultRule(category: 'Spices & Seasonings'),
+  'Black pepper': _DefaultRule(category: 'Spices & Seasonings'),
+  'Mixed herbs': _DefaultRule(category: 'Spices & Seasonings'),
+  'Paprika': _DefaultRule(category: 'Spices & Seasonings'),
+  // Sauces & Condiments
+  'Ketchup': _DefaultRule(category: 'Sauces & Condiments'),
+  'Soy sauce': _DefaultRule(
+    category: 'Sauces & Condiments',
+    allergyExcludes: ['soy'],
+  ),
+  'Mustard': _DefaultRule(category: 'Sauces & Condiments'),
+  'Honey': _DefaultRule(
+    category: 'Sauces & Condiments',
+    dietaryExcludes: ['vegan'],
+  ),
+  // Canned & Jarred
+  'Tinned tomatoes': _DefaultRule(category: 'Canned & Jarred'),
+  'Chickpeas': _DefaultRule(category: 'Canned & Jarred'),
+  // Grains & Pasta
+  'Rice (white)': _DefaultRule(category: 'Grains & Pasta'),
+  'Oats': _DefaultRule(
+    category: 'Grains & Pasta',
+    allergyExcludes: ['gluten', 'wheat'],
+  ),
+  // Dairy & Eggs
+  'Eggs': _DefaultRule(
+    category: 'Dairy & Eggs',
+    dietaryExcludes: ['vegan'],
+    allergyExcludes: ['egg'],
+  ),
+  'Butter': _DefaultRule(
+    category: 'Dairy & Eggs',
+    dietaryExcludes: ['vegan', 'dairyFree'],
+    allergyExcludes: ['dairy'],
+  ),
+  // Baking Essentials
+  'Plain flour': _DefaultRule(
+    category: 'Baking Essentials',
+    allergyExcludes: ['gluten', 'wheat'],
+  ),
+  'Caster sugar': _DefaultRule(category: 'Baking Essentials'),
+  'Baking powder': _DefaultRule(category: 'Baking Essentials'),
+  // Frozen Staples
+  'Frozen peas': _DefaultRule(category: 'Frozen Staples'),
+};
+
+/// True when [rule] should be excluded given the user's screens 04/05 state.
+bool _excludedByUser(
+  _DefaultRule rule,
+  List<String> dietary,
+  List<String> allergies,
+) {
+  for (final d in rule.dietaryExcludes) {
+    if (dietary.contains(d)) return true;
+  }
+  for (final a in rule.allergyExcludes) {
+    for (final userAllergy in allergies) {
+      if (userAllergy.toLowerCase() == a.toLowerCase()) return true;
+    }
+  }
+  return false;
+}
+
+/// Build the initial tier map: all default-eligible items start in "usually".
+Map<String, String> _buildDefaultTiers(
+  List<String> dietary,
+  List<String> allergies,
+) {
+  final map = <String, String>{};
+  _kDefaultStaples.forEach((name, rule) {
+    if (!_excludedByUser(rule, dietary, allergies)) {
+      map[name] = 'usually';
+    }
+  });
+  return map;
+}
+
+class Screen11PantryStaples extends StatefulWidget {
+  final OnboardingController controller;
+  final VoidCallback onContinue;
+  final VoidCallback onBack;
+
+  /// Optional override for testing — defaults to a live GuestPantryService.
+  final GuestPantryService? pantryService;
+
+  const Screen11PantryStaples({
+    super.key,
+    required this.controller,
+    required this.onContinue,
+    required this.onBack,
+    this.pantryService,
+  });
+
+  @override
+  State<Screen11PantryStaples> createState() => _Screen11PantryStaplesState();
+}
+
+class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
+  /// Selected tier per item. Items not in the map are unselected.
+  /// tier ∈ {'usually', 'always'}.
+  late Map<String, String> _tiers;
+
+  @override
+  void initState() {
+    super.initState();
+    _tiers = _buildDefaultTiers(
+      widget.controller.state.dietary,
+      widget.controller.state.allergies,
+    );
+  }
+
+  void _cycle(String name, String next) {
+    setState(() {
+      if (next == 'unselected') {
+        _tiers.remove(name);
+      } else {
+        _tiers[name] = next;
+      }
+    });
+  }
+
+  void _jumpToAlways(String name) {
+    setState(() {
+      _tiers[name] = 'always';
+    });
+  }
+
+  String _tierFor(String name) => _tiers[name] ?? 'unselected';
+
+  int get _count => _tiers.length;
+
+  Future<void> _onContinue() async {
+    // Map tier strings → InventoryItem tier values used elsewhere in the app.
+    final newStaples = <InventoryItem>[];
+    _tiers.forEach((name, tier) {
+      newStaples.add(
+        InventoryItem(
+          name: name,
+          tier: tier == 'always' ? 'alwaysHave' : 'almostAlwaysHave',
+          category: PantryCategories.categorize(name),
+        ),
+      );
+    });
+
+    // Preserve any perishables already in inventory (back-nav from screen 12).
+    final preserved = widget.controller.state.inventory
+        .where((i) => i.tier == 'perishable')
+        .toList();
+
+    widget.controller.setInventory([...preserved, ...newStaples]);
+
+    final svc = widget.pantryService ?? GuestPantryService();
+    await svc.saveStaples(Map<String, String>.from(_tiers));
+
+    if (!mounted) return;
+    widget.onContinue();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ElioColors.offWhite,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                ElioSpacing.screenEdge,
+                ElioSpacing.sm,
+                ElioSpacing.screenEdge,
+                0,
+              ),
+              child: Row(
+                children: [
+                  BackButton(
+                    color: ElioColors.navy,
+                    onPressed: widget.onBack,
+                  ),
+                  const SizedBox(width: ElioSpacing.sm),
+                  const Expanded(
+                    child: ElioOnboardingProgressBar(value: 11 / 15),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: ElioSpacing.md),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: ElioSpacing.screenEdge,
+              ),
+              child: const ElioHeroHeading(
+                lines: ['What do you', 'always have in?'],
+                amberLastLine: true,
+              ),
+            ),
+            const SizedBox(height: ElioSpacing.sm),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: ElioSpacing.screenEdge,
+              ),
+              child: Text(
+                "Tap what you've usually got. Long-press anything you always have — we'll lean on those heavier.",
+                style: ElioTextStyles.body.copyWith(
+                  color: ElioColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: ElioSpacing.xs),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: ElioSpacing.screenEdge,
+              ),
+              child: Text(
+                '◐ Usually in   ·   ✅ Always in',
+                style: ElioTextStyles.bodySmall.copyWith(
+                  color: ElioColors.textMuted,
+                ),
+              ),
+            ),
+            const SizedBox(height: ElioSpacing.md),
+            Expanded(
+              child: CustomScrollView(
+                slivers: _buildCategorySlivers(),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(ElioSpacing.screenEdge),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ElioBigButton(
+                    label: 'Next',
+                    onTap: _onContinue,
+                    trailingIcon: Icons.arrow_forward,
+                  ),
+                  const SizedBox(height: ElioSpacing.xs),
+                  Text(
+                    '$_count things in your kitchen',
+                    textAlign: TextAlign.center,
+                    style: ElioTextStyles.bodySmall.copyWith(
+                      color: ElioColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildCategorySlivers() {
+    final slivers = <Widget>[];
+    for (final catName in _categoryOrder) {
+      final cat = PantryCategories.byName(catName);
+      if (cat == null) continue;
+      final items = cat.allItems;
+      if (items.isEmpty) continue;
+
+      slivers.add(
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: ElioStickyCategoryHeader(title: catName),
+        ),
+      );
+      slivers.add(
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: ElioSpacing.screenEdge,
+            vertical: ElioSpacing.xs,
+          ),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: ElioSpacing.sm,
+              crossAxisSpacing: ElioSpacing.sm,
+              childAspectRatio: 2.4,
+            ),
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final name = items[index];
+                return ElioPantryItemTile(
+                  key: ValueKey('staple_$name'),
+                  label: name,
+                  tier: _tierFor(name),
+                  tiers: const ['unselected', 'usually', 'always'],
+                  onCycle: (next) => _cycle(name, next),
+                  onLongPress: () => _jumpToAlways(name),
+                );
+              },
+              childCount: items.length,
+            ),
+          ),
+        ),
+      );
+    }
+    // Bottom padding so the last grid isn't flush with the CTA.
+    slivers.add(
+      const SliverToBoxAdapter(child: SizedBox(height: ElioSpacing.lg)),
+    );
+    return slivers;
+  }
+}
+
+// A convenience corner — used only via `ElioRadii.md` if needed elsewhere.
+// (Kept colocated so the file is self-contained for Kate's visual review.)
+// ignore: unused_element
+const double _tileRadius = ElioRadii.md;
