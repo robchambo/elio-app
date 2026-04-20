@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 13 April 2026 (Sprint 15.8 complete — share shopping list, unit abbreviations, pantry builder fix, bookmark fix, back button targets, household delete fix)
+**Last updated:** 20 April 2026 (Sprint 16 onboarding rebuild — Phases 0–4 of 7 complete on branch `sprint/16-onboarding-rebuild`, pushed)
 
 ---
 
@@ -196,9 +196,40 @@ Work is grouped into three parallel tracks:
 
 ---
 
-## Sprint 16 — UI Overhaul — COMPLETE (April 2026)
+## Sprint 16 — UI Overhaul — COMPLETE (April 2026, pending minor bug tweaks)
 
 All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens (Shopping, Recipe Book, Account, Recipe Preferences, Paywall, Meal Plan, Hands-Free, Onboarding) shipped with the new Elio design system. 17 widgets in `lib/widgets/elio/`, 3 new token files in `lib/theme/`, 25/25 tests passing.
+
+**Not tagged yet** — Rob has minor bug tweaks outstanding. Tag `v0.16.0-ui-overhaul` after those + on-device verification.
+
+### Sprint 16b — Onboarding rebuild (branch: `sprint/16-onboarding-rebuild`, pushed 20 Apr)
+
+15-screen, sell-to-self, sign-in-deferred onboarding. Replaces the legacy 8-screen sign-in-first flow. All pre-auth state lives in `OnboardingController` (ChangeNotifier) + `GuestPantryService` (SharedPreferences); `MigrationService` handles guest→Firestore on screen 15 sign-in.
+
+**Plan:** `docs/superpowers/plans/2026-04-19-onboarding-rebuild.md` (8 phases, ~31 tasks)
+**Specs:** `docs/onboarding/00-overview.md` + `01-welcome.md` → `15-account.md`
+**Progress:** 32 commits, 194 tests passing, `flutter analyze` clean.
+
+| Phase | Scope | Status |
+|---|---|---|
+| 0 | State delta + controller + guest-pantry + AuthGate inversion + 11 widgets + palette tokens | ✅ Done |
+| 1 | Screens 01 welcome, 02 goal, 03 household, 04 dietary (w/ Option B household union) | ✅ Done |
+| 2 | Screen 05 allergies & dislikes | ✅ Done |
+| 3 | Screens 06 time, 07 confidence, 08 appliances, 09 region & units | ✅ Done |
+| 4 | Screens 10 pantry intro, 11 staples, 12 perishables | ✅ Done |
+| 5 | Screen 13 first-recipe demo (Gemini ephemeral spike first) | ⏳ Next |
+| 6 | Screen 14 paywall (goal-keyed headlines) + 15 account (deferred sign-in, MigrationService, RC alias) | ⏳ Pending |
+| 7 | Coordinator `onboarding_flow.dart`, final AuthGate wiring, APK, tag | ⏳ Pending |
+
+**Flags before Phase 5:**
+- Screen 12 `expiryDate` mapping conflicts with spec §Data model (spec says fresh=+7d / thisWeek=+3d / today=now; implemented as fresh=null / thisWeek=+7d / today=now). Rob to pick before Gemini consumes it.
+- Screen 11 has 20 defaults; spec prose says "~16". Trim or update prose.
+- Palette tokens `freshGreen`/`perishToday`/`perishThisWeek` still placeholder hex (Kate ratification).
+- Screen 10 hero illustration placeholder (🧊) — Kate art needed.
+- Screen 11/12 search bar + "+ Add something" not built (flagged v1 in spec).
+- Screen 12 dietary/allergy filtering not built.
+
+Merge `sprint/16-onboarding-rebuild` → `sprint/16` when Rob signs off end-to-end on-device.
 
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
