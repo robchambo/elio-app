@@ -4,14 +4,16 @@
 // Provides the 4-tab bottom nav (home / pantry / recipes / shopping list)
 // and the elio top app bar via ElioAppScaffold.
 //
-// Pantry, Recipes, and Shopping List tabs are placeholders until Phase 3+
-// ports the existing screens into the new design system.
+// Sprint 16 Phase 6 — Shopping and Recipes tabs now use the new standalone
+// body-only screens extracted from ProfileScreen.
 import 'package:flutter/material.dart';
 import '../../widgets/elio/elio_app_scaffold.dart';
 import '../../widgets/elio/elio_bottom_nav.dart';
 import '../home/home_screen.dart';
 import '../pantry/pantry_screen.dart';
 import '../profile/profile_screen.dart';
+import '../recipes/recipes_tab_screen.dart';
+import '../shopping/shopping_list_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -34,10 +36,10 @@ class _AppShellState extends State<AppShell> {
         body = const PantryScreen();
         break;
       case ElioNavTab.recipes:
-        body = const _Placeholder(label: 'Recipes');
+        body = const RecipesTabScreen();
         break;
       case ElioNavTab.shoppingList:
-        body = const _Placeholder(label: 'Shopping List');
+        body = const ShoppingListScreen();
         break;
     }
     return ElioAppScaffold(
@@ -49,11 +51,4 @@ class _AppShellState extends State<AppShell> {
       ),
     );
   }
-}
-
-class _Placeholder extends StatelessWidget {
-  final String label;
-  const _Placeholder({required this.label});
-  @override
-  Widget build(BuildContext c) => Center(child: Text('$label — coming soon'));
 }
