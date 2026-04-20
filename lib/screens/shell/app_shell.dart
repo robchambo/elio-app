@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../../widgets/elio/elio_app_scaffold.dart';
 import '../../widgets/elio/elio_bottom_nav.dart';
 import '../home/home_screen.dart';
+import '../pantry/pantry_screen.dart';
 import '../profile/profile_screen.dart';
 
 class AppShell extends StatefulWidget {
@@ -30,7 +31,7 @@ class _AppShellState extends State<AppShell> {
         body = const HomeScreen();
         break;
       case ElioNavTab.pantry:
-        body = const _Placeholder(label: 'Pantry');
+        body = const PantryScreen();
         break;
       case ElioNavTab.recipes:
         body = const _Placeholder(label: 'Recipes');
