@@ -32,7 +32,7 @@ class DietaryScreen extends StatefulWidget {
 class _DietaryScreenState extends State<DietaryScreen> {
   bool _isLoading = true;
   List<String> _dietaryRequirements = [];
-  List<String> _customAllergens = [];
+  List<String> _allergens = [];
   String? _ownerProfileId;
   final TextEditingController _allergenController = TextEditingController();
 
@@ -82,7 +82,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
         setState(() {
           _ownerProfileId = owner.id;
           _dietaryRequirements = List<String>.from(owner.data()['dietaryRequirements'] ?? []);
-          _customAllergens = List<String>.from(owner.data()['customAllergens'] ?? []);
+          _allergens = List<String>.from(owner.data()['allergies'] ?? []);
           _isLoading = false;
         });
       }
@@ -117,9 +117,9 @@ class _DietaryScreenState extends State<DietaryScreen> {
 
   Future<void> _addAllergen(String allergen) async {
     final trimmed = allergen.trim();
-    if (trimmed.isEmpty || _customAllergens.contains(trimmed)) return;
-    final updated = List<String>.from(_customAllergens)..add(trimmed);
-    setState(() => _customAllergens = updated);
+    if (trimmed.isEmpty || _allergens.contains(trimmed)) return;
+    final updated = List<String>.from(_allergens)..add(trimmed);
+    setState(() => _allergens = updated);
     _allergenController.clear();
     if (_ownerProfileId != null) {
       try {
@@ -128,18 +128,18 @@ class _DietaryScreenState extends State<DietaryScreen> {
             .doc(FirebaseAuth.instance.currentUser!.uid)
             .collection('profiles')
             .doc(_ownerProfileId)
-            .update({'customAllergens': updated});
+            .update({'allergies': updated});
       } catch (_) {
-        if (mounted) setState(() => _customAllergens = List<String>.from(_customAllergens)..remove(trimmed));
+        if (mounted) setState(() => _allergens = List<String>.from(_allergens)..remove(trimmed));
         _showSnack('Could not save. Please try again.');
       }
     }
   }
 
   Future<void> _removeAllergen(String allergen) async {
-    final previous = List<String>.from(_customAllergens);
-    final updated = List<String>.from(_customAllergens)..remove(allergen);
-    setState(() => _customAllergens = updated);
+    final previous = List<String>.from(_allergens);
+    final updated = List<String>.from(_allergens)..remove(allergen);
+    setState(() => _allergens = updated);
     if (_ownerProfileId != null) {
       try {
         await FirebaseFirestore.instance
@@ -147,9 +147,9 @@ class _DietaryScreenState extends State<DietaryScreen> {
             .doc(FirebaseAuth.instance.currentUser!.uid)
             .collection('profiles')
             .doc(_ownerProfileId)
-            .update({'customAllergens': updated});
+            .update({'allergies': updated});
       } catch (_) {
-        if (mounted) setState(() => _customAllergens = previous);
+        if (mounted) setState(() => _allergens = previous);
         _showSnack('Could not remove. Please try again.');
       }
     }
@@ -218,12 +218,12 @@ class _DietaryScreenState extends State<DietaryScreen> {
                     style: ElioTextStyles.bodySmall,
                   ),
                   const SizedBox(height: ElioSpacing.md),
-                  if (_customAllergens.isNotEmpty) ...[
+                  if (_allergens.isNotEmpty) ...[
                     Wrap(
                       spacing: 8,
                       runSpacing: 10,
                       children: [
-                        for (final allergen in _customAllergens)
+                        for (final allergen in _allergens)
                           InkWell(
                             onTap: () => _removeAllergen(allergen),
                             borderRadius: BorderRadius.circular(999),
