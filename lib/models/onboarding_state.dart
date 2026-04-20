@@ -1,77 +1,119 @@
-// ─────────────────────────────────────────────
-// OnboardingState
-// Accumulates user choices across all four onboarding screens
-// before writing to Firestore in a single batch on completion.
-// ─────────────────────────────────────────────
-
 import 'elio_models.dart';
 
+// ─────────────────────────────────────────────
+// OnboardingState
+// In-memory state for the 15-screen onboarding flow.
+// Persisted to Firestore post-sign-in by MigrationService.
+// ─────────────────────────────────────────────
+
 class OnboardingState {
-  // Screen 1: Dietary requirements for the primary user
-  List<DietaryRequirement> dietaryRequirements;
-
-  // Screen 2: Kitchen preset selection
-  KitchenPreset? kitchenPreset;
-
-  // Screen 3: Reviewed and adjusted inventory
-  List<InventoryItem> inventory;
-
-  // Screen 4: Additional household members (optional)
-  List<HouseholdProfile> additionalMembers;
-
-  // Screen 5: Food style preferences (optional)
-  List<String> stylePreferences;
-
-  // Screen 6: Kitchen appliances owned (optional)
+  String? userGoal;
+  String? householdType;
+  int householdCount;
+  bool householdHasDifferingDiet;
+  List<String> householdCombinedDietary;
+  List<String> dietary;
+  List<String> allergies;
+  List<String> dislikes;
+  int? maxCookTime;
+  String? cookingConfidence;
   List<String> appliances;
-
-  // Screen 7: Units & Region
-  String measurementUnits; // "metric" or "imperial"
-  String region; // "US" or "UK"
-
-  // Screen 1 extra: custom allergens entered as free text
-  List<String> customAllergens;
+  String region;
+  String measurementUnits;
+  List<InventoryItem> inventory;
+  String? firstRecipeId;
+  String? entitlement;
+  int regenerateCount;
 
   OnboardingState({
-    List<DietaryRequirement>? dietaryRequirements,
-    this.kitchenPreset,
-    List<InventoryItem>? inventory,
-    List<HouseholdProfile>? additionalMembers,
-    List<String>? stylePreferences,
+    this.userGoal,
+    this.householdType,
+    this.householdCount = 1,
+    this.householdHasDifferingDiet = false,
+    List<String>? householdCombinedDietary,
+    List<String>? dietary,
+    List<String>? allergies,
+    List<String>? dislikes,
+    this.maxCookTime,
+    this.cookingConfidence,
     List<String>? appliances,
-    String? measurementUnits,
-    String? region,
-    List<String>? customAllergens,
-  })  : dietaryRequirements = dietaryRequirements ?? [],
-        inventory = inventory ?? [],
-        additionalMembers = additionalMembers ?? [],
-        stylePreferences = stylePreferences ?? [],
+    this.region = 'uk',
+    this.measurementUnits = 'metric',
+    List<InventoryItem>? inventory,
+    this.firstRecipeId,
+    this.entitlement,
+    this.regenerateCount = 0,
+  })  : dietary = dietary ?? [],
+        householdCombinedDietary = householdCombinedDietary ?? [],
+        allergies = allergies ?? [],
+        dislikes = dislikes ?? [],
         appliances = appliances ?? [],
-        measurementUnits = measurementUnits ?? 'metric',
-        region = region ?? 'US',
-        customAllergens = customAllergens ?? [];
+        inventory = inventory ?? [];
+
+  /// Dietary constraints to pass to Gemini.
+  /// Returns the household union when the "differing diet" toggle is on
+  /// AND the union has been populated; otherwise the user's own dietary.
+  List<String> get effectiveDietary =>
+      (householdHasDifferingDiet && householdCombinedDietary.isNotEmpty)
+          ? householdCombinedDietary
+          : dietary;
 
   OnboardingState copyWith({
-    List<DietaryRequirement>? dietaryRequirements,
-    KitchenPreset? kitchenPreset,
-    List<InventoryItem>? inventory,
-    List<HouseholdProfile>? additionalMembers,
-    List<String>? stylePreferences,
+    String? userGoal,
+    String? householdType,
+    int? householdCount,
+    bool? householdHasDifferingDiet,
+    List<String>? householdCombinedDietary,
+    List<String>? dietary,
+    List<String>? allergies,
+    List<String>? dislikes,
+    int? maxCookTime,
+    String? cookingConfidence,
     List<String>? appliances,
-    String? measurementUnits,
     String? region,
-    List<String>? customAllergens,
-  }) {
-    return OnboardingState(
-      dietaryRequirements: dietaryRequirements ?? this.dietaryRequirements,
-      kitchenPreset: kitchenPreset ?? this.kitchenPreset,
-      inventory: inventory ?? this.inventory,
-      additionalMembers: additionalMembers ?? this.additionalMembers,
-      stylePreferences: stylePreferences ?? this.stylePreferences,
-      appliances: appliances ?? this.appliances,
-      measurementUnits: measurementUnits ?? this.measurementUnits,
-      region: region ?? this.region,
-      customAllergens: customAllergens ?? this.customAllergens,
-    );
-  }
+    String? measurementUnits,
+    List<InventoryItem>? inventory,
+    String? firstRecipeId,
+    String? entitlement,
+    int? regenerateCount,
+  }) =>
+      OnboardingState(
+        userGoal: userGoal ?? this.userGoal,
+        householdType: householdType ?? this.householdType,
+        householdCount: householdCount ?? this.householdCount,
+        householdHasDifferingDiet:
+            householdHasDifferingDiet ?? this.householdHasDifferingDiet,
+        householdCombinedDietary:
+            householdCombinedDietary ?? this.householdCombinedDietary,
+        dietary: dietary ?? this.dietary,
+        allergies: allergies ?? this.allergies,
+        dislikes: dislikes ?? this.dislikes,
+        maxCookTime: maxCookTime ?? this.maxCookTime,
+        cookingConfidence: cookingConfidence ?? this.cookingConfidence,
+        appliances: appliances ?? this.appliances,
+        region: region ?? this.region,
+        measurementUnits: measurementUnits ?? this.measurementUnits,
+        inventory: inventory ?? this.inventory,
+        firstRecipeId: firstRecipeId ?? this.firstRecipeId,
+        entitlement: entitlement ?? this.entitlement,
+        regenerateCount: regenerateCount ?? this.regenerateCount,
+      );
+
+  Map<String, dynamic> toFirestoreMap() => {
+        'userGoal': userGoal,
+        'householdType': householdType,
+        'householdCount': householdCount,
+        'householdHasDifferingDiet': householdHasDifferingDiet,
+        'householdCombinedDietary': householdCombinedDietary,
+        'dietary': dietary,
+        'allergies': allergies,
+        'dislikes': dislikes,
+        'maxCookTime': maxCookTime,
+        'cookingConfidence': cookingConfidence,
+        'appliances': appliances,
+        'region': region,
+        'measurementUnits': measurementUnits,
+        'firstRecipeId': firstRecipeId,
+        'entitlement': entitlement,
+      };
 }
