@@ -6,7 +6,7 @@ import '../../services/firestore_service.dart';
 import '../../services/analytics_service.dart';
 import '../../theme/elio_theme.dart';
 import '../onboarding/onboarding_flow.dart';
-import '../home/home_screen.dart';
+import '../shell/app_shell.dart';
 import 'email_register_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -66,7 +66,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
 
       if (isComplete) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const AppShell()),
           (route) => false,
         );
       } else {

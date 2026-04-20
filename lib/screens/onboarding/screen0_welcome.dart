@@ -5,7 +5,7 @@ import '../../services/firestore_service.dart';
 import '../../services/analytics_service.dart';
 import '../../theme/elio_theme.dart';
 import 'onboarding_flow.dart';
-import '../home/home_screen.dart';
+import '../shell/app_shell.dart';
 import '../auth/email_login_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -61,9 +61,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
       if (!mounted) return;
 
       if (isComplete) {
-        // Already onboarded — go straight to home
+        // Already onboarded — go straight to the 4-tab shell
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => const AppShell()),
           (route) => false,
         );
       } else {
