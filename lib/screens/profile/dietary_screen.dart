@@ -2,12 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_spacing.dart';
+import '../../theme/elio_text_styles.dart';
+import '../../widgets/elio/elio_chip.dart';
+import '../../widgets/elio/elio_custom_field.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
 
 // ─────────────────────────────────────────────
 // DietaryScreen
 // Standalone screen for dietary requirements & custom allergens.
-// Accessed from Settings.
+// Accessed from Settings. Auto-saves to Firestore on toggle.
 // ─────────────────────────────────────────────
+
+class _DietaryOption {
+  final String id;
+  final String label;
+  final bool hasDropdown;
+  const _DietaryOption(this.id, this.label, {required this.hasDropdown});
+}
 
 class DietaryScreen extends StatefulWidget {
   const DietaryScreen({super.key});
@@ -23,11 +36,24 @@ class _DietaryScreenState extends State<DietaryScreen> {
   String? _ownerProfileId;
   final TextEditingController _allergenController = TextEditingController();
 
-  static const List<String> _allOptions = [
-    'Vegetarian', 'Vegan', 'Pescatarian', 'Gluten-free', 'Dairy-free',
-    'Egg-free', 'Nut-free', 'Soy-free', 'Shellfish-free',
-    'Halal', 'Kosher', 'Low FODMAP',
-    'Diabetic-friendly', 'Low-carb', 'High-protein',
+  // id is used as the Firestore value (kept identical to the pre-Sprint-16
+  // string set so existing user docs continue to work without migration).
+  static const List<_DietaryOption> _dietaryOptions = [
+    _DietaryOption('Vegetarian', 'Vegetarian', hasDropdown: false),
+    _DietaryOption('Vegan', 'Vegan', hasDropdown: false),
+    _DietaryOption('Pescatarian', 'Pescatarian', hasDropdown: false),
+    _DietaryOption('Gluten-free', 'Gluten-free', hasDropdown: false),
+    _DietaryOption('Dairy-free', 'Dairy-free', hasDropdown: false),
+    _DietaryOption('Egg-free', 'Egg-free', hasDropdown: false),
+    _DietaryOption('Nut-free', 'Nut-free', hasDropdown: false),
+    _DietaryOption('Soy-free', 'Soy-free', hasDropdown: false),
+    _DietaryOption('Shellfish-free', 'Shellfish-free', hasDropdown: false),
+    _DietaryOption('Halal', 'Halal', hasDropdown: false),
+    _DietaryOption('Kosher', 'Kosher', hasDropdown: false),
+    _DietaryOption('Low FODMAP', 'Low FODMAP', hasDropdown: false),
+    _DietaryOption('Diabetic-friendly', 'Diabetic-friendly', hasDropdown: false),
+    _DietaryOption('Low-carb', 'Low-carb', hasDropdown: false),
+    _DietaryOption('High-protein', 'High-protein', hasDropdown: false),
   ];
 
   @override
@@ -137,144 +163,102 @@ class _DietaryScreenState extends State<DietaryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
+      backgroundColor: ElioColors.offWhite,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: ElioColors.amber))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(ElioSpacing.xl),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: () => Navigator.of(context).pop(),
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
-                    ),
+                  const ElioHeroHeading(
+                    lines: ['dietary &', 'allergens'],
+                    amberLastLine: true,
                   ),
-                  const SizedBox(width: 12),
-                  Text('Dietary & Allergens', style: ElioText.headingLarge),
+                  const SizedBox(height: ElioSpacing.md),
+                  Text(
+                    "elio wont suggest recipes that dont work for you.",
+                    style: ElioTextStyles.body,
+                  ),
+                  const SizedBox(height: ElioSpacing.xl),
+                  Text('Dietary requirements', style: ElioTextStyles.heading3),
+                  const SizedBox(height: ElioSpacing.sm),
+                  const ElioEyebrow('you can pick multiple'),
+                  const SizedBox(height: ElioSpacing.md),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 10,
+                    children: [
+                      for (final opt in _dietaryOptions)
+                        ElioChip(
+                          label: opt.label,
+                          selected: _dietaryRequirements.contains(opt.id),
+                          hasDropdown: opt.hasDropdown,
+                          onTap: () => _toggleDietary(opt.id),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: ElioSpacing.xxl),
+                  Text(
+                    'Custom allergens or dietary requirements',
+                    style: ElioTextStyles.heading3,
+                  ),
+                  const SizedBox(height: ElioSpacing.sm),
+                  Text(
+                    "add anything that isn't listed above in the custom text field below",
+                    style: ElioTextStyles.bodySmall,
+                  ),
+                  const SizedBox(height: ElioSpacing.md),
+                  if (_customAllergens.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 10,
+                      children: [
+                        for (final allergen in _customAllergens)
+                          InkWell(
+                            onTap: () => _removeAllergen(allergen),
+                            borderRadius: BorderRadius.circular(999),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: ElioColors.amber.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(color: ElioColors.amber, width: 1.5),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    allergen,
+                                    style: ElioTextStyles.body.copyWith(color: ElioColors.navy),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Icon(Icons.close, size: 16, color: ElioColors.navy),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: ElioSpacing.md),
+                  ],
+                  ElioCustomField(
+                    placeholder: 'e.g. shellfish, mustard',
+                    controller: _allergenController,
+                    onSubmitted: _addAllergen,
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            if (_isLoading)
-              const Expanded(child: Center(child: CircularProgressIndicator(color: ElioColors.amber)))
-            else
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    Text('Dietary requirements', style: ElioText.headingMedium),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Elio will never suggest recipes that don\'t work for you.',
-                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                    ),
-                    const SizedBox(height: 20),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: _allOptions.map((req) {
-                        final isSelected = _dietaryRequirements.contains(req);
-                        return GestureDetector(
-                          onTap: () => _toggleDietary(req),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 150),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                            decoration: BoxDecoration(
-                              color: isSelected ? ElioColors.navy : ElioColors.offWhite,
-                              borderRadius: BorderRadius.circular(24),
-                              border: Border.all(
-                                color: isSelected ? ElioColors.navy : ElioColors.border,
-                                width: isSelected ? 1.5 : 1,
-                              ),
-                            ),
-                            child: Text(
-                              req,
-                              style: ElioText.label.copyWith(
-                                color: isSelected ? Colors.white : ElioColors.textPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 28),
-                    Text('Custom allergens or dietary requirements', style: ElioText.headingMedium.copyWith(fontSize: 16)),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Add any allergies or intolerances not listed above.',
-                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                    ),
-                    const SizedBox(height: 12),
-                    if (_customAllergens.isNotEmpty) ...[
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _customAllergens.map((allergen) => Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF3E0),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFFFFB300)),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(allergen, style: ElioText.label.copyWith(color: const Color(0xFFE65100), fontWeight: FontWeight.w600)),
-                              const SizedBox(width: 6),
-                              GestureDetector(
-                                onTap: () => _removeAllergen(allergen),
-                                child: const Icon(Icons.close, size: 14, color: Color(0xFFE65100)),
-                              ),
-                            ],
-                          ),
-                        )).toList(),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _allergenController,
-                            decoration: InputDecoration(
-                              hintText: 'e.g. Sesame, Shellfish, Mustard...',
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: ElioColors.border)),
-                              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: ElioColors.border)),
-                              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: ElioColors.navy, width: 1.5)),
-                              filled: true,
-                              fillColor: ElioColors.offWhite,
-                            ),
-                            style: ElioText.bodyMedium,
-                            textCapitalization: TextCapitalization.words,
-                            onSubmitted: (value) => _addAllergen(value),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () => _addAllergen(_allergenController.text),
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: ElioColors.navy,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.add, size: 20, color: Colors.white),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }
