@@ -1,0 +1,157 @@
+import 'package:flutter/material.dart';
+
+import '../../controllers/onboarding_controller.dart';
+import '../../theme/elio_spacing.dart';
+import '../../theme/elio_text_styles.dart';
+import '../../theme/elio_theme.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_household_stepper.dart';
+import '../../widgets/elio/elio_onboarding_option_card.dart';
+import '../../widgets/elio/elio_onboarding_progress_bar.dart';
+
+// ─────────────────────────────────────────────
+// Screen 03 — Household
+//
+// Single-select of the 5 household archetypes + count stepper.
+// Tapping a type pre-fills the default count unless the user has
+// manually edited the stepper (tracked on the controller).
+//
+// See docs/onboarding/03-household.md for authoritative copy spec.
+// ─────────────────────────────────────────────
+
+class _HouseholdOption {
+  final String value;
+  final String label;
+  final String subtext;
+  final int defaultCount;
+  const _HouseholdOption(
+      this.value, this.label, this.subtext, this.defaultCount);
+}
+
+// Copy verbatim from docs/onboarding/03-household.md §Copy.
+const List<_HouseholdOption> _options = [
+  _HouseholdOption('solo', 'Just me', 'Solo cooking, one plate to please', 1),
+  _HouseholdOption('couple', 'Me and my partner', 'Two adults, one kitchen', 2),
+  _HouseholdOption(
+      'family', 'Family with kids', 'Little ones, teens, or a mix', 4),
+  _HouseholdOption(
+      'flat', 'Flatmates or housemates', 'Shared kitchen, shared shopping', 3),
+  _HouseholdOption('other', 'Something else',
+      "Tell us the headcount and we'll sort the rest", 2),
+];
+
+class Screen03Household extends StatelessWidget {
+  final OnboardingController controller;
+  final VoidCallback onContinue;
+  final VoidCallback onBack;
+
+  const Screen03Household({
+    super.key,
+    required this.controller,
+    required this.onContinue,
+    required this.onBack,
+  });
+
+  void _selectType(String value) {
+    controller.setHouseholdType(value);
+    if (!controller.countManuallyEdited) {
+      final opt = _options.firstWhere((o) => o.value == value);
+      controller.setHouseholdCount(opt.defaultCount);
+    }
+  }
+
+  void _onStepperChanged(int v) {
+    controller.setHouseholdCount(v);
+    if (!controller.countManuallyEdited) {
+      controller.setCountManuallyEdited(true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ElioColors.offWhite,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(ElioSpacing.screenEdge),
+          child: AnimatedBuilder(
+            animation: controller,
+            builder: (context, _) {
+              final selectedType = controller.state.householdType;
+              final count = controller.state.householdCount;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      BackButton(
+                        color: ElioColors.navy,
+                        onPressed: onBack,
+                      ),
+                      const SizedBox(width: ElioSpacing.sm),
+                      const Expanded(
+                        child: ElioOnboardingProgressBar(value: 3 / 15),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: ElioSpacing.lg),
+                  const ElioHeroHeading(
+                    lines: ['Who are you', 'cooking for?'],
+                    amberLastLine: true,
+                  ),
+                  const SizedBox(height: ElioSpacing.md),
+                  Text(
+                    "We'll size recipes and plan around your household.",
+                    style: ElioTextStyles.body.copyWith(
+                      color: ElioColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: ElioSpacing.lg),
+                  Expanded(
+                    child: ListView(
+                      padding: EdgeInsets.zero,
+                      children: [
+                        for (int i = 0; i < _options.length; i++) ...[
+                          ElioOnboardingOptionCard(
+                            value: _options[i].value,
+                            title: _options[i].label,
+                            subtitle: _options[i].subtext,
+                            selected: selectedType == _options[i].value,
+                            onTap: _selectType,
+                          ),
+                          if (i != _options.length - 1)
+                            const SizedBox(height: ElioSpacing.sm + 4),
+                        ],
+                        if (selectedType != null) ...[
+                          const SizedBox(height: ElioSpacing.lg),
+                          Text(
+                            'How many in total?',
+                            style: ElioTextStyles.heading5,
+                          ),
+                          const SizedBox(height: ElioSpacing.sm),
+                          Center(
+                            child: ElioHouseholdStepper(
+                              value: count,
+                              onChanged: _onStepperChanged,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: ElioSpacing.md),
+                  ElioBigButton(
+                    label: 'Continue',
+                    onTap: selectedType == null ? null : onContinue,
+                    trailingIcon: Icons.arrow_forward,
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -15,6 +15,16 @@ class OnboardingController extends ChangeNotifier {
   OnboardingState _state = OnboardingState();
   OnboardingState get state => _state;
 
+  /// Ephemeral UI flag — screen 03 sets this when the user manually edits
+  /// the household count stepper, so subsequent type changes won't clobber
+  /// their number with the type's default. Not persisted to Firestore.
+  bool _countManuallyEdited = false;
+  bool get countManuallyEdited => _countManuallyEdited;
+  void setCountManuallyEdited(bool v) {
+    _countManuallyEdited = v;
+    notifyListeners();
+  }
+
   void setUserGoal(String v) {
     _state = _state.copyWith(userGoal: v);
     notifyListeners();
