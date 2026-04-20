@@ -1901,91 +1901,53 @@ class _RecipeScreenState extends State<RecipeScreen> {
     final isLast = _currentStep == steps.length - 1;
 
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.offWhite,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header row: Exit, mic, title, step counter ──
+            // ── Chrome row: Back, title, Exit ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: Row(
                 children: [
-                  // Exit button
-                  GestureDetector(
-                    onTap: () => _exitHandsFreeMode(),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: ElioColors.offWhite,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: ElioColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.close, size: 16, color: ElioColors.navy),
-                          const SizedBox(width: 4),
-                          Text('Exit', style: ElioText.label.copyWith(color: ElioColors.navy)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Mic button
-                  GestureDetector(
-                    onTap: _toggleVoiceControl,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: _voiceEnabled
-                            ? ElioColors.amber.withValues(alpha: 0.15)
-                            : ElioColors.offWhite,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _voiceEnabled ? ElioColors.amber : ElioColors.border,
-                          width: _voiceEnabled ? 2.0 : 1.0,
-                        ),
-                        boxShadow: _isListening
-                            ? [
-                                BoxShadow(
-                                  color: ElioColors.amber.withValues(alpha: 0.35),
-                                  blurRadius: 12,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Icon(
-                        _voiceEnabled ? Icons.mic_rounded : Icons.mic_off_rounded,
-                        size: 24,
-                        color: _voiceEnabled ? ElioColors.amber : ElioColors.textMuted,
-                      ),
-                    ),
+                  // Back button (top-left)
+                  _HandsFreeCircleButton(
+                    icon: Icons.arrow_back,
+                    onTap: isFirst
+                        ? null
+                        : () => setState(() => _currentStep--),
                   ),
                   const Spacer(),
-                  // Recipe title
                   Flexible(
                     child: Text(
                       _currentRecipe.title,
-                      style: ElioText.bodyMedium.copyWith(
-                        fontWeight: FontWeight.w600,
+                      style: ElioTextStyles.bodySmall.copyWith(
                         color: ElioColors.textSecondary,
+                        fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Step counter
-                  Text(
-                    '${_currentStep + 1} / ${steps.length}',
-                    style: ElioText.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: ElioColors.navy,
-                    ),
+                  const Spacer(),
+                  // Exit button (top-right)
+                  _HandsFreeCircleButton(
+                    icon: Icons.close,
+                    onTap: () => _exitHandsFreeMode(),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // ── Step counter eyebrow ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'STEP ${_currentStep + 1} / ${steps.length}',
+                  style: ElioTextStyles.eyebrow,
+                ),
               ),
             ),
             // ── Voice feedback toast ──
@@ -2043,95 +2005,54 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Big amber step numeral
                     Text(
-                      'Step ${_currentStep + 1}',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: ElioColors.amber,
-                        letterSpacing: 1.0,
-                      ),
+                      '${_currentStep + 1}',
+                      style: ElioTextStyles.stepNumeral,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Recipe step',
+                      style: ElioTextStyles.heading2,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       steps[_currentStep],
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w500,
-                        color: ElioColors.textPrimary,
-                        height: 1.45,
-                      ),
+                      style: ElioTextStyles.body.copyWith(fontSize: 18, height: 1.5),
                     ),
                   ],
                 ),
               ),
             ),
-            // ── Navigation buttons ──
+            // ── Bottom chrome: Next (big) + centred Mic toggle ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 60,
-                      child: OutlinedButton(
-                        onPressed: isFirst
-                            ? null
-                            : () => setState(() => _currentStep--),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: ElioColors.navy,
-                          side: BorderSide(
-                            color: isFirst ? ElioColors.border : ElioColors.navy,
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text('← Back'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: SizedBox(
-                      height: 60,
-                      child: ElevatedButton(
-                        onPressed: isLast
-                            ? () {
-                                _analytics.logEvent('hands_free_completed', {
-                                  'step_count': steps.length,
-                                });
-                                _stopListening();
-                                _tts.stop();
-                                setState(() {
-                                  _handsFreeMode = false;
-                                  _voiceEnabled = false;
-                                });
-                                SystemChrome.setEnabledSystemUIMode(
-                                    SystemUiMode.edgeToEdge);
-                              }
-                            : () => setState(() => _currentStep++),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: ElioColors.amber,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Text(
-                          isLast ? 'Done ✓' : 'Next →',
-                          style: GoogleFonts.outfit(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: ElioBigButton(
+                label: isLast ? 'Done' : 'Next step',
+                trailingIcon: isLast ? Icons.check : Icons.chevron_right,
+                onTap: isLast
+                    ? () {
+                        _analytics.logEvent('hands_free_completed', {
+                          'step_count': steps.length,
+                        });
+                        _stopListening();
+                        _tts.stop();
+                        setState(() {
+                          _handsFreeMode = false;
+                          _voiceEnabled = false;
+                        });
+                        SystemChrome.setEnabledSystemUIMode(
+                            SystemUiMode.edgeToEdge);
+                      }
+                    : () => setState(() => _currentStep++),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: _HandsFreeMicButton(
+                enabled: _voiceEnabled,
+                listening: _isListening,
+                onTap: _toggleVoiceControl,
               ),
             ),
           ],
@@ -2143,6 +2064,78 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
 // ─── Supporting widgets ───────────────────────────────────────────────────────
 
+class _HandsFreeCircleButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+  const _HandsFreeCircleButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onTap == null;
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: ElioColors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: ElioColors.border),
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: disabled ? ElioColors.textMuted : ElioColors.navy,
+        ),
+      ),
+    );
+  }
+}
+
+class _HandsFreeMicButton extends StatelessWidget {
+  final bool enabled;
+  final bool listening;
+  final VoidCallback onTap;
+  const _HandsFreeMicButton({
+    required this.enabled,
+    required this.listening,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: enabled ? ElioColors.amber : ElioColors.border,
+            shape: BoxShape.circle,
+            boxShadow: listening
+                ? [
+                    BoxShadow(
+                      color: ElioColors.amber.withValues(alpha: 0.35),
+                      blurRadius: 18,
+                      spreadRadius: 3,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Icon(
+            enabled ? Icons.mic_rounded : Icons.mic_off_rounded,
+            size: 32,
+            color: enabled ? Colors.white : ElioColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _NutritionTile extends StatelessWidget {
   final String label;

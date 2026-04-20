@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_big_button.dart';
 import '../../models/meal_plan_models.dart';
 import '../../services/meal_plan_service.dart';
 import '../../services/firestore_service.dart';
@@ -203,6 +207,40 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _generatingMessage = '';
         });
       }
+    }
+  }
+
+  Future<void> _confirmRestartPlan() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Restart meal plan?', style: ElioTextStyles.heading4),
+        content: Text(
+          'This will clear your current week. You can generate a fresh plan straight after.',
+          style: ElioTextStyles.body.copyWith(color: ElioColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel',
+                style: ElioTextStyles.body.copyWith(color: ElioColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Restart',
+                style: ElioTextStyles.body.copyWith(
+                  color: ElioColors.amber,
+                  fontWeight: FontWeight.w700,
+                )),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() => _plan = null);
+      _firestore.deleteMealPlan();
     }
   }
 
@@ -422,7 +460,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.offWhite,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,7 +506,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Meal Planner', style: ElioText.headingLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text('Meal planner', style: ElioTextStyles.heading4, maxLines: 1, overflow: TextOverflow.ellipsis),
                 if (_plan == null)
                   Text(
                     'Generate your week in one tap',
@@ -488,22 +526,22 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           ),
           const SizedBox(width: 8),
           if (_plan != null) ...[
-            // "New plan" — discard current and reconfigure
+            // "Restart plan" — confirm, then discard current and reconfigure
             GestureDetector(
-              onTap: () {
-                setState(() => _plan = null);
-                _firestore.deleteMealPlan();
-              },
+              onTap: _confirmRestartPlan,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   color: ElioColors.offWhite,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(999),
                   border: Border.all(color: ElioColors.border),
                 ),
-                child: const Text(
-                  'New plan',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ElioColors.textSecondary),
+                child: Text(
+                  'Restart plan',
+                  style: ElioTextStyles.bodySmall.copyWith(
+                    color: ElioColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -600,10 +638,25 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         : 'Elio will generate $totalMeals meals — $mealTypeLabel for $dayLabel — tailored to your pantry and dietary needs.';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Editorial hero ──────────────────────────────────────────
+          const ElioEyebrow('plan ahead'),
+          const SizedBox(height: 12),
+          const ElioHeroHeading(
+            lines: ['your week', 'ahead'],
+            amberLastLine: true,
+            showUnderline: true,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Pick your days and meal types — Elio will plan the week around your pantry.',
+            style: ElioTextStyles.body.copyWith(color: ElioColors.textSecondary),
+          ),
+          const SizedBox(height: 28),
+
           // ── Meal types ──────────────────────────────────────────────
           Text('Meal types', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
           const SizedBox(height: 10),
@@ -739,38 +792,15 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           const SizedBox(height: 24),
 
           // ── Generate button ──────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: (_isGenerating || _selectedDays.isEmpty || _selectedMealTypes.isEmpty)
-                  ? null
-                  : _generateWeeklyPlan,
-              child: _isGenerating
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                        ),
-                        const SizedBox(width: 12),
-                        Flexible(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 400),
-                            child: Text(
-                              _generatingMessage,
-                              key: ValueKey(_generatingMessage),
-                              style: const TextStyle(fontSize: 14, color: Colors.white),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text('Generate ${_selectedDays.length == 7 ? 'My Week' : '${_selectedDays.length} Days'} →'),
-            ),
+          ElioBigButton(
+            label: _isGenerating
+                ? (_generatingMessage.isEmpty ? 'Planning your week…' : _generatingMessage)
+                : 'Generate ${_selectedDays.length == 7 ? 'my week' : '${_selectedDays.length} days'}',
+            trailingIcon: Icons.chevron_right,
+            loading: _isGenerating,
+            onTap: (_isGenerating || _selectedDays.isEmpty || _selectedMealTypes.isEmpty)
+                ? null
+                : _generateWeeklyPlan,
           ),
         ],
       ),
