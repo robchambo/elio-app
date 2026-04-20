@@ -2,10 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
-import '../../services/firestore_service.dart';
 import '../../services/analytics_service.dart';
 import '../../theme/elio_theme.dart';
-import '../onboarding/onboarding_flow.dart';
 import '../shell/app_shell.dart';
 import 'email_register_screen.dart';
 
@@ -23,7 +21,6 @@ class EmailLoginScreen extends StatefulWidget {
 
 class _EmailLoginScreenState extends State<EmailLoginScreen> {
   final AuthService _auth = AuthService();
-  final FirestoreService _firestore = FirestoreService();
   final AnalyticsService _analytics = AnalyticsService.instance;
 
   final _formKey = GlobalKey<FormState>();
@@ -61,26 +58,16 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
         return;
       }
 
-      final isComplete = await _firestore.isOnboardingComplete();
+      // Sprint 16 rebuild: sign-in from AuthGate's login path is reserved
+      // for existing users. If a user reaches the login flow, we treat them
+      // as onboarded and land them in the AppShell. First-time users are
+      // routed through the new 15-screen onboarding flow which terminates
+      // at its own account screen.
       if (!mounted) return;
-
-      if (isComplete) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const AppShell()),
-          (route) => false,
-        );
-      } else {
-        _analytics.logEvent('onboarding_started');
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => OnboardingFlow(
-              displayName: user.displayName ?? 'there',
-              onComplete: () {},
-            ),
-          ),
-          (route) => false,
-        );
-      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);

@@ -5,12 +5,13 @@
 // simple list of tiles, one per sub-screen, matching the V1 user flow.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_secondary_card.dart';
-import '../onboarding/screen0_welcome.dart';
+import '../../main.dart';
 import '../profile/dietary_screen.dart';
 import '../profile/household_screen.dart';
 import '../profile/kitchen_screen.dart';
@@ -61,8 +62,13 @@ class AccountScreen extends StatelessWidget {
     if (confirmed != true) return;
     await AuthService().signOut();
     if (!context.mounted) return;
+    // Also clear the onboardingComplete flag so AuthGate sends the user
+    // back through the onboarding flow.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('onboardingComplete', false);
+    if (!context.mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const WelcomeScreen()),
+      MaterialPageRoute(builder: (_) => const AuthGate()),
       (_) => false,
     );
   }

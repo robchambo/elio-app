@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'firebase_options.dart';
 import 'theme/elio_theme.dart';
-import 'screens/onboarding/screen0_welcome.dart';
+import 'screens/onboarding/onboarding_flow.dart';
 import 'screens/shell/app_shell.dart';
-import 'services/firestore_service.dart';
 import 'services/analytics_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/notification_service.dart';
@@ -16,9 +15,11 @@ import 'services/notification_service.dart';
 // Elio — AI Recipe Generator
 // "Already knows your kitchen."
 //
-// Entry point: initialises Firebase + Crashlytics,
-// then routes to WelcomeScreen or HomeScreen based
-// on auth state. Guest mode bypasses Firebase.
+// Entry point: initialises Firebase + Crashlytics, then routes via
+// AuthGate which keys off the `onboardingComplete` SharedPreferences
+// flag (Sprint 16 rebuild) rather than Firebase auth state. The
+// onboarding flow itself is guest-first — sign-in is deferred to
+// screen 15.
 // ─────────────────────────────────────────────
 
 void main() async {
@@ -74,71 +75,42 @@ class ElioApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _scaffoldMessengerKey,
       navigatorObservers: [AnalyticsService.instance.observer],
-      home: const _AuthGate(),
+      home: const AuthGate(),
     );
   }
 }
 
 // ─── Auth gate ────────────────────────────────────────────────────────────────
-// Listens to Firebase auth state and routes accordingly.
-// Falls back to WelcomeScreen if Firebase is not available.
+// Sprint 16 rebuild: routes based on the `onboardingComplete` flag in
+// SharedPreferences (set at the end of the new 15-screen flow) rather
+// than Firebase auth state. This supports the deferred-sign-in model
+// where users can complete onboarding fully in guest mode.
 
-class _AuthGate extends StatelessWidget {
-  const _AuthGate();
+class AuthGate extends StatelessWidget {
+  /// Optional override of the post-onboarding root. Production leaves this
+  /// null and we render [AppShell]. Tests can inject a lightweight stand-in
+  /// to avoid pulling Firebase into the widget tree.
+  final WidgetBuilder? appShellBuilder;
 
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: _safeAuthStream(),
-      builder: (context, snapshot) {
-        // Loading
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: ElioColors.white,
-            body: Center(
-              child: CircularProgressIndicator(color: ElioColors.amber),
-            ),
-          );
-        }
+  /// Optional override of the pre-onboarding root. Production renders the
+  /// [OnboardingFlow] stub; tests can inject a stand-in.
+  final WidgetBuilder? onboardingBuilder;
 
-        // Not signed in (or Firebase unavailable)
-        if (!snapshot.hasData || snapshot.data == null) {
-          return const WelcomeScreen();
-        }
+  const AuthGate({
+    super.key,
+    this.appShellBuilder,
+    this.onboardingBuilder,
+  });
 
-        // Signed in — check onboarding
-        return const _OnboardingGate();
-      },
-    );
+  Future<bool> _isOnboardingComplete() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool('onboardingComplete') ?? false;
   }
-
-  Stream<User?> _safeAuthStream() {
-    try {
-      return FirebaseAuth.instance.authStateChanges();
-    } catch (_) {
-      // Firebase not available — emit null immediately so we show WelcomeScreen
-      return Stream.value(null);
-    }
-  }
-}
-
-// ─── Onboarding gate ──────────────────────────────────────────────────────────
-// Checks Firestore to see if onboarding is complete.
-
-class _OnboardingGate extends StatefulWidget {
-  const _OnboardingGate();
-
-  @override
-  State<_OnboardingGate> createState() => _OnboardingGateState();
-}
-
-class _OnboardingGateState extends State<_OnboardingGate> {
-  final FirestoreService _firestore = FirestoreService();
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
-      future: _firestore.isOnboardingComplete(),
+      future: _isOnboardingComplete(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -148,14 +120,23 @@ class _OnboardingGateState extends State<_OnboardingGate> {
             ),
           );
         }
-
         if (snapshot.data == true) {
-          return const AppShell();
+          return KeyedSubtree(
+            key: const Key('appShellRoot'),
+            child: appShellBuilder?.call(context) ?? const AppShell(),
+          );
         }
-
-        // Onboarding not complete — go back to welcome
-        return const WelcomeScreen();
+        return KeyedSubtree(
+          key: const Key('onboardingFlowRoot'),
+          child: onboardingBuilder?.call(context) ??
+              const OnboardingFlow(
+                displayName: 'there',
+                onComplete: _noop,
+              ),
+        );
       },
     );
   }
 }
+
+void _noop() {}

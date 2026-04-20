@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../services/analytics_service.dart';
 import '../../theme/elio_theme.dart';
-import '../onboarding/onboarding_flow.dart';
+import '../shell/app_shell.dart';
 import 'email_login_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -66,15 +66,12 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
 
       if (!mounted) return;
 
-      // New user — start onboarding (same as Google Sign-In for new users)
-      _analytics.logEvent('onboarding_started');
+      // Sprint 16 rebuild: users who registered via the auth screens
+      // (reached from screen 01 "I already have an account" or the
+      // in-app sign-up) should land in the AppShell. The 15-screen
+      // onboarding flow handles its own sign-up on screen 15.
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => OnboardingFlow(
-            displayName: _nameController.text.trim(),
-            onComplete: () {},
-          ),
-        ),
+        MaterialPageRoute(builder: (_) => const AppShell()),
         (route) => false,
       );
     } on FirebaseAuthException catch (e) {
