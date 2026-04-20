@@ -74,7 +74,10 @@ class ElioApp extends StatelessWidget {
       theme: elioTheme(),
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: _scaffoldMessengerKey,
-      navigatorObservers: [AnalyticsService.instance.observer],
+      navigatorObservers: [
+        if (AnalyticsService.instance.observer != null)
+          AnalyticsService.instance.observer!,
+      ],
       home: const AuthGate(),
     );
   }

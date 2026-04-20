@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_text_styles.dart';
@@ -31,7 +32,12 @@ import '../../services/entitlement_service.dart';
 
 /// Legacy trigger enum — retained for backward compatibility with existing
 /// callers and integration tests. New callers should prefer [triggerContext].
-enum PaywallTrigger { onboarding, capReached, lockedFeature }
+///
+/// `first_recipe` is the onboarding screen-14 entry point added in Sprint
+/// 16; it drives per-goal headlines via [PaywallScreen.onboarding] and
+/// optionally renders a [PaywallScreen.recipeThumbnailUrl] above the hero.
+// ignore: constant_identifier_names
+enum PaywallTrigger { onboarding, capReached, lockedFeature, first_recipe }
 
 class PaywallScreen extends StatefulWidget {
   /// Optional context describing where the paywall was opened from.
@@ -46,11 +52,22 @@ class PaywallScreen extends StatefulWidget {
   /// Legacy locked-feature name — kept so older callers still compile.
   final String? lockedFeatureName;
 
+  /// Onboarding state — required when [trigger] is
+  /// [PaywallTrigger.first_recipe] so per-goal headlines can resolve.
+  /// Null for all other triggers.
+  final OnboardingState? onboarding;
+
+  /// Optional recipe thumbnail rendered above the hero heading. Only
+  /// used by the first-recipe trigger; ignored otherwise.
+  final String? recipeThumbnailUrl;
+
   const PaywallScreen({
     super.key,
     this.triggerContext,
     this.trigger = PaywallTrigger.lockedFeature,
     this.lockedFeatureName,
+    this.onboarding,
+    this.recipeThumbnailUrl,
   });
 
   @override
@@ -89,6 +106,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
     switch (widget.trigger) {
       case PaywallTrigger.capReached:
         return 'weekly_limit';
+      case PaywallTrigger.first_recipe:
+        return 'first_recipe';
       case PaywallTrigger.onboarding:
         return null;
       case PaywallTrigger.lockedFeature:
@@ -100,9 +119,33 @@ class _PaywallScreenState extends State<PaywallScreen> {
     }
   }
 
+  /// Headline for [PaywallTrigger.first_recipe] — varies by the user's
+  /// onboarding goal. Falls back to a neutral trial CTA when the goal
+  /// is unset. Returned as a single-entry list so it composes with
+  /// [ElioHeroHeading] (the underline + amber-last-line treatment still
+  /// renders cleanly on one line).
+  List<String> get _firstRecipeHeadline {
+    switch (widget.onboarding?.userGoal) {
+      case 'pantryFirst':
+        return ['Keep cooking what you have.'];
+      case 'wasteReduction':
+        return ['Waste less, every week.'];
+      case 'decisionFatigue':
+        return ['No more 6pm panic.'];
+      case 'household':
+        return ['One plan for the whole house.'];
+      case 'takeawayEscape':
+        return ['Skip the takeaway.'];
+      default:
+        return ['Start your 7-day free trial.'];
+    }
+  }
+
   /// Context-specific hero lines. Returns up to 3 lines for ElioHeroHeading.
   List<String> get _heroLines {
     switch (_resolvedContext) {
+      case 'first_recipe':
+        return _firstRecipeHeadline;
       case 'weekly_limit':
         return ["you've used", 'your free', 'recipes'];
       case 'meal_planner':
@@ -118,6 +161,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   String get _contextEyebrow {
     switch (_resolvedContext) {
+      case 'first_recipe':
+        return 'unlock more like this';
       case 'weekly_limit':
         return 'unlock unlimited recipes';
       case 'meal_planner':
@@ -222,6 +267,25 @@ class _PaywallScreenState extends State<PaywallScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ── Recipe thumbnail (first_recipe trigger only) ──
+              if (widget.recipeThumbnailUrl != null &&
+                  widget.recipeThumbnailUrl!.isNotEmpty) ...[
+                Center(
+                  child: ClipRRect(
+                    borderRadius: ElioRadii.card,
+                    child: Image.network(
+                      widget.recipeThumbnailUrl!,
+                      key: const Key('paywallRecipeThumbnail'),
+                      height: 80,
+                      width: 80,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+
               // ── Eyebrow ──────────────────────────────────────
               ElioEyebrow(_contextEyebrow),
               const SizedBox(height: 12),
