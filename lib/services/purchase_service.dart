@@ -219,6 +219,21 @@ class PurchaseService {
     }
   }
 
+  // ── Alias anonymous RC ID to signed-in UID ───────────────────
+  // Called by MigrationService on screen-15 sign-in. Semantically
+  // identical to [identify] — kept as a distinct API so onboarding
+  // call sites read clearly ("alias to uid" matches the plan/spec).
+  // Safe to call in dry mode (no-op).
+  Future<void> aliasToUid(String uid) async {
+    await _ensureInitialised();
+    if (!_initialised) return;
+    try {
+      await Purchases.logIn(uid);
+    } catch (e) {
+      ErrorService.log('purchase_alias_to_uid', e);
+    }
+  }
+
   // ── Log out (call on sign-out) ────────────────────────────
   Future<void> logOut() async {
     if (!_initialised) return;
