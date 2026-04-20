@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
+import '../models/elio_models.dart';
+import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
 import '../utils/region_utils.dart';
 import 'error_service.dart';
@@ -69,6 +71,114 @@ class GeminiService {
   static Stream<RecipeGenerationStatus> generateRecipeStream(RecipeGenerationRequest request) async* {
     yield* _streamFromPrompt(_buildPrompt(request), maxOutputTokens: 1024);
   }
+
+  // ── Onboarding ephemeral entry point (Task 5.0) ─────────────────────────────
+  //
+  // Screen 13 of the onboarding rebuild needs to stream a recipe *before*
+  // the user has signed in, so no Firestore reads are possible. This entry
+  // point accepts an in-memory [pantry] + [prefs] ([OnboardingState]) and
+  // funnels them through the existing `_buildPrompt` / `_streamFromPrompt`
+  // plumbing.
+  //
+  // Critical: the dietary block is populated from `prefs.effectiveDietary`
+  // (the Option-B household-union getter), NOT `prefs.dietary`.
+  //
+  // [heroIngredientName] is the client-side hero cascade result
+  // (today > thisWeek > fresh > meat > veg — computed on screen 13) and
+  // lands in the REQUIRED list so Gemini is forced to use it.
+  //
+  static Stream<RecipeGenerationStatus> streamGenerateContentEphemeral({
+    required List<InventoryItem> pantry,
+    required OnboardingState prefs,
+    String? heroIngredientName,
+  }) async* {
+    final request = _buildEphemeralRequest(
+      pantry: pantry,
+      prefs: prefs,
+      heroIngredientName: heroIngredientName,
+    );
+    yield* _streamFromPrompt(_buildPrompt(request), maxOutputTokens: 1024);
+  }
+
+  /// Build the [RecipeGenerationRequest] for an ephemeral onboarding call.
+  ///
+  /// Pantry split by tier:
+  ///   - `alwaysHave`       → request.alwaysHave
+  ///   - `almostAlwaysHave` → request.almostAlwaysHave
+  ///   - `perishable`       → inventory descriptions (+ REQUIRED hero)
+  ///
+  /// Dietary pulled from `prefs.effectiveDietary` so Option-B household
+  /// union is honoured when the toggle is on.
+  static RecipeGenerationRequest _buildEphemeralRequest({
+    required List<InventoryItem> pantry,
+    required OnboardingState prefs,
+    String? heroIngredientName,
+  }) {
+    final alwaysHave = <String>[];
+    final almostAlwaysHave = <String>[];
+    final perishableDescs = <String>[];
+    final runningLow = <String>[];
+
+    for (final item in pantry) {
+      switch (item.tier) {
+        case 'alwaysHave':
+          alwaysHave.add(item.name);
+        case 'almostAlwaysHave':
+          almostAlwaysHave.add(item.name);
+        case 'perishable':
+          perishableDescs.add(item.geminiDescription);
+      }
+      if (item.isRunningLow) runningLow.add(item.name);
+    }
+
+    final perishables = <String>[
+      if (heroIngredientName != null && heroIngredientName.isNotEmpty)
+        heroIngredientName,
+    ];
+
+    // Map maxCookTime int → the informal time preference strings
+    // the prompt builder already understands.
+    String? timePref;
+    final t = prefs.maxCookTime;
+    if (t != null) {
+      if (t <= 15) {
+        timePref = 'Quick (under 20 min)';
+      } else if (t <= 30) {
+        timePref = 'Around 30 minutes';
+      } else if (t <= 45) {
+        timePref = 'Around 45 minutes';
+      } else {
+        timePref = 'No rush';
+      }
+    }
+
+    return RecipeGenerationRequest(
+      perishables: perishables,
+      alwaysHave: alwaysHave,
+      almostAlwaysHave: almostAlwaysHave,
+      dietaryRequirements: prefs.effectiveDietary,
+      timePreference: timePref,
+      servings: prefs.householdCount,
+      appliances: prefs.appliances,
+      excludedIngredients: prefs.dislikes,
+      runningLowItems: runningLow,
+      perishableInventoryDescriptions: perishableDescs,
+    );
+  }
+
+  /// Visible-for-testing hook so Task 5.0's unit tests can inspect the
+  /// compiled prompt without hitting the network.
+  @visibleForTesting
+  static String buildEphemeralPromptForTest({
+    required List<InventoryItem> pantry,
+    required OnboardingState prefs,
+    String? heroIngredientName,
+  }) =>
+      _buildPrompt(_buildEphemeralRequest(
+        pantry: pantry,
+        prefs: prefs,
+        heroIngredientName: heroIngredientName,
+      ));
 
   /// Shared streaming logic — sends prompt to Gemini SSE endpoint,
   /// parses chunks, and yields status updates.
