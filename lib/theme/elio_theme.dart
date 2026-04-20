@@ -34,6 +34,13 @@ class ElioColors {
   static const Color textMuted = Color(0xFFABABAB);
   static const Color error = Color(0xFFD94A4A);
   static const Color success = Color(0xFF3D9970);
+
+  // ─── Sprint 16 onboarding perishable-tier tokens (placeholder hex) ──
+  // These power the 3-tier tile state on screen 12. Hex values are
+  // provisional — confirm with Kate before Phase 4 ships.
+  static const Color freshGreen = Color(0xFF3D9970);
+  static const Color perishThisWeek = amber;
+  static const Color perishToday = Color(0xFFE06C5E);
 }
 
 // ─── Text styles using GoogleFonts.outfit() ──────────────────────────────────
