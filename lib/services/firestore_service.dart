@@ -41,15 +41,15 @@ class FirestoreService {
     final userRef = _db.collection('users').doc(_uid);
     final now = FieldValue.serverTimestamp();
 
-    // 1. Create the user document
-    batch.set(userRef, {
+    // 1. Create the user document. New Sprint 16 fields are written via
+    //    state.toFirestoreMap(); subscription/metadata keys are layered on top.
+    final userDocData = <String, dynamic>{
+      ...state.toFirestoreMap(),
       'uid': _uid,
       'email': _auth.currentUser?.email ?? '',
       'displayName': displayName,
       'createdAt': now,
       'onboardingComplete': true,
-      'stylePreferences': state.stylePreferences,
-      'appliances': state.appliances,
       'subscription': {
         'tier': 'free',
         'status': 'active',
@@ -60,19 +60,23 @@ class FirestoreService {
         'weeklyGenerations': 0,
         'weekStartedAt': now,
       },
-      'measurementUnits': state.measurementUnits,
-      'region': state.region,
       'activeProfileIds': ['owner'],
-    });
+    };
+    batch.set(userRef, userDocData);
 
-    // 2. Create the owner's household profile
+    // 2. Create the owner's household profile. Allergies now live at the
+    //    user-doc level (written above via toFirestoreMap) — no per-profile
+    //    customAllergens anymore. Dietary requirements mirror state.dietary
+    //    on the owner profile for backwards compatibility with profile
+    //    screens that still read from /profiles/{ownerId}.
     final ownerProfileRef = userRef.collection('profiles').doc('owner');
     final ownerProfileData = HouseholdProfile(
       name: displayName,
-      dietaryRequirements: state.dietaryRequirements,
+      dietaryRequirements: const <DietaryRequirement>[],
       isOwner: true,
     ).toFirestore();
-    ownerProfileData['customAllergens'] = state.customAllergens;
+    // Overwrite the enum-encoded list with the new string-based dietary list.
+    ownerProfileData['dietaryRequirements'] = state.dietary;
     batch.set(ownerProfileRef, ownerProfileData);
 
     // 3. Write inventory items — only if inventory is empty (guards against
@@ -95,11 +99,10 @@ class FirestoreService {
       }
     }
 
-    // 4. Write additional household member profiles
-    for (final member in state.additionalMembers) {
-      final memberRef = userRef.collection('profiles').doc();
-      batch.set(memberRef, member.toFirestore());
-    }
+    // NOTE: additional household member profile writes removed in Sprint 16
+    // rebuild — the new 15-screen flow does not capture per-member profiles
+    // during onboarding. Task 6.4 (full MigrationService) will re-introduce
+    // any required household writes.
 
     try {
       await batch.commit();

@@ -4,9 +4,16 @@ import '../models/onboarding_state.dart';
 
 // ─────────────────────────────────────────────
 // GuestPantryService
-// Persists guest onboarding data to SharedPreferences so the
-// pantry, dietary requirements, and style preferences survive
-// app restarts in guest mode.
+//
+// Persists guest onboarding data to SharedPreferences so the pantry
+// survives app restarts before the user signs in.
+//
+// Sprint 16 rebuild: the legacy field set (stylePreferences,
+// customAllergens, additionalMembers, dietaryRequirements as enums)
+// was removed in Task 0.1. Task 0.4 will flesh this service out with
+// `saveStaples`, `savePerishables`, `loadAll`, `clear`. Until then this
+// file intentionally keeps a minimal surface that compiles against the
+// new `OnboardingState`.
 // ─────────────────────────────────────────────
 
 class GuestPantryService {
@@ -23,12 +30,8 @@ class GuestPantryService {
           .where((i) => i.tier == 'almostAlwaysHave')
           .map((i) => i.name)
           .toList(),
-      'stylePreferences': state.stylePreferences,
-      'dietaryRequirements':
-          state.dietaryRequirements.map((d) => d.name).toList(),
-      'customAllergens': state.customAllergens,
-      'householdProfiles':
-          state.additionalMembers.map((m) => m.toFirestore()).toList(),
+      'dietary': state.dietary,
+      'allergies': state.allergies,
     };
     await prefs.setString(_key, jsonEncode(data));
   }

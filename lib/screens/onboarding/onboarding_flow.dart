@@ -1,37 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../models/onboarding_state.dart';
-import '../../services/firestore_service.dart';
-import '../../services/guest_pantry_service.dart';
-import '../../services/analytics_service.dart';
-import '../../utils/region_utils.dart';
-import 'screen8_complete.dart';
-import 'screen1_dietary.dart';
-import 'screen2_preset.dart';
-import 'screen3_pantry.dart';
-import 'screen4_household.dart';
-import 'screen5_style.dart';
-import 'screen6_appliances.dart';
-import 'screen7_units_region.dart';
+import '../../theme/elio_theme.dart';
+import '../shell/app_shell.dart';
 
 // ─────────────────────────────────────────────
-// OnboardingFlow
-// Coordinator widget that manages the seven-screen onboarding sequence.
-// Uses a PageView for smooth horizontal transitions.
-// Accumulates OnboardingState across screens.
-// Writes to Firestore on completion (skipped in guest mode).
+// OnboardingFlow — Sprint 16 placeholder
 //
-// Screen order:
-//   1. Dietary requirements (mandatory)
-//   2. Kitchen preset (mandatory)
-//   3. Pantry review (mandatory)
-//   4. Household members (optional)
-//   5. Style preferences (optional)
-//   6. Kitchen appliances (optional)
-//   7. Units & Region (optional)
+// The legacy 8-screen flow has been deleted as part of the Sprint 16
+// onboarding rebuild (Phase 0A). The new 15-screen coordinator will be
+// implemented in Task 7.1. Until then this stub preserves the public
+// constructor so existing callers (auth screens, screen0_welcome)
+// continue to compile; it simply forwards to the AppShell.
 // ─────────────────────────────────────────────
 
-class OnboardingFlow extends StatefulWidget {
+class OnboardingFlow extends StatelessWidget {
   final String displayName;
   final VoidCallback onComplete;
   final bool isGuest;
@@ -44,183 +25,22 @@ class OnboardingFlow extends StatefulWidget {
   });
 
   @override
-  State<OnboardingFlow> createState() => _OnboardingFlowState();
-}
-
-class _OnboardingFlowState extends State<OnboardingFlow> {
-  final PageController _pageController = PageController();
-  final FirestoreService _firestore = FirestoreService();
-  final AnalyticsService _analytics = AnalyticsService.instance;
-  OnboardingState _state = OnboardingState();
-  bool _isSaving = false;
-
-  static const List<String> _stepNames = [
-    'dietary', 'kitchen_preset', 'pantry_review', 'household', 'style', 'appliances', 'units_region',
-  ];
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  void _goToPage(int page) {
-    // Dismiss keyboard before transitioning to next page
-    FocusScope.of(context).unfocus();
-    _pageController.animateToPage(
-      page,
-      duration: const Duration(milliseconds: 350),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  void _onDietaryNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[0]});
-    _goToPage(1);
-  }
-
-  void _onPresetNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[1]});
-    _goToPage(2);
-  }
-
-  void _onPantryNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[2]});
-    _goToPage(3);
-  }
-
-  void _onHouseholdNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[3]});
-    _goToPage(4);
-  }
-
-  void _onStyleComplete(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[4]});
-    _goToPage(5);
-  }
-
-  void _onAppliancesNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[5]});
-    _goToPage(6);
-  }
-
-  Future<void> _onUnitsRegionComplete(OnboardingState updated) async {
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[6]});
-    setState(() { _state = updated; _isSaving = true; });
-
-    // Apply region and units overrides to RegionUtils
-    RegionUtils.setRegion(updated.region == 'UK' ? AppRegion.uk : AppRegion.us);
-    RegionUtils.setMeasurementUnits(updated.measurementUnits);
-
-    // Guest mode: persist pantry data locally then route to completion screen
-    if (widget.isGuest) {
-      await GuestPantryService.save(_state);
-      _analytics.logEvent('onboarding_completed', {'auth_method': 'guest'});
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const OnboardingCompleteScreen(isGuest: true),
-          ),
-          (route) => false,
-        );
-      }
-      return;
-    }
-
-    // Signed-in mode: save to Firestore then route to completion screen
-    try {
-      await _firestore.completeOnboarding(_state, widget.displayName);
-      _analytics.logEvent('onboarding_completed', {'auth_method': 'google'});
-      _analytics.setDietaryProfile(_state.dietaryRequirements.map((d) => d.label).toList());
-      _analytics.setHouseholdSize(_state.additionalMembers.length + 1);
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const OnboardingCompleteScreen(),
-          ),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Something went wrong: ${e.toString()}')),
-        );
-      }
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (_isSaving) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFFFFFFF),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(color: Color(0xFFF08C14)),
-              const SizedBox(height: 20),
-              Text(
-                widget.isGuest ? 'Getting Elio ready...' : 'Setting up your kitchen...',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF6B6B6B),
-                ),
-              ),
-            ],
-          ),
-        ),
+    // During the rebuild, immediately replace with AppShell. Callers
+    // will be rewired to route directly to AppShell / the new 15-screen
+    // flow as Tasks 0.3 and 7.1 land.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!context.mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
       );
-    }
-
-    return PageView(
-      controller: _pageController,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        DietaryScreen(
-          state: _state,
-          onNext: _onDietaryNext,
-        ),
-        KitchenPresetScreen(
-          state: _state,
-          onNext: _onPresetNext,
-          onBack: () => _goToPage(0),
-        ),
-        PantryReviewScreen(
-          state: _state,
-          onNext: _onPantryNext,
-          onBack: () => _goToPage(1),
-        ),
-        HouseholdScreen(
-          state: _state,
-          onComplete: _onHouseholdNext,
-          onBack: () => _goToPage(2),
-        ),
-        StylePreferencesScreen(
-          state: _state,
-          onComplete: _onStyleComplete,
-          onBack: () => _goToPage(3),
-        ),
-        KitchenAppliancesScreen(
-          state: _state,
-          onComplete: _onAppliancesNext,
-          onBack: () => _goToPage(4),
-        ),
-        UnitsRegionScreen(
-          state: _state,
-          onComplete: _onUnitsRegionComplete,
-          onBack: () => _goToPage(5),
-        ),
-      ],
+    });
+    return const Scaffold(
+      backgroundColor: ElioColors.white,
+      body: Center(
+        child: CircularProgressIndicator(color: ElioColors.amber),
+      ),
     );
   }
 }
