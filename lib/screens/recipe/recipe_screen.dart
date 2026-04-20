@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_spacing.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../models/recipe_models.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
@@ -16,6 +19,12 @@ import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
 import '../../services/shopping_service.dart';
 import '../../utils/quantity_utils.dart';
+import '../../widgets/elio/elio_stat_badge.dart';
+import '../../widgets/elio/elio_servings_control.dart';
+import '../../widgets/elio/elio_ingredient_row.dart';
+import '../../widgets/elio/elio_method_step.dart';
+import '../../widgets/elio/elio_feedback_bar.dart';
+import '../../widgets/elio/elio_big_button.dart';
 import '../paywall/paywall_screen.dart';
 import '../profile/profile_screen.dart';
 
@@ -82,11 +91,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool _isGeneratingSideDish = false;
   late int _regenCount;
   final Set<String> _excludedIngredients = {};
+  // Visual-only "ticked off" state for ingredient rows (Sprint 16).
+  final Set<int> _checkedIngredientIndices = {};
   final FirestoreService _firestore = FirestoreService();
   final AnalyticsService _analytics = AnalyticsService.instance;
 
   // ── Rating state ──────────────────────────────────────────────────────────────────────────────
-  bool? _userRating; // true = liked, false = disliked, null = not rated
   bool _isRating = false;
 
   // ── Voice control state ────────────────────────────────────────────────────────────────────────
@@ -973,7 +983,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Future<void> _rateRecipe(bool liked) async {
     if (_isRating || widget.isGuest) return;
     setState(() {
-      _userRating = liked;
       _isRating = true;
     });
     _analytics.logEvent('recipe_rated', {
@@ -1160,56 +1169,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildRatingRow() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: ElioColors.offWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              _userRating == null
-                  ? 'How was this recipe?'
-                  : _userRating == true
-                      ? 'Glad you liked it! Elio will remember.'
-                      : 'Noted. Elio will improve next time.',
-              style: ElioText.bodyMedium.copyWith(
-                color: _userRating == null ? ElioColors.textSecondary : ElioColors.navy,
-                fontWeight: _userRating == null ? FontWeight.w400 : FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          if (!widget.isGuest) ...[
-            _RatingButton(
-              icon: Icons.thumb_up_outlined,
-              iconFilled: Icons.thumb_up_rounded,
-              isSelected: _userRating == true,
-              color: const Color(0xFF2E7D32),
-              onTap: () => _rateRecipe(true),
-            ),
-            const SizedBox(width: 8),
-            _RatingButton(
-              icon: Icons.thumb_down_outlined,
-              iconFilled: Icons.thumb_down_rounded,
-              isSelected: _userRating == false,
-              color: const Color(0xFFC62828),
-              onTap: () => _rateRecipe(false),
-            ),
-          ] else
-            Text(
-              'Sign in to rate',
-              style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
-            ),
-        ],
       ),
     );
   }
@@ -1527,424 +1486,329 @@ class _RecipeScreenState extends State<RecipeScreen> {
     return _buildNormalMode();
   }
 
-  // ─── Normal mode ─────────────────────────────────────────────────────────────
+  // ─── Normal mode — Sprint 16 typographic layout ─────────────────────────────
   Widget _buildNormalMode() {
+    final r = _currentRecipe;
+    final isStreaming = r.title.isEmpty;
+    final costLabel = _costLabel;
+    final kcalLabel = r.nutrition != null
+        ? '${(r.nutrition!.calories * _scaleFactor).round()} kcal'
+        : null;
+
     return Scaffold(
       backgroundColor: ElioColors.white,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMetaRow(),
-                  const SizedBox(height: 20),
-                  _buildServingScaler(),
-                  const SizedBox(height: 28),
-                  _buildIngredientsSection(),
-                  const SizedBox(height: 28),
-                  _buildMethodSection(),
-                  if (_currentRecipe.substitutions.isNotEmpty) ...[
-                    const SizedBox(height: 28),
-                    _buildSubstitutionsSection(),
-                  ],
-                  const SizedBox(height: 28),
-                  _buildRatingRow(),
-                  if (_currentRecipe.bulkPrepInfo != null) ...[
-                    const SizedBox(height: 20),
-                    _buildBulkPrepSection(),
-                  ],
-                  const SizedBox(height: 16),
-                  _buildActionButtons(),
-                ],
+      appBar: _buildTopBar(),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(
+          horizontal: ElioSpacing.screenEdge,
+          vertical: ElioSpacing.lg,
+        ),
+        children: [
+          // ── Title / description (streaming-aware) ─────────────────────
+          if (isStreaming) ...[
+            _shimmerBlock(height: 48, width: double.infinity),
+            const SizedBox(height: ElioSpacing.md),
+            _shimmerBlock(height: 16, width: double.infinity),
+            const SizedBox(height: 8),
+            _shimmerBlock(height: 16, width: 220),
+          ] else ...[
+            Text(r.title, style: ElioTextStyles.heroDisplayAccent),
+            if (r.description.isNotEmpty) ...[
+              const SizedBox(height: ElioSpacing.md),
+              Text(r.description, style: ElioTextStyles.body),
+            ],
+          ],
+          const SizedBox(height: ElioSpacing.lg),
+
+          // ── Stat pills ────────────────────────────────────────────────
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElioStatBadge(
+                icon: Icons.schedule,
+                value: '${r.totalTimeMinutes}m',
+              ),
+              ElioStatBadge(
+                icon: Icons.restaurant,
+                value: '${r.prepTimeMinutes}m prep',
+              ),
+              if (costLabel != null)
+                GestureDetector(
+                  onTap: _showCostInfoSheet,
+                  child: ElioStatBadge(
+                    icon: Icons.attach_money,
+                    value: costLabel,
+                  ),
+                ),
+              if (kcalLabel != null)
+                GestureDetector(
+                  onTap: _showNutritionSheet,
+                  child: ElioStatBadge(
+                    icon: Icons.local_fire_department,
+                    value: kcalLabel,
+                  ),
+                ),
+              if (r.dietaryTags.isNotEmpty)
+                ElioStatBadge(
+                  icon: Icons.local_dining_outlined,
+                  value: r.dietaryTags.first,
+                ),
+            ],
+          ),
+          const SizedBox(height: ElioSpacing.lg),
+
+          // ── Servings ─────────────────────────────────────────────────
+          Row(
+            children: [
+              const Icon(Icons.people_outline, color: ElioColors.navy),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('Servings', style: ElioTextStyles.heading5),
+              ),
+              ElioServingsControl(
+                value: _servings,
+                onChanged: (v) => setState(() => _servings = v),
+              ),
+            ],
+          ),
+          const SizedBox(height: ElioSpacing.xl),
+
+          // ── Ingredients ──────────────────────────────────────────────
+          Text('Ingredients', style: ElioTextStyles.heading2),
+          const SizedBox(height: ElioSpacing.md),
+          for (int i = 0; i < r.ingredients.length; i++)
+            _buildIngredientRow(i, r.ingredients[i]),
+
+          const SizedBox(height: ElioSpacing.xl),
+
+          // ── Method ───────────────────────────────────────────────────
+          Text('Method', style: ElioTextStyles.heading2),
+          const SizedBox(height: ElioSpacing.md),
+          for (int i = 0; i < r.steps.length; i++)
+            ElioMethodStep(
+              stepNumber: i + 1,
+              title: '',
+              body: r.steps[i],
+            ),
+
+          // ── Substitution tips (preserved) ───────────────────────────
+          if (r.substitutions.isNotEmpty) ...[
+            const SizedBox(height: ElioSpacing.md),
+            _buildSubstitutionsSection(),
+          ],
+
+          // ── Bulk prep (preserved) ───────────────────────────────────
+          if (r.bulkPrepInfo != null) ...[
+            const SizedBox(height: ElioSpacing.lg),
+            _buildBulkPrepSection(),
+          ],
+
+          const SizedBox(height: ElioSpacing.xl),
+
+          // ── Feedback bar (thumbs up/down → existing rating handler) ─
+          if (!widget.isGuest)
+            ElioFeedbackBar(onRated: _rateRecipe)
+          else
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: ElioColors.cream,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Text(
+                'Sign in to rate this recipe',
+                style: ElioTextStyles.bodySmall,
+              ),
+            ),
+
+          const SizedBox(height: ElioSpacing.md),
+
+          // ── Generate another (regenerate with exclusions) ───────────
+          if (widget.originalRequest != null) ...[
+            ElioBigButton(
+              label: 'Generate another',
+              trailingIcon: Icons.all_inclusive,
+              loading: _isRegenerating,
+              onTap: _generateAnother,
+            ),
+            const SizedBox(height: ElioSpacing.md),
+          ],
+
+          // ── Secondary actions: side dish + hands-free ───────────────
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isGeneratingSideDish ? null : _generateSideDish,
+              icon: _isGeneratingSideDish
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: ElioColors.amber),
+                    )
+                  : const Icon(Icons.restaurant_menu_rounded, size: 20),
+              label: Text(_isGeneratingSideDish
+                  ? 'Finding a side dish...'
+                  : 'Suggest a side dish'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ElioColors.amber,
+                side: const BorderSide(color: ElioColors.amber, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ),
+          const SizedBox(height: ElioSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _startHandsFree,
+              icon: const Icon(Icons.visibility_outlined, size: 20),
+              label: const Text('Start hands-free mode'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ElioColors.navy,
+                side: const BorderSide(color: ElioColors.navy, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: ElioSpacing.xl),
         ],
       ),
     );
   }
 
-  Widget _buildSliverAppBar() {
-    return SliverAppBar(
+  // Hands-free entry point (also used by mic icon in top bar).
+  void _startHandsFree() {
+    setState(() {
+      _handsFreeMode = true;
+      _currentStep = 0;
+    });
+    _analytics.logEvent('hands_free_started', {
+      'step_count': _currentRecipe.steps.length,
+    });
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  // Shimmer-style placeholder for streaming state.
+  Widget _shimmerBlock({required double height, required double width}) {
+    return Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        color: ElioColors.cream,
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
+  }
+
+  // Build a single ingredient row with tap → check, long-press → substitution.
+  Widget _buildIngredientRow(int index, RecipeIngredient ing) {
+    final isExcluded = _excludedIngredients.contains(ing.name);
+    final isChecked = _checkedIngredientIndices.contains(index);
+    final qty = ing.unit.isEmpty
+        ? _scaleQuantity(ing.quantity)
+        : '${_scaleQuantity(ing.quantity)} ${QuantityUtils.normalizeUnit(ing.unit)}';
+    final detailParts = <String>[
+      if (qty.isNotEmpty) qty,
+      if (ing.fromInventory) 'from your pantry',
+      if (isExcluded) 'excluded — tap Generate Another',
+    ];
+
+    // RawGestureDetector with LongPressGestureRecognizer so long-press
+    // isn't stolen by the ListView scroll gesture (CLAUDE.md gotcha).
+    return RawGestureDetector(
+      gestures: <Type, GestureRecognizerFactory>{
+        LongPressGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+          () => LongPressGestureRecognizer(
+            duration: const Duration(milliseconds: 300),
+          ),
+          (instance) {
+            instance.onLongPress = () => _showIngredientOptions(ing);
+          },
+        ),
+      },
+      behavior: HitTestBehavior.opaque,
+      child: ElioIngredientRow(
+        name: ing.name,
+        detail: detailParts.isEmpty ? null : detailParts.join(' • '),
+        checked: isChecked,
+        onChanged: (v) {
+          setState(() {
+            if (v) {
+              _checkedIngredientIndices.add(index);
+            } else {
+              _checkedIngredientIndices.remove(index);
+            }
+          });
+        },
+      ),
+    );
+  }
+
+  // ─── Minimal top bar — back + action icons ──────────────────────────────────
+  PreferredSizeWidget _buildTopBar() {
+    return AppBar(
       backgroundColor: ElioColors.white,
       surfaceTintColor: Colors.transparent,
-      pinned: true,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.navy, size: 20),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+            color: ElioColors.navy, size: 20),
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
-        // Save recipe
+        // Voice / hands-free entry
+        IconButton(
+          icon: const Icon(Icons.mic_none_outlined,
+              color: ElioColors.navy, size: 22),
+          tooltip: 'Hands-free cooking',
+          onPressed: _startHandsFree,
+        ),
+        // Save / bookmark
         IconButton(
           icon: Icon(
-            _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+            _isSaved
+                ? Icons.bookmark_rounded
+                : Icons.bookmark_border_rounded,
             color: _isSaved ? ElioColors.amber : ElioColors.navy,
             size: 22,
           ),
           tooltip: _isSaved ? 'Saved' : 'Save recipe',
           onPressed: _saveRecipe,
         ),
-        // Add ingredients to shopping list
+        // Add to shopping list
         IconButton(
           icon: _isAddingToShop
               ? const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.navy),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: ElioColors.navy),
                 )
-              : Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.add_shopping_cart_rounded, color: ElioColors.navy, size: 22),
-                    // Show count of ingredients NOT already in the pantry
-                    if (_currentRecipe.ingredients.any((i) => !i.fromInventory))
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          constraints: const BoxConstraints(minWidth: 16),
-                          height: 16,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: ElioColors.amber,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '${_currentRecipe.ingredients.where((i) => !i.fromInventory).length}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+              : const Icon(Icons.add_shopping_cart_rounded,
+                  color: ElioColors.navy, size: 22),
           tooltip: 'Add to shopping list',
           onPressed: _isAddingToShop ? null : _addToShoppingList,
         ),
         // Share
         IconButton(
-          icon: const Icon(Icons.ios_share_rounded, color: ElioColors.navy, size: 22),
+          icon: const Icon(Icons.ios_share_rounded,
+              color: ElioColors.navy, size: 22),
           tooltip: 'Share recipe',
           onPressed: _shareRecipe,
         ),
         const SizedBox(width: 4),
       ],
-      expandedHeight: 0,
-      title: Text(
-        _currentRecipe.title,
-        style: GoogleFonts.outfit(
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          color: ElioColors.navy,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
     );
   }
 
-  Widget _buildMetaRow() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(_currentRecipe.title, style: ElioText.displayMedium),
-        const SizedBox(height: 8),
-        if (_currentRecipe.description.isNotEmpty) ...[
-          Text(_currentRecipe.description, style: ElioText.bodyLarge),
-          const SizedBox(height: 12),
-        ],
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _MetaBadge(
-              icon: Icons.timer_outlined,
-              label: '${_currentRecipe.totalTimeMinutes} min',
-            ),
-            _MetaBadge(
-              icon: Icons.restaurant_outlined,
-              label: '${_currentRecipe.prepTimeMinutes} min prep',
-            ),
-            if (_currentRecipe.dietaryTags.isNotEmpty)
-              _MetaBadge(
-                icon: Icons.local_dining_outlined,
-                label: _currentRecipe.dietaryTags.first,
-                color: ElioColors.sky,
-              ),
-            if (_currentRecipe.nutrition != null)
-              GestureDetector(
-                onTap: _showNutritionSheet,
-                child: _MetaBadge(
-                  icon: Icons.monitor_heart_outlined,
-                  label: '${_currentRecipe.nutrition!.calories} kcal',
-                ),
-              ),
-            if (_costLabel != null)
-              GestureDetector(
-                onTap: _showCostInfoSheet,
-                child: _MetaBadge(
-                  icon: Icons.shopping_basket_outlined,
-                  label: _costLabel!,
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildServingScaler() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: ElioColors.offWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.people_outline, color: ElioColors.navy, size: 20),
-          const SizedBox(width: 10),
-          Text('Servings', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-          const Spacer(),
-          GestureDetector(
-            onTap: _servings > 1 ? () => setState(() => _servings--) : null,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: _servings > 1 ? ElioColors.navy : ElioColors.border,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.remove, color: Colors.white, size: 16),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              '$_servings',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: ElioColors.navy,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: _servings < 12 ? () => setState(() => _servings++) : null,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: _servings < 12 ? ElioColors.navy : ElioColors.border,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 16),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  bool get _canExcludeIngredients => widget.originalRequest != null;
-
-  Widget _buildIngredientsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('Ingredients', style: ElioText.headingMedium),
-            const Spacer(),
-            if (_currentRecipe.ingredients.any((i) => i.fromInventory))
-              Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: ElioColors.amber.withValues(alpha: 0.4),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: ElioColors.amber, width: 1.5),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'from your fridge',
-                    style: ElioText.label.copyWith(color: ElioColors.textSecondary),
-                  ),
-                ],
-              ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Tap any ingredient for options',
-          style: ElioText.label.copyWith(color: ElioColors.textMuted),
-        ),
-        const SizedBox(height: 10),
-        ..._currentRecipe.ingredients.map((ingredient) {
-          final isExcluded = _excludedIngredients.contains(ingredient.name);
-          final isFromInventory = ingredient.fromInventory && !isExcluded;
-          return GestureDetector(
-            onTap: () => _showIngredientOptions(ingredient),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: isExcluded
-                    ? const Color(0xFFF5F5F5)
-                    : isFromInventory
-                        ? ElioColors.amber.withValues(alpha: 0.07)
-                        : ElioColors.offWhite,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isExcluded
-                      ? ElioColors.border
-                      : isFromInventory
-                          ? ElioColors.amber.withValues(alpha: 0.4)
-                          : ElioColors.border,
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Colour dot
-                  Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.only(right: 10),
-                    decoration: BoxDecoration(
-                      color: isExcluded
-                          ? ElioColors.border
-                          : isFromInventory
-                              ? ElioColors.amber
-                              : ElioColors.border,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  // Name
-                  Expanded(
-                    child: Text(
-                      ingredient.name,
-                      style: ElioText.bodyMedium.copyWith(
-                        fontWeight: isFromInventory ? FontWeight.w600 : FontWeight.w400,
-                        color: isExcluded ? ElioColors.textMuted : ElioColors.textPrimary,
-                        decoration: isExcluded ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                  ),
-                  // Quantity (constrained so name always gets space)
-                  if (!isExcluded)
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.35),
-                      child: Text(
-                        ingredient.unit.isEmpty
-                            ? _scaleQuantity(ingredient.quantity)
-                            : '${_scaleQuantity(ingredient.quantity)} ${QuantityUtils.normalizeUnit(ingredient.unit)}',
-                        style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.right,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  // ✕ options button
-                  ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _showIngredientOptions(ingredient),
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: isExcluded
-                              ? ElioColors.navy.withValues(alpha: 0.08)
-                              : Colors.transparent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isExcluded ? Icons.add_rounded : Icons.close_rounded,
-                          size: 16,
-                          color: isExcluded ? ElioColors.navy : ElioColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          );
-        }),
-        if (_canExcludeIngredients && _excludedIngredients.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(
-            '${_excludedIngredients.length} ingredient${_excludedIngredients.length == 1 ? '' : 's'} excluded — tap "Generate Another" to apply.',
-            style: ElioText.label.copyWith(color: ElioColors.amber),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildMethodSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Method', style: ElioText.headingMedium),
-        const SizedBox(height: 12),
-        ..._currentRecipe.steps.asMap().entries.map((entry) {
-          final stepNum = entry.key + 1;
-          final step = entry.value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: const BoxDecoration(
-                    color: ElioColors.navy,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$stepNum',
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(step, style: ElioText.bodyLarge),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
+  // ─── Substitution tips (preserved from legacy layout) ──────────────────────
   Widget _buildSubstitutionsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1976,7 +1840,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.swap_horiz_rounded, color: ElioColors.sky, size: 18),
+                      const Icon(Icons.swap_horiz_rounded,
+                          color: ElioColors.sky, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -1998,7 +1863,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     const SizedBox(height: 8),
                     Text(
                       sub.tradeOff,
-                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                      style: ElioText.bodyMedium
+                          .copyWith(color: ElioColors.textSecondary),
                     ),
                   ],
                 ],
@@ -2006,88 +1872,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
             ),
           );
         }),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Column(
-      children: [
-        // Generate Another — only when there's original request context
-        if (widget.originalRequest != null) ...[
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _generateAnother,
-              icon: _isRegenerating
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.refresh_rounded, size: 20),
-              label: Text(_isRegenerating ? 'Generating...' : 'Generate Another'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ElioColors.amber,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                textStyle: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700),
-                elevation: 0,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        // Suggest a Side Dish
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _isGeneratingSideDish ? null : _generateSideDish,
-            icon: _isGeneratingSideDish
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.amber),
-                  )
-                : const Icon(Icons.restaurant_menu_rounded, size: 20),
-            label: Text(_isGeneratingSideDish ? 'Finding a side dish...' : 'Suggest a Side Dish'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ElioColors.amber,
-              side: const BorderSide(color: ElioColors.amber, width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Hands-Free Mode — always available
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _handsFreeMode = true;
-                _currentStep = 0;
-              });
-              _analytics.logEvent('hands_free_started', {
-                'step_count': _currentRecipe.steps.length,
-              });
-              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-            },
-            icon: const Icon(Icons.visibility_outlined, size: 20),
-            label: const Text('Start Hands-Free Mode'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ElioColors.navy,
-              side: const BorderSide(color: ElioColors.navy, width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -2359,81 +2143,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
 // ─── Supporting widgets ───────────────────────────────────────────────────────
 
-class _MetaBadge extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color? color;
-
-  const _MetaBadge({required this.icon, required this.label, this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = color ?? ElioColors.navy;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RatingButton extends StatelessWidget {
-  final IconData icon;
-  final IconData iconFilled;
-  final bool isSelected;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _RatingButton({
-    required this.icon,
-    required this.iconFilled,
-    required this.isSelected,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.12) : ElioColors.white,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isSelected ? color : ElioColors.border,
-            width: isSelected ? 1.5 : 1.0,
-          ),
-        ),
-        child: Icon(
-          isSelected ? iconFilled : icon,
-          size: 20,
-          color: isSelected ? color : ElioColors.textSecondary,
-        ),
-      ),
-    );
-  }
-}
 
 class _NutritionTile extends StatelessWidget {
   final String label;
