@@ -13,7 +13,7 @@ import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/shopping_service.dart';
 import '../paywall/paywall_screen.dart';
-import '../profile/profile_screen.dart';
+import '../shopping/shopping_list_screen.dart';
 import '../../utils/quantity_utils.dart';
 
 // ─────────────────────────────────────────────
@@ -388,7 +388,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
               textColor: ElioColors.amber,
               onPressed: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                  MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
                 );
               },
             ),
@@ -1408,7 +1408,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                     onTap: () {
                       Navigator.pop(context, false);
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                        MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
                       );
                     },
                     child: Padding(

@@ -58,15 +58,21 @@ lib/
                    meal_plan (timeouts, staggered progress), history (bookmarking), entitlement, analytics, notification, remote_config,
                    guest_pantry, purchase, error_service, voice_control
   screens/
+    shell/       — AppShell with 4-tab bottom nav (Home / Pantry / Recipes / Shopping)
     home/        — Generate button with streaming shimmer skeleton
+    pantry/      — Pantry tab: tiered inventory with Sprint 16 design system
+    recipes/     — RecipesTab: saved recipe book
+    shopping/    — Shopping list tab (aisle grouping, share)
+    account/     — AccountScreen (Subscription / Household / Dietary / Food Style / Appliances / Metrics tiles)
     recipe/      — Recipe view, ingredient substitution, voice cooking, "Generate Another"
-    profile/     — 4 tabs: Pantry, Recipe Book, Style, Shopping
-                   Also: dietary_screen, kitchen_screen, household_screen, settings_screen
+    profile/     — Sub-screens opened from AccountScreen: dietary_screen, kitchen_screen, household_screen, settings_screen, notification_prefs_screen, recipe_import_screen
     scanner/     — Barcode (mobile_scanner) + receipt scanning (Gemini Vision)
     onboarding/  — 8 screens (screen1_dietary → screen8_complete)
     meal_plan/   — Lazy-load detail on tap
     paywall/     — RevenueCat paywall (trial-first design)
-  widgets/       — pantry_builder_sheet (dialog-based tier picker for custom items)
+  widgets/
+    elio/        — Sprint 16 design system (shell, type, CTAs, cards, lists, controls — see Design System below)
+    elio_progress_bar.dart, pantry_builder_sheet.dart — pre-Sprint-16 helpers still in use
   utils/         — region_utils, pantry_utils (fuzzy dedup), quantity_utils (ingredient consolidation + unit normalisation), aisle_utils (grocery aisle classification)
 ```
 
@@ -130,6 +136,26 @@ users/{uid}/
 - **Fonts:** `GoogleFonts.outfit()` headings, `GoogleFonts.quicksand()` body
 - **Shape:** Rounded corners throughout, soft cards, no hard edges. Shimmer skeletons during streaming.
 - **API:** `.withValues(alpha: x)` not `.withOpacity(x)` | `activeTrackColor` not `activeColor`
+
+### Sprint 16 design system (new)
+
+Extended token files live alongside `elio_theme.dart`:
+
+- `lib/theme/elio_spacing.dart` — 8-point spacing scale (`xs`/`sm`/`md`/`lg`/`xl`/`xxl`/`xxxl` + `screenEdge`).
+- `lib/theme/elio_radii.dart` — rounded-corner scale + `card`/`button`/`chip` presets.
+- `lib/theme/elio_text_styles.dart` — editorial ramp (`heroDisplay`/`heroDisplayAccent`/`heading1-5`/`eyebrow`/`body`/`bodySmall`/`statValue`/`stepNumeral`).
+- `ElioColors.cream` — warmer cream used on cards over off-white backgrounds.
+
+Reusable widgets in `lib/widgets/elio/`:
+
+- Shell: `ElioAppScaffold`, `ElioTopAppBar`, `ElioBottomNav` (4 tabs: home / pantry / recipes / shopping).
+- Type: `ElioHeroHeading` (editorial 1-3 line display with amber last line + underline), `ElioEyebrow`.
+- CTAs: `ElioBigButton` (amber primary), `ElioChip` (selectable pill).
+- Cards: `ElioSecondaryCard` (cream + View action), `ElioBentoCard` (two-tone action card).
+- Lists: `ElioTierRow` (expandable tier), `ElioIngredientRow` (checkable), `ElioMethodStep` (big amber numeral).
+- Pills / controls: `ElioStatBadge`, `ElioServingsControl`, `ElioFeedbackBar`, `ElioCustomField`.
+
+Screens wired into the new shell (`AppShell`): `HomeScreen`, `PantryScreen`, `RecipesTabScreen`, `ShoppingListScreen`. The top-bar profile icon opens `AccountScreen` (Subscription / Household / Dietary / Food Style / Appliances / Metrics tiles). Recipe, Meal Plan, and Paywall keep their own `Scaffold` (pushed via Navigator). `RecipePreferencesScreen` is the new interstitial between Home's Generate CTA and `RecipeScreen`.
 
 ## Monetisation
 
@@ -203,6 +229,7 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 | Voice control | `docs/technical-design.md` Section 8 |
 | Launch architecture | `docs/technical-design.md` Section 10 |
 | Brand / art direction | `docs/brand-art-concept.md` |
+| Sprint 16 design system | `lib/widgets/elio/` + Design System section above |
 
 ## Last Session (13 April 2026) — Sprint 15.7 & 15.8
 

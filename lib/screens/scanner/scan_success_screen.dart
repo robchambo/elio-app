@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../services/scanner_service.dart';
 import '../../theme/elio_theme.dart';
 import '../home/home_screen.dart';
-import '../profile/profile_screen.dart';
+import '../pantry/pantry_screen.dart';
 
 // ─────────────────────────────────────────────
 // ScanSuccessScreen
@@ -212,7 +212,7 @@ class ScanSuccessScreen extends StatelessWidget {
               // Pop scanner stack and navigate to pantry tab
               Navigator.of(context).popUntil((route) => route.isFirst);
               Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 0)),
+                MaterialPageRoute(builder: (_) => const PantryScreen()),
               );
             },
             icon: const Icon(Icons.inventory_2_outlined, size: 20),

@@ -196,21 +196,19 @@ Work is grouped into three parallel tracks:
 
 ---
 
-## Sprint 16 — UI Overhaul
+## Sprint 16 — UI Overhaul — COMPLETE (April 2026)
 
-**Goal:** Brand/art pass across the entire app. Coordinate with Kate on `docs/brand-art-concept.md`. Visual consistency, typography, colour system, component library.
+All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens (Shopping, Recipe Book, Account, Recipe Preferences, Paywall, Meal Plan, Hands-Free, Onboarding) shipped with the new Elio design system. 17 widgets in `lib/widgets/elio/`, 3 new token files in `lib/theme/`, 25/25 tests passing.
 
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
-| 1 | Design system finalised — colours, typography, spacing, component specs | 2–3 | Not started |
-| 2 | Home screen — visual refresh | 2–3 | Not started |
-| 3 | Recipe screen — visual refresh | 1–2 | Not started |
-| 4 | Profile / pantry / recipe book — visual refresh | 2–3 | Not started |
-| 5 | Onboarding — visual refresh | 1–2 | Not started |
-| 6 | Paywall — visual refresh | 1 | Not started |
-| 7 | Cross-app consistency pass | 1–2 | Not started |
-
-**Estimate:** 10–16 hours
+| 1 | Design system finalised — colours, typography, spacing, component specs | 2–3 | Done |
+| 2 | Home screen — visual refresh | 2–3 | Done |
+| 3 | Recipe screen — visual refresh | 1–2 | Done |
+| 4 | Profile / pantry / recipe book — visual refresh | 2–3 | Done |
+| 5 | Onboarding — visual refresh | 1–2 | Done |
+| 6 | Paywall — visual refresh | 1 | Done |
+| 7 | Cross-app consistency pass + cleanup | 1–2 | Done |
 
 ---
 

@@ -31,7 +31,6 @@ class _DietaryScreenState extends State<DietaryScreen> {
   late Set<DietaryRequirement> _selected;
   late List<String> _customAllergens;
   final TextEditingController _customController = TextEditingController();
-  final FocusNode _customFocus = FocusNode();
 
   @override
   void initState() {
@@ -43,7 +42,6 @@ class _DietaryScreenState extends State<DietaryScreen> {
   @override
   void dispose() {
     _customController.dispose();
-    _customFocus.dispose();
     super.dispose();
   }
 
@@ -68,7 +66,6 @@ class _DietaryScreenState extends State<DietaryScreen> {
       _customAllergens.add(text);
       _customController.clear();
     });
-    _customFocus.requestFocus();
   }
 
   void _removeCustomAllergen(String allergen) {

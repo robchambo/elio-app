@@ -26,7 +26,7 @@ import '../../widgets/elio/elio_method_step.dart';
 import '../../widgets/elio/elio_feedback_bar.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../paywall/paywall_screen.dart';
-import '../profile/profile_screen.dart';
+import '../shopping/shopping_list_screen.dart';
 
 // ─────────────────────────────────────────────
 // RecipeScreen — Sprint 4 patch
@@ -1414,7 +1414,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 textColor: ElioColors.amber,
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                    MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
                   );
                 },
               ),
@@ -2856,7 +2856,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                     onTap: () {
                       Navigator.pop(context, false);
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                        MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
                       );
                     },
                     child: Padding(
