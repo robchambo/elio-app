@@ -8,6 +8,8 @@ import '../../theme/elio_theme.dart';
 import '../../theme/elio_spacing.dart';
 import '../../models/elio_models.dart';
 import '../../models/recipe_models.dart';
+import '../../models/recipe_preferences.dart';
+import 'recipe_preferences_screen.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
@@ -73,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _selectedPerishables.addAll(widget.scannedItems!);
         });
-        _generateRecipe();
+        _generateRecipe(const RecipePreferences.any());
       });
     }
   }
@@ -143,8 +145,20 @@ class _HomeScreenState extends State<HomeScreen> {
     return union.toList();
   }
 
+  // ── Launch preferences screen, then generate ─────────────────────
+  Future<void> _openPreferencesThenGenerate() async {
+    FocusScope.of(context).unfocus();
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const RecipePreferencesScreen()),
+    );
+    if (!mounted) return;
+    if (result is RecipePreferences) {
+      await _generateRecipe(result);
+    }
+  }
+
   // ── Generate recipe ────────────────────────────────────────────────
-  Future<void> _generateRecipe() async {
+  Future<void> _generateRecipe(RecipePreferences prefs) async {
     if (_isGenerating) return;
 
     // Dismiss keyboard before generation/navigation
@@ -185,9 +199,9 @@ class _HomeScreenState extends State<HomeScreen> {
       alwaysHave: _alwaysHave,
       almostAlwaysHave: _almostAlwaysHave,
       dietaryRequirements: _activeDietaryRequirements,
-      timePreference: null,
-      stylePreference: null,
-      moodPreference: null,
+      timePreference: prefs.time,
+      stylePreference: prefs.style,
+      moodPreference: prefs.mood,
       servings: 2,
       recentTitles: List.from(_recentTitles),
       runningLowItems: List.from(_runningLowItems),
@@ -348,7 +362,7 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Generate a recipe',
             trailingIcon: Icons.chevron_right,
             loading: _isGenerating,
-            onTap: canGenerate ? _generateRecipe : null,
+            onTap: canGenerate ? _openPreferencesThenGenerate : null,
           ),
           const SizedBox(height: ElioSpacing.md),
           if (proUnlocked)

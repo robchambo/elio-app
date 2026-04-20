@@ -9,9 +9,9 @@
 import 'package:flutter/material.dart';
 import '../../widgets/elio/elio_app_scaffold.dart';
 import '../../widgets/elio/elio_bottom_nav.dart';
+import '../account/account_screen.dart';
 import '../home/home_screen.dart';
 import '../pantry/pantry_screen.dart';
-import '../profile/profile_screen.dart';
 import '../recipes/recipes_tab_screen.dart';
 import '../shopping/shopping_list_screen.dart';
 
@@ -47,7 +47,7 @@ class _AppShellState extends State<AppShell> {
       activeTab: _tab,
       onTabChanged: (t) => setState(() => _tab = t),
       onProfileTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+        MaterialPageRoute(builder: (_) => const AccountScreen()),
       ),
     );
   }
