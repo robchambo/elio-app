@@ -26,6 +26,8 @@ class ElioColors {
   static const Color sky = Color(0xFF4A90D9);
   static const Color white = Color(0xFFFFFFFF);
   static const Color offWhite = Color(0xFFF7F5F2);
+  // Warmer cream used on cards that sit on offWhite backgrounds (Sprint 16).
+  static const Color cream = Color(0xFFFBF3E7);
   static const Color border = Color(0xFFE8E4DF);
   static const Color textPrimary = Color(0xFF1A2744);
   static const Color textSecondary = Color(0xFF6B6B6B);

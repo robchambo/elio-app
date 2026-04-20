@@ -6,7 +6,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'firebase_options.dart';
 import 'theme/elio_theme.dart';
 import 'screens/onboarding/screen0_welcome.dart';
-import 'screens/home/home_screen.dart';
+import 'screens/shell/app_shell.dart';
 import 'services/firestore_service.dart';
 import 'services/analytics_service.dart';
 import 'services/remote_config_service.dart';
@@ -150,7 +150,7 @@ class _OnboardingGateState extends State<_OnboardingGate> {
         }
 
         if (snapshot.data == true) {
-          return const HomeScreen();
+          return const AppShell();
         }
 
         // Onboarding not complete — go back to welcome

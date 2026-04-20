@@ -1,8 +1,15 @@
+// Sprint 16 Phase 2 — the HomeScreen is now rendered inside AppShell, so its
+// build() returns only a body widget (Padding/Column). The legacy mood chips,
+// perishables, bulk-prep, and leftover UI helpers are retained in this file
+// because the services they drive are still wired up — Phase 3+ screens will
+// reuse them. We suppress unused_element/unused_field transitionally.
+// ignore_for_file: unused_element, unused_field
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_spacing.dart';
 import '../../models/elio_models.dart';
 import '../../models/recipe_models.dart';
 import '../../services/firestore_service.dart';
@@ -20,6 +27,10 @@ import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_secondary_card.dart';
 
 // ─────────────────────────────────────────────
 // HomeScreen
@@ -719,54 +730,71 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ─── Sprint 16: Editorial home body ─────────────────────────────────────
+  // HomeScreen is rendered inside AppShell, which already provides the
+  // top app bar and bottom nav. This build() returns a body widget only.
+  //
+  // Skeleton-to-existing-state mappings:
+  //   _proUnlocked     → _entitlements.isPro
+  //   _canGenerate     → _entitlements.canGenerate (guest: assumes true;
+  //                      _generateRecipe() performs the guest cap check itself)
+  //   _handleGenerate  → _generateRecipe
+  //   _openMealPlanner → push MaterialPageRoute to MealPlanScreen
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ElioColors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── App bar ──────────────────────────────────────────
-            _buildAppBar(),
+    final firstName = _extractFirstName();
+    final canGenerate = widget.isGuest || _entitlements.canGenerate;
+    final proUnlocked = _entitlements.isPro;
 
-            // ── Scrollable content ───────────────────────────────
-            Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: ElioColors.amber))
-                  : SingleChildScrollView(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SizedBox(height: 16),
-                          // ── Expiry banner ─────────────────────────
-                          if (_expiringItemCount > 0 && _showExpiryBanner)
-                            _buildExpiryBanner(),
-                          // ── Active dietary filter strip ──────────
-                          if (!widget.isGuest && _allDietaryConstraints.isNotEmpty)
-                            _buildDietaryFilterStrip(),
-                          const SizedBox(height: 20),
-                          _buildPerishablesSection(),
-                          const SizedBox(height: 24),
-                          _buildMoodChipsSection(),
-                          const SizedBox(height: 24),
-                          _buildGenerateButton(),
-                          if (_isGenerating) ...[
-                            const SizedBox(height: 16),
-                            _buildRecipeSkeleton(),
-                          ],
-                          const SizedBox(height: 16),
-                          _buildMealPlannerBanner(),
-                          const SizedBox(height: 24),
-                          _buildRecentSection(),
-                        ],
-                      ),
-                    ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          ElioSpacing.screenEdge, ElioSpacing.lg,
+          ElioSpacing.screenEdge, ElioSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ElioHeroHeading(
+            lines: ['hey ${firstName.toLowerCase()}.', 'lets get', 'started'],
+            amberLastLine: true,
+            showUnderline: true,
+          ),
+          const SizedBox(height: ElioSpacing.md),
+          const ElioEyebrow('your kitchen is ready for elio'),
+          const Spacer(),
+          ElioBigButton(
+            label: 'Generate a recipe',
+            trailingIcon: Icons.chevron_right,
+            loading: _isGenerating,
+            onTap: canGenerate ? _generateRecipe : null,
+          ),
+          const SizedBox(height: ElioSpacing.md),
+          if (proUnlocked)
+            ElioSecondaryCard(
+              title: 'Plan your week',
+              subtitle: '21 meals generated in one tap',
+              actionLabel: 'View',
+              onAction: _openMealPlanner,
             ),
-          ],
-        ),
+          const SizedBox(height: ElioSpacing.md),
+        ],
       ),
     );
+  }
+
+  String _extractFirstName() {
+    try {
+      final displayName = FirebaseAuth.instance.currentUser?.displayName;
+      if (displayName == null || displayName.isEmpty) return 'there';
+      return displayName.split(' ').first;
+    } catch (_) {
+      return 'there';
+    }
+  }
+
+  void _openMealPlanner() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const MealPlanScreen()),
+    ).then((_) => _checkSavedMealPlan());
   }
 
   // ─── App bar ─────────────────────────────────────────────────────────────────
