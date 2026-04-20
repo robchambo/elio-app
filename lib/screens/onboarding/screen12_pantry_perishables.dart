@@ -21,10 +21,11 @@ import '../../widgets/elio/elio_sticky_category_header.dart';
 // sheet — see CLAUDE.md hard rule: bottom sheets do not layer reliably
 // in Flutter; showDialog is the required pattern).
 //
-// Derived data on Continue:
-//   today    → expiryDate = DateTime.now(), runningLow = true
-//   thisWeek → expiryDate = now + 7 days,   runningLow = false
-//   fresh    → expiryDate = null,           runningLow = false
+// Derived data on Continue (defaults the user can override later):
+//   today    → expiryDate = DateTime.now(),      runningLow = true
+//   thisWeek → expiryDate = now + 3 days,        runningLow = false
+//   fresh    → expiryDate = now + 7 days,        runningLow = false
+// Matches docs/onboarding/12-pantry-perishables.md §Data model.
 //
 // Perishables merge into controller.state.inventory alongside any
 // staples captured on screen 11. Selections are persisted to
@@ -189,12 +190,12 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
           runningLow = true;
           break;
         case 'thisWeek':
-          expiry = now.add(const Duration(days: 7));
+          expiry = now.add(const Duration(days: 3));
           runningLow = false;
           break;
         case 'fresh':
         default:
-          expiry = null;
+          expiry = now.add(const Duration(days: 7));
           runningLow = false;
           break;
       }

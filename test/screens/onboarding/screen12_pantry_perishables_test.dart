@@ -215,17 +215,26 @@ void main() {
     await t.pumpAndSettle();
 
     expect(continued, isTrue);
+    final now = DateTime.now();
     final onionItem =
         c.state.inventory.firstWhere((i) => i.name == 'Onion');
     expect(onionItem.tier, 'perishable');
     expect(onionItem.isRunningLow, isTrue);
     expect(onionItem.expiryDate, isNotNull);
+    // today → expiryDate ≈ now (within a few seconds of the test run).
+    expect(
+      onionItem.expiryDate!.difference(now).inSeconds.abs(),
+      lessThan(30),
+    );
 
     final tomatoItem =
         c.state.inventory.firstWhere((i) => i.name == 'Tomato');
     expect(tomatoItem.tier, 'perishable');
     expect(tomatoItem.isRunningLow, isFalse);
-    expect(tomatoItem.expiryDate, isNull);
+    expect(tomatoItem.expiryDate, isNotNull);
+    // fresh → expiryDate ≈ now + 7 days (spec default).
+    final tomatoDelta = tomatoItem.expiryDate!.difference(now);
+    expect(tomatoDelta.inHours, inInclusiveRange(7 * 24 - 1, 7 * 24 + 1));
 
     final snap = await GuestPantryService().loadAll();
     expect(snap.perishables['Onion'], 'today');
