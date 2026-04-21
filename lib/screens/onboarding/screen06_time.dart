@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../services/analytics_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
@@ -112,7 +113,18 @@ class Screen06Time extends StatelessWidget {
                   const SizedBox(height: ElioSpacing.md),
                   ElioBigButton(
                     label: 'Continue',
-                    onTap: selected == null ? null : onContinue,
+                    onTap: selected == null
+                        ? null
+                        : () {
+                            AnalyticsService.instance.logEvent(
+                              'onboarding_step_completed',
+                              const {
+                                'step_index': 6,
+                                'step_name': 'time',
+                              },
+                            );
+                            onContinue();
+                          },
                     trailingIcon: Icons.arrow_forward,
                   ),
                 ],

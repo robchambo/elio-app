@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../controllers/onboarding_controller.dart';
 import '../../models/elio_models.dart';
+import '../../services/analytics_service.dart';
 import '../../services/guest_pantry_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
@@ -220,6 +221,10 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
     await svc.savePerishables(Map<String, String>.from(_tiers));
 
     if (!mounted) return;
+    AnalyticsService.instance.logEvent(
+      'onboarding_step_completed',
+      const {'step_index': 12, 'step_name': 'pantry_perishables'},
+    );
     widget.onContinue();
   }
 

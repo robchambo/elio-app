@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../controllers/onboarding_controller.dart';
 import '../../data/pantry_categories.dart';
 import '../../models/elio_models.dart';
+import '../../services/analytics_service.dart';
 import '../../services/guest_pantry_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
@@ -231,6 +232,10 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
     await svc.saveStaples(Map<String, String>.from(_tiers));
 
     if (!mounted) return;
+    AnalyticsService.instance.logEvent(
+      'onboarding_step_completed',
+      const {'step_index': 11, 'step_name': 'pantry_staples'},
+    );
     widget.onContinue();
   }
 

@@ -6,6 +6,7 @@ import '../../controllers/onboarding_controller.dart';
 import '../../models/elio_models.dart';
 import '../../models/onboarding_state.dart';
 import '../../models/recipe_models.dart';
+import '../../services/analytics_service.dart';
 import '../../services/gemini_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
@@ -133,6 +134,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
   DateTime _streamStart = DateTime.now();
   Timer? _subheadTimer;
   int _subheadIndex = 0;
+  bool _demoStartLogged = false;
 
   static const _subheads = [
     "Working out what to cook with what you've got…",
@@ -179,6 +181,19 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
       DateTime.now(),
     );
 
+    if (!_demoStartLogged) {
+      _demoStartLogged = true;
+      AnalyticsService.instance.logEvent(
+        'onboarding_recipe_demo_started',
+        {'hero_ingredient': hero?.name ?? 'none'},
+      );
+    } else {
+      AnalyticsService.instance.logEvent(
+        'onboarding_recipe_regenerated',
+        {'count': widget.controller.state.regenerateCount},
+      );
+    }
+
     final stream = _streamFn(
       pantry: widget.controller.state.inventory,
       prefs: widget.controller.state,
@@ -216,6 +231,10 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
         '${r.title.toLowerCase().replaceAll(RegExp(r"[^a-z0-9]+"), "-")}-'
         '${_streamStart.millisecondsSinceEpoch}';
     widget.controller.setFirstRecipeId(id);
+    AnalyticsService.instance.logEvent(
+      'onboarding_step_completed',
+      const {'step_index': 13, 'step_name': 'first_recipe'},
+    );
     widget.onContinue();
   }
 
@@ -226,6 +245,10 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
   }
 
   void _onSkip() {
+    AnalyticsService.instance.logEvent(
+      'onboarding_step_completed',
+      const {'step_index': 13, 'step_name': 'first_recipe_skipped'},
+    );
     widget.onContinue();
   }
 

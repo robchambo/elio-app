@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../services/analytics_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
@@ -131,7 +132,15 @@ class Screen02Goal extends StatelessWidget {
                   const SizedBox(height: ElioSpacing.md),
                   ElioBigButton(
                     label: 'Continue',
-                    onTap: selectedGoal == null ? null : onContinue,
+                    onTap: selectedGoal == null
+                        ? null
+                        : () {
+                            AnalyticsService.instance.logEvent(
+                              'onboarding_step_completed',
+                              const {'step_index': 2, 'step_name': 'goal'},
+                            );
+                            onContinue();
+                          },
                     trailingIcon: Icons.arrow_forward,
                   ),
                   const SizedBox(height: ElioSpacing.sm),

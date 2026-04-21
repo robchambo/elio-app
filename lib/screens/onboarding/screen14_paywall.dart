@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../controllers/onboarding_controller.dart';
 import '../../screens/paywall/paywall_screen.dart';
+import '../../services/analytics_service.dart';
 import '../../services/purchase_service.dart';
 
 /// Minimal interface screen 14 depends on — a single method that
@@ -69,6 +70,12 @@ class _Screen14PaywallState extends State<Screen14Paywall> {
   late final TrialStarter _starter =
       widget.trialStarter ?? _RealTrialStarter(PurchaseService.instance);
 
+  @override
+  void initState() {
+    super.initState();
+    AnalyticsService.instance.logEvent('onboarding_paywall_viewed');
+  }
+
   Future<void> _startTrial() async {
     if (_purchasing) return;
     setState(() => _purchasing = true);
@@ -77,6 +84,10 @@ class _Screen14PaywallState extends State<Screen14Paywall> {
       if (!mounted) return;
       if (success) {
         widget.controller.setEntitlement('pro');
+        AnalyticsService.instance.logEvent(
+          'onboarding_step_completed',
+          const {'step_index': 14, 'step_name': 'paywall_trial'},
+        );
         widget.onContinue();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -94,6 +105,10 @@ class _Screen14PaywallState extends State<Screen14Paywall> {
 
   void _continueWithFree() {
     widget.controller.setEntitlement('free');
+    AnalyticsService.instance.logEvent(
+      'onboarding_step_completed',
+      const {'step_index': 14, 'step_name': 'paywall_free'},
+    );
     widget.onContinue();
   }
 

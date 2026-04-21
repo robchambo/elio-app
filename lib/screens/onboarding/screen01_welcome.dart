@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../services/analytics_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
@@ -83,7 +84,13 @@ class Screen01Welcome extends StatelessWidget {
               const SizedBox(height: ElioSpacing.lg),
               ElioBigButton(
                 label: 'Get started',
-                onTap: onContinue,
+                onTap: () {
+                  AnalyticsService.instance.logEvent(
+                    'onboarding_step_completed',
+                    const {'step_index': 1, 'step_name': 'welcome'},
+                  );
+                  onContinue();
+                },
                 trailingIcon: Icons.arrow_forward,
               ),
               const SizedBox(height: ElioSpacing.sm),

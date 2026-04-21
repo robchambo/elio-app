@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../services/analytics_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
@@ -177,7 +178,16 @@ class _Screen09RegionState extends State<Screen09Region> {
                   const SizedBox(height: ElioSpacing.md),
                   ElioBigButton(
                     label: 'Continue',
-                    onTap: widget.onContinue,
+                    onTap: () {
+                      AnalyticsService.instance.logEvent(
+                        'onboarding_step_completed',
+                        const {
+                          'step_index': 9,
+                          'step_name': 'region',
+                        },
+                      );
+                      widget.onContinue();
+                    },
                     trailingIcon: Icons.arrow_forward,
                   ),
                 ],

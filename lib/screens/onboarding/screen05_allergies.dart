@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../controllers/onboarding_controller.dart';
+import '../../services/analytics_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
@@ -105,7 +106,15 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
   void _skip() {
     widget.controller.setAllergies(<String>[]);
     widget.controller.setDislikes(<String>[]);
+    _logStep();
     widget.onContinue();
+  }
+
+  void _logStep() {
+    AnalyticsService.instance.logEvent(
+      'onboarding_step_completed',
+      const {'step_index': 5, 'step_name': 'allergies'},
+    );
   }
 
   @override
@@ -203,7 +212,10 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                   const SizedBox(height: ElioSpacing.md),
                   ElioBigButton(
                     label: 'Continue',
-                    onTap: widget.onContinue,
+                    onTap: () {
+                      _logStep();
+                      widget.onContinue();
+                    },
                     trailingIcon: Icons.arrow_forward,
                   ),
                   const SizedBox(height: ElioSpacing.sm),
