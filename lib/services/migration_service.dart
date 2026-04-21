@@ -11,15 +11,15 @@ import '../models/onboarding_state.dart';
 // ─────────────────────────────────────────────
 
 class MigrationService {
+  MigrationService();
+
   static Map<String, dynamic> buildUserDocPayload(OnboardingState s) =>
       s.toFirestoreMap();
 
-  // Full implementation (Firestore writes + RevenueCat alias + guest
-  // pantry clear) lands in Task 6.4.
-  static Future<void> migrateGuestToFirestore(
-    String uid,
-    OnboardingState s,
-  ) async {
+  /// Full implementation (Firestore writes + RevenueCat alias + guest
+  /// pantry clear) lands in Task 6.4. Kept as an instance method so
+  /// screen 15 can inject a fake today.
+  Future<void> migrateGuestToFirestore(String uid, OnboardingState s) async {
     throw UnimplementedError('Implemented in Task 6.4');
   }
 }
