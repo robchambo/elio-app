@@ -221,7 +221,7 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 | 6 | Paywall (14, goal-keyed headlines) + Account (15, sign-in deferred) + MigrationService full impl + PurchaseService.aliasToUid | ✅ Done |
 | 7 | Coordinator `onboarding_flow.dart` + analytics wiring + APK build | ✅ Done |
 
-**Next:** on-device smoke test (APK in `releases/`), tag `v16.1-onboarding-rebuild` after sign-off, merge → `sprint/16`.
+**Next: Sprint 16.2 — Copy polish pass** (stays on `sprint/16-onboarding-rebuild` branch, not a separate sprint). Review copy on each of screens 01 → 15 in chat: spec `.md` + screen `.dart` kept in lockstep, commit per screen. Flag conditional variants (screens 05/07/10/13/14). Then on-device smoke test, tag `v16.1-onboarding-rebuild`, merge → `sprint/16`.
 
 **Open items (non-blocking):**
 - Screen 11 default count: 20 vs spec "~16" prose.

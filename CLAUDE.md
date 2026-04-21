@@ -239,10 +239,15 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 
 **Shipped:** Phase 0 (state model rebuild + controller + guest-pantry extension + AuthGate inversion + 11 new `lib/widgets/elio/` widgets + perishable palette tokens). Screens 01 welcome → 12 perishables (all with widget tests). Option B **household union capture** on screen 04: when `householdHasDifferingDiet=true`, `householdCombinedDietary: List<String>` is captured and `state.effectiveDietary` getter returns it (fallback to `state.dietary`) — consumed by Gemini on screen 13.
 
-**Pending:**
-1. **On-device smoke test** the APK at `releases/elio-sprint-16.1-onboarding.apk`. Walk screens 01 → 15 (clear app data first). Verify: Firestore write on sign-in matches `toFirestoreMap`, RC alias fires, guest pantry clears, `onboardingComplete=true` pref lands so AuthGate routes to AppShell.
-2. **Tag** `v16.1-onboarding-rebuild` after sign-off (CLAUDE.md Rule 5).
-3. **Merge** `sprint/16-onboarding-rebuild` → `sprint/16`, then address Rob's minor Sprint 16 UI tweaks, then tag `v0.16.0-ui-overhaul`.
+**Pending (in order):**
+
+1. **Sprint 16.2 — Copy polish (first thing next session).** Go screen 01 → 15 in chat. For each screen, I paste spec copy + as-rendered strings + conditional variants; Rob reacts inline; I edit spec `.md` and screen `.dart` together to keep them in lockstep; one commit per screen that changed (`copy(sprint-16-onboarding): screen NN <area>`). Flag conditionals (screens 05/07/10/13/14) so no variant is missed. Timebox each screen — "many minor things" drifts fast. Some copy may be Kate's voice; flag those rather than guess. Staying on branch `sprint/16-onboarding-rebuild` — NOT creating a new sprint (copy is part of the onboarding rebuild; renumbering ripples through docs for no gain).
+
+2. **On-device smoke test** the rebuilt APK (rebuild after copy polish via `build.ps1 -sprint 16.2-copy-polish` or similar). Clear app data; walk 01 → 15. Verify Firestore write matches `toFirestoreMap`, RC alias fires, guest pantry clears, `onboardingComplete=true` lands, AuthGate routes to AppShell.
+
+3. **Tag** `v16.1-onboarding-rebuild` after on-device sign-off (Rule 5).
+
+4. **Merge** `sprint/16-onboarding-rebuild` → `sprint/16`. Then Rob's minor Sprint 16 UI tweaks. Then tag `v0.16.0-ui-overhaul`. Then Sprint 17 (launch prep).
 
 **Resolved this session:**
 - Screen 12 `expiryDate` mapping aligned to spec (`fresh→+7d`, `thisWeek→+3d`, `today→now`). Commit `40aaa53`.
