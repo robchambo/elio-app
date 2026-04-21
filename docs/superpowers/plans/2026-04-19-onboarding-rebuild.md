@@ -1,6 +1,6 @@
 # Onboarding Rebuild — 15-Screen Flow with Deferred Sign-In
 
-> **⏸ RESUME MARKER (20 Apr 2026):** Phases 0–4 complete and pushed on branch `sprint/16-onboarding-rebuild` (32 commits, 194 tests passing, `flutter analyze` clean). **Next up: Phase 5 — Task 5.0 Gemini ephemeral spike, then Task 5.1 screen 13 first-recipe demo.** Before resuming, Rob to decide on (1) screen-12 `expiryDate` mapping vs spec §Data model, (2) screen-11 default count (20 vs "~16"), (3) palette token hex ratification, (4) screen-10 hero art. Use `superpowers:executing-plans` + subagent-per-phase pattern already established in Phases 1–4.
+> **✅ COMPLETE (20 Apr 2026):** All 7 phases shipped on `sprint/16-onboarding-rebuild`. 42 commits, 239 tests passing, `flutter analyze` clean. APK built at `releases/elio-sprint-16.1-onboarding.apk` (71.7 MB). **Not tagged — awaiting Rob's on-device sign-off.** Next steps: on-device smoke test → tag `v16.1-onboarding-rebuild` → merge into `sprint/16`.
 
 
 **Goal:** Replace Elio's existing 8-screen, sign-in-first onboarding with a 15-screen, value-first flow that defers authentication to the final screen. The user sells-to-self on screen 01, personalises via screens 02–09, builds a real pantry on screens 11–12, sees a live Gemini-generated recipe on screen 13, meets the paywall on 14, and only then hits a soft account gate on 15. All pre-sign-in state lives in-memory (`OnboardingController`) and is migrated to Firestore post-auth by a new `MigrationService`.

@@ -231,33 +231,42 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 | Brand / art direction | `docs/brand-art-concept.md` |
 | Sprint 16 design system | `lib/widgets/elio/` + Design System section above |
 
-## Last Session (20 April 2026) — Sprint 16b Onboarding Rebuild (Phases 0–4 of 7)
+## Last Session (20 April 2026) — Sprint 16b Onboarding Rebuild (ALL 7 PHASES COMPLETE)
 
-**Branch:** `sprint/16-onboarding-rebuild` (off `sprint/16`, pushed to origin). 32 commits, 194 tests, `flutter analyze` clean. **Not merged.**
+**Branch:** `sprint/16-onboarding-rebuild` (off `sprint/16`, pushed to origin). **42 commits, 239 tests passing, `flutter analyze` clean.** APK built at `releases/elio-sprint-16.1-onboarding.apk` (71.7 MB). **Not merged. Not tagged** — awaiting on-device sign-off.
 
 **What it is:** 15-screen sell-to-self onboarding that defers sign-in to the final screen. Pre-auth state in `OnboardingController` (ChangeNotifier) + `GuestPantryService` (SharedPreferences). `AuthGate` now keys off `SharedPreferences.getBool('onboardingComplete')` instead of `FirebaseAuth.currentUser`. `MigrationService` handles guest→Firestore on sign-in. Email login/register reroute to `AppShell` not `OnboardingFlow`.
 
 **Shipped:** Phase 0 (state model rebuild + controller + guest-pantry extension + AuthGate inversion + 11 new `lib/widgets/elio/` widgets + perishable palette tokens). Screens 01 welcome → 12 perishables (all with widget tests). Option B **household union capture** on screen 04: when `householdHasDifferingDiet=true`, `householdCombinedDietary: List<String>` is captured and `state.effectiveDietary` getter returns it (fallback to `state.dietary`) — consumed by Gemini on screen 13.
 
-**Pending (pick up here):**
-1. **Phase 5** — Task 5.0 Gemini spike (confirm `GeminiService.streamGenerateContent` accepts ephemeral pantry/preferences; add `streamGenerateContentEphemeral` if not; prompt must read `prefs.effectiveDietary`). Then screen 13 first-recipe demo (hero cascade today>thisWeek>fresh>meat>veg, shimmer stream, max 3 regenerates, `Cook this tonight` sets `firstRecipeId`).
-2. **Phase 6** — Task 6.0 RC alias spike (`Purchases.logIn(uid)` in `PurchaseService`). Screen 14 paywall wrapper (`PaywallTrigger.first_recipe` + goal-keyed headlines). Screen 15 account (Apple iOS-only / Google / Email / Skip → `MigrationService.migrateGuestToFirestore(uid)` + RC alias).
-3. **Phase 7** — Coordinator `onboarding_flow.dart` rewrite, final AuthGate wiring, `flutter analyze` + full test, APK via `build.ps1`, tag working build.
-4. **Merge** `sprint/16-onboarding-rebuild` → `sprint/16` after Rob signs off on-device.
+**Pending:**
+1. **On-device smoke test** the APK at `releases/elio-sprint-16.1-onboarding.apk`. Walk screens 01 → 15 (clear app data first). Verify: Firestore write on sign-in matches `toFirestoreMap`, RC alias fires, guest pantry clears, `onboardingComplete=true` pref lands so AuthGate routes to AppShell.
+2. **Tag** `v16.1-onboarding-rebuild` after sign-off (CLAUDE.md Rule 5).
+3. **Merge** `sprint/16-onboarding-rebuild` → `sprint/16`, then address Rob's minor Sprint 16 UI tweaks, then tag `v0.16.0-ui-overhaul`.
 
-**Decisions needed before Phase 5 resumes:**
-- **Screen 12 `expiryDate` mapping.** Implemented as `fresh→null`, `thisWeek→now+7d`, `today→now` (from subagent instructions). Spec §Data model in `docs/onboarding/12-pantry-perishables.md` says `fresh→now+7d`, `thisWeek→now+3d`, `today→now`. Rob to pick — Gemini consumes `expiryDate` downstream.
-- **Screen 11 default count.** Currently 20 staples pre-selected; spec prose says "~16" but spec table lists 20. Trim or update prose.
-- **Palette tokens** `freshGreen` (#3D9970), `perishThisWeek` (amber alias), `perishToday` (#E06C5E) still placeholder — Kate to ratify.
-- **Screen 10 hero illustration** placeholder emoji 🧊 — Kate art.
-- **Not implemented, flagged v1 in spec:** search bar + "+ Add something" tiles on 11/12, dietary/allergy filtering on screen 12.
+**Resolved this session:**
+- Screen 12 `expiryDate` mapping aligned to spec (`fresh→+7d`, `thisWeek→+3d`, `today→now`). Commit `40aaa53`.
+- Coordinator `onboarding_flow.dart` rewritten with PageController + injected OnboardingController.
+- Legacy 8-screen flow deletion confirmed done (Phase 0A handled it).
+- Analytics events wired per plan Q5 (`onboarding_step_completed` 01–14, `onboarding_paywall_viewed`, `onboarding_recipe_demo_started`/`_regenerated`, `onboarding_account_signin_success`/`_skipped_signin`). Routes through lazy/null-safe `AnalyticsService.instance`.
+- `AnalyticsService` made lazy/null-safe in Phase 6 (`lib/services/analytics_service.dart` + `main.dart` observer null-guard) — smoke-check on-device that analytics still fires in release.
+- `PurchaseService.aliasToUid` added for RC alias post sign-in.
+- `MigrationService.migrateGuestToFirestore` full impl: user doc via `toFirestoreMap()` + `SetOptions(merge:true)`, inventory batched to `users/{uid}/inventory/{auto-id}`, RC alias, guest pantry clear.
 
-**Key files for next session:**
-- Plan: `docs/superpowers/plans/2026-04-19-onboarding-rebuild.md` (read header + Phase 5 section)
-- Specs: `docs/onboarding/13-first-recipe.md`, `14-paywall.md`, `15-account.md`
-- `lib/services/gemini_service.dart` (inspect for ephemeral entry point)
-- `lib/services/purchase_service.dart` (add `aliasToUid` if missing)
-- `lib/screens/onboarding/onboarding_flow.dart` (currently stub; Phase 7 rewrite)
+**Still open (non-blocking):**
+- Screen 11 default count: 20 staples pre-selected vs spec prose "~16" (table lists 20 — trim or update prose).
+- Palette tokens `freshGreen` (#3D9970), `perishThisWeek` (amber), `perishToday` (#E06C5E) — Kate to ratify.
+- Screen 10 hero illustration still 🧊 placeholder — Kate art.
+- Screen 11/12 search bar + "+ Add something" tiles — flagged v1 in spec, not implemented.
+- Screen 12 dietary/allergy filtering — not implemented.
+- Coordinator lets each screen render its own progress bar rather than a single coordinator-owned bar — minor follow-up refactor for visual consistency.
+- Local build-artefact tag `build/sprint-16.1-onboarding` auto-created by `build.ps1` (not pushed). Distinct from the release tag; delete locally with `git tag -d` if unwanted.
+
+**Key files for on-device verification:**
+- `lib/screens/onboarding/onboarding_flow.dart` (PageController coordinator; entry point)
+- `lib/main.dart` AuthGate (keys off `SharedPreferences.getBool('onboardingComplete')`)
+- `lib/services/migration_service.dart` (watch for Firestore write + RC alias on sign-in)
+- `lib/services/analytics_service.dart` (lazy/null-safe — confirm events fire in release)
 
 **Sprint 16 proper:** not tagged. Rob has minor UI bug tweaks outstanding separate from the onboarding rebuild. After those land + on-device verification: tag `v0.16.0-ui-overhaul`.
 
