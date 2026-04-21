@@ -61,6 +61,33 @@ class PaywallScreen extends StatefulWidget {
   /// used by the first-recipe trigger; ignored otherwise.
   final String? recipeThumbnailUrl;
 
+  /// Test-only injection point for the PurchaseService. Production
+  /// callers leave null and the singleton is used.
+  final PurchaseService? purchaseService;
+
+  /// Optional callback invoked when the user taps "Continue with Free".
+  /// When null (legacy callers), this UI element is not rendered. When
+  /// non-null (onboarding screen 14), the link is shown and this is
+  /// fired in place of Navigator.pop.
+  final VoidCallback? onContinueWithFree;
+
+  /// Optional callback invoked on a successful trial/subscription start.
+  /// Legacy callers leave null — PaywallScreen falls back to
+  /// `Navigator.pop(true)` as before. Onboarding screen 14 uses this to
+  /// advance without popping the route.
+  final VoidCallback? onTrialStarted;
+
+  /// Optional override of the close (✕) handler. When null, defaults to
+  /// `Navigator.pop()`. Onboarding screen 14 injects this to return to
+  /// screen 13 non-destructively.
+  final VoidCallback? onClose;
+
+  /// Optional override for the primary "Start free trial / Subscribe"
+  /// CTA. When set, replaces the internal `_onSubscribe` flow — screen
+  /// 14 uses this to drive the purchase via an injected service and
+  /// advance the onboarding controller on success.
+  final VoidCallback? onStartTrial;
+
   const PaywallScreen({
     super.key,
     this.triggerContext,
@@ -68,6 +95,11 @@ class PaywallScreen extends StatefulWidget {
     this.lockedFeatureName,
     this.onboarding,
     this.recipeThumbnailUrl,
+    this.purchaseService,
+    this.onContinueWithFree,
+    this.onTrialStarted,
+    this.onClose,
+    this.onStartTrial,
   });
 
   @override
@@ -76,7 +108,8 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen> {
   final AnalyticsService _analytics = AnalyticsService.instance;
-  final PurchaseService _purchases = PurchaseService.instance;
+  late final PurchaseService _purchases =
+      widget.purchaseService ?? PurchaseService.instance;
 
   bool _isAnnual = true; // Annual pre-selected (best value)
   bool _isLoading = false;
@@ -256,7 +289,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
             _analytics.logEvent('paywall_dismissed', {
               'trigger_context': _resolvedContext ?? 'none',
             });
-            Navigator.of(context).pop();
+            if (widget.onClose != null) {
+              widget.onClose!();
+            } else {
+              Navigator.of(context).pop();
+            }
           },
         ),
       ),
@@ -317,14 +354,38 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
               // ── Primary CTA ──────────────────────────────────
               ElioBigButton(
+                key: const Key('paywallPrimaryCta'),
                 label: trial
                     ? 'Start your $_trialDurationLabel free trial'
                     : 'Subscribe — $_selectedPriceString/$_selectedPeriodString',
                 trailingIcon: Icons.chevron_right,
                 loading: _isLoading,
-                onTap: _onSubscribe,
+                onTap: widget.onStartTrial ?? _onSubscribe,
               ),
               const SizedBox(height: 14),
+
+              // ── Continue with Free (onboarding screen 14 only) ───
+              if (widget.onContinueWithFree != null) ...[
+                const SizedBox(height: 4),
+                Center(
+                  child: TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            _analytics.logEvent(
+                              'onboarding_paywall_free_continued',
+                            );
+                            widget.onContinueWithFree!();
+                          },
+                    child: Text(
+                      'Continue with Free',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
 
               // ── Restore purchases ─────────────────────────────
               Center(
@@ -467,7 +528,12 @@ class _PaywallScreenState extends State<PaywallScreen> {
         'plan': _isAnnual ? 'annual' : 'monthly',
         'is_trial': _showTrialState,
       });
-      if (mounted) Navigator.of(context).pop(true);
+      if (!mounted) return;
+      if (widget.onTrialStarted != null) {
+        widget.onTrialStarted!();
+      } else {
+        Navigator.of(context).pop(true);
+      }
     }
   }
 
