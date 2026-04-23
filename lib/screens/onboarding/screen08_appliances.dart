@@ -34,7 +34,7 @@ const List<_Appliance> _appliances = [
   _Appliance('microwave', 'Microwave', Icons.settings_input_component),
   _Appliance('airfryer', 'Air fryer', Icons.air),
   _Appliance('slowcooker', 'Slow cooker', Icons.soup_kitchen),
-  _Appliance('pressure', 'Pressure cooker', Icons.compress),
+  _Appliance('pressure', 'Pressure cooker / Instant Pot', Icons.compress),
   _Appliance('blender', 'Blender', Icons.blender),
   _Appliance('processor', 'Food processor', Icons.kitchen),
   _Appliance('mixer', 'Stand mixer', Icons.cyclone),
@@ -137,7 +137,7 @@ class _Screen08AppliancesState extends State<Screen08Appliances> {
                         ),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
-                          "Tick everything you'll actually use. We'll only suggest recipes that match.",
+                          "Tick what you've got. We'll only suggest recipes that fit.",
                           style: ElioTextStyles.body.copyWith(
                             color: ElioColors.textSecondary,
                           ),
@@ -151,10 +151,10 @@ class _Screen08AppliancesState extends State<Screen08Appliances> {
                         ),
                         const SizedBox(height: ElioSpacing.lg),
                         GridView.count(
-                          crossAxisCount: 2,
-                          mainAxisSpacing: ElioSpacing.sm + 4,
-                          crossAxisSpacing: ElioSpacing.sm + 4,
-                          childAspectRatio: 1.1,
+                          crossAxisCount: 3,
+                          mainAxisSpacing: ElioSpacing.sm,
+                          crossAxisSpacing: ElioSpacing.sm,
+                          childAspectRatio: 0.9,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           padding: EdgeInsets.zero,

@@ -33,7 +33,7 @@ void main() {
       'Microwave',
       'Air fryer',
       'Slow cooker',
-      'Pressure cooker',
+      'Pressure cooker / Instant Pot',
       'Blender',
       'Food processor',
       'Stand mixer',

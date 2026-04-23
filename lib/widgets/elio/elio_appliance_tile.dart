@@ -36,7 +36,7 @@ class ElioApplianceTile extends StatelessWidget {
       child: Stack(
         children: [
           Container(
-            padding: const EdgeInsets.all(ElioSpacing.md),
+            padding: const EdgeInsets.all(ElioSpacing.sm),
             decoration: BoxDecoration(
               color: bg,
               borderRadius: BorderRadius.circular(ElioRadii.lg),
@@ -48,11 +48,13 @@ class ElioApplianceTile extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, color: ElioColors.navy, size: 32),
-                const SizedBox(height: ElioSpacing.sm),
+                Icon(icon, color: ElioColors.navy, size: 28),
+                const SizedBox(height: ElioSpacing.xs),
                 Text(
                   label,
                   textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: ElioTextStyles.bodySmall.copyWith(
                     color: ElioColors.navy,
                     fontWeight: FontWeight.w600,

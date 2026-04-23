@@ -17,7 +17,7 @@ The three near-universal appliances (oven, hob, microwave) are pre-selected. Eve
 > What's in your kitchen?
 
 **Subhead (one line, lighter weight):**
-> Tick everything you'll actually use. We'll only suggest recipes that match.
+> Tick what you've got. We'll only suggest recipes that fit.
 
 ### Options
 
@@ -89,7 +89,7 @@ The three near-universal appliances (oven, hob, microwave) are pre-selected. Eve
 
 ## Visual spec
 
-- **2-column grid** of appliance tiles, not vertical cards. Eleven items in vertical cards would demand too much scroll; a grid reads in a glance.
+- **3-column grid** of appliance tiles, not vertical cards. Eleven items in vertical cards would demand too much scroll; a compact grid reads in a glance. Tiles use `childAspectRatio: 0.9` so two-line labels (e.g. "Pressure cooker / Instant Pot") wrap without clipping.
 - **Tile shape** — square-ish rounded tile with an icon on top, label below. Height ~96pt. Selected state: amber border + amber tick in the corner; fill stays off-white (not amber — selected items are the default, coloured fill on 3+ tiles would overload the screen).
 - **Icons** — 11 custom appliance icons. Files: `appliance_oven.svg`, `appliance_hob.svg`, `appliance_microwave.svg`, `appliance_airfryer.svg`, `appliance_slowcooker.svg`, `appliance_pressure.svg`, `appliance_blender.svg`, `appliance_processor.svg`, `appliance_mixer.svg`, `appliance_ricecooker.svg`, `appliance_bbq.svg`. Line-art style consistent with the rest of the onboarding set.
 - **Pre-selected state** — visually identical to any user-selected tile (amber border + tick). The helper text above the grid explains the pre-selection; no need for a separate visual treatment.
