@@ -230,6 +230,57 @@ void main() {
     );
     expect(btn.onPressed, isNull);
 
+    // Tooltip with explanatory copy wraps the disabled button.
+    final tooltip = t.widget<Tooltip>(
+      find.ancestor(
+        of: find.widgetWithText(TextButton, 'Show me another'),
+        matching: find.byType(Tooltip),
+      ),
+    );
+    expect(tooltip.message, 'Plenty to choose from later');
+
+    await fake.closeAll();
+  });
+
+  testWidgets('meta row shows difficulty derived from cookingConfidence',
+      (t) async {
+    useTallViewport(t);
+    final controller = OnboardingController()
+      ..setCookingConfidence('challenge');
+    final fake = FakeGeminiService();
+
+    await t.pumpWidget(wrap(controller: controller, fake: fake));
+    await t.pump();
+
+    fake.emitComplete(buildFakeRecipe());
+    await t.pump();
+    await t.pump();
+
+    // 'challenge' → 'Advanced'
+    expect(find.textContaining('· Advanced'), findsOneWidget);
+
+    await fake.closeAll();
+  });
+
+  testWidgets('error state uses new Elio-branded subhead', (t) async {
+    useTallViewport(t);
+    final controller = OnboardingController();
+    final fake = FakeGeminiService();
+
+    await t.pumpWidget(wrap(controller: controller, fake: fake));
+    await t.pump();
+
+    fake.emitError('boom');
+    await t.pump();
+    await t.pump();
+
+    expect(
+      find.text(
+        "Couldn't reach Elio right now. Your pantry's saved — tap retry.",
+      ),
+      findsOneWidget,
+    );
+
     await fake.closeAll();
   });
 

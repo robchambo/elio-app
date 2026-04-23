@@ -139,8 +139,21 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
   static const _subheads = [
     "Working out what to cook with what you've got…",
     'Writing the recipe…',
-    'Nearly there…',
+    'Plating it up…',
   ];
+
+  // Map cookingConfidence (screen 07) → difficulty label in the meta row.
+  static String _difficultyLabel(String? confidence) {
+    switch (confidence) {
+      case 'easy':
+        return 'Easy';
+      case 'challenge':
+        return 'Advanced';
+      case 'mixed':
+      default:
+        return 'Medium';
+    }
+  }
 
   EphemeralRecipeStreamFn get _streamFn =>
       widget.streamFn ?? GeminiService.streamGenerateContentEphemeral;
@@ -343,7 +356,8 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
                 Text(r.title, style: ElioTextStyles.heading2),
                 const SizedBox(height: ElioSpacing.xs),
                 Text(
-                  '${r.totalTimeMinutes} min · Serves ${r.servings}',
+                  '${r.totalTimeMinutes} min · Serves ${r.servings} · '
+                  '${_difficultyLabel(widget.controller.state.cookingConfidence)}',
                   style: ElioTextStyles.bodySmall
                       .copyWith(color: ElioColors.textSecondary),
                 ),
@@ -366,11 +380,16 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
           ),
           const SizedBox(height: ElioSpacing.sm),
           Center(
-            child: TextButton(
-              onPressed: widget.controller.state.regenerateCount >= 3
-                  ? null
-                  : _onShowMeAnother,
-              child: const Text('Show me another'),
+            child: Tooltip(
+              message: widget.controller.state.regenerateCount >= 3
+                  ? 'Plenty to choose from later'
+                  : '',
+              child: TextButton(
+                onPressed: widget.controller.state.regenerateCount >= 3
+                    ? null
+                    : _onShowMeAnother,
+                child: const Text('Show me another'),
+              ),
             ),
           ),
         ],
@@ -388,7 +407,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
         ),
         const SizedBox(height: ElioSpacing.md),
         Text(
-          "We couldn't reach our kitchen AI. Your pantry's saved — let's retry.",
+          "Couldn't reach Elio right now. Your pantry's saved — tap retry.",
           style:
               ElioTextStyles.body.copyWith(color: ElioColors.textSecondary),
         ),

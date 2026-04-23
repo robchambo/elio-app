@@ -28,7 +28,7 @@ Two outcomes must happen here for the whole redesign to work:
 **Subhead (updates as stream progresses):**
 > - t+0s: "Working out what to cook with what you've got…"
 > - t+2s: "Writing the recipe…"
-> - t+4s: "Nearly there…"
+> - t+4s: "Plating it up…"
 
 **Body:** Shimmer skeleton of the recipe card (same pattern as the home screen's generate flow).
 
@@ -51,7 +51,7 @@ Two outcomes must happen here for the whole redesign to work:
 > Hmm, let's try that again.
 
 **Subhead:**
-> We couldn't reach our kitchen AI. Your pantry's saved — let's retry.
+> Couldn't reach Elio right now. Your pantry's saved — tap retry.
 
 **Primary CTA:**
 > Try again
@@ -223,7 +223,7 @@ The hero gets the existing `REQUIRED ingredient — you MUST use ALL of these` p
 
 ### Regenerate
 
-- **Rate limiting:** max 3 regenerate taps in this flow. After 3, the "Show me another" link greys out with tooltip: "Plenty to choose from later — Cook this one for now?" Prevents runaway Gemini calls during onboarding.
+- **Rate limiting:** max 3 regenerate taps in this flow. After 3, the "Show me another" link greys out with tooltip: "Plenty to choose from later". Prevents runaway Gemini calls during onboarding.
 - **Regenerate fails:** don't replace the existing recipe with an error; surface a small inline toast "Couldn't regenerate — showing the last one" and keep the current card. Different handling than initial-generation failure.
 
 ### Empty or thin pantry
@@ -269,7 +269,7 @@ Regenerate count is the single most important post-launch signal — if median >
 
 1. On entry: trigger Gemini stream with the compiled pantry + preferences prompt. Display shimmer + subhead 1.
 2. At t+2s: subhead updates to "Writing the recipe…".
-3. At t+4s: subhead updates to "Nearly there…".
+3. At t+4s: subhead updates to "Plating it up…".
 4. On stream completion: shimmer fades out, recipe card fades in, headline updates to complete-state headline, primary CTA appears.
 5. Tap **Cook this tonight** → persist recipe, advance to screen 14 (Paywall).
 6. Tap **Show me another** → re-run Gemini with seed variation. Shimmer returns briefly. Increments `regenerate_count`.
