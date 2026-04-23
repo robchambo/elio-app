@@ -102,7 +102,7 @@ class Screen06Time extends StatelessWidget {
                         ),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
-                          "We'll keep recipes inside your time budget.",
+                          "We'll match recipes to you.",
                           style: ElioTextStyles.body.copyWith(
                             color: ElioColors.textSecondary,
                           ),

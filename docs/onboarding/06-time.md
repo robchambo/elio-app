@@ -17,7 +17,7 @@ Weeknight-specific on purpose. Weekend cooking has different constraints and we 
 > How long have you got on a weeknight?
 
 **Subhead (one line, lighter weight):**
-> We'll keep recipes inside your time budget.
+> We'll match recipes to you.
 
 **Options (single-select, vertical cards):**
 
