@@ -138,17 +138,18 @@ class Screen04Dietary extends StatelessWidget {
             final showUnion =
                 showHouseholdToggle && s.householdHasDifferingDiet;
 
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(
-                ElioSpacing.screenEdge,
-                ElioSpacing.screenEdge,
-                ElioSpacing.screenEdge,
-                ElioSpacing.md,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // PINNED TOP.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.sm,
+                    ElioSpacing.screenEdge,
+                    0,
+                  ),
+                  child: Row(
                     children: [
                       BackButton(
                         color: ElioColors.navy,
@@ -160,10 +161,19 @@ class Screen04Dietary extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
+                ),
+                // SCROLLABLE MIDDLE — heading + subhead + options +
+                // conditional household-union section all scroll together.
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.lg,
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const ElioHeroHeading(
                           lines: ['Any dietary rules', 'we should follow?'],
@@ -178,14 +188,14 @@ class Screen04Dietary extends StatelessWidget {
                         ),
                         const SizedBox(height: ElioSpacing.lg),
                         for (int i = 0; i < _options.length; i++) ...[
+                          if (i > 0)
+                            const SizedBox(height: ElioSpacing.sm + 4),
                           ElioOnboardingOptionCard(
                             value: _options[i].value,
                             title: _options[i].label,
                             selected: s.dietary.contains(_options[i].value),
                             onTap: _tapPrimary,
                           ),
-                          if (i != _options.length - 1)
-                            const SizedBox(height: ElioSpacing.sm + 4),
                         ],
                         if (showHouseholdToggle) ...[
                           const SizedBox(height: ElioSpacing.lg),
@@ -218,6 +228,8 @@ class Screen04Dietary extends StatelessWidget {
                           ),
                           const SizedBox(height: ElioSpacing.md),
                           for (int i = 0; i < _options.length; i++) ...[
+                            if (i > 0)
+                              const SizedBox(height: ElioSpacing.sm + 4),
                             ElioOnboardingOptionCard(
                               value: _options[i].value,
                               title: _options[i].label,
@@ -225,8 +237,6 @@ class Screen04Dietary extends StatelessWidget {
                                   .contains(_options[i].value),
                               onTap: _tapUnion,
                             ),
-                            if (i != _options.length - 1)
-                              const SizedBox(height: ElioSpacing.sm + 4),
                           ],
                           if (s.householdCombinedDietary.isEmpty) ...[
                             const SizedBox(height: ElioSpacing.sm),
@@ -241,8 +251,16 @@ class Screen04Dietary extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: ElioSpacing.md),
-                  ElioBigButton(
+                ),
+                // PINNED BOTTOM.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
+                  ),
+                  child: ElioBigButton(
                     label: 'Continue',
                     onTap: _continueEnabled
                         ? () {
@@ -258,8 +276,8 @@ class Screen04Dietary extends StatelessWidget {
                         : null,
                     trailingIcon: Icons.arrow_forward,
                   ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         ),
