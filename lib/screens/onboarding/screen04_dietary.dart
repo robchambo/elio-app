@@ -35,7 +35,7 @@ class _DietOption {
 }
 
 const List<_DietOption> _options = [
-  _DietOption('none', 'No restrictions'),
+  _DietOption('none', 'Happy with anything.'),
   _DietOption('vegetarian', 'Vegetarian'),
   _DietOption('vegan', 'Vegan'),
   _DietOption('pescatarian', 'Pescatarian'),
@@ -216,12 +216,12 @@ class Screen04Dietary extends StatelessWidget {
                         if (showUnion) ...[
                           const SizedBox(height: ElioSpacing.md),
                           Text(
-                            "What's the combination of needs across your household?",
+                            "Cover everyone's needs",
                             style: ElioTextStyles.heading5,
                           ),
                           const SizedBox(height: ElioSpacing.xs),
                           Text(
-                            'Pick everything that applies to anyone — including you.',
+                            "Pick everything that applies to anyone — including you. We'll make sure no one gets left out.",
                             style: ElioTextStyles.bodySmall.copyWith(
                               color: ElioColors.textSecondary,
                             ),

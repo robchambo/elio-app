@@ -28,7 +28,7 @@ void main() {
       onBack: () {},
     )));
     expect(find.byType(ElioOnboardingOptionCard), findsNWidgets(6));
-    expect(find.text('No restrictions'), findsOneWidget);
+    expect(find.text('Happy with anything.'), findsOneWidget);
     expect(find.text('Vegetarian'), findsOneWidget);
     expect(find.text('Vegan'), findsOneWidget);
     expect(find.text('Pescatarian'), findsOneWidget);
@@ -113,7 +113,7 @@ void main() {
     await t.pump();
     await t.tap(find.text('Halal'));
     await t.pump();
-    await t.tap(find.text('No restrictions'));
+    await t.tap(find.text('Happy with anything.'));
     await t.pump();
     expect(c.state.dietary, ['none']);
   });
@@ -127,7 +127,7 @@ void main() {
       onContinue: () {},
       onBack: () {},
     )));
-    await t.tap(find.text('No restrictions'));
+    await t.tap(find.text('Happy with anything.'));
     await t.pump();
     expect(c.state.dietary, ['none']);
     await t.tap(find.text('Halal'));
@@ -161,7 +161,7 @@ void main() {
     )));
     expect(find.byType(SwitchListTile), findsOneWidget);
     expect(
-        find.text("What's the combination of needs across your household?"),
+        find.text("Cover everyone's needs"),
         findsNothing);
   });
 
@@ -181,7 +181,7 @@ void main() {
     await t.tap(find.byType(Switch));
     await t.pumpAndSettle();
     expect(
-        find.text("What's the combination of needs across your household?"),
+        find.text("Cover everyone's needs"),
         findsOneWidget);
     expect(c.state.householdHasDifferingDiet, isTrue);
     expect(c.state.householdCombinedDietary, ['vegetarian']);
@@ -208,7 +208,7 @@ void main() {
     expect(c.state.householdHasDifferingDiet, isFalse);
     expect(c.state.householdCombinedDietary, <String>[]);
     expect(
-        find.text("What's the combination of needs across your household?"),
+        find.text("Cover everyone's needs"),
         findsNothing);
   });
 
@@ -249,7 +249,7 @@ void main() {
     await t.tap(find.byType(Switch));
     await t.pumpAndSettle();
     // Tap union "No restrictions" (last instance).
-    await t.tap(find.text('No restrictions').last);
+    await t.tap(find.text('Happy with anything.').last);
     await t.pumpAndSettle();
     expect(c.state.householdCombinedDietary, ['none']);
     // Primary user dietary untouched.
