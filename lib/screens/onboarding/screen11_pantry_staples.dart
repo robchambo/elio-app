@@ -247,6 +247,7 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // PINNED TOP — back + progress only.
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 ElioSpacing.screenEdge,
@@ -267,41 +268,8 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
                 ],
               ),
             ),
-            const SizedBox(height: ElioSpacing.md),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: ElioSpacing.screenEdge,
-              ),
-              child: const ElioHeroHeading(
-                lines: ['What do you', 'always have in?'],
-                amberLastLine: true,
-              ),
-            ),
-            const SizedBox(height: ElioSpacing.sm),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: ElioSpacing.screenEdge,
-              ),
-              child: Text(
-                "Tap what you've usually got. Long-press anything you always have — we'll lean on those heavier.",
-                style: ElioTextStyles.body.copyWith(
-                  color: ElioColors.textSecondary,
-                ),
-              ),
-            ),
-            const SizedBox(height: ElioSpacing.xs),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: ElioSpacing.screenEdge,
-              ),
-              child: Text(
-                '◐ Usually in   ·   ✅ Always in',
-                style: ElioTextStyles.bodySmall.copyWith(
-                  color: ElioColors.textMuted,
-                ),
-              ),
-            ),
-            const SizedBox(height: ElioSpacing.md),
+            // SCROLLABLE MIDDLE — heading/subhead scroll together with the
+            // category grids; category headers stay sticky while scrolling.
             Expanded(
               child: CustomScrollView(
                 slivers: _buildCategorySlivers(),
@@ -335,7 +303,41 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
   }
 
   List<Widget> _buildCategorySlivers() {
-    final slivers = <Widget>[];
+    final slivers = <Widget>[
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          ElioSpacing.screenEdge,
+          ElioSpacing.md,
+          ElioSpacing.screenEdge,
+          ElioSpacing.md,
+        ),
+        sliver: SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const ElioHeroHeading(
+                lines: ['What do you', 'always have in?'],
+                amberLastLine: true,
+              ),
+              const SizedBox(height: ElioSpacing.sm),
+              Text(
+                "Tap what you've usually got. Long-press anything you always have — we'll lean on those heavier.",
+                style: ElioTextStyles.body.copyWith(
+                  color: ElioColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: ElioSpacing.xs),
+              Text(
+                '◐ Usually in   ·   ✅ Always in',
+                style: ElioTextStyles.bodySmall.copyWith(
+                  color: ElioColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
     for (final catName in _categoryOrder) {
       final cat = PantryCategories.byName(catName);
       if (cat == null) continue;
