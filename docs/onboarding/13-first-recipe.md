@@ -131,13 +131,13 @@ The card is a live ingredient card, structurally identical to the screen 1 hero 
 - **Hero photo** — if Gemini returns an image reference, use it. Otherwise use a generated / stock image based on the recipe title. Fallback: a warm solid-colour card with the recipe title overlaid.
 - **Title** — the Gemini-returned recipe title.
 - **Meta row** — `<time> · Serves <householdCount> · <difficulty>`. Time matches user's `maxCookTime`; serves matches `householdCount`; difficulty derives from user's `cookingConfidence`.
-- **Ingredients** — full list, with pantry tags. Each ingredient shows one of:
-  - `✅ Always in` — amber solid
-  - `◐ Usually in` — amber outline
-  - `🔴 Use today` — coral *(this is the hero label; critical for waste-reduction narrative)*
-  - `🟡 Use this week` — amber
-  - `🟢 Fresh` — green
-  - `+ Shopping list` — grey *(items not in their pantry; Gemini shouldn't generate any unless the pantry is thin)*
+- **Ingredients** — full list, with pantry tags. Each ingredient shows one of (implemented via `classifyIngredientTag` in `screen13_first_recipe.dart`):
+  - `✅ Always in` — amber solid *(inventory tier `alwaysHave`)*
+  - `◐ Usually in` — amber outline *(inventory tier `almostAlwaysHave`)*
+  - `🔴 Use today` — coral *(perishable with `isRunningLow` OR expiry ≤ now — the hero label; critical for waste-reduction narrative)*
+  - `🟡 Use this week` — amber *(perishable expiring within 3 days)*
+  - `🟢 Fresh` — green *(perishable expiring > 3 days, or no expiry set)*
+  - `🛒 Shopping list` — grey *(items not in their pantry; Gemini shouldn't generate any unless the pantry is thin)*
 - **Expandable steps** — collapsed by default; tap chevron to reveal. Keeps the first-impression tight; full recipe available for the committed user.
 - **Small "Why this?"** link at the bottom of the card, optional: opens a mini-sheet with "You had lemon marked 🔴 Use today, and chicken thighs + red onion in your pantry. 25 min fits your weeknight budget."
 

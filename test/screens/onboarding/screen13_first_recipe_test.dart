@@ -182,7 +182,7 @@ void main() {
   });
 
   testWidgets(
-      'ElioPantryTagPill rendered for ingredients matching pantry (case-insensitive)',
+      'every ingredient gets a pantry tag pill (full 6-tag system)',
       (t) async {
     useTallViewport(t);
     final controller = OnboardingController()
@@ -199,14 +199,78 @@ void main() {
     await t.pump();
     await t.pump();
 
-    // Chicken thighs (pantry) + Lemon (pantry) = 2 pills. Garlic + tomatoes
-    // are not in pantry so they get no pill.
+    // 4 ingredients → 4 pills. In-pantry items get fresh/thisWeek/useToday/
+    // alwaysHave/usuallyHave; out-of-pantry items get needToBuy.
     expect(
       find.byType(ElioPantryTagPill, skipOffstage: false),
-      findsNWidgets(2),
+      findsNWidgets(4),
     );
+    // Garlic + cherry tomatoes are not in pantry → needToBuy pills
+    // (labelled "Shopping list").
+    expect(find.text('Shopping list'), findsNWidgets(2));
 
     await fake.closeAll();
+  });
+
+  // ── Pantry-tag classifier — classifyIngredientTag pure function ─────────
+  group('classifyIngredientTag', () {
+    final now = DateTime(2026, 4, 23, 12);
+
+    test('null (not in pantry) → needToBuy', () {
+      expect(classifyIngredientTag(null, now), PantryTagKind.needToBuy);
+    });
+
+    test('alwaysHave tier → alwaysHave tag', () {
+      final item = const InventoryItem(name: 'Olive oil', tier: 'alwaysHave');
+      expect(classifyIngredientTag(item, now), PantryTagKind.alwaysHave);
+    });
+
+    test('almostAlwaysHave tier → usuallyHave tag', () {
+      final item = const InventoryItem(name: 'Garlic', tier: 'almostAlwaysHave');
+      expect(classifyIngredientTag(item, now), PantryTagKind.usuallyHave);
+    });
+
+    test('perishable + isRunningLow → useToday', () {
+      final item = InventoryItem(
+        name: 'Lemon',
+        tier: 'perishable',
+        isRunningLow: true,
+        expiryDate: now.add(const Duration(days: 5)),
+      );
+      expect(classifyIngredientTag(item, now), PantryTagKind.useToday);
+    });
+
+    test('perishable + expiry ≤ now → useToday', () {
+      final item = InventoryItem(
+        name: 'Spinach',
+        tier: 'perishable',
+        expiryDate: now,
+      );
+      expect(classifyIngredientTag(item, now), PantryTagKind.useToday);
+    });
+
+    test('perishable + expiry within 3 days → thisWeek', () {
+      final item = InventoryItem(
+        name: 'Tomato',
+        tier: 'perishable',
+        expiryDate: now.add(const Duration(days: 2)),
+      );
+      expect(classifyIngredientTag(item, now), PantryTagKind.thisWeek);
+    });
+
+    test('perishable + expiry > 3 days → fresh', () {
+      final item = InventoryItem(
+        name: 'Carrot',
+        tier: 'perishable',
+        expiryDate: now.add(const Duration(days: 10)),
+      );
+      expect(classifyIngredientTag(item, now), PantryTagKind.fresh);
+    });
+
+    test('perishable with no expiry → fresh', () {
+      final item = const InventoryItem(name: 'Carrot', tier: 'perishable');
+      expect(classifyIngredientTag(item, now), PantryTagKind.fresh);
+    });
   });
 
   testWidgets('"Show me another" disabled at regenerateCount >= 3',

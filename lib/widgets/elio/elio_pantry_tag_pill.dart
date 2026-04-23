@@ -8,8 +8,10 @@ enum PantryTagKind {
   inYourPantry,
   useToday,
   alwaysHave,
+  usuallyHave,
   fresh,
   thisWeek,
+  needToBuy,
 }
 
 /// Small coloured pill surfacing pantry state on recipe cards.
@@ -44,7 +46,13 @@ class ElioPantryTagPill extends StatelessWidget {
         return (
           fg: Colors.white,
           bg: ElioColors.amber,
-          label: 'Always have',
+          label: 'Always in',
+        );
+      case PantryTagKind.usuallyHave:
+        return (
+          fg: ElioColors.amber,
+          bg: ElioColors.amber.withValues(alpha: 0.12),
+          label: 'Usually in',
         );
       case PantryTagKind.fresh:
         return (
@@ -57,6 +65,12 @@ class ElioPantryTagPill extends StatelessWidget {
           fg: Colors.white,
           bg: ElioColors.perishThisWeek,
           label: 'This week',
+        );
+      case PantryTagKind.needToBuy:
+        return (
+          fg: ElioColors.textSecondary,
+          bg: ElioColors.textSecondary.withValues(alpha: 0.10),
+          label: 'Shopping list',
         );
     }
   }

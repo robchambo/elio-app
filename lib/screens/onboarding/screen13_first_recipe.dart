@@ -330,9 +330,11 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
 
   Widget _buildComplete() {
     final r = _recipe!;
-    final pantryNames = widget.controller.state.inventory
-        .map((i) => i.name.trim().toLowerCase())
-        .toSet();
+    final pantryByName = <String, InventoryItem>{
+      for (final i in widget.controller.state.inventory)
+        i.name.trim().toLowerCase(): i,
+    };
+    final now = DateTime.now();
 
     return SingleChildScrollView(
       child: Column(
@@ -366,8 +368,10 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
                 const SizedBox(height: ElioSpacing.sm),
                 ...r.ingredients.map((ing) => _IngredientRow(
                       ingredient: ing,
-                      inPantry:
-                          pantryNames.contains(ing.name.trim().toLowerCase()),
+                      tagKind: classifyIngredientTag(
+                        pantryByName[ing.name.trim().toLowerCase()],
+                        now,
+                      ),
                     )),
               ],
             ),
@@ -433,12 +437,39 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
   }
 }
 
+// ── Pantry-tag classifier (pure — exported for tests) ──────────────────────
+//
+// Maps an inventory item (or null for "not in pantry") to the visual tag that
+// should render next to the ingredient in the recipe card.
+//
+//   null                                           → needToBuy     (🛒 grey)
+//   tier == 'alwaysHave'                           → alwaysHave    (✅ amber solid)
+//   tier == 'almostAlwaysHave'                     → usuallyHave   (◐ amber outline)
+//   tier == 'perishable' + runningLow/expires ≤now → useToday      (🔴 coral)
+//   tier == 'perishable' + expires within 3 days   → thisWeek      (🟡 amber)
+//   tier == 'perishable' otherwise                 → fresh         (🟢 green)
+//
+// The perishable cascade mirrors `pickHeroIngredient`.
+PantryTagKind classifyIngredientTag(InventoryItem? item, DateTime now) {
+  if (item == null) return PantryTagKind.needToBuy;
+  if (item.tier == 'alwaysHave') return PantryTagKind.alwaysHave;
+  if (item.tier == 'almostAlwaysHave') return PantryTagKind.usuallyHave;
+  // perishable
+  if (item.isRunningLow) return PantryTagKind.useToday;
+  final d = item.expiryDate;
+  if (d == null) return PantryTagKind.fresh;
+  if (!d.isAfter(now)) return PantryTagKind.useToday;
+  final diff = d.difference(now).inDays;
+  if (diff <= 3) return PantryTagKind.thisWeek;
+  return PantryTagKind.fresh;
+}
+
 // ── Ingredient row (complete state) ────────────────────────────────────────
 class _IngredientRow extends StatelessWidget {
   final RecipeIngredient ingredient;
-  final bool inPantry;
+  final PantryTagKind tagKind;
 
-  const _IngredientRow({required this.ingredient, required this.inPantry});
+  const _IngredientRow({required this.ingredient, required this.tagKind});
 
   @override
   Widget build(BuildContext context) {
@@ -452,10 +483,8 @@ class _IngredientRow extends StatelessWidget {
               style: ElioTextStyles.body,
             ),
           ),
-          if (inPantry) ...[
-            const SizedBox(width: ElioSpacing.sm),
-            const ElioPantryTagPill(kind: PantryTagKind.inYourPantry),
-          ],
+          const SizedBox(width: ElioSpacing.sm),
+          ElioPantryTagPill(kind: tagKind),
         ],
       ),
     );
