@@ -91,16 +91,22 @@ class _Screen08AppliancesState extends State<Screen08Appliances> {
     return Scaffold(
       backgroundColor: ElioColors.offWhite,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(ElioSpacing.screenEdge),
-          child: AnimatedBuilder(
-            animation: widget.controller,
-            builder: (context, _) {
-              final selected = widget.controller.state.appliances;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            final selected = widget.controller.state.appliances;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // PINNED TOP.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.sm,
+                    ElioSpacing.screenEdge,
+                    0,
+                  ),
+                  child: Row(
                     children: [
                       BackButton(
                         color: ElioColors.navy,
@@ -112,51 +118,70 @@ class _Screen08AppliancesState extends State<Screen08Appliances> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  const ElioHeroHeading(
-                    lines: ["What's in", 'your kitchen?'],
-                    amberLastLine: true,
-                  ),
-                  const SizedBox(height: ElioSpacing.md),
-                  Text(
-                    "Tick everything you'll actually use. We'll only suggest recipes that match.",
-                    style: ElioTextStyles.body.copyWith(
-                      color: ElioColors.textSecondary,
+                ),
+                // SCROLLABLE MIDDLE — heading/subhead + grid of appliance tiles.
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.lg,
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const ElioHeroHeading(
+                          lines: ["What's in", 'your kitchen?'],
+                          amberLastLine: true,
+                        ),
+                        const SizedBox(height: ElioSpacing.md),
+                        Text(
+                          "Tick everything you'll actually use. We'll only suggest recipes that match.",
+                          style: ElioTextStyles.body.copyWith(
+                            color: ElioColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: ElioSpacing.sm),
+                        Text(
+                          "We've ticked the usuals — untick if you don't have one.",
+                          style: ElioTextStyles.bodySmall.copyWith(
+                            color: ElioColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: ElioSpacing.lg),
+                        GridView.count(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: ElioSpacing.sm + 4,
+                          crossAxisSpacing: ElioSpacing.sm + 4,
+                          childAspectRatio: 1.1,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: EdgeInsets.zero,
+                          children: [
+                            for (final a in _appliances)
+                              ElioApplianceTile(
+                                value: a.value,
+                                label: a.label,
+                                icon: a.icon,
+                                selected: selected.contains(a.value),
+                                onTap: _toggle,
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: ElioSpacing.sm),
-                  Text(
-                    "We've ticked the usuals — untick if you don't have one.",
-                    style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.textSecondary,
-                    ),
+                ),
+                // PINNED BOTTOM.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
                   ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  Expanded(
-                    child: GridView.builder(
-                      padding: EdgeInsets.zero,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: ElioSpacing.sm + 4,
-                        crossAxisSpacing: ElioSpacing.sm + 4,
-                        childAspectRatio: 1.1,
-                      ),
-                      itemCount: _appliances.length,
-                      itemBuilder: (context, i) {
-                        final a = _appliances[i];
-                        return ElioApplianceTile(
-                          value: a.value,
-                          label: a.label,
-                          icon: a.icon,
-                          selected: selected.contains(a.value),
-                          onTap: _toggle,
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: ElioSpacing.md),
-                  ElioBigButton(
+                  child: ElioBigButton(
                     label: 'Continue',
                     onTap: () {
                       AnalyticsService.instance.logEvent(
@@ -170,10 +195,10 @@ class _Screen08AppliancesState extends State<Screen08Appliances> {
                     },
                     trailingIcon: Icons.arrow_forward,
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
