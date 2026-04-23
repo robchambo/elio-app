@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 20 April 2026 (Sprint 16b onboarding rebuild — ALL 7 PHASES COMPLETE on `sprint/16-onboarding-rebuild`, APK built 16.1-onboarding, pushed, awaiting on-device verification)
+**Last updated:** 22 April 2026 (Sprint 16.2 copy polish in-flight on `sprint/16-onboarding-rebuild`; screens 03–09 copy tightened, "+ Add something" + dedup landed on screens 11/12; still to review screens 13/14/15 before on-device smoke test)
 
 ---
 
@@ -221,14 +221,18 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 | 6 | Paywall (14, goal-keyed headlines) + Account (15, sign-in deferred) + MigrationService full impl + PurchaseService.aliasToUid | ✅ Done |
 | 7 | Coordinator `onboarding_flow.dart` + analytics wiring + APK build | ✅ Done |
 
-**Next: Sprint 16.2 — Copy polish pass** (stays on `sprint/16-onboarding-rebuild` branch, not a separate sprint). Review copy on each of screens 01 → 15 in chat: spec `.md` + screen `.dart` kept in lockstep, commit per screen. Flag conditional variants (screens 05/07/10/13/14). Then on-device smoke test, tag `v16.1-onboarding-rebuild`, merge → `sprint/16`.
+**In flight: Sprint 16.2 — Copy polish pass** (stays on `sprint/16-onboarding-rebuild`, not a separate sprint). Screen-by-screen walkthrough of copy on 01 → 15: spec `.md` + screen `.dart` kept in lockstep, commit per screen. Flag conditional variants (screens 05/07/10/13/14).
+
+**Progress (22 Apr):** Screens 03 (household), 04 (dietary), 05 (allergies), 06 (time), 07 (confidence), 08 (appliances, 3-col grid + tighter tiles), 09 (region — post-override helper dropped) all polished + committed. Screen 10 reviewed, illustration flagged for Kate. Screens 11/12 got the v1 "+ Add something" per-category tile with dedup (exact-match silent promote / fuzzy-match confirm via `PantryUtils.findDuplicates`) — shipped `feat(sprint-16-onboarding): + Add something tile on screens 11/12 with dedup`. Still to review: 13 (first-recipe demo), 14 (paywall), 15 (account).
+
+**Then:** on-device smoke test → tag `v16.1-onboarding-rebuild` → merge to `sprint/16`.
 
 **Open items (non-blocking):**
 - Screen 11 default count: 20 vs spec "~16" prose.
 - Palette tokens `freshGreen`/`perishToday`/`perishThisWeek` placeholder hex — Kate to ratify.
 - Screen 10 hero illustration placeholder (🧊) — Kate art.
-- Screen 11/12 search bar + "+ Add something" not built (flagged v1 in spec).
-- Screen 12 dietary/allergy filtering not built.
+- Screen 11/12 search bar not built (flagged later after on-device feedback).
+- Screen 11/12 full dietary/allergy filtering beyond default-exclude — deferred: needs per-item metadata pass on ~100+ `PantryCategories` items (content authoring, Kate-voice decision on hide vs grey).
 - Coordinator uses per-screen progress bars rather than a single coordinator-owned bar (minor visual refactor).
 
 | # | Task | Est. Hours | Status |

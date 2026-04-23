@@ -231,39 +231,44 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 | Brand / art direction | `docs/brand-art-concept.md` |
 | Sprint 16 design system | `lib/widgets/elio/` + Design System section above |
 
-## Last Session (20 April 2026) — Sprint 16b Onboarding Rebuild (ALL 7 PHASES COMPLETE)
+## Last Session (22 April 2026) — Sprint 16.2 Copy Polish (IN FLIGHT, screens 03–12 done)
 
-**Branch:** `sprint/16-onboarding-rebuild` (off `sprint/16`, pushed to origin). **42 commits, 239 tests passing, `flutter analyze` clean.** APK built at `releases/elio-sprint-16.1-onboarding.apk` (71.7 MB). **Not merged. Not tagged** — awaiting on-device sign-off.
+**Branch:** `sprint/16-onboarding-rebuild` (still off `sprint/16`, pushed). `flutter analyze` clean. Per-screen commits with prefix `copy(sprint-16-onboarding): screen NN …` or `feat(sprint-16-onboarding): …` for feature additions.
 
-**What it is:** 15-screen sell-to-self onboarding that defers sign-in to the final screen. Pre-auth state in `OnboardingController` (ChangeNotifier) + `GuestPantryService` (SharedPreferences). `AuthGate` now keys off `SharedPreferences.getBool('onboardingComplete')` instead of `FirebaseAuth.currentUser`. `MigrationService` handles guest→Firestore on sign-in. Email login/register reroute to `AppShell` not `OnboardingFlow`.
+**This session (copy polish, walkthrough in chat, one commit per screen):**
+- **Screen 03 household** — "Me and my partner" → "Just the two of us"; goal-aware subhead "We'll make sure everyone's covered." when `userGoal=='household'`.
+- **Screen 04 dietary** — "No restrictions" → "Happy with anything." (softer default); union heading "What's the combination of needs across your household?" → "Cover everyone's needs"; added union subtext "We'll make sure no one gets left out."
+- **Screen 05 allergies** — headline → "Anything we should avoid?" (conditional dropped — softer baseline now default); subhead → "Allergies first, then anything you'd rather skip."; section 2 header → "Anything you'd rather skip?"; chips "Milk / dairy" → "Dairy", "Wheat / gluten" → "Gluten"; custom hint → "e.g. mustard, celery"; skip → "Nothing to avoid — skip".
+- **Screen 06 time** — subhead → "We'll match recipes to you."
+- **Screen 07 confidence** — default subhead → "Helps us pick how adventurous to go."; "Challenge me" → "Bring on the technique".
+- **Screen 08 appliances** — subhead → "Tick what you've got. We'll only suggest recipes that fit."; "Pressure cooker" → "Pressure cooker / Instant Pot"; **grid layout 2-col → 3-col** (`childAspectRatio: 0.9`, tighter tiles, icon 32→28, label `maxLines:2 + ellipsis` so "Pressure cooker / Instant Pot" wraps cleanly).
+- **Screen 09 region** — post-override helper text deliberately dropped for v1; spec note added.
+- **Screen 10 pantry intro** — no copy change; hero illustration placeholder flagged for Kate.
+- **Screens 11 + 12 — "+ Add something" tile + dedup (feature, not just copy).** Commit `feat(sprint-16-onboarding): + Add something tile on screens 11/12 with dedup`. Two new widgets: `ElioAddSomethingTile` (dashed amber border, cream fill, same grid footprint as pantry tiles) and `showAddPantryItemDialog` helper returning a sealed `AddItemResult` (Cancelled / PromoteExisting / AddNew). Dedup logic:
+  - exact normalised match (via `PantryUtils.normalise`) → silently promote existing tile (usually for staples / fresh for perishables), no warning.
+  - fuzzy match (via `PantryUtils.findDuplicates` — Levenshtein) → `PantryUtils.showDuplicateWarning` confirm dialog: Cancel / Add anyway.
+  - no match → append custom tile in the user-chosen category, pre-selected at usually/fresh.
+  Custom items persist with user-chosen category (fallback when `PantryCategories.categorize` returns null), flow through `controller.state.inventory` + `GuestPantryService` like spec items. +8 tests across screens 11/12 (26 passing total for those two files).
 
-**Shipped:** Phase 0 (state model rebuild + controller + guest-pantry extension + AuthGate inversion + 11 new `lib/widgets/elio/` widgets + perishable palette tokens). Screens 01 welcome → 12 perishables (all with widget tests). Option B **household union capture** on screen 04: when `householdHasDifferingDiet=true`, `householdCombinedDietary: List<String>` is captured and `state.effectiveDietary` getter returns it (fallback to `state.dietary`) — consumed by Gemini on screen 13.
+**Deferred this session (flagged, not built):**
+- **Screen 11/12 search bar** — deferred to after on-device smoke test.
+- **Screen 11/12 full dietary/allergy filtering** — requires per-item metadata pass on the ~100+ items in `PantryCategories.all` (content authoring + Kate-voice decision on hide-vs-grey). Not a code problem — flagged as separate work.
 
 **Pending (in order):**
 
-1. **Sprint 16.2 — Copy polish (first thing next session).** Go screen 01 → 15 in chat. For each screen, I paste spec copy + as-rendered strings + conditional variants; Rob reacts inline; I edit spec `.md` and screen `.dart` together to keep them in lockstep; one commit per screen that changed (`copy(sprint-16-onboarding): screen NN <area>`). Flag conditionals (screens 05/07/10/13/14) so no variant is missed. Timebox each screen — "many minor things" drifts fast. Some copy may be Kate's voice; flag those rather than guess. Staying on branch `sprint/16-onboarding-rebuild` — NOT creating a new sprint (copy is part of the onboarding rebuild; renumbering ripples through docs for no gain).
-
-2. **On-device smoke test** the rebuilt APK (rebuild after copy polish via `build.ps1 -sprint 16.2-copy-polish` or similar). Clear app data; walk 01 → 15. Verify Firestore write matches `toFirestoreMap`, RC alias fires, guest pantry clears, `onboardingComplete=true` lands, AuthGate routes to AppShell.
-
-3. **Tag** `v16.1-onboarding-rebuild` after on-device sign-off (Rule 5).
-
+1. **Finish copy polish** — screens 13 (first-recipe demo), 14 (paywall), 15 (account). Same walkthrough pattern. Variants to flag on 13/14.
+2. **On-device smoke test** — rebuild APK via `build.ps1 -sprint 16.2-copy-polish`; clear app data; walk 01 → 15. Verify Firestore write, RC alias, guest pantry clears, `onboardingComplete=true` lands, AuthGate routes to AppShell.
+3. **Tag** `v16.1-onboarding-rebuild` after sign-off (Rule 5).
 4. **Merge** `sprint/16-onboarding-rebuild` → `sprint/16`. Then Rob's minor Sprint 16 UI tweaks. Then tag `v0.16.0-ui-overhaul`. Then Sprint 17 (launch prep).
 
-**Resolved this session:**
-- Screen 12 `expiryDate` mapping aligned to spec (`fresh→+7d`, `thisWeek→+3d`, `today→now`). Commit `40aaa53`.
-- Coordinator `onboarding_flow.dart` rewritten with PageController + injected OnboardingController.
-- Legacy 8-screen flow deletion confirmed done (Phase 0A handled it).
-- Analytics events wired per plan Q5 (`onboarding_step_completed` 01–14, `onboarding_paywall_viewed`, `onboarding_recipe_demo_started`/`_regenerated`, `onboarding_account_signin_success`/`_skipped_signin`). Routes through lazy/null-safe `AnalyticsService.instance`.
-- `AnalyticsService` made lazy/null-safe in Phase 6 (`lib/services/analytics_service.dart` + `main.dart` observer null-guard) — smoke-check on-device that analytics still fires in release.
-- `PurchaseService.aliasToUid` added for RC alias post sign-in.
-- `MigrationService.migrateGuestToFirestore` full impl: user doc via `toFirestoreMap()` + `SetOptions(merge:true)`, inventory batched to `users/{uid}/inventory/{auto-id}`, RC alias, guest pantry clear.
+**Earlier in this run (state carried from 20 April session):** 15-screen sell-to-self onboarding. Pre-auth state in `OnboardingController` + `GuestPantryService`. `AuthGate` keys off `SharedPreferences.getBool('onboardingComplete')`. `MigrationService` handles guest→Firestore on sign-in. Option B **household union capture** on screen 04 (`householdCombinedDietary`, consumed via `state.effectiveDietary` by Gemini on screen 13). 11 new `lib/widgets/elio/` widgets from Phase 0. Analytics wired: `onboarding_step_completed` 01–14 + paywall/signin events, via lazy/null-safe `AnalyticsService.instance`. `PurchaseService.aliasToUid` + `MigrationService.migrateGuestToFirestore` full impls shipped.
 
 **Still open (non-blocking):**
 - Screen 11 default count: 20 staples pre-selected vs spec prose "~16" (table lists 20 — trim or update prose).
 - Palette tokens `freshGreen` (#3D9970), `perishThisWeek` (amber), `perishToday` (#E06C5E) — Kate to ratify.
 - Screen 10 hero illustration still 🧊 placeholder — Kate art.
-- Screen 11/12 search bar + "+ Add something" tiles — flagged v1 in spec, not implemented.
-- Screen 12 dietary/allergy filtering — not implemented.
+- Screen 11/12 search bar — flagged v1 in spec, deliberately deferred.
+- Screen 11/12 full dietary/allergy filtering beyond the default-exclude rule — deferred (content + UX pass).
 - Coordinator lets each screen render its own progress bar rather than a single coordinator-owned bar — minor follow-up refactor for visual consistency.
 - Local build-artefact tag `build/sprint-16.1-onboarding` auto-created by `build.ps1` (not pushed). Distinct from the release tag; delete locally with `git tag -d` if unwanted.
 
