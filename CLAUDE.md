@@ -207,6 +207,11 @@ Agent D waits for A/B/C, runs `git status` + `flutter analyze`, fixes conflicts,
 - **iOS not built/tested** — URL scheme placeholder must be filled first.
 - **`mockup/` directory** untracked.
 - **`REVENUECAT_API_KEY`** — wired through `build.ps1` but actual key not yet in `.env.local` (need RC project setup first).
+- **Gemini first-attempt reliability** — Rob reports streaming generation commonly fails on the first attempt after app launch and succeeds on retry. Shows up on screen 13 first-recipe demo especially. Flagged for a dedicated reliability pass — hypotheses + investigation plan in memory `feedback_gemini_api.md` §5. Not blocking launch.
+
+## Tracked Feature Work (post-copy-polish)
+
+- **Guest shopping list + screen 13 "Add missing ingredients" affordance** — flagged in Sprint 16.2, Rob signed off on approach. Plan: build `GuestShoppingListService` (mirrors `GuestPantryService`), expose "Add N missing to shopping list" CTA on screen 13 recipe card (and normal recipe screen), persist items pre-auth, migrate on sign-in via `MigrationService`. Basic shopping list is **free** (Rob's decision 23 Apr); premium features (aisle grouping, share, restock suggestions) stay paywalled. Screen 14 paywall can then reference the items concretely ("Unlock Pro — your N items are ready"). Likely sprint tag `16.3`, own commit — not folded into onboarding-rebuild tag.
 
 ## Launch Strategy
 
