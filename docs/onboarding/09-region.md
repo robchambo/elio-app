@@ -40,8 +40,7 @@ Device locale is used to pre-select the likely answer, so most users tap Continu
 **Toggle / segmented control:**
 > `[ Metric ]  [ Imperial ]`  *(one selected, following region default)*
 
-**Helper text (small, secondary, only visible after user manually flips the toggle):**
-> Got it — we'll use <metric|imperial> across all your recipes.
+*(The previously-planned post-override helper text — "Got it — we'll use <metric|imperial> across all your recipes." — has been dropped for v1. The toggle's visual state is self-evident; an auto-fading confirmation line adds noise without signal.)*
 
 **Primary CTA (full-width, always enabled — pre-selection is a valid answer):**
 > Continue
