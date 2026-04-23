@@ -237,6 +237,7 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // PINNED TOP — back + progress only.
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 ElioSpacing.screenEdge,
@@ -257,41 +258,8 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
                 ],
               ),
             ),
-            const SizedBox(height: ElioSpacing.md),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: ElioSpacing.screenEdge,
-              ),
-              child: const ElioHeroHeading(
-                lines: ['And what\'s', 'fresh right now?'],
-                amberLastLine: true,
-              ),
-            ),
-            const SizedBox(height: ElioSpacing.sm),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: ElioSpacing.screenEdge,
-              ),
-              child: Text(
-                "Tap what you've got in. Tap again if it needs using sooner.",
-                style: ElioTextStyles.body.copyWith(
-                  color: ElioColors.textSecondary,
-                ),
-              ),
-            ),
-            const SizedBox(height: ElioSpacing.xs),
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: ElioSpacing.screenEdge,
-              ),
-              child: Text(
-                '🟢 Fresh   ·   🟡 This week   ·   🔴 Today',
-                style: ElioTextStyles.bodySmall.copyWith(
-                  color: ElioColors.textMuted,
-                ),
-              ),
-            ),
-            const SizedBox(height: ElioSpacing.md),
+            // SCROLLABLE MIDDLE — heading/subhead scroll together with the
+            // perishable category grids; category headers stay sticky.
             Expanded(
               child: CustomScrollView(
                 slivers: _buildCategorySlivers(),
@@ -329,7 +297,41 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
   }
 
   List<Widget> _buildCategorySlivers() {
-    final slivers = <Widget>[];
+    final slivers = <Widget>[
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          ElioSpacing.screenEdge,
+          ElioSpacing.md,
+          ElioSpacing.screenEdge,
+          ElioSpacing.md,
+        ),
+        sliver: SliverToBoxAdapter(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const ElioHeroHeading(
+                lines: ['And what\'s', 'fresh right now?'],
+                amberLastLine: true,
+              ),
+              const SizedBox(height: ElioSpacing.sm),
+              Text(
+                "Tap what you've got in. Tap again if it needs using sooner.",
+                style: ElioTextStyles.body.copyWith(
+                  color: ElioColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: ElioSpacing.xs),
+              Text(
+                '🟢 Fresh   ·   🟡 This week   ·   🔴 Today',
+                style: ElioTextStyles.bodySmall.copyWith(
+                  color: ElioColors.textMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
     for (final cat in _perishableCategories) {
       if (cat.items.isEmpty) continue;
       slivers.add(
