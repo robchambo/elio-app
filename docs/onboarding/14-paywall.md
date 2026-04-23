@@ -35,7 +35,7 @@ Paywalls are where dark patterns grow. This screen follows three rules:
 | Waste less food (#2) | Cut your food waste from week one. |
 | Decide dinner faster (#3) | No more 6pm panic. |
 | Feed the whole household (#4) | One plan for the whole house. |
-| Stop ordering takeaway (#5) | Skip the takeout. *(US-leaning spelling — US is primary launch market)* |
+| Stop ordering takeaway (#5) | **Region-aware:** US → "Skip the takeout." · UK → "Skip the takeaway." *(branches on `onboarding.region` from screen 09)* |
 | *(No goal set — shouldn't happen, but fallback)* | Unlimited Elio. Start with 7 days free. |
 
 *(Sprint 16.2 decisions: #3 kept punchier current copy over spec's "Never scroll for a recipe again"; #4 kept tighter current over spec's "One plan that works for the whole house"; #5 swapped "Cheaper than two takeaways a month" to behavioural-and-US-leaning "Skip the takeout".)*

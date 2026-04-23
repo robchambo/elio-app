@@ -172,9 +172,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
       case 'household':
         return ['One plan for the whole house.'];
       case 'takeawayEscape':
-        // US-leaning spelling ("takeout") per Rob's Sprint 16.2 decision —
+        // Region-aware: US → "takeout", UK (or default) → "takeaway".
+        // Region comes from screen 09 (device locale + user override).
         // US is the primary launch market.
-        return ['Skip the takeout.'];
+        return [
+          widget.onboarding?.region == 'us'
+              ? 'Skip the takeout.'
+              : 'Skip the takeaway.',
+        ];
       default:
         return ['Unlimited Elio. Start with 7 days free.'];
     }

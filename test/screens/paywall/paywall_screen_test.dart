@@ -39,7 +39,7 @@ void main() {
       ('wasteReduction', 'Cut your food waste from week one.'),
       ('decisionFatigue', 'No more 6pm panic.'),
       ('household', 'One plan for the whole house.'),
-      ('takeawayEscape', 'Skip the takeout.'),
+      // takeawayEscape headline is region-aware — asserted separately below.
       (null, 'Unlimited Elio. Start with 7 days free.'),
     ];
 
@@ -59,6 +59,32 @@ void main() {
         );
       });
     }
+  });
+
+  group('takeawayEscape headline is region-aware', () {
+    testWidgets('region=us → "Skip the takeout."', (t) async {
+      useTallViewport(t);
+      await t.pumpWidget(wrap(
+        onboarding: OnboardingState(userGoal: 'takeawayEscape', region: 'us'),
+      ));
+      await t.pump();
+      expect(
+        find.text('Skip the takeout.', skipOffstage: false),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('region=uk → "Skip the takeaway."', (t) async {
+      useTallViewport(t);
+      await t.pumpWidget(wrap(
+        onboarding: OnboardingState(userGoal: 'takeawayEscape', region: 'uk'),
+      ));
+      await t.pump();
+      expect(
+        find.text('Skip the takeaway.', skipOffstage: false),
+        findsOneWidget,
+      );
+    });
   });
 
   testWidgets('pantryFirst headline renders on two lines', (t) async {
