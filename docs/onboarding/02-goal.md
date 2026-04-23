@@ -33,7 +33,7 @@ This is the first time we ask the user for anything. It must feel light, fast, a
 > Continue
 
 **Optional secondary text below CTA:**
-> You can change this later in Settings.
+> You can change this later.
 
 ## Copy alternatives (for Rob to pick from before Kate locks)
 

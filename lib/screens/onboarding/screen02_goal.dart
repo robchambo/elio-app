@@ -77,16 +77,22 @@ class Screen02Goal extends StatelessWidget {
     return Scaffold(
       backgroundColor: ElioColors.offWhite,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(ElioSpacing.screenEdge),
-          child: AnimatedBuilder(
-            animation: controller,
-            builder: (context, _) {
-              final selectedGoal = controller.state.userGoal;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final selectedGoal = controller.state.userGoal;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // PINNED TOP — back + progress only.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.sm,
+                    ElioSpacing.screenEdge,
+                    0,
+                  ),
+                  child: Row(
                     children: [
                       BackButton(
                         color: ElioColors.navy,
@@ -98,64 +104,88 @@ class Screen02Goal extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  const ElioHeroHeading(
-                    lines: ['What brought', 'you to Elio?'],
-                    amberLastLine: true,
-                  ),
-                  const SizedBox(height: ElioSpacing.md),
-                  Text(
-                    "Pick what matters most — we'll tailor things to suit.",
-                    style: ElioTextStyles.body.copyWith(
-                      color: ElioColors.textSecondary,
+                ),
+                // SCROLLABLE MIDDLE — heading + subhead + option cards.
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.lg,
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const ElioHeroHeading(
+                          lines: ['What brought', 'you to Elio?'],
+                          amberLastLine: true,
+                        ),
+                        const SizedBox(height: ElioSpacing.md),
+                        Text(
+                          "Pick what matters most — we'll tailor things to suit.",
+                          style: ElioTextStyles.body.copyWith(
+                            color: ElioColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: ElioSpacing.lg),
+                        for (int i = 0; i < _goalOptions.length; i++) ...[
+                          if (i > 0)
+                            const SizedBox(height: ElioSpacing.sm + 4),
+                          ElioOnboardingOptionCard(
+                            value: _goalOptions[i].value,
+                            title: _goalOptions[i].label,
+                            subtitle: _goalOptions[i].subtext,
+                            selected: selectedGoal == _goalOptions[i].value,
+                            onTap: controller.setUserGoal,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  Expanded(
-                    child: ListView.separated(
-                      padding: EdgeInsets.zero,
-                      itemCount: _goalOptions.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: ElioSpacing.sm + 4),
-                      itemBuilder: (_, i) {
-                        final o = _goalOptions[i];
-                        return ElioOnboardingOptionCard(
-                          value: o.value,
-                          title: o.label,
-                          subtitle: o.subtext,
-                          selected: selectedGoal == o.value,
-                          onTap: controller.setUserGoal,
-                        );
-                      },
-                    ),
+                ),
+                // PINNED BOTTOM — Continue + caption.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
                   ),
-                  const SizedBox(height: ElioSpacing.md),
-                  ElioBigButton(
-                    label: 'Continue',
-                    onTap: selectedGoal == null
-                        ? null
-                        : () {
-                            AnalyticsService.instance.logEvent(
-                              'onboarding_step_completed',
-                              const {'step_index': 2, 'step_name': 'goal'},
-                            );
-                            onContinue();
-                          },
-                    trailingIcon: Icons.arrow_forward,
-                  ),
-                  const SizedBox(height: ElioSpacing.sm),
-                  Center(
-                    child: Text(
-                      'You can change this later in Settings.',
-                      style: ElioTextStyles.bodySmall.copyWith(
-                        color: ElioColors.textMuted,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElioBigButton(
+                        label: 'Continue',
+                        onTap: selectedGoal == null
+                            ? null
+                            : () {
+                                AnalyticsService.instance.logEvent(
+                                  'onboarding_step_completed',
+                                  const {
+                                    'step_index': 2,
+                                    'step_name': 'goal',
+                                  },
+                                );
+                                onContinue();
+                              },
+                        trailingIcon: Icons.arrow_forward,
                       ),
-                    ),
+                      const SizedBox(height: ElioSpacing.sm),
+                      Center(
+                        child: Text(
+                          'You can change this later.',
+                          style: ElioTextStyles.bodySmall.copyWith(
+                            color: ElioColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
