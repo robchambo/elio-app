@@ -33,12 +33,12 @@ const List<_ConfidenceOption> _options = [
       'One pan, few ingredients, nothing fiddly', Icons.egg_outlined),
   _ConfidenceOption('mixed', 'A bit of both',
       'Easy most nights, happy to branch out', Icons.outdoor_grill),
-  _ConfidenceOption('challenge', 'Challenge me',
+  _ConfidenceOption('challenge', 'Bring on the technique',
       'Teach me something new — I like learning', Icons.local_fire_department),
 ];
 
 // Subhead copy — default and softened variant (see §Personalisation).
-const String _defaultSubhead = 'Tells us how adventurous to get with techniques.';
+const String _defaultSubhead = 'Helps us pick how adventurous to go.';
 const String _softenedSubhead = "We'll lean easy — no fiddly bits.";
 
 class Screen07Confidence extends StatelessWidget {

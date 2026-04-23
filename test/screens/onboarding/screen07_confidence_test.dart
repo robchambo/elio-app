@@ -28,7 +28,7 @@ void main() {
     expect(find.byType(ElioOnboardingOptionCard), findsNWidgets(3));
     expect(find.text('Keep it simple'), findsOneWidget);
     expect(find.text('A bit of both'), findsOneWidget);
-    expect(find.text('Challenge me'), findsOneWidget);
+    expect(find.text('Bring on the technique'), findsOneWidget);
   });
 
   testWidgets('Continue disabled until a level is picked', (t) async {
@@ -71,7 +71,7 @@ void main() {
     await t.tap(find.text('Keep it simple'));
     await t.pump();
     expect(c.state.cookingConfidence, 'easy');
-    await t.tap(find.text('Challenge me'));
+    await t.tap(find.text('Bring on the technique'));
     await t.pump();
     expect(c.state.cookingConfidence, 'challenge');
   });
@@ -86,7 +86,7 @@ void main() {
       onBack: () {},
     )));
     expect(
-        find.text('Tells us how adventurous to get with techniques.'),
+        find.text('Helps us pick how adventurous to go.'),
         findsOneWidget);
     expect(find.text("We'll lean easy — no fiddly bits."), findsNothing);
   });
@@ -102,7 +102,7 @@ void main() {
     )));
     expect(find.text("We'll lean easy — no fiddly bits."), findsOneWidget);
     expect(
-        find.text('Tells us how adventurous to get with techniques.'),
+        find.text('Helps us pick how adventurous to go.'),
         findsNothing);
   });
 

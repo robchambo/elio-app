@@ -17,7 +17,7 @@ Also a quiet signal for copy tone downstream: a "keep it easy" user gets softer 
 > How do you feel about cooking?
 
 **Subhead (one line, lighter weight):**
-> Tells us how adventurous to get with techniques.
+> Helps us pick how adventurous to go.
 
 **Options (single-select, vertical cards):**
 
@@ -25,7 +25,7 @@ Also a quiet signal for copy tone downstream: a "keep it easy" user gets softer 
 |---|---|---|---|
 | 1 | Keep it simple | One pan, few ingredients, nothing fiddly | `easy` |
 | 2 | A bit of both | Easy most nights, happy to branch out | `mixed` |
-| 3 | Challenge me | Teach me something new — I like learning | `challenge` |
+| 3 | Bring on the technique | Teach me something new — I like learning | `challenge` |
 
 **Primary CTA (full-width, disabled until selection made):**
 > Continue
