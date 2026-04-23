@@ -7,6 +7,8 @@ import '../../services/guest_pantry_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
+import '../../widgets/elio/elio_add_something_tile.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
@@ -120,6 +122,47 @@ class Screen12PantryPerishables extends StatefulWidget {
 class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
   /// tier ∈ {'fresh', 'thisWeek', 'today'}. Absent keys are unselected.
   final Map<String, String> _tiers = {};
+
+  /// Custom items added via "+ Add something", keyed by perishable category.
+  final Map<String, List<String>> _customItemsByCategory = {};
+
+  /// Flat list of everything visible on this screen (spec perishables +
+  /// already-added custom items). Used as the dedup scope.
+  List<String> _allVisibleItems() {
+    final names = <String>[];
+    for (final cat in _perishableCategories) {
+      names.addAll(cat.items);
+    }
+    for (final list in _customItemsByCategory.values) {
+      names.addAll(list);
+    }
+    return names;
+  }
+
+  Future<void> _openAddDialog(String categoryName) async {
+    final result = await showAddPantryItemDialog(
+      context,
+      categoryName: categoryName,
+      existing: _allVisibleItems(),
+    );
+    switch (result) {
+      case AddItemCancelled():
+        return;
+      case AddItemPromoteExisting(:final existingName):
+        setState(() {
+          _tiers[existingName] = 'fresh';
+        });
+      case AddItemAddNew(:final name):
+        setState(() {
+          final list = _customItemsByCategory.putIfAbsent(
+            categoryName,
+            () => <String>[],
+          );
+          list.add(name);
+          _tiers[name] = 'fresh';
+        });
+    }
+  }
 
   int get _freshCount =>
       _tiers.values.where((t) => t == 'fresh').length;
@@ -333,13 +376,16 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
       ),
     ];
     for (final cat in _perishableCategories) {
-      if (cat.items.isEmpty) continue;
+      final customItems = _customItemsByCategory[cat.name] ?? const <String>[];
+      final items = [...cat.items, ...customItems];
+      if (items.isEmpty) continue;
       slivers.add(
         SliverPersistentHeader(
           pinned: true,
           delegate: ElioStickyCategoryHeader(title: cat.name),
         ),
       );
+      final childCount = items.length + 1;
       slivers.add(
         SliverPadding(
           padding: const EdgeInsets.symmetric(
@@ -355,7 +401,13 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final name = cat.items[index];
+                if (index == items.length) {
+                  return ElioAddSomethingTile(
+                    key: ValueKey('perishable_add_${cat.name}'),
+                    onTap: () => _openAddDialog(cat.name),
+                  );
+                }
+                final name = items[index];
                 return ElioPantryItemTile(
                   key: ValueKey('perishable_$name'),
                   label: name,
@@ -365,7 +417,7 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
                   onLongPress: () => _openLongPressMenu(name),
                 );
               },
-              childCount: cat.items.length,
+              childCount: childCount,
             ),
           ),
         ),

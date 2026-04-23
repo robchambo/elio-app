@@ -211,7 +211,10 @@ Gemini's existing prompt logic already handles "perishable items with urgency de
 - Tap a tile → cycles state: unselected → Fresh → This week → Today → unselected.
 - Long-press a tile → action sheet: "Mark as Fresh / This week / Today / Remove".
 - Type in search → filters all items across categories.
-- Tap "+ Add something" in a category → inline input; submit adds custom tile in Fresh state.
+- Tap "+ Add something" in a category → dialog with a text input; submit adds a custom tile in Fresh state. Dedup behaviour matches screen 11:
+  - **Exact (normalised) match** against any existing pantry item → no new tile; the existing tile is silently promoted to Fresh. No confirm dialog.
+  - **Fuzzy match** (via `PantryUtils.findDuplicates`) → "Similar item found" confirm dialog: *Cancel* / *Add anyway*.
+  - **No match** → append as a custom tile in the user-chosen category, pre-selected at Fresh.
 - Tap **Let's make something!** → persist perishables with derived `expiryDate` and `runningLow`; advance to screen 13 (First recipe demo).
 - Back arrow → returns to screen 11 (Staples). All state preserved.
 - No skip option. CTA is always live.

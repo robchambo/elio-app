@@ -5,6 +5,7 @@ import 'package:elio_app/controllers/onboarding_controller.dart';
 import 'package:elio_app/models/elio_models.dart';
 import 'package:elio_app/screens/onboarding/screen11_pantry_staples.dart';
 import 'package:elio_app/services/guest_pantry_service.dart';
+import 'package:elio_app/widgets/elio/elio_add_something_tile.dart';
 import 'package:elio_app/widgets/elio/elio_big_button.dart';
 import 'package:elio_app/widgets/elio/elio_pantry_item_tile.dart';
 
@@ -235,6 +236,142 @@ void main() {
       c.state.inventory.where((i) => i.tier != 'perishable').length,
       greaterThan(0),
     );
+  });
+
+  testWidgets('an Add-something tile renders in each category', (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(Screen11PantryStaples(
+      controller: OnboardingController(),
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+    // SliverGrid lazy-builds, so we verify by scrolling each category's
+    // add-tile into view via its ValueKey.
+    for (final catName in [
+      'Oils & Vinegars',
+      'Spices & Seasonings',
+      'Sauces & Condiments',
+      'Canned & Jarred',
+      'Grains & Pasta',
+      'Dairy & Eggs',
+      'Baking Essentials',
+      'Frozen Staples',
+      'Asian Pantry',
+      'Indian Pantry',
+      'Mediterranean',
+      'Mexican & Latin',
+    ]) {
+      final finder = find.byKey(
+        ValueKey('staple_add_$catName'),
+        skipOffstage: false,
+      );
+      await t.scrollUntilVisible(finder, 300);
+      expect(finder, findsOneWidget, reason: 'missing add tile for $catName');
+    }
+  });
+
+  testWidgets('adding a unique item appends a custom tile in that category',
+      (t) async {
+    useTallViewport(t);
+    final c = OnboardingController();
+    await t.pumpWidget(wrap(Screen11PantryStaples(
+      controller: c,
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+
+    // Open the add-dialog for Oils & Vinegars (first category).
+    final addTiles = find.byType(ElioAddSomethingTile, skipOffstage: false);
+    await t.ensureVisible(addTiles.first);
+    await t.pump();
+    await t.tap(addTiles.first);
+    await t.pumpAndSettle();
+
+    // Type a unique name.
+    await t.enterText(find.byType(TextField), 'Avocado oil');
+    await t.pumpAndSettle();
+    await t.tap(find.text('Add'));
+    await t.pumpAndSettle();
+
+    // New tile rendered + selected at "usually".
+    expect(find.text('Avocado oil', skipOffstage: false), findsOneWidget);
+    final tile = t.widget<ElioPantryItemTile>(
+      find.ancestor(
+        of: find.text('Avocado oil', skipOffstage: false),
+        matching: find.byType(ElioPantryItemTile, skipOffstage: false),
+      ),
+    );
+    expect(tile.tier, 'usually');
+  });
+
+  testWidgets('exact-match add silently promotes the existing tile',
+      (t) async {
+    useTallViewport(t);
+    final c = OnboardingController();
+    await t.pumpWidget(wrap(Screen11PantryStaples(
+      controller: c,
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+
+    // Open the Add dialog from the first visible category.
+    final addTiles = find.byType(ElioAddSomethingTile, skipOffstage: false);
+    await t.ensureVisible(addTiles.first);
+    await t.pump();
+    await t.tap(addTiles.first);
+    await t.pumpAndSettle();
+
+    // "Worcestershire sauce" is in spec (Sauces & Condiments) and unique —
+    // typed with case + padding variation to prove normalisation works.
+    await t.enterText(find.byType(TextField), '  WORCESTERSHIRE sauce  ');
+    await t.pumpAndSettle();
+    await t.tap(find.text('Add'));
+    await t.pumpAndSettle();
+
+    // No warning dialog appeared (exact match path is silent).
+    expect(find.text('Similar item found'), findsNothing);
+
+    // Commit & verify: existing tile has been promoted; inventory contains
+    // exactly one Worcestershire sauce with "almostAlwaysHave" tier.
+    await t.tap(find.byType(ElioBigButton));
+    await t.pumpAndSettle();
+    final matches = c.state.inventory
+        .where((i) => i.name == 'Worcestershire sauce')
+        .toList();
+    expect(matches.length, 1);
+    expect(matches.first.tier, 'almostAlwaysHave');
+  });
+
+  testWidgets('fuzzy-match add shows duplicate warning dialog', (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(Screen11PantryStaples(
+      controller: OnboardingController(),
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+
+    final addTiles = find.byType(ElioAddSomethingTile, skipOffstage: false);
+    await t.ensureVisible(addTiles.first);
+    await t.pump();
+    await t.tap(addTiles.first);
+    await t.pumpAndSettle();
+
+    // "Ketshup" → Levenshtein 1 from "Ketchup" (in Sauces & Condiments).
+    await t.enterText(find.byType(TextField), 'Ketshup');
+    await t.pumpAndSettle();
+    await t.tap(find.text('Add'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Similar item found'), findsOneWidget);
+
+    // Cancel: no new tile, no promotion.
+    await t.tap(find.text('Cancel'));
+    await t.pumpAndSettle();
+    expect(find.text('Ketshup', skipOffstage: false), findsNothing);
   });
 
   testWidgets('back button fires onBack', (t) async {

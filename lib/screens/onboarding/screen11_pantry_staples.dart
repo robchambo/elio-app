@@ -9,6 +9,8 @@ import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
+import '../../widgets/elio/elio_add_something_tile.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
@@ -179,6 +181,10 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
   /// tier ∈ {'usually', 'always'}.
   late Map<String, String> _tiers;
 
+  /// Custom items the user added via "+ Add something", keyed by category.
+  /// Display order = user-added order.
+  final Map<String, List<String>> _customItemsByCategory = {};
+
   @override
   void initState() {
     super.initState();
@@ -186,6 +192,47 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
       widget.controller.state.dietary,
       widget.controller.state.allergies,
     );
+  }
+
+  /// Flat list of every item visible on this screen (spec items across all
+  /// categories + custom items already added). Used as the dedup scope
+  /// when the user tries to add another.
+  List<String> _allVisibleItems() {
+    final names = <String>[];
+    for (final catName in _categoryOrder) {
+      final cat = PantryCategories.byName(catName);
+      if (cat != null) names.addAll(cat.allItems);
+    }
+    for (final list in _customItemsByCategory.values) {
+      names.addAll(list);
+    }
+    return names;
+  }
+
+  Future<void> _openAddDialog(String categoryName) async {
+    final result = await showAddPantryItemDialog(
+      context,
+      categoryName: categoryName,
+      existing: _allVisibleItems(),
+    );
+    switch (result) {
+      case AddItemCancelled():
+        return;
+      case AddItemPromoteExisting(:final existingName):
+        // Silently promote the existing tile to the "usually" tier.
+        setState(() {
+          _tiers[existingName] = 'usually';
+        });
+      case AddItemAddNew(:final name):
+        setState(() {
+          final list = _customItemsByCategory.putIfAbsent(
+            categoryName,
+            () => <String>[],
+          );
+          list.add(name);
+          _tiers[name] = 'usually';
+        });
+    }
   }
 
   void _cycle(String name, String next) {
@@ -208,6 +255,16 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
 
   int get _count => _tiers.length;
 
+  /// Reverse map: custom item name → the category the user added it under.
+  /// Used so custom items persist with their user-chosen category, since
+  /// `PantryCategories.categorize` only knows about spec items.
+  String? _categoryForCustom(String name) {
+    for (final entry in _customItemsByCategory.entries) {
+      if (entry.value.contains(name)) return entry.key;
+    }
+    return null;
+  }
+
   Future<void> _onContinue() async {
     // Map tier strings → InventoryItem tier values used elsewhere in the app.
     final newStaples = <InventoryItem>[];
@@ -216,7 +273,8 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
         InventoryItem(
           name: name,
           tier: tier == 'always' ? 'alwaysHave' : 'almostAlwaysHave',
-          category: PantryCategories.categorize(name),
+          category:
+              PantryCategories.categorize(name) ?? _categoryForCustom(name),
         ),
       );
     });
@@ -341,8 +399,10 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
     for (final catName in _categoryOrder) {
       final cat = PantryCategories.byName(catName);
       if (cat == null) continue;
-      final items = cat.allItems;
-      if (items.isEmpty) continue;
+      final specItems = cat.allItems;
+      final customItems = _customItemsByCategory[catName] ?? const <String>[];
+      final items = [...specItems, ...customItems];
+      if (items.isEmpty && customItems.isEmpty) continue;
 
       slivers.add(
         SliverPersistentHeader(
@@ -350,6 +410,8 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
           delegate: ElioStickyCategoryHeader(title: catName),
         ),
       );
+      // Grid children = all items + a trailing "+ Add something" tile.
+      final childCount = items.length + 1;
       slivers.add(
         SliverPadding(
           padding: const EdgeInsets.symmetric(
@@ -365,6 +427,12 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
+                if (index == items.length) {
+                  return ElioAddSomethingTile(
+                    key: ValueKey('staple_add_$catName'),
+                    onTap: () => _openAddDialog(catName),
+                  );
+                }
                 final name = items[index];
                 return ElioPantryItemTile(
                   key: ValueKey('staple_$name'),
@@ -375,7 +443,7 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
                   onLongPress: () => _jumpToAlways(name),
                 );
               },
-              childCount: items.length,
+              childCount: childCount,
             ),
           ),
         ),

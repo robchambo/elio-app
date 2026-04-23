@@ -215,7 +215,10 @@ Uses the existing `_buildPrompt()` "Inventory section" which already distinguish
 - Long-press an unselected tile → Always in directly.
 - Long-press a selected tile (either tier) → removes.
 - Type in search → filters all items across categories, grouped by category. Tap filtered item → selects + clears search.
-- Tap "+ Add something" in a category → inline input opens; submit adds a custom tile in "Usually in" state and clears the input.
+- Tap "+ Add something" in a category → dialog opens with a text input; submit adds a custom tile in "Usually in" state. Dedup behaviour:
+  - **Exact (normalised) match** against any existing pantry item → no new tile; the existing tile is silently promoted to "Usually in". No confirm dialog.
+  - **Fuzzy match** (typo / near-duplicate, via `PantryUtils.findDuplicates`) → "Similar item found" confirm dialog: *Cancel* / *Add anyway*.
+  - **No match** → append as a custom tile in the user-chosen category, pre-selected at "Usually in".
 - Tap **Next** → persist inventory + tierMemory; advance to screen 12 (Perishables).
 - Back arrow → returns to screen 10 (Pantry intro). All state preserved on return.
 - No skip option. Pre-selected defaults make the minimal-effort path a single Next tap.

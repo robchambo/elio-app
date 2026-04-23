@@ -267,6 +267,133 @@ void main() {
     expect(staples.map((i) => i.name), containsAll(['Olive oil', 'Salt']));
   });
 
+  testWidgets('an Add-something tile renders in each perishable category',
+      (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(Screen12PantryPerishables(
+      controller: OnboardingController(),
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+    for (final catName in [
+      'Fresh veg',
+      'Fresh fruit',
+      'Fresh meat & fish',
+      'Fresh dairy & herbs',
+    ]) {
+      final finder = find.byKey(
+        ValueKey('perishable_add_$catName'),
+        skipOffstage: false,
+      );
+      await t.scrollUntilVisible(finder, 300);
+      expect(finder, findsOneWidget, reason: 'missing add tile for $catName');
+    }
+  });
+
+  testWidgets('adding a unique perishable appends a custom tile at fresh tier',
+      (t) async {
+    useTallViewport(t);
+    final c = OnboardingController();
+    await t.pumpWidget(wrap(Screen12PantryPerishables(
+      controller: c,
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+
+    final addTile = find.byKey(
+      const ValueKey('perishable_add_Fresh fruit'),
+      skipOffstage: false,
+    );
+    await t.scrollUntilVisible(addTile, 300);
+    await t.tap(addTile);
+    await t.pumpAndSettle();
+
+    await t.enterText(find.byType(TextField), 'Pear');
+    await t.pumpAndSettle();
+    await t.tap(find.text('Add'));
+    await t.pumpAndSettle();
+
+    final pearTile = find.ancestor(
+      of: find.text('Pear', skipOffstage: false),
+      matching: find.byType(ElioPantryItemTile, skipOffstage: false),
+    );
+    await t.scrollUntilVisible(pearTile, 300);
+    final tile = t.widget<ElioPantryItemTile>(pearTile);
+    expect(tile.tier, 'fresh');
+  });
+
+  testWidgets('exact-match perishable add silently promotes existing tile',
+      (t) async {
+    useTallViewport(t);
+    final c = OnboardingController();
+    await t.pumpWidget(wrap(Screen12PantryPerishables(
+      controller: c,
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+
+    final addTile = find.byKey(
+      const ValueKey('perishable_add_Fresh veg'),
+      skipOffstage: false,
+    );
+    await t.scrollUntilVisible(addTile, 300);
+    await t.tap(addTile);
+    await t.pumpAndSettle();
+
+    // "Carrot" is in the spec list. Typed with padding to prove normalisation.
+    await t.enterText(find.byType(TextField), '  carrot ');
+    await t.pumpAndSettle();
+    await t.tap(find.text('Add'));
+    await t.pumpAndSettle();
+
+    // No warning dialog (exact match is silent).
+    expect(find.text('Similar item found'), findsNothing);
+
+    await t.ensureVisible(find.byType(ElioBigButton));
+    await t.pump();
+    await t.tap(find.byType(ElioBigButton));
+    await t.pumpAndSettle();
+
+    final matches = c.state.inventory
+        .where((i) => i.name == 'Carrot')
+        .toList();
+    expect(matches.length, 1);
+    expect(matches.first.tier, 'perishable');
+  });
+
+  testWidgets('fuzzy-match perishable add shows duplicate warning',
+      (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(Screen12PantryPerishables(
+      controller: OnboardingController(),
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+
+    final addTile = find.byKey(
+      const ValueKey('perishable_add_Fresh veg'),
+      skipOffstage: false,
+    );
+    await t.scrollUntilVisible(addTile, 300);
+    await t.tap(addTile);
+    await t.pumpAndSettle();
+
+    // "Carot" → Levenshtein 1 from "Carrot".
+    await t.enterText(find.byType(TextField), 'Carot');
+    await t.pumpAndSettle();
+    await t.tap(find.text('Add'));
+    await t.pumpAndSettle();
+
+    expect(find.text('Similar item found'), findsOneWidget);
+    await t.tap(find.text('Cancel'));
+    await t.pumpAndSettle();
+    expect(find.text('Carot', skipOffstage: false), findsNothing);
+  });
+
   testWidgets('back button fires onBack', (t) async {
     useTallViewport(t);
     var backed = false;
