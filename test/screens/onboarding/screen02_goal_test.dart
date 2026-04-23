@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:elio_app/controllers/onboarding_controller.dart';
 import 'package:elio_app/screens/onboarding/screen02_goal.dart';
+import 'package:elio_app/utils/region_utils.dart';
 import 'package:elio_app/widgets/elio/elio_big_button.dart';
 import 'package:elio_app/widgets/elio/elio_onboarding_option_card.dart';
 import 'package:elio_app/widgets/elio/elio_onboarding_progress_bar.dart';
 
 void main() {
   Widget wrap(Widget child) => MaterialApp(home: child);
+
+  // Screen 02 runs before screen 09 (region choice), so the takeawayEscape
+  // label is region-aware via RegionUtils (device-locale fallback). Tests
+  // compute the expected label the same way so they pass on either locale.
+  final takeawayLabel = RegionUtils.isUS
+      ? 'Stop ordering takeout'
+      : 'Stop ordering takeaway';
 
   /// All 5 option cards + heading + CTA exceed the default 800x600 surface.
   /// Tall viewport keeps every tap target on-stage without scroll gymnastics.
@@ -20,12 +28,12 @@ void main() {
     });
   }
 
-  const labels = [
+  final labels = [
     "Cook with what I've got",
     'Waste less food',
     'Decide dinner faster',
     'Feed the whole household',
-    'Stop ordering takeaway',
+    takeawayLabel,
   ];
 
   testWidgets('renders all 5 option cards with spec labels', (t) async {
@@ -104,7 +112,7 @@ void main() {
       'Waste less food': 'wasteReduction',
       'Decide dinner faster': 'decisionFatigue',
       'Feed the whole household': 'household',
-      'Stop ordering takeaway': 'takeawayEscape',
+      takeawayLabel: 'takeawayEscape',
     };
     for (final entry in expected.entries) {
       final c = OnboardingController();

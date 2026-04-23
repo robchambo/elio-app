@@ -27,7 +27,9 @@ This is the first time we ask the user for anything. It must feel light, fast, a
 | 2 | Waste less food | Use it before it goes off | #2 Waste reduction |
 | 3 | Decide dinner faster | Skip the scroll, skip the debate | #3 Decision fatigue |
 | 4 | Feed the whole household | Fussy eaters and all | #4 Household |
-| 5 | Stop ordering takeaway | Eat better, spend less | #5 Takeaway escape |
+| 5 | Stop ordering takeaway *(US: Stop ordering takeout)* | Eat better, spend less | #5 Takeaway escape |
+
+> **Region-aware label (Sprint 16.2):** Screen 02 renders before the explicit region choice on screen 09, so the #5 label branches on `RegionUtils.region` — which falls back to the device locale. US users see **"Stop ordering takeout"**, UK (and other) users see **"Stop ordering takeaway"**. Mirrors the region-aware paywall headline for `takeawayEscape` (screen 14).
 
 **Primary CTA (full-width button, disabled until selection made):**
 > Continue

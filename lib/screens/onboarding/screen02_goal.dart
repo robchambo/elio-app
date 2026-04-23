@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../controllers/onboarding_controller.dart';
 import '../../services/analytics_service.dart';
+import '../../utils/region_utils.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
@@ -31,34 +32,44 @@ class _GoalOption {
   const _GoalOption(this.value, this.label, this.subtext);
 }
 
-// Copy verbatim from docs/onboarding/02-goal.md §Copy.
-const List<_GoalOption> _goalOptions = [
-  _GoalOption(
-    'pantryFirst',
-    "Cook with what I've got",
-    'Stop staring at the fridge',
-  ),
-  _GoalOption(
-    'wasteReduction',
-    'Waste less food',
-    'Use it before it goes off',
-  ),
-  _GoalOption(
-    'decisionFatigue',
-    'Decide dinner faster',
-    'Skip the scroll, skip the debate',
-  ),
-  _GoalOption(
-    'household',
-    'Feed the whole household',
-    'Fussy eaters and all',
-  ),
-  _GoalOption(
-    'takeawayEscape',
-    'Stop ordering takeaway',
-    'Eat better, spend less',
-  ),
-];
+// Copy from docs/onboarding/02-goal.md §Copy.
+//
+// The takeawayEscape label is region-aware: US users see "takeout",
+// UK users see "takeaway". Screen 02 runs before screen 09 (explicit
+// region choice), so we branch on RegionUtils.region — which falls back
+// to the device locale when the user hasn't overridden yet.
+List<_GoalOption> _buildGoalOptions() {
+  final takeawayLabel = RegionUtils.isUS
+      ? 'Stop ordering takeout'
+      : 'Stop ordering takeaway';
+  return [
+    const _GoalOption(
+      'pantryFirst',
+      "Cook with what I've got",
+      'Stop staring at the fridge',
+    ),
+    const _GoalOption(
+      'wasteReduction',
+      'Waste less food',
+      'Use it before it goes off',
+    ),
+    const _GoalOption(
+      'decisionFatigue',
+      'Decide dinner faster',
+      'Skip the scroll, skip the debate',
+    ),
+    const _GoalOption(
+      'household',
+      'Feed the whole household',
+      'Fussy eaters and all',
+    ),
+    _GoalOption(
+      'takeawayEscape',
+      takeawayLabel,
+      'Eat better, spend less',
+    ),
+  ];
+}
 
 class Screen02Goal extends StatelessWidget {
   final OnboardingController controller;
@@ -81,6 +92,7 @@ class Screen02Goal extends StatelessWidget {
           animation: controller,
           builder: (context, _) {
             final selectedGoal = controller.state.userGoal;
+            final goalOptions = _buildGoalOptions();
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -129,14 +141,14 @@ class Screen02Goal extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: ElioSpacing.lg),
-                        for (int i = 0; i < _goalOptions.length; i++) ...[
+                        for (int i = 0; i < goalOptions.length; i++) ...[
                           if (i > 0)
                             const SizedBox(height: ElioSpacing.sm + 4),
                           ElioOnboardingOptionCard(
-                            value: _goalOptions[i].value,
-                            title: _goalOptions[i].label,
-                            subtitle: _goalOptions[i].subtext,
-                            selected: selectedGoal == _goalOptions[i].value,
+                            value: goalOptions[i].value,
+                            title: goalOptions[i].label,
+                            subtitle: goalOptions[i].subtext,
+                            selected: selectedGoal == goalOptions[i].value,
                             onTap: controller.setUserGoal,
                           ),
                         ],
