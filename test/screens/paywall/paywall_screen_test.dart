@@ -108,6 +108,50 @@ void main() {
     expect(find.byKey(const Key('paywallRecipeThumbnail')), findsOneWidget);
   });
 
+  testWidgets('feature cards include Recipe import + Scanning', (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(onboarding: OnboardingState(userGoal: 'pantryFirst')));
+    await t.pump();
+
+    // New cards added Sprint 16.2 — these are real Pro features active in
+    // the app and each surfaces a monetisation hook.
+    expect(
+      find.text('Recipe import', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Barcode & receipt scanning', skipOffstage: false),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('footer shows Restore · Terms · Privacy links', (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(onboarding: OnboardingState(userGoal: 'pantryFirst')));
+    await t.pump();
+
+    expect(find.byKey(const Key('paywallRestoreLink')), findsOneWidget);
+    expect(find.byKey(const Key('paywallTermsLink')), findsOneWidget);
+    expect(find.byKey(const Key('paywallPrivacyLink')), findsOneWidget);
+  });
+
+  testWidgets('tapping Terms shows a placeholder SnackBar', (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(onboarding: OnboardingState(userGoal: 'pantryFirst')));
+    await t.pump();
+
+    final termsLink = find.byKey(const Key('paywallTermsLink'));
+    await t.ensureVisible(termsLink);
+    await t.pump();
+    await t.tap(termsLink, warnIfMissed: false);
+    await t.pump();
+
+    expect(
+      find.textContaining('Terms of Service — opens at'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('recipeThumbnailUrl omitted when null', (t) async {
     useTallViewport(t);
     await t.pumpWidget(MaterialApp(

@@ -60,6 +60,8 @@ Paywalls are where dark patterns grow. This screen follows three rules:
 
 *(This table is sourced from the existing `paywall_screen.dart`. Any change here must also land in the post-onboarding paywall.)*
 
+**Sprint 16.2 update:** Recipe import + Barcode & receipt scanning feature cards added (previously missing). All 7 features now surface. Card titles as rendered: Unlimited recipes, Weekly meal planner, Smart shopping list, Recipe import, Barcode & receipt scanning, Household of 6, 50-recipe history.
+
 ### Plan selection (two plans shown, annual pre-selected)
 
 | Plan | Copy | Price region-aware |
@@ -77,8 +79,10 @@ Paywalls are where dark patterns grow. This screen follows three rules:
 **Secondary (small link, centred, below the button):**
 > Continue with Free
 
-**Footer links (tiny, grey):**
-> Restore purchase · Terms · Privacy
+**Footer links (tiny, grey) — single centred row:**
+> Restore · Terms · Privacy
+
+*(Sprint 16.2: all three now present. Restore runs real RevenueCat flow; Terms + Privacy show a placeholder SnackBar until Sprint 17 wires `url_launcher` + real legal URLs. Play / App Store review requires these links exist on any purchase surface — they must not be missing at submission.)*
 
 ## Layout
 

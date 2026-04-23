@@ -393,18 +393,54 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ],
 
-              // ── Restore purchases ─────────────────────────────
-              Center(
-                child: TextButton(
-                  onPressed: _isLoading ? null : _onRestore,
-                  child: Text(
-                    'Restore purchases',
-                    style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.textSecondary,
-                      decoration: TextDecoration.underline,
+              // ── Footer links: Restore · Terms · Privacy ────────
+              //
+              // Single centred row. Terms + Privacy are required to be
+              // reachable from any purchase surface per Play / App Store
+              // review policy. Tap handlers currently show a SnackBar
+              // pointing to the launch URL — url_launcher + real legal
+              // docs land in Sprint 17 (launch prep).
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    key: const Key('paywallRestoreLink'),
+                    onPressed: _isLoading ? null : _onRestore,
+                    child: Text(
+                      'Restore',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.textSecondary,
+                        decoration: TextDecoration.underline,
+                      ),
                     ),
                   ),
-                ),
+                  const Text('·',
+                      style: TextStyle(color: ElioColors.textSecondary)),
+                  TextButton(
+                    key: const Key('paywallTermsLink'),
+                    onPressed: _isLoading ? null : () => _openLegal('terms'),
+                    child: Text(
+                      'Terms',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.textSecondary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  const Text('·',
+                      style: TextStyle(color: ElioColors.textSecondary)),
+                  TextButton(
+                    key: const Key('paywallPrivacyLink'),
+                    onPressed: _isLoading ? null : () => _openLegal('privacy'),
+                    child: Text(
+                      'Privacy',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.textSecondary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
 
@@ -443,6 +479,14 @@ class _PaywallScreenState extends State<PaywallScreen> {
       {
         'title': 'Smart shopping list',
         'subtitle': 'Missing ingredients organised by grocery aisle.',
+      },
+      {
+        'title': 'Recipe import',
+        'subtitle': 'Paste any recipe URL — Elio reformats it for your pantry.',
+      },
+      {
+        'title': 'Barcode & receipt scanning',
+        'subtitle': 'Scan groceries to keep your pantry current in seconds.',
       },
       {
         'title': 'Household of 6',
@@ -541,6 +585,20 @@ class _PaywallScreenState extends State<PaywallScreen> {
         Navigator.of(context).pop(true);
       }
     }
+  }
+
+  /// Legal-link handler — stub until Sprint 17 wires url_launcher + real
+  /// Terms / Privacy URLs. Fires an analytics event and shows a SnackBar
+  /// so the tap isn't silent. Play / App Store review requires these
+  /// links exist, not that they're live in pre-launch builds.
+  void _openLegal(String which) {
+    _analytics.logEvent('paywall_legal_tapped', {'doc': which});
+    final label = which == 'terms' ? 'Terms of Service' : 'Privacy Policy';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label — opens at elio.app/$which at launch.'),
+      ),
+    );
   }
 
   Future<void> _onRestore() async {
