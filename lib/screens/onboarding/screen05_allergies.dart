@@ -126,17 +126,18 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
           animation: widget.controller,
           builder: (context, _) {
             final s = widget.controller.state;
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(
-                ElioSpacing.screenEdge,
-                ElioSpacing.screenEdge,
-                ElioSpacing.screenEdge,
-                ElioSpacing.md,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // PINNED TOP.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.sm,
+                    ElioSpacing.screenEdge,
+                    0,
+                  ),
+                  child: Row(
                     children: [
                       BackButton(
                         color: ElioColors.navy,
@@ -148,10 +149,20 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
+                ),
+                // SCROLLABLE MIDDLE.
+                Expanded(
+                  child: SingleChildScrollView(
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    padding: const EdgeInsets.fromLTRB(
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.lg,
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.md,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const ElioHeroHeading(
                           lines: ['And anything', 'to avoid?'],
@@ -209,29 +220,42 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: ElioSpacing.md),
-                  ElioBigButton(
-                    label: 'Continue',
-                    onTap: () {
-                      _logStep();
-                      widget.onContinue();
-                    },
-                    trailingIcon: Icons.arrow_forward,
+                ),
+                // PINNED BOTTOM.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
                   ),
-                  const SizedBox(height: ElioSpacing.sm),
-                  Center(
-                    child: TextButton(
-                      onPressed: _skip,
-                      child: Text(
-                        'Skip — no allergies or dislikes',
-                        style: ElioTextStyles.bodySmall.copyWith(
-                          color: ElioColors.textMuted,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ElioBigButton(
+                        label: 'Continue',
+                        onTap: () {
+                          _logStep();
+                          widget.onContinue();
+                        },
+                        trailingIcon: Icons.arrow_forward,
+                      ),
+                      const SizedBox(height: ElioSpacing.sm),
+                      Center(
+                        child: TextButton(
+                          onPressed: _skip,
+                          child: Text(
+                            'Skip — no allergies or dislikes',
+                            style: ElioTextStyles.bodySmall.copyWith(
+                              color: ElioColors.textMuted,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             );
           },
         ),
