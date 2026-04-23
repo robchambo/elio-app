@@ -58,19 +58,25 @@ class Screen07Confidence extends StatelessWidget {
     return Scaffold(
       backgroundColor: ElioColors.offWhite,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(ElioSpacing.screenEdge),
-          child: AnimatedBuilder(
-            animation: controller,
-            builder: (context, _) {
-              final selected = controller.state.cookingConfidence;
-              final subhead = controller.state.maxCookTime == 15
-                  ? _softenedSubhead
-                  : _defaultSubhead;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final selected = controller.state.cookingConfidence;
+            final subhead = controller.state.maxCookTime == 15
+                ? _softenedSubhead
+                : _defaultSubhead;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // PINNED TOP.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.sm,
+                    ElioSpacing.screenEdge,
+                    0,
+                  ),
+                  child: Row(
                     children: [
                       BackButton(
                         color: ElioColors.navy,
@@ -82,24 +88,34 @@ class Screen07Confidence extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  const ElioHeroHeading(
-                    lines: ['How do you feel', 'about cooking?'],
-                    amberLastLine: true,
-                  ),
-                  const SizedBox(height: ElioSpacing.md),
-                  Text(
-                    subhead,
-                    style: ElioTextStyles.body.copyWith(
-                      color: ElioColors.textSecondary,
+                ),
+                // SCROLLABLE MIDDLE.
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.lg,
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.md,
                     ),
-                  ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const ElioHeroHeading(
+                          lines: ['How do you feel', 'about cooking?'],
+                          amberLastLine: true,
+                        ),
+                        const SizedBox(height: ElioSpacing.md),
+                        Text(
+                          subhead,
+                          style: ElioTextStyles.body.copyWith(
+                            color: ElioColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: ElioSpacing.lg),
                         for (int i = 0; i < _options.length; i++) ...[
+                          if (i > 0)
+                            const SizedBox(height: ElioSpacing.sm + 4),
                           ElioOnboardingOptionCard(
                             value: _options[i].value,
                             title: _options[i].label,
@@ -108,14 +124,20 @@ class Screen07Confidence extends StatelessWidget {
                             selected: selected == _options[i].value,
                             onTap: controller.setCookingConfidence,
                           ),
-                          if (i != _options.length - 1)
-                            const SizedBox(height: ElioSpacing.sm + 4),
                         ],
                       ],
                     ),
                   ),
-                  const SizedBox(height: ElioSpacing.md),
-                  ElioBigButton(
+                ),
+                // PINNED BOTTOM.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
+                  ),
+                  child: ElioBigButton(
                     label: 'Continue',
                     onTap: selected == null
                         ? null
@@ -131,10 +153,10 @@ class Screen07Confidence extends StatelessWidget {
                           },
                     trailingIcon: Icons.arrow_forward,
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
