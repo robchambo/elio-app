@@ -90,7 +90,7 @@ void main() {
     ));
     await t.pump();
 
-    // The primary CTA label starts with "Start your" (trial copy renders
+    // The primary CTA label starts with "Start my" (trial copy renders
     // in dry-mode since packages are empty and _showTrialState → true).
     final cta = find.byKey(const Key('paywallPrimaryCta'));
     expect(cta, findsOneWidget);

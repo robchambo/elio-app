@@ -10,7 +10,7 @@ import 'package:elio_app/screens/paywall/paywall_screen.dart';
 // These tests render the screen shallowly (no RC packages) and assert
 // which headline text appears. The paywall's `_showTrialState` getter
 // is load-bearing (CLAUDE.md): empty packages → trial copy, so the
-// "Start your 7-day free trial" CTA always shows. The hero headline
+// "Start my 7-day free trial" CTA always shows. The hero headline
 // varies purely on `onboarding.userGoal`.
 // ─────────────────────────────────────────────
 
@@ -32,13 +32,15 @@ void main() {
       );
 
   group('first_recipe headline per goal', () {
+    // pantryFirst renders as two lines ("Cook from your pantry." / "Every
+    // night.") — assert on the distinctive second line to prove both show.
     final cases = <(String?, String)>[
-      ('pantryFirst', 'Keep cooking what you have.'),
-      ('wasteReduction', 'Waste less, every week.'),
+      ('pantryFirst', 'Cook from your pantry.'),
+      ('wasteReduction', 'Cut your food waste from week one.'),
       ('decisionFatigue', 'No more 6pm panic.'),
       ('household', 'One plan for the whole house.'),
-      ('takeawayEscape', 'Skip the takeaway.'),
-      (null, 'Start your 7-day free trial.'),
+      ('takeawayEscape', 'Skip the takeout.'),
+      (null, 'Unlimited Elio. Start with 7 days free.'),
     ];
 
     for (final c in cases) {
@@ -57,6 +59,37 @@ void main() {
         );
       });
     }
+  });
+
+  testWidgets('pantryFirst headline renders on two lines', (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(
+      onboarding: OnboardingState(userGoal: 'pantryFirst'),
+    ));
+    await t.pump();
+    // Two-line editorial treatment — both lines must be present.
+    expect(
+      find.text('Cook from your pantry.', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Every night.', skipOffstage: false),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('primary CTA uses "Start my" (first-person)', (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(
+      onboarding: OnboardingState(userGoal: 'pantryFirst'),
+    ));
+    await t.pump();
+    // Packages are empty (no RC key in tests) → _showTrialState → true,
+    // so trial CTA copy renders.
+    expect(
+      find.textContaining('Start my', skipOffstage: false),
+      findsOneWidget,
+    );
   });
 
   testWidgets('recipeThumbnailUrl renders when provided', (t) async {

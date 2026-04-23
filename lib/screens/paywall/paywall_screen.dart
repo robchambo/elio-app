@@ -158,19 +158,25 @@ class _PaywallScreenState extends State<PaywallScreen> {
   /// [ElioHeroHeading] (the underline + amber-last-line treatment still
   /// renders cleanly on one line).
   List<String> get _firstRecipeHeadline {
+    // Per-goal headlines for the onboarding first-recipe paywall entry.
+    // Copy signed off Sprint 16.2 (docs/onboarding/14-paywall.md §Copy).
     switch (widget.onboarding?.userGoal) {
       case 'pantryFirst':
-        return ['Keep cooking what you have.'];
+        // Two-line editorial treatment — Rob's call for extra weight on
+        // the dominant pantry-first goal.
+        return ['Cook from your pantry.', 'Every night.'];
       case 'wasteReduction':
-        return ['Waste less, every week.'];
+        return ['Cut your food waste from week one.'];
       case 'decisionFatigue':
         return ['No more 6pm panic.'];
       case 'household':
         return ['One plan for the whole house.'];
       case 'takeawayEscape':
-        return ['Skip the takeaway.'];
+        // US-leaning spelling ("takeout") per Rob's Sprint 16.2 decision —
+        // US is the primary launch market.
+        return ['Skip the takeout.'];
       default:
-        return ['Start your 7-day free trial.'];
+        return ['Unlimited Elio. Start with 7 days free.'];
     }
   }
 
@@ -356,7 +362,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               ElioBigButton(
                 key: const Key('paywallPrimaryCta'),
                 label: trial
-                    ? 'Start your $_trialDurationLabel free trial'
+                    ? 'Start my $_trialDurationLabel free trial'
                     : 'Subscribe — $_selectedPriceString/$_selectedPeriodString',
                 trailingIcon: Icons.chevron_right,
                 loading: _isLoading,

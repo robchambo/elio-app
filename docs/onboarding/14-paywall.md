@@ -31,16 +31,20 @@ Paywalls are where dark patterns grow. This screen follows three rules:
 
 | Goal | Headline |
 |---|---|
-| Cook with what I've got (#1) | Cook from your pantry. Every night. |
+| Cook with what I've got (#1) | Cook from your pantry. / Every night. *(two-line hero treatment)* |
 | Waste less food (#2) | Cut your food waste from week one. |
-| Decide dinner faster (#3) | Never scroll for a recipe again. |
-| Feed the whole household (#4) | One plan that works for the whole house. |
-| Stop ordering takeaway (#5) | Cheaper than two takeaways a month. |
+| Decide dinner faster (#3) | No more 6pm panic. |
+| Feed the whole household (#4) | One plan for the whole house. |
+| Stop ordering takeaway (#5) | Skip the takeout. *(US-leaning spelling — US is primary launch market)* |
 | *(No goal set — shouldn't happen, but fallback)* | Unlimited Elio. Start with 7 days free. |
+
+*(Sprint 16.2 decisions: #3 kept punchier current copy over spec's "Never scroll for a recipe again"; #4 kept tighter current over spec's "One plan that works for the whole house"; #5 swapped "Cheaper than two takeaways a month" to behavioural-and-US-leaning "Skip the takeout".)*
 
 ### Subhead (constant across goals)
 
 > Start your 7-day free trial. No charge today — cancel anytime in Settings.
+
+*(Sprint 16.2: current implementation shows a shorter eyebrow "7-day free trial · cancel anytime" below the hero. Longer spec copy kept as intent; Kate to ratify whether to expand the eyebrow — tradeoff is visual cleanliness vs the trust lift of the "No charge today" phrase.)*
 
 ### Feature comparison (constant — reuse existing paywall data)
 
