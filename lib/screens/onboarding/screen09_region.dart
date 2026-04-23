@@ -110,17 +110,23 @@ class _Screen09RegionState extends State<Screen09Region> {
     return Scaffold(
       backgroundColor: ElioColors.offWhite,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(ElioSpacing.screenEdge),
-          child: AnimatedBuilder(
-            animation: widget.controller,
-            builder: (context, _) {
-              final region = widget.controller.state.region;
-              final units = widget.controller.state.measurementUnits;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            final region = widget.controller.state.region;
+            final units = widget.controller.state.measurementUnits;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // PINNED TOP.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.sm,
+                    ElioSpacing.screenEdge,
+                    0,
+                  ),
+                  child: Row(
                     children: [
                       BackButton(
                         color: ElioColors.navy,
@@ -132,24 +138,34 @@ class _Screen09RegionState extends State<Screen09Region> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  const ElioHeroHeading(
-                    lines: ['Where are you', 'cooking?'],
-                    amberLastLine: true,
-                  ),
-                  const SizedBox(height: ElioSpacing.md),
-                  Text(
-                    'So we get the names and measurements right.',
-                    style: ElioTextStyles.body.copyWith(
-                      color: ElioColors.textSecondary,
+                ),
+                // SCROLLABLE MIDDLE.
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.lg,
+                      ElioSpacing.screenEdge,
+                      ElioSpacing.md,
                     ),
-                  ),
-                  const SizedBox(height: ElioSpacing.lg),
-                  Expanded(
-                    child: ListView(
-                      padding: EdgeInsets.zero,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const ElioHeroHeading(
+                          lines: ['Where are you', 'cooking?'],
+                          amberLastLine: true,
+                        ),
+                        const SizedBox(height: ElioSpacing.md),
+                        Text(
+                          'So we get the names and measurements right.',
+                          style: ElioTextStyles.body.copyWith(
+                            color: ElioColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: ElioSpacing.lg),
                         for (int i = 0; i < _regionOptions.length; i++) ...[
+                          if (i > 0)
+                            const SizedBox(height: ElioSpacing.sm + 4),
                           ElioOnboardingOptionCard(
                             value: _regionOptions[i].value,
                             title: _regionOptions[i].label,
@@ -157,8 +173,6 @@ class _Screen09RegionState extends State<Screen09Region> {
                             selected: region == _regionOptions[i].value,
                             onTap: _selectRegion,
                           ),
-                          if (i != _regionOptions.length - 1)
-                            const SizedBox(height: ElioSpacing.sm + 4),
                         ],
                         const SizedBox(height: ElioSpacing.lg),
                         Text(
@@ -175,8 +189,16 @@ class _Screen09RegionState extends State<Screen09Region> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: ElioSpacing.md),
-                  ElioBigButton(
+                ),
+                // PINNED BOTTOM.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.md,
+                  ),
+                  child: ElioBigButton(
                     label: 'Continue',
                     onTap: () {
                       AnalyticsService.instance.logEvent(
@@ -190,10 +212,10 @@ class _Screen09RegionState extends State<Screen09Region> {
                     },
                     trailingIcon: Icons.arrow_forward,
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
