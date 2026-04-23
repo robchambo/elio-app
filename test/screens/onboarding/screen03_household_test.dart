@@ -28,7 +28,7 @@ void main() {
     )));
     expect(find.byType(ElioOnboardingOptionCard), findsNWidgets(5));
     expect(find.text('Just me'), findsOneWidget);
-    expect(find.text('Me and my partner'), findsOneWidget);
+    expect(find.text('Just the two of us'), findsOneWidget);
     expect(find.text('Family with kids'), findsOneWidget);
     expect(find.text('Flatmates or housemates'), findsOneWidget);
     expect(find.text('Something else'), findsOneWidget);
@@ -64,7 +64,7 @@ void main() {
       onContinue: () {},
       onBack: () {},
     )));
-    await t.tap(find.text('Me and my partner'));
+    await t.tap(find.text('Just the two of us'));
     await t.pump();
     expect(c.state.householdType, 'couple');
     expect(c.state.householdCount, 2);
@@ -75,7 +75,7 @@ void main() {
     useTallViewport(t);
     final defaults = {
       'Just me': ('solo', 1),
-      'Me and my partner': ('couple', 2),
+      'Just the two of us': ('couple', 2),
       'Family with kids': ('family', 4),
       'Flatmates or housemates': ('flat', 3),
       'Something else': ('other', 2),
@@ -166,6 +166,32 @@ void main() {
     await t.tap(find.byType(BackButton));
     await t.pump();
     expect(backed, isTrue);
+  });
+
+  testWidgets('subhead defaults when userGoal is not household', (t) async {
+    useTallViewport(t);
+    await t.pumpWidget(wrap(Screen03Household(
+      controller: OnboardingController(),
+      onContinue: () {},
+      onBack: () {},
+    )));
+    expect(find.text("We'll size recipes and plan around your household."),
+        findsOneWidget);
+    expect(find.text("We'll make sure everyone's covered."), findsNothing);
+  });
+
+  testWidgets('subhead softens when userGoal == household', (t) async {
+    useTallViewport(t);
+    final c = OnboardingController();
+    c.setUserGoal('household');
+    await t.pumpWidget(wrap(Screen03Household(
+      controller: c,
+      onContinue: () {},
+      onBack: () {},
+    )));
+    expect(find.text("We'll make sure everyone's covered."), findsOneWidget);
+    expect(find.text("We'll size recipes and plan around your household."),
+        findsNothing);
   });
 
   testWidgets('progress bar shows 3/15', (t) async {

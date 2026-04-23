@@ -24,7 +24,7 @@ Kept deliberately light. Individual household members (names, differing dietary 
 | # | Label | Subtext | Default count |
 |---|---|---|---|
 | 1 | Just me | Solo cooking, one plate to please | 1 |
-| 2 | Me and my partner | Two adults, one kitchen | 2 |
+| 2 | Just the two of us | Two adults, one kitchen | 2 |
 | 3 | Family with kids | Little ones, teens, or a mix | 4 |
 | 4 | Flatmates or housemates | Shared kitchen, shared shopping | 3 |
 | 5 | Something else | Tell us the headcount and we'll sort the rest | 2 |

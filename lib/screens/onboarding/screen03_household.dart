@@ -33,7 +33,7 @@ class _HouseholdOption {
 // Copy verbatim from docs/onboarding/03-household.md §Copy.
 const List<_HouseholdOption> _options = [
   _HouseholdOption('solo', 'Just me', 'Solo cooking, one plate to please', 1),
-  _HouseholdOption('couple', 'Me and my partner', 'Two adults, one kitchen', 2),
+  _HouseholdOption('couple', 'Just the two of us', 'Two adults, one kitchen', 2),
   _HouseholdOption(
       'family', 'Family with kids', 'Little ones, teens, or a mix', 4),
   _HouseholdOption(
@@ -121,7 +121,12 @@ class Screen03Household extends StatelessWidget {
                         ),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
-                          "We'll size recipes and plan around your household.",
+                          // Goal-aware subhead: softer for users who picked
+                          // "Feed the whole household" on screen 02.
+                          // See docs/onboarding/03-household.md §Copy.
+                          controller.state.userGoal == 'household'
+                              ? "We'll make sure everyone's covered."
+                              : "We'll size recipes and plan around your household.",
                           style: ElioTextStyles.body.copyWith(
                             color: ElioColors.textSecondary,
                           ),
