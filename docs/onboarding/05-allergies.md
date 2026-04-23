@@ -17,13 +17,12 @@ Keeping them separate lets the prompt phrase them differently downstream and giv
 ## Copy
 
 **Headline (large, bold):**
-> And anything to avoid?
-
-*(When screen 4 selection was "No restrictions", soften to:)*
 > Anything we should avoid?
 
+*(The previously-planned "And anything to avoid?" variant for users who set a dietary pattern on screen 4 has been dropped — the softer headline now renders for everyone, since it reads well in both cases.)*
+
 **Subhead (one line, lighter weight):**
-> Allergies first, then anything you just don't fancy.
+> Allergies first, then anything you'd rather skip.
 
 ### Section 1 — Allergies
 
@@ -35,19 +34,19 @@ Keeping them separate lets the prompt phrase them differently downstream and giv
 |---|---|
 | 1 | Peanuts |
 | 2 | Tree nuts |
-| 3 | Milk / dairy |
+| 3 | Dairy |
 | 4 | Eggs |
 | 5 | Fish |
 | 6 | Shellfish |
 | 7 | Soy |
-| 8 | Wheat / gluten |
+| 8 | Gluten |
 | 9 | Sesame |
 
 **+ "Other allergy" chip** — tap opens a small inline input, submit adds a custom chip to the list (tagged internally as allergy).
 
 ### Section 2 — Dislikes
 
-**Section header:** Anything you just don't fancy?
+**Section header:** Anything you'd rather skip?
 
 **Free-text chip input:**
 > `[ Start typing… e.g. mushrooms, olives ]`

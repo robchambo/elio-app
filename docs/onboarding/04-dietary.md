@@ -101,7 +101,7 @@ If the household has more than one person (screen 3 count > 1), we also ask whet
 
 | Downstream surface | Change |
 |---|---|
-| **Screen 5 Allergies** | If "Happy with anything" picked here, screen 5 headline softens to "Anything we should avoid?" rather than "And any allergies?" |
+| **Screen 5 Allergies** | No longer conditional — screen 5 always opens "Anything we should avoid?" (reads well for all users regardless of dietary selection). |
 | **Screen 11 Pantry build** | Categories filtered — e.g. Vegan hides all meat/dairy/egg categories; Pescatarian hides meat but keeps fish; Halal/Kosher don't filter (just tag). |
 | **Screen 13 First recipe** | Gemini prompt receives the **union** when `householdHasDifferingDiet=true` (i.e. `householdCombinedDietary`); otherwise the user's own `dietary` array. Enforced as hard constraints (existing behaviour). |
 | **Post-onboarding nudge** | If the household-differs toggle was ON, show a one-time home-screen card: "Tell us who eats what in your household → Add profiles." Opens existing household profile flow so users can put names + specific needs against individual members. |

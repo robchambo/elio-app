@@ -28,12 +28,12 @@ void main() {
     for (final label in [
       'Peanuts',
       'Tree nuts',
-      'Milk / dairy',
+      'Dairy',
       'Eggs',
       'Fish',
       'Shellfish',
       'Soy',
-      'Wheat / gluten',
+      'Gluten',
       'Sesame',
     ]) {
       expect(find.text(label), findsOneWidget, reason: label);
@@ -120,7 +120,7 @@ void main() {
       onContinue: () => continued = true,
       onBack: () {},
     )));
-    await t.tap(find.text('Skip — no allergies or dislikes'));
+    await t.tap(find.text('Nothing to avoid — skip'));
     await t.pump();
     expect(c.state.allergies, isEmpty);
     expect(c.state.dislikes, isEmpty);

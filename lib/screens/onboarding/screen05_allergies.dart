@@ -35,12 +35,12 @@ class _PresetAllergen {
 const List<_PresetAllergen> _presets = [
   _PresetAllergen('peanut', 'Peanuts'),
   _PresetAllergen('treenut', 'Tree nuts'),
-  _PresetAllergen('dairy', 'Milk / dairy'),
+  _PresetAllergen('dairy', 'Dairy'),
   _PresetAllergen('egg', 'Eggs'),
   _PresetAllergen('fish', 'Fish'),
   _PresetAllergen('shellfish', 'Shellfish'),
   _PresetAllergen('soy', 'Soy'),
-  _PresetAllergen('gluten', 'Wheat / gluten'),
+  _PresetAllergen('gluten', 'Gluten'),
   _PresetAllergen('sesame', 'Sesame'),
 ];
 
@@ -165,12 +165,12 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const ElioHeroHeading(
-                          lines: ['And anything', 'to avoid?'],
+                          lines: ['Anything we', 'should avoid?'],
                           amberLastLine: true,
                         ),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
-                          "Allergies first, then anything you just don't fancy.",
+                          "Allergies first, then anything you'd rather skip.",
                           style: ElioTextStyles.body.copyWith(
                             color: ElioColors.textSecondary,
                           ),
@@ -202,14 +202,13 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                           ElioChipTextInput(
                             values: _customAllergies(),
                             onChanged: _onCustomAllergiesChanged,
-                            hintText:
-                                'Add custom allergy and press enter',
+                            hintText: 'e.g. mustard, celery',
                           ),
                         ],
                         const SizedBox(height: ElioSpacing.lg),
                         const Divider(height: 1, color: ElioColors.border),
                         const SizedBox(height: ElioSpacing.lg),
-                        Text("Anything you just don't fancy?",
+                        Text("Anything you'd rather skip?",
                             style: ElioTextStyles.heading5),
                         const SizedBox(height: ElioSpacing.sm),
                         ElioChipTextInput(
@@ -245,7 +244,7 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                         child: TextButton(
                           onPressed: _skip,
                           child: Text(
-                            'Skip — no allergies or dislikes',
+                            'Nothing to avoid — skip',
                             style: ElioTextStyles.bodySmall.copyWith(
                               color: ElioColors.textMuted,
                             ),
