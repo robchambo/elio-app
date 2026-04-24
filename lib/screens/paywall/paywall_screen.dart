@@ -564,7 +564,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
     if (package == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No plans available. Please try again later.')),
+          const SnackBar(
+            content: Text(
+              "We couldn't load plans right now — check your connection and try again.",
+            ),
+          ),
         );
       }
       return;
@@ -624,7 +628,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No previous subscription found.')),
+          const SnackBar(
+            content: Text(
+              "No previous subscription found — you're still eligible for the free trial.",
+            ),
+          ),
         );
       }
     }
