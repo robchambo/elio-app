@@ -47,6 +47,45 @@ void main() {
         findsNWidgets(11));
   });
 
+  testWidgets('all appliance tiles render at identical widths', (t) async {
+    // Regression: screen08 tile background Container had no explicit
+    // width, so single-word labels ("Oven", "Air fryer", "Blender")
+    // shrank to the intrinsic text width while two-line labels pushed
+    // their tile wider. Visually jarring — grid cells are equal but
+    // the coloured tile inside was not. Positioned.fill fixes it.
+    useTallViewport(t);
+    await t.pumpWidget(wrap(Screen08Appliances(
+      controller: OnboardingController(),
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+
+    final tileRects = t
+        .widgetList<ElioApplianceTile>(
+            find.byType(ElioApplianceTile, skipOffstage: false))
+        .toList();
+    expect(tileRects.length, 11);
+
+    // For each ElioApplianceTile, measure the DecoratedBox background
+    // (the visible coloured panel). All 11 should share one width.
+    final widths = <double>{};
+    for (final tile in tileRects) {
+      final boxFinder = find.descendant(
+        of: find.byWidget(tile),
+        matching: find.byType(DecoratedBox),
+      );
+      expect(boxFinder, findsWidgets,
+          reason: 'each tile should render a DecoratedBox background');
+      final size = t.getSize(boxFinder.first);
+      // Round to nearest pixel — sub-pixel differences are layout noise.
+      widths.add(size.width.roundToDouble());
+    }
+    expect(widths.length, 1,
+        reason:
+            'all 11 tile backgrounds should be the same width, got distinct widths: $widths');
+  });
+
   testWidgets('pre-selects oven, hob, microwave on first render',
       (t) async {
     useTallViewport(t);

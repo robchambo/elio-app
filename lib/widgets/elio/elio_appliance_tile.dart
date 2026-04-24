@@ -33,34 +33,43 @@ class ElioApplianceTile extends StatelessWidget {
     return InkWell(
       onTap: () => onTap(value),
       borderRadius: BorderRadius.circular(ElioRadii.lg),
+      // Stack+Positioned.fill so the background tile always occupies the
+      // full grid cell. Without Positioned.fill the Container shrank to
+      // its content width, which made single-word tiles ("Oven",
+      // "Air fryer", "Blender") visibly narrower than two-line ones
+      // ("Hob / stove", "Slow cooker") in the same grid row. See
+      // screen08_appliances_test "all appliance tiles render at
+      // identical widths" for the regression guard.
       child: Stack(
         children: [
-          Container(
-            padding: const EdgeInsets.all(ElioSpacing.sm),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(ElioRadii.lg),
-              border: Border.all(
-                color: borderColor,
-                width: selected ? 2.0 : 1.5,
-              ),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: ElioColors.navy, size: 28),
-                const SizedBox(height: ElioSpacing.xs),
-                Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: ElioTextStyles.bodySmall.copyWith(
-                    color: ElioColors.navy,
-                    fontWeight: FontWeight.w600,
-                  ),
+          Positioned.fill(
+            child: Container(
+              padding: const EdgeInsets.all(ElioSpacing.sm),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(ElioRadii.lg),
+                border: Border.all(
+                  color: borderColor,
+                  width: selected ? 2.0 : 1.5,
                 ),
-              ],
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, color: ElioColors.navy, size: 28),
+                  const SizedBox(height: ElioSpacing.xs),
+                  Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: ElioTextStyles.bodySmall.copyWith(
+                      color: ElioColors.navy,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           if (selected)
