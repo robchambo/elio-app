@@ -20,8 +20,20 @@ class ElioBigButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Global keyboard-dismiss contract (Sprint 16.2): every forward-nav
+    // button in onboarding is an ElioBigButton, so unfocusing here drops
+    // the soft keyboard before the next screen renders. Without this,
+    // the keyboard from e.g. screen 05 (allergies free-text) persists
+    // into screen 06 and blocks its tap targets. Null-safe — disabled
+    // button (onTap == null) is a no-op.
+    final void Function()? handler = (loading || onTap == null)
+        ? null
+        : () {
+            FocusManager.instance.primaryFocus?.unfocus();
+            onTap!();
+          };
     return InkWell(
-      onTap: loading ? null : onTap,
+      onTap: handler,
       borderRadius: ElioRadii.button,
       child: Container(
         height: 100,
