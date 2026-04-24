@@ -182,6 +182,68 @@ void main() {
     }
   });
 
+  testWidgets(
+      'iOS Apple button with null uid + comingSoonMessage → "coming soon" toast, no nav',
+      (t) async {
+    useTallViewport(t);
+    usePlatform(TargetPlatform.iOS);
+    try {
+      // appleUid defaults to null → placeholder path, not failure.
+      final adapter = FakeSignInAdapter();
+      final migration = FakeMigrationService();
+
+      await t.pumpWidget(wrap(
+        controller: OnboardingController(),
+        adapter: adapter,
+        migration: migration,
+      ));
+      await t.pump();
+
+      await t.tap(find.byKey(const Key('screen15AppleButton')));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 200));
+
+      expect(adapter.appleCalls, 1);
+      expect(migration.calls, 0);
+      expect(find.byKey(_stubDestinationKey), findsNothing);
+      expect(
+        find.textContaining('Sign in with Apple is coming soon',
+            skipOffstage: false),
+        findsOneWidget,
+      );
+    } finally {
+      resetPlatform();
+    }
+  });
+
+  testWidgets('tapping Terms link shows a placeholder SnackBar', (t) async {
+    useTallViewport(t);
+    usePlatform(TargetPlatform.android);
+    try {
+      await t.pumpWidget(wrap(
+        controller: OnboardingController(),
+        adapter: FakeSignInAdapter(),
+        migration: FakeMigrationService(),
+      ));
+      await t.pump();
+
+      final terms = find.byKey(const Key('screen15TermsLink'));
+      expect(terms, findsOneWidget);
+      await t.ensureVisible(terms);
+      await t.pump();
+      await t.tap(terms, warnIfMissed: false);
+      await t.pump();
+
+      expect(
+        find.textContaining('Terms of Service — opens at',
+            skipOffstage: false),
+        findsOneWidget,
+      );
+    } finally {
+      resetPlatform();
+    }
+  });
+
   testWidgets('iOS Apple button tap invokes adapter.signInWithApple',
       (t) async {
     useTallViewport(t);

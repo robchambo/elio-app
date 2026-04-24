@@ -1,7 +1,7 @@
 # Onboarding Screen 15 — Soft account gate
 
 **Step 15 of ~15** · Archetype: Conversion — sign-in / account creation
-**Status:** Draft v1, awaiting Kate's design
+**Status:** Draft v1, awaiting Kate's design. Sprint 16.2 copy polish applied — see §Sprint 16.2 notes at bottom.
 
 ---
 
@@ -280,3 +280,21 @@ On any forward exit (sign-in success OR skip), the onboarding controller sets `o
 Per the memory pointer and the screen 4 personalisation note:
 
 - **"Add household profile" home-screen nudge**, triggered when `householdHasDifferingDiet == true` from screen 4. Shows a one-time card: "Tell us about the others in your household → Add profile." Opens the existing household profile flow. Lives outside onboarding but is owed by it.
+
+---
+
+## Sprint 16.2 notes — what shipped
+
+Copy is spec-matched already (headlines, subhead, button order, skip link, footer). Four polish decisions applied in Sprint 16.2:
+
+1. **Recipe thumbnail anchor — DEFERRED.** The "Your first recipe." card at the top of the screen (§Visual spec) is flagged for Kate's hero imagery pass. A stub comment in `screen15_account.dart` marks the insertion point. Without real art, a title-only caption reads thin. Re-plan when Kate lands imagery.
+2. **Terms / Privacy footer — tappable.** Replaced plain `Text` with inline `GestureDetector`-wrapped "Terms" and "Privacy Policy" links. Keys: `screen15TermsLink`, `screen15PrivacyLink`. Tapping fires `onboarding_legal_tapped` analytics and shows a placeholder SnackBar ("Terms of Service — opens at elio.app/terms at launch."). Mirrors screen 14 paywall treatment. Real URL launch lands Sprint 17.
+3. **Analytics — full event set.** The six events listed in §Analytics now all fire. `onboarding_account_viewed` on entry (with goal + has_trial), `onboarding_account_signin_tapped` per provider, `onboarding_account_signin_success` / `_failed`, `onboarding_account_skipped` (renamed from the earlier `onboarding_skipped_signin`), and `onboarding_complete` on both the account and guest forward-exit paths. `has_trial` is derived from `state.entitlement == 'pro'`.
+4. **Apple / Email — "coming soon" toast.** Apple Sign-In (Sprint 19) and Email magic-link (v1.1) adapters intentionally return `null` in v1. Previously this surfaced the generic "Couldn't sign in with $provider — try Email instead." — dishonest for a button we know isn't wired. Now each placeholder adapter returns null and the screen maps that to a provider-specific "Sign in with Apple is coming soon — use Google for now." / "Email sign-in is coming soon — use Google for now." toast. `onboarding_account_signin_failed` fires with `reason: 'not_implemented'` vs `'failure'` so the two are distinguishable in analytics.
+
+Deferred (non-blocking):
+
+- Recipe thumbnail anchor (Kate art).
+- Apple Sign-In implementation (Sprint 19 / iOS launch).
+- Email magic-link (v1.1 post-launch).
+- Real Terms / Privacy URL launch via `url_launcher` (Sprint 17 legal pass).

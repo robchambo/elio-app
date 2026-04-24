@@ -105,6 +105,22 @@ class _Screen15AccountState extends State<Screen15Account> {
       widget.signInAdapter ?? RealSignInAdapter();
   late final MigrationService _migration = widget.migration ?? MigrationService();
 
+  bool get _hasTrial => widget.controller.state.entitlement == 'pro';
+
+  @override
+  void initState() {
+    super.initState();
+    // Fire `onboarding_account_viewed` once per entry — drives the
+    // top-of-funnel view count per-goal per-trial-state (spec §Analytics).
+    _analytics.logEvent(
+      'onboarding_account_viewed',
+      {
+        'goal': widget.controller.state.userGoal ?? 'unset',
+        'has_trial': _hasTrial,
+      },
+    );
+  }
+
   String get _headline {
     switch (widget.controller.state.userGoal) {
       case 'pantryFirst':
@@ -125,7 +141,14 @@ class _Screen15AccountState extends State<Screen15Account> {
   }
 
   Future<void> _finishAsGuest() async {
-    _analytics.logEvent('onboarding_skipped_signin');
+    _analytics.logEvent(
+      'onboarding_account_skipped',
+      {'has_trial': _hasTrial},
+    );
+    _analytics.logEvent(
+      'onboarding_complete',
+      {'path': 'guest', 'has_trial': _hasTrial},
+    );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboardingComplete', true);
     if (!mounted) return;
@@ -136,11 +159,34 @@ class _Screen15AccountState extends State<Screen15Account> {
     );
   }
 
-  Future<void> _finishWithSignIn(String? uid, String provider) async {
+  /// Handles a provider tap's completion.
+  ///
+  /// [comingSoonMessage] is used when the button is wired to a not-yet-
+  /// implemented provider (Apple Sign-In lands Sprint 19; Email magic-link
+  /// lands v1.1). For those, a null [uid] means "placeholder", not
+  /// "failure" — we surface a coming-soon toast instead of the generic
+  /// "Couldn't sign in" copy so we don't advertise a broken button.
+  Future<void> _finishWithSignIn(
+    String? uid,
+    String provider, {
+    String? comingSoonMessage,
+  }) async {
     if (uid == null) {
+      _analytics.logEvent(
+        'onboarding_account_signin_failed',
+        {
+          'provider': provider,
+          'reason': comingSoonMessage == null ? 'failure' : 'not_implemented',
+        },
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Couldn\'t sign in with $provider — try Email instead.')),
+        SnackBar(
+          content: Text(
+            comingSoonMessage ??
+                'Couldn\'t sign in with $provider — try Email instead.',
+          ),
+        ),
       );
       return;
     }
@@ -149,12 +195,29 @@ class _Screen15AccountState extends State<Screen15Account> {
       {'provider': provider},
     );
     await _migration.migrateGuestToFirestore(uid, widget.controller.state);
+    _analytics.logEvent(
+      'onboarding_complete',
+      {'path': 'account', 'has_trial': _hasTrial},
+    );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboardingComplete', true);
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: widget.destinationBuilder ?? (_) => const AppShell(),
+      ),
+    );
+  }
+
+  void _openLegal(String which) {
+    _analytics.logEvent(
+      'onboarding_legal_tapped',
+      {'screen': 'account', 'which': which},
+    );
+    final label = which == 'terms' ? 'Terms of Service' : 'Privacy Policy';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label — opens at elio.app/$which at launch.'),
       ),
     );
   }
@@ -204,6 +267,10 @@ class _Screen15AccountState extends State<Screen15Account> {
                 style: ElioTextStyles.body,
               ),
               const Spacer(),
+              // NOTE (Sprint 16.2): the recipe-thumbnail anchor described
+              // in docs/onboarding/15-account.md §Visual spec is deferred
+              // pending Kate's hero imagery — sits in the Spacer above the
+              // provider buttons when it lands. Flagged for Kate.
               if (isIOS) ...[
                 ElioProviderSignInButton(
                   key: const Key('screen15AppleButton'),
@@ -211,8 +278,21 @@ class _Screen15AccountState extends State<Screen15Account> {
                   onPressed: _busy
                       ? () {}
                       : () => _withBusy(() async {
+                            _analytics.logEvent(
+                              'onboarding_account_signin_tapped',
+                              const {'provider': 'apple'},
+                            );
                             final uid = await _adapter.signInWithApple();
-                            await _finishWithSignIn(uid, 'apple');
+                            // Apple Sign-In proper lands Sprint 19; adapter
+                            // returns null meantime — surface a honest
+                            // "coming soon" toast rather than a generic
+                            // failure so we don't advertise a broken button.
+                            await _finishWithSignIn(
+                              uid,
+                              'apple',
+                              comingSoonMessage:
+                                  'Sign in with Apple is coming soon — use Google for now.',
+                            );
                           }),
                 ),
                 const SizedBox(height: ElioSpacing.sm + 2),
@@ -223,6 +303,10 @@ class _Screen15AccountState extends State<Screen15Account> {
                 onPressed: _busy
                     ? () {}
                     : () => _withBusy(() async {
+                          _analytics.logEvent(
+                            'onboarding_account_signin_tapped',
+                            const {'provider': 'google'},
+                          );
                           final uid = await _adapter.signInWithGoogle();
                           await _finishWithSignIn(uid, 'google');
                         }),
@@ -234,8 +318,21 @@ class _Screen15AccountState extends State<Screen15Account> {
                 onPressed: _busy
                     ? () {}
                     : () => _withBusy(() async {
+                          _analytics.logEvent(
+                            'onboarding_account_signin_tapped',
+                            const {'provider': 'email'},
+                          );
                           final uid = await _adapter.signInWithEmail(context);
-                          await _finishWithSignIn(uid, 'email');
+                          // Email magic-link lands v1.1 — adapter returns
+                          // null in v1. Same "coming soon" treatment as
+                          // Apple: honest, doesn't trap, keeps the tap
+                          // as a signal users want this provider.
+                          await _finishWithSignIn(
+                            uid,
+                            'email',
+                            comingSoonMessage:
+                                'Email sign-in is coming soon — use Google for now.',
+                          );
                         }),
               ),
               const SizedBox(height: ElioSpacing.md),
@@ -252,12 +349,54 @@ class _Screen15AccountState extends State<Screen15Account> {
                 ),
               ),
               const SizedBox(height: ElioSpacing.sm),
-              Text(
-                'By continuing, you agree to our Terms and Privacy Policy.',
-                style: ElioTextStyles.bodySmall.copyWith(
-                  color: ElioColors.textMuted,
-                ),
-                textAlign: TextAlign.center,
+              // Tappable Terms + Privacy — mirrors screen 14 paywall
+              // footer. Real URLs land Sprint 17; v1 shows a placeholder
+              // SnackBar so the links render and fire analytics.
+              Wrap(
+                alignment: WrapAlignment.center,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'By continuing, you agree to our ',
+                    style: ElioTextStyles.bodySmall.copyWith(
+                      color: ElioColors.textMuted,
+                    ),
+                  ),
+                  GestureDetector(
+                    key: const Key('screen15TermsLink'),
+                    onTap: () => _openLegal('terms'),
+                    child: Text(
+                      'Terms',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.textSecondary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    ' and ',
+                    style: ElioTextStyles.bodySmall.copyWith(
+                      color: ElioColors.textMuted,
+                    ),
+                  ),
+                  GestureDetector(
+                    key: const Key('screen15PrivacyLink'),
+                    onTap: () => _openLegal('privacy'),
+                    child: Text(
+                      'Privacy Policy',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.textSecondary,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '.',
+                    style: ElioTextStyles.bodySmall.copyWith(
+                      color: ElioColors.textMuted,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
