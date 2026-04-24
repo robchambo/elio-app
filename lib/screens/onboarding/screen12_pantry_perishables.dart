@@ -377,7 +377,10 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
       if (items.isEmpty) continue;
       slivers.add(
         SliverPersistentHeader(
-          pinned: true,
+          // Sprint 16.2 bug — see screen 11 for rationale. pinned:true
+          // stacked every header at the top; scroll them out with
+          // their content instead.
+          pinned: false,
           delegate: ElioStickyCategoryHeader(title: cat.name),
         ),
       );

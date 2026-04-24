@@ -402,7 +402,13 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
 
       slivers.add(
         SliverPersistentHeader(
-          pinned: true,
+          // Sprint 16.2 bug: pinned:true stacked every previous
+          // category header at the top as the user scrolled, so by
+          // the 12th category ~half the viewport was headers. Let
+          // the headers scroll out of view with their content — only
+          // the currently-visible category reads as a header
+          // regardless.
+          pinned: false,
           delegate: ElioStickyCategoryHeader(title: catName),
         ),
       );
