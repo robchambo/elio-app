@@ -353,12 +353,18 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                             ),
                           );
                         },
-                        child: Text(
-                          'Sign in',
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: ElioColors.amber,
+                        // Sprint 16.2: 8-px pad so the hit-area clears
+                        // the ~44-px accessibility minimum. Raw Text
+                        // was ~20 px tall.
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            'Sign in',
+                            style: GoogleFonts.outfit(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: ElioColors.amber,
+                            ),
                           ),
                         ),
                       ),

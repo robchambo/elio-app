@@ -506,15 +506,28 @@ class _RecipeScreenState extends State<RecipeScreen> {
             );
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Swapped ${ingredient.name} → ${result.substitute}'),
-              backgroundColor: ElioColors.navy,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              duration: const Duration(seconds: 3),
-            ),
-          );
+          // The sheet pops itself before calling this callback (see
+          // _IngredientOptionsSheet "Use this instead" button). The
+          // dismiss animation runs ~300ms; firing showSnackBar inside
+          // that window would render the floating snackbar behind the
+          // still-animating sheet. Defer until the sheet is gone.
+          // Same pattern documented in CLAUDE.md for showDialog after
+          // a bottom-sheet pop.
+          final messenger = ScaffoldMessenger.of(context);
+          Future.delayed(const Duration(milliseconds: 350), () {
+            if (!mounted) return;
+            messenger.showSnackBar(
+              SnackBar(
+                content:
+                    Text('Swapped ${ingredient.name} → ${result.substitute}'),
+                backgroundColor: ElioColors.navy,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          });
           _analytics.logEvent('ingredient_substituted', {
             'original': ingredient.name,
             'substitute': result.substitute,
