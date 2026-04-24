@@ -498,7 +498,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         'subtitle': 'Share preferences with your whole household.',
       },
       {
-        'title': '50-recipe history',
+        'title': 'Recipe history',
         'subtitle': 'Keep your favourites — revisit any time.',
       },
     ];

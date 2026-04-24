@@ -60,7 +60,7 @@ Paywalls are where dark patterns grow. This screen follows three rules:
 
 *(This table is sourced from the existing `paywall_screen.dart`. Any change here must also land in the post-onboarding paywall.)*
 
-**Sprint 16.2 update:** Recipe import + Barcode & receipt scanning feature cards added (previously missing). All 7 features now surface. Card titles as rendered: Unlimited recipes, Weekly meal planner, Smart shopping list, Recipe import, Barcode & receipt scanning, Household of 6, 50-recipe history.
+**Sprint 16.2 update:** Recipe import + Barcode & receipt scanning feature cards added (previously missing). All 7 features now surface. Card titles as rendered: Unlimited recipes, Weekly meal planner, Smart shopping list, Recipe import, Barcode & receipt scanning, Household of 6, Recipe history.
 
 ### Plan selection (two plans shown, annual pre-selected)
 
