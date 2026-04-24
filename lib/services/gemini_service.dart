@@ -91,11 +91,13 @@ class GeminiService {
     required List<InventoryItem> pantry,
     required OnboardingState prefs,
     String? heroIngredientName,
+    List<String> recentTitles = const [],
   }) async* {
     final request = _buildEphemeralRequest(
       pantry: pantry,
       prefs: prefs,
       heroIngredientName: heroIngredientName,
+      recentTitles: recentTitles,
     );
     yield* _streamFromPrompt(_buildPrompt(request), maxOutputTokens: 1024);
   }
@@ -113,6 +115,7 @@ class GeminiService {
     required List<InventoryItem> pantry,
     required OnboardingState prefs,
     String? heroIngredientName,
+    List<String> recentTitles = const [],
   }) {
     final alwaysHave = <String>[];
     final almostAlwaysHave = <String>[];
@@ -163,6 +166,7 @@ class GeminiService {
       excludedIngredients: prefs.dislikes,
       runningLowItems: runningLow,
       perishableInventoryDescriptions: perishableDescs,
+      recentTitles: recentTitles,
     );
   }
 
@@ -173,11 +177,13 @@ class GeminiService {
     required List<InventoryItem> pantry,
     required OnboardingState prefs,
     String? heroIngredientName,
+    List<String> recentTitles = const [],
   }) =>
       _buildPrompt(_buildEphemeralRequest(
         pantry: pantry,
         prefs: prefs,
         heroIngredientName: heroIngredientName,
+        recentTitles: recentTitles,
       ));
 
   /// Shared streaming logic — sends prompt to Gemini SSE endpoint,

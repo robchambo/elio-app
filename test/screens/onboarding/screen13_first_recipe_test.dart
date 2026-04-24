@@ -426,6 +426,86 @@ void main() {
     await fake.closeAll();
   });
 
+  testWidgets('Show me another forwards prior titles to Gemini for dedup',
+      (t) async {
+    // Sprint 16.2 on-device smoke test: "Show me another" often
+    // returned the same (or near-identical) recipe because the
+    // ephemeral call wasn't using the recent-titles block the rest
+    // of the app relies on. The screen now accumulates every title
+    // it shows and forwards the list so Gemini is told not to
+    // repeat them.
+    useTallViewport(t);
+    final controller = OnboardingController();
+    final fake = FakeGeminiService();
+
+    await t.pumpWidget(wrap(controller: controller, fake: fake));
+    await t.pump();
+
+    // First call has nothing to dedup against.
+    expect(fake.calls.first.recentTitles, isEmpty);
+
+    fake.emitComplete(buildFakeRecipe(title: 'Lemon Garlic Traybake'));
+    await t.pump();
+    await t.pump();
+
+    await t.tap(find.text('Show me another'));
+    await t.pump();
+
+    // Second call must include the first title so Gemini avoids it.
+    expect(fake.calls, hasLength(2));
+    expect(fake.calls[1].recentTitles, contains('Lemon Garlic Traybake'));
+
+    // Second recipe returns — third call should exclude both.
+    fake.emitComplete(buildFakeRecipe(title: 'Tomato Pasta'));
+    await t.pump();
+    await t.pump();
+    await t.tap(find.text('Show me another'));
+    await t.pump();
+
+    expect(fake.calls, hasLength(3));
+    expect(
+      fake.calls[2].recentTitles,
+      containsAll(<String>['Lemon Garlic Traybake', 'Tomato Pasta']),
+    );
+
+    await fake.closeAll();
+  });
+
+  testWidgets('complete state shows skip-into-app affordance that fires '
+      'onContinue without committing firstRecipeId', (t) async {
+    // Sprint 16.2: once a recipe has generated, the user should be
+    // able to bail into the app without committing that recipe as
+    // their firstRecipeId via "Cook this tonight".
+    useTallViewport(t);
+    final controller = OnboardingController();
+    final fake = FakeGeminiService();
+    var continued = false;
+
+    await t.pumpWidget(wrap(
+      controller: controller,
+      fake: fake,
+      onContinue: () => continued = true,
+    ));
+    await t.pump();
+
+    fake.emitComplete(buildFakeRecipe());
+    await t.pump();
+    await t.pump();
+
+    final skipFinder = find.text('Skip — take me to the app');
+    expect(skipFinder, findsOneWidget,
+        reason: 'complete state must offer a neutral skip affordance');
+
+    await t.tap(skipFinder);
+    await t.pump();
+
+    expect(continued, isTrue);
+    expect(controller.state.firstRecipeId, isNull,
+        reason: 'skip must NOT commit a firstRecipeId');
+
+    await fake.closeAll();
+  });
+
   testWidgets('hero ingredient is passed to the fake', (t) async {
     useTallViewport(t);
     final now = DateTime.now();

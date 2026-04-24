@@ -23,12 +23,14 @@ class FakeGeminiCall {
   final List<InventoryItem> pantry;
   final OnboardingState prefs;
   final String? heroIngredientName;
+  final List<String> recentTitles;
   final StreamController<RecipeGenerationStatus> controller;
 
   FakeGeminiCall({
     required this.pantry,
     required this.prefs,
     required this.heroIngredientName,
+    this.recentTitles = const [],
   }) : controller = StreamController<RecipeGenerationStatus>.broadcast();
 }
 
@@ -45,11 +47,13 @@ class FakeGeminiService {
     required List<InventoryItem> pantry,
     required OnboardingState prefs,
     String? heroIngredientName,
+    List<String> recentTitles = const [],
   }) {
     final call = FakeGeminiCall(
       pantry: pantry,
       prefs: prefs,
       heroIngredientName: heroIngredientName,
+      recentTitles: List<String>.from(recentTitles),
     );
     calls.add(call);
     return call.controller.stream;

@@ -39,6 +39,7 @@ typedef EphemeralRecipeStreamFn = Stream<RecipeGenerationStatus> Function({
   required List<InventoryItem> pantry,
   required OnboardingState prefs,
   String? heroIngredientName,
+  List<String> recentTitles,
 });
 
 // ── Hero-ingredient cascade (pure — exported for tests) ────────────────────
@@ -136,6 +137,12 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
   int _subheadIndex = 0;
   bool _demoStartLogged = false;
 
+  // Titles we've already shown the user on this screen. Forwarded to
+  // Gemini as "recent titles — do not return these" so "Show me
+  // another" produces a genuinely different recipe instead of looping
+  // on the same idea. See docs/onboarding/13-first-recipe.md.
+  final List<String> _shownTitles = [];
+
   static const _subheads = [
     "Working out what to cook with what you've got…",
     'Writing the recipe…',
@@ -211,6 +218,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
       pantry: widget.controller.state.inventory,
       prefs: widget.controller.state,
       heroIngredientName: hero?.name,
+      recentTitles: List<String>.unmodifiable(_shownTitles),
     );
 
     _sub = stream.listen((status) {
@@ -224,6 +232,9 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
           setState(() {
             _phase = _Phase.complete;
             _recipe = status.recipe;
+            // Remember this title so the next "Show me another" call
+            // instructs Gemini not to repeat it.
+            _shownTitles.add(status.recipe.title);
           });
         case RecipeError():
           _subheadTimer?.cancel();
@@ -393,6 +404,22 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
                     ? null
                     : _onShowMeAnother,
                 child: const Text('Show me another'),
+              ),
+            ),
+          ),
+          // Skip-into-app affordance (Sprint 16.2). Rob's on-device
+          // smoke test flagged that once a recipe has generated, the
+          // user has no way to bail out of the demo without tapping
+          // "Cook this tonight" (which commits that recipe as
+          // firstRecipeId). Offer an explicit neutral escape hatch.
+          Center(
+            child: TextButton(
+              onPressed: _onSkip,
+              child: Text(
+                'Skip — take me to the app',
+                style: ElioTextStyles.bodySmall.copyWith(
+                  color: ElioColors.textSecondary,
+                ),
               ),
             ),
           ),
