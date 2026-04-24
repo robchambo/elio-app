@@ -15,6 +15,7 @@ import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
 import '../../widgets/elio/elio_pantry_item_tile.dart';
+import '../../widgets/elio/elio_pantry_tier_legend.dart';
 import '../../widgets/elio/elio_sticky_category_header.dart';
 
 // ─────────────────────────────────────────────
@@ -385,12 +386,7 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
                 ),
               ),
               const SizedBox(height: ElioSpacing.xs),
-              Text(
-                '◐ Usually in   ·   ✅ Always in',
-                style: ElioTextStyles.bodySmall.copyWith(
-                  color: ElioColors.textMuted,
-                ),
-              ),
+              ElioPantryTierLegend.staples(),
             ],
           ),
         ),

@@ -30,6 +30,17 @@ class PantryTierStyle {
 /// [LongPressGestureRecognizer], wired through [RawGestureDetector] to
 /// survive inside scrollables — see CLAUDE.md hard rule) fires
 /// [onLongPress].
+///
+/// Visuals: tier is conveyed **purely by background fill + border
+/// colour**. We used to render a glyph icon (tick / star / leaf /
+/// clock / warning) above the label, but on-device testing for
+/// Sprint 16.2 showed that longer labels ("Extra virgin olive oil",
+/// "Mediterranean blend") collided with the glyph and clipped the
+/// label with an ellipsis. Dropping the glyph gives the text the
+/// whole tile height, and the colour-coded system is unambiguous
+/// once paired with the screen-level swatch legend.
+/// `PantryTierStyle.glyph` is retained for backwards compatibility
+/// but is no longer rendered.
 class ElioPantryItemTile extends StatelessWidget {
   final String label;
   final String tier;
@@ -133,25 +144,17 @@ class ElioPantryItemTile extends StatelessWidget {
             width: tier == 'unselected' ? 1.5 : 2.0,
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (style.glyph != null)
-              Icon(style.glyph, color: style.glyphColor, size: 22)
-            else
-              const SizedBox(height: 22),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: ElioTextStyles.bodySmall.copyWith(
-                color: ElioColors.navy,
-                fontWeight: FontWeight.w600,
-              ),
+        child: Center(
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: ElioTextStyles.bodySmall.copyWith(
+              color: ElioColors.navy,
+              fontWeight: FontWeight.w600,
             ),
-          ],
+          ),
         ),
       ),
     );

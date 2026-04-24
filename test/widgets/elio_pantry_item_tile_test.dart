@@ -120,12 +120,53 @@ void main() {
     expect(next, 'fresh');
   });
 
-  testWidgets('selected tier renders glyph icon', (tester) async {
+  testWidgets('tile never renders an inline glyph icon — colour-only tiers',
+      (tester) async {
+    // Sprint 16.2 Bug 3: the old glyph (tick/star/leaf/clock/warning)
+    // stole vertical space and forced long labels like "Extra virgin
+    // olive oil" to clip with an ellipsis. The tile is now
+    // colour-coded only — the legend at the top of the screen
+    // carries the tier meaning.
+    for (final tier in const ['unselected', 'usually', 'always', 'fresh',
+        'thisWeek', 'today']) {
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 160,
+            height: 80,
+            child: ElioPantryItemTile(
+              label: 'Extra virgin olive oil',
+              tier: tier,
+              tiers: const [
+                'unselected',
+                'usually',
+                'always',
+                'fresh',
+                'thisWeek',
+                'today'
+              ],
+              onCycle: (_) {},
+              onLongPress: () {},
+            ),
+          ),
+        ),
+      ));
+      final iconInside = find.descendant(
+        of: find.byType(ElioPantryItemTile),
+        matching: find.byType(Icon),
+      );
+      expect(iconInside, findsNothing,
+          reason: 'tier=$tier should render no icon inside the tile');
+    }
+  });
+
+  testWidgets('selected tier applies tier-specific background colour',
+      (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: SizedBox(
-          width: 100,
-          height: 100,
+          width: 160,
+          height: 80,
           child: ElioPantryItemTile(
             label: 'Olive oil',
             tier: 'always',
@@ -136,6 +177,18 @@ void main() {
         ),
       ),
     ));
-    expect(find.byIcon(Icons.star_rounded), findsOneWidget);
+    // Walk the DecoratedBoxes descended from our tile; one of them
+    // should carry the solid-amber "always" fill.
+    final decorations = tester
+        .widgetList<Container>(find.descendant(
+          of: find.byType(ElioPantryItemTile),
+          matching: find.byType(Container),
+        ))
+        .map((c) => c.decoration)
+        .whereType<BoxDecoration>()
+        .toList();
+    final hasAmberFill = decorations.any((d) => d.color == const Color(0xFFF08C14));
+    expect(hasAmberFill, isTrue,
+        reason: '"always" tier should paint solid amber fill');
   });
 }
