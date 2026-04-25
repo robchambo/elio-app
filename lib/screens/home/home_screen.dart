@@ -56,6 +56,9 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _likedRecipes = [];
   List<String> _dislikedRecipes = [];
 
+  // ── Saved custom food styles (e.g. "Mediterranean") ────────────────
+  List<String> _customStyles = [];
+
   @override
   void initState() {
     super.initState();
@@ -119,6 +122,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _householdProfiles = List<Map<String, dynamic>>.from(
             (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
           );
+          _customStyles = List<String>.from(data['stylePreferences'] ?? []);
         });
       }
     } catch (_) {
@@ -184,6 +188,8 @@ class _HomeScreenState extends State<HomeScreen> {
           buildRequest: _buildRequest,
           onRecipeComplete: _onRecipeComplete,
           isGuest: widget.isGuest,
+          activeDietary: _activeDietaryRequirements,
+          customStyles: _customStyles,
         ),
       ),
     );
@@ -208,12 +214,12 @@ class _HomeScreenState extends State<HomeScreen> {
       servings: 2,
       recentTitles: List.from(_recentTitles),
       runningLowItems: List.from(_runningLowItems),
-      isLeftoverMode: false,
-      leftoverItems: const [],
+      isLeftoverMode: prefs.isLeftoverMode,
+      leftoverItems: prefs.leftoverItems,
       likedRecipes: _likedRecipes,
       dislikedRecipes: _dislikedRecipes,
       appliances: _appliances,
-      isSaverMode: false,
+      isSaverMode: prefs.isSaverMode,
       perishableInventoryDescriptions: _perishableDescriptions,
     );
   }

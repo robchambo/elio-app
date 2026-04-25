@@ -57,6 +57,16 @@ class RecipePreferencesScreen extends StatefulWidget {
   /// Forwarded to [RecipeScreen] on push-replacement after generation.
   final bool isGuest;
 
+  /// Read-only union of dietary requirements across all active household
+  /// profiles, shown as an info strip near the top of the picker so the
+  /// user can see what's being applied. Empty list = no strip.
+  final List<String> activeDietary;
+
+  /// User-saved custom food styles (from Account → Food Style). When
+  /// non-empty, they render as a "your styles" row above the built-in
+  /// style chips so the user can pick a saved style with one tap.
+  final List<String> customStyles;
+
   /// Test injection — defaults to [GeminiService.generateRecipeStream].
   final RecipeStreamFactory? streamFactory;
 
@@ -65,6 +75,8 @@ class RecipePreferencesScreen extends StatefulWidget {
     required this.buildRequest,
     required this.onRecipeComplete,
     required this.isGuest,
+    this.activeDietary = const [],
+    this.customStyles = const [],
     this.streamFactory,
   });
 
@@ -114,6 +126,15 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   String _style = 'Any';
   String _mood = 'Any';
 
+  // Sprint 16.3 — restored constraint toggles.
+  // Bulk Prep is intentionally NOT here yet: it routes through a separate
+  // Gemini pipeline (`generateBulkRecipeStream`) and needs its own design
+  // pass (portions picker, multi-meal flow). Tracked separately.
+  bool _isSaverMode = false;
+  bool _isLeftoverMode = false;
+  final List<String> _leftoverItems = [];
+  final TextEditingController _leftoverController = TextEditingController();
+
   _PrefsPhase _phase = _PrefsPhase.picking;
   int _messageIndex = 0;
   Timer? _messageTimer;
@@ -124,6 +145,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   void dispose() {
     _messageTimer?.cancel();
     _generationSub?.cancel();
+    _leftoverController.dispose();
     super.dispose();
   }
 
@@ -133,6 +155,9 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       time: _time == 'Any' ? null : _time,
       style: _style == 'Any' ? null : _style,
       mood: _mood == 'Any' ? null : _mood,
+      isSaverMode: _isSaverMode,
+      isLeftoverMode: _isLeftoverMode,
+      leftoverItems: _isLeftoverMode ? List.unmodifiable(_leftoverItems) : const [],
     );
 
     final request = widget.buildRequest(prefs);
@@ -259,6 +284,164 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     );
   }
 
+  // ── Active dietary strip: read-only summary (Sprint 16.3) ────────
+  // Surfaces the household-union dietary requirements so the user can see
+  // what's being baked into every generation. Editing happens elsewhere
+  // (Account → Dietary / Household), not on this screen — this strip is
+  // info-only so the picker stays focused on the per-recipe picks.
+  Widget _buildDietaryStrip() {
+    return Container(
+      padding: const EdgeInsets.all(ElioSpacing.md),
+      decoration: BoxDecoration(
+        color: ElioColors.cream,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.eco_outlined,
+                  color: ElioColors.amber, size: 18),
+              const SizedBox(width: ElioSpacing.sm),
+              Text(
+                'Dietary needs',
+                style: ElioTextStyles.eyebrow.copyWith(
+                  color: ElioColors.navy,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: ElioSpacing.sm),
+          Wrap(
+            spacing: ElioSpacing.sm,
+            runSpacing: ElioSpacing.sm,
+            children: [
+              for (final req in widget.activeDietary)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: ElioSpacing.md,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ElioColors.white,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: ElioColors.amber.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Text(
+                    req,
+                    style: ElioTextStyles.bodySmall.copyWith(
+                      color: ElioColors.navy,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Constraints panel: Saver + Leftover (Sprint 16.3) ────────────
+  Widget _buildConstraintsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ElioEyebrow('constraints'),
+        const SizedBox(height: ElioSpacing.md),
+        Wrap(
+          spacing: ElioSpacing.sm,
+          runSpacing: ElioSpacing.sm,
+          children: [
+            ElioChip(
+              label: 'Saver',
+              selected: _isSaverMode,
+              onTap: () => setState(() => _isSaverMode = !_isSaverMode),
+            ),
+            ElioChip(
+              label: 'Use up leftovers',
+              selected: _isLeftoverMode,
+              onTap: () => setState(() => _isLeftoverMode = !_isLeftoverMode),
+            ),
+          ],
+        ),
+        if (_isLeftoverMode) ...[
+          const SizedBox(height: ElioSpacing.md),
+          _buildLeftoverEditor(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildLeftoverEditor() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Existing items as removable chips.
+        if (_leftoverItems.isNotEmpty) ...[
+          Wrap(
+            spacing: ElioSpacing.sm,
+            runSpacing: ElioSpacing.sm,
+            children: [
+              for (final item in _leftoverItems)
+                InputChip(
+                  label: Text(item),
+                  onDeleted: () => setState(() => _leftoverItems.remove(item)),
+                  deleteIcon: const Icon(Icons.close, size: 16),
+                  backgroundColor: ElioColors.cream,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(999),
+                    side: const BorderSide(color: ElioColors.amber),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: ElioSpacing.sm),
+        ],
+        // Add-item row.
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _leftoverController,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. roast chicken, rice',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                onSubmitted: (_) => _addLeftover(),
+              ),
+            ),
+            const SizedBox(width: ElioSpacing.sm),
+            IconButton(
+              icon: const Icon(Icons.add_circle, color: ElioColors.amber),
+              tooltip: 'Add leftover',
+              onPressed: _addLeftover,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _addLeftover() {
+    final raw = _leftoverController.text.trim();
+    if (raw.isEmpty) return;
+    // Cheap dup-guard: case-insensitive exact match.
+    final lower = raw.toLowerCase();
+    if (_leftoverItems.any((i) => i.toLowerCase() == lower)) {
+      _leftoverController.clear();
+      return;
+    }
+    setState(() {
+      _leftoverItems.add(raw);
+      _leftoverController.clear();
+    });
+  }
+
   Widget _buildPickingBody() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(ElioSpacing.xl),
@@ -270,6 +453,10 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             amberLastLine: true,
             showUnderline: true,
           ),
+          if (widget.activeDietary.isNotEmpty) ...[
+            const SizedBox(height: ElioSpacing.lg),
+            _buildDietaryStrip(),
+          ],
           const SizedBox(height: ElioSpacing.xl),
           _section(
             eyebrow: 'time',
@@ -278,6 +465,15 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             onSelect: (v) => setState(() => _time = v),
           ),
           const SizedBox(height: ElioSpacing.xl),
+          if (widget.customStyles.isNotEmpty) ...[
+            _section(
+              eyebrow: 'your styles',
+              options: widget.customStyles,
+              selected: _style,
+              onSelect: (v) => setState(() => _style = v),
+            ),
+            const SizedBox(height: ElioSpacing.lg),
+          ],
           _section(
             eyebrow: 'style',
             options: _styleOptions,
@@ -291,6 +487,8 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             selected: _mood,
             onSelect: (v) => setState(() => _mood = v),
           ),
+          const SizedBox(height: ElioSpacing.xl),
+          _buildConstraintsSection(),
           const SizedBox(height: ElioSpacing.xxl),
           ElioBigButton(
             label: 'Generate',
