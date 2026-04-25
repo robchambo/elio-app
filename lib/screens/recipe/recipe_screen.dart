@@ -22,6 +22,7 @@ import '../../utils/quantity_utils.dart';
 import '../../widgets/elio/elio_stat_badge.dart';
 import '../../widgets/elio/elio_servings_control.dart';
 import '../../widgets/elio/elio_ingredient_row.dart';
+import '../../widgets/elio/elio_pantry_icon.dart';
 import '../../widgets/elio/elio_method_step.dart';
 import '../../widgets/elio/elio_feedback_bar.dart';
 import '../../widgets/elio/elio_big_button.dart';
@@ -1738,7 +1739,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
         : '${_scaleQuantity(ing.quantity)} ${QuantityUtils.normalizeUnit(ing.unit)}';
     final detailParts = <String>[
       if (qty.isNotEmpty) qty,
-      if (ing.fromInventory) 'from your pantry',
       if (isExcluded) 'excluded — tap Generate Another',
     ];
 
@@ -1761,6 +1761,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         name: ing.name,
         detail: detailParts.isEmpty ? null : detailParts.join(' • '),
         checked: isChecked,
+        trailing: ElioPantryIcon(inStock: ing.fromInventory),
         onChanged: (v) {
           setState(() {
             if (v) {

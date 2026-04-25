@@ -9,6 +9,7 @@ class ElioIngredientRow extends StatelessWidget {
   final String? detail;
   final bool checked;
   final ValueChanged<bool>? onChanged;
+  final Widget? trailing;
 
   const ElioIngredientRow({
     super.key,
@@ -16,6 +17,7 @@ class ElioIngredientRow extends StatelessWidget {
     this.detail,
     this.checked = false,
     this.onChanged,
+    this.trailing,
   });
 
   @override
@@ -54,6 +56,10 @@ class ElioIngredientRow extends StatelessWidget {
                 ],
               ),
             ),
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              trailing!,
+            ],
           ],
         ),
       ),
