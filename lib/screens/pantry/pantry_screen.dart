@@ -234,7 +234,7 @@ class _PantryScreenState extends State<PantryScreen> {
               Expanded(
                 child: ElioBentoCard(
                   icon: Icons.receipt_long_outlined,
-                  kicker: 'Photo or camera',
+                  kicker: 'From a photo',
                   title: 'Scan receipt',
                   backgroundColor: const Color(0xFFE87A5C), // salmon from Figma
                   onTap: _openReceiptScanner,

@@ -25,8 +25,9 @@ class ElioBentoCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: ElioRadii.card,
       child: Container(
+        // Width is determined by parent (commonly Expanded inside a Row).
+        // Fixed height keeps both tiles in a pair visually aligned.
         height: 150,
-        width: 150,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(color: backgroundColor, borderRadius: ElioRadii.card),
         child: Column(
@@ -41,12 +42,27 @@ class ElioBentoCard extends StatelessWidget {
               ),
               child: Icon(icon, color: Colors.white, size: 22),
             ),
+            // Clamp wrap behaviour so the title can't bleed outside the
+            // rounded background (Sprint 16.3 — was overflowing on the
+            // pantry "Scan receipt" tile when content wrapped to 2 lines).
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Text(kicker, style: ElioTextStyles.bodySmall.copyWith(color: Colors.white.withValues(alpha: 0.85))),
+                Text(
+                  kicker,
+                  style: ElioTextStyles.bodySmall
+                      .copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 4),
-                Text(title, style: ElioTextStyles.heading4.copyWith(color: Colors.white)),
+                Text(
+                  title,
+                  style: ElioTextStyles.heading4.copyWith(color: Colors.white),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ],
