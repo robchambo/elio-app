@@ -421,6 +421,14 @@ class GeminiService {
 
     buffer.writeln();
     buffer.writeln('## PREFERENCES:');
+    // Free-text "craving" supplied by the user — high-priority soft signal.
+    // Honour it where possible without breaking dietary rules or required
+    // perishables. Sits at the top of preferences so it shapes the dish
+    // category before time / style / mood are layered on.
+    if (request.userRequest != null && request.userRequest!.trim().isNotEmpty) {
+      buffer.writeln(
+          'User request (high priority — try hard to honour this): "${request.userRequest!.trim()}". Make a recipe that clearly satisfies this craving.');
+    }
     if (request.timePreference != null) buffer.writeln('Time: ${request.timePreference}');
     if (request.stylePreference == 'Surprise me') {
       buffer.writeln('Style: Be creative — any cuisine.');

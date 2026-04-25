@@ -24,11 +24,13 @@ import '../../services/history_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_radii.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_chip.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
 import '../recipe/recipe_screen.dart';
+import 'perishables_picker_screen.dart';
 
 /// Builds a generation request from the prefs the user picked. Lives on
 /// Home so it can fold in pantry, dietary, appliance, recent-titles state.
@@ -67,6 +69,11 @@ class RecipePreferencesScreen extends StatefulWidget {
   /// style chips so the user can pick a saved style with one tap.
   final List<String> customStyles;
 
+  /// Names of perishable inventory items pulled from Firestore — passed
+  /// to the Perishables Picker so the user can quick-select them as
+  /// "use up these items" inputs.
+  final List<String> perishableInventory;
+
   /// Test injection — defaults to [GeminiService.generateRecipeStream].
   final RecipeStreamFactory? streamFactory;
 
@@ -77,6 +84,7 @@ class RecipePreferencesScreen extends StatefulWidget {
     required this.isGuest,
     this.activeDietary = const [],
     this.customStyles = const [],
+    this.perishableInventory = const [],
     this.streamFactory,
   });
 
@@ -133,9 +141,16 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   // a recipe with bulkPrepInfo. Needs a Kate design pass before wiring
   // (see docs/roadmap.md → "Bulk Prep on the recipe prefs screen").
   bool _isSaverMode = false;
-  bool _isLeftoverMode = false;
-  final List<String> _leftoverItems = [];
-  final TextEditingController _leftoverController = TextEditingController();
+
+  // Sprint 16.3 (later) — replaced the leftover chip-editor with two
+  // distinct affordances:
+  //   • _cravingController — free-text "what do you fancy?" at the top of
+  //     the picker. Wired to RecipeGenerationRequest.userRequest as a
+  //     high-priority soft preference.
+  //   • _useUpItems — selections returned by PerishablesPickerScreen.
+  //     Mapped onto request.perishables (REQUIRED ingredients) when present.
+  final TextEditingController _cravingController = TextEditingController();
+  List<String> _useUpItems = const [];
 
   _PrefsPhase _phase = _PrefsPhase.picking;
   int _messageIndex = 0;
@@ -147,19 +162,24 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   void dispose() {
     _messageTimer?.cancel();
     _generationSub?.cancel();
-    _leftoverController.dispose();
+    _cravingController.dispose();
     super.dispose();
   }
 
   // ── Generate ─────────────────────────────────────────────────────
   void _generate() {
+    final craving = _cravingController.text.trim();
     final prefs = RecipePreferences(
       time: _time == 'Any' ? null : _time,
       style: _style == 'Any' ? null : _style,
       mood: _mood == 'Any' ? null : _mood,
       isSaverMode: _isSaverMode,
-      isLeftoverMode: _isLeftoverMode,
-      leftoverItems: _isLeftoverMode ? List.unmodifiable(_leftoverItems) : const [],
+      // Legacy leftover-mode flag retained on the value object for callers
+      // that still consume it; the new picker drives [useUpItems] directly.
+      isLeftoverMode: false,
+      leftoverItems: const [],
+      userRequest: craving.isEmpty ? null : craving,
+      useUpItems: List.unmodifiable(_useUpItems),
     );
 
     final request = widget.buildRequest(prefs);
@@ -346,7 +366,9 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     );
   }
 
-  // ── Constraints panel: Saver + Leftover (Sprint 16.3) ────────────
+  // ── Constraints panel: Saver only (Sprint 16.3 later) ─────────────
+  // The "Use up leftovers" toggle was replaced by a dedicated picker
+  // reached via _buildUseUpRow(). Saver remains a single chip toggle.
   Widget _buildConstraintsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,86 +384,138 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
               selected: _isSaverMode,
               onTap: () => setState(() => _isSaverMode = !_isSaverMode),
             ),
-            ElioChip(
-              label: 'Use up leftovers',
-              selected: _isLeftoverMode,
-              onTap: () => setState(() => _isLeftoverMode = !_isLeftoverMode),
-            ),
           ],
         ),
-        if (_isLeftoverMode) ...[
-          const SizedBox(height: ElioSpacing.md),
-          _buildLeftoverEditor(),
-        ],
       ],
     );
   }
 
-  Widget _buildLeftoverEditor() {
+  // ── Free-text "craving" field (Sprint 16.3 later) ─────────────────
+  // Sits at the top of the picker so it shapes the dish category before
+  // the chips layer on. Subtle by design — not amber, no eyebrow shouting,
+  // just a friendly nudge that the user can describe what they want.
+  Widget _buildCravingField() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 4, 4, 4),
+      decoration: BoxDecoration(
+        color: ElioColors.cream,
+        borderRadius: ElioRadii.card,
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.auto_awesome_outlined,
+            color: ElioColors.amber,
+            size: 18,
+          ),
+          const SizedBox(width: ElioSpacing.sm),
+          Expanded(
+            child: TextField(
+              controller: _cravingController,
+              textInputAction: TextInputAction.done,
+              style: ElioTextStyles.body,
+              decoration: InputDecoration(
+                hintText: 'Got a craving? Tell me about it',
+                hintStyle: ElioTextStyles.body.copyWith(
+                  color: ElioColors.textSecondary,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── "Use up" picker entry point (Sprint 16.3 later) ───────────────
+  // Replaces the inline leftover chip-editor. Pushes
+  // PerishablesPickerScreen which returns the user's selections.
+  Widget _buildUseUpRow() {
+    final count = _useUpItems.length;
+    final hasSelection = count > 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Existing items as removable chips.
-        if (_leftoverItems.isNotEmpty) ...[
-          Wrap(
-            spacing: ElioSpacing.sm,
-            runSpacing: ElioSpacing.sm,
-            children: [
-              for (final item in _leftoverItems)
-                InputChip(
-                  label: Text(item),
-                  onDeleted: () => setState(() => _leftoverItems.remove(item)),
-                  deleteIcon: const Icon(Icons.close, size: 16),
-                  backgroundColor: ElioColors.cream,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(999),
-                    side: const BorderSide(color: ElioColors.amber),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: ElioSpacing.sm),
-        ],
-        // Add-item row.
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _leftoverController,
-                textInputAction: TextInputAction.done,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. roast chicken, rice',
-                  isDense: true,
-                  border: OutlineInputBorder(),
-                ),
-                onSubmitted: (_) => _addLeftover(),
+        const ElioEyebrow('use up'),
+        const SizedBox(height: ElioSpacing.sm),
+        InkWell(
+          onTap: _openPerishablesPicker,
+          borderRadius: ElioRadii.card,
+          child: Container(
+            padding: const EdgeInsets.all(ElioSpacing.md),
+            decoration: BoxDecoration(
+              color: ElioColors.cream,
+              borderRadius: ElioRadii.card,
+              border: Border.all(
+                color: hasSelection
+                    ? ElioColors.amber
+                    : ElioColors.border,
+                width: hasSelection ? 1.5 : 1,
               ),
             ),
-            const SizedBox(width: ElioSpacing.sm),
-            IconButton(
-              icon: const Icon(Icons.add_circle, color: ElioColors.amber),
-              tooltip: 'Add leftover',
-              onPressed: _addLeftover,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.eco_outlined,
+                  color:
+                      hasSelection ? ElioColors.amber : ElioColors.navy,
+                  size: 20,
+                ),
+                const SizedBox(width: ElioSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        hasSelection
+                            ? 'Using $count item${count == 1 ? '' : 's'}'
+                            : 'Got something to use up?',
+                        style: ElioTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: ElioColors.navy,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        hasSelection
+                            ? _useUpItems.join(', ')
+                            : 'Pick perishables or add leftovers',
+                        style: ElioTextStyles.bodySmall.copyWith(
+                          color: ElioColors.textSecondary,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: ElioColors.textSecondary,
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ],
     );
   }
 
-  void _addLeftover() {
-    final raw = _leftoverController.text.trim();
-    if (raw.isEmpty) return;
-    // Cheap dup-guard: case-insensitive exact match.
-    final lower = raw.toLowerCase();
-    if (_leftoverItems.any((i) => i.toLowerCase() == lower)) {
-      _leftoverController.clear();
-      return;
-    }
-    setState(() {
-      _leftoverItems.add(raw);
-      _leftoverController.clear();
-    });
+  Future<void> _openPerishablesPicker() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final result = await Navigator.of(context).push<List<String>>(
+      MaterialPageRoute(
+        builder: (_) => PerishablesPickerScreen(
+          perishableInventory: widget.perishableInventory,
+          initialSelection: _useUpItems,
+        ),
+      ),
+    );
+    if (!mounted || result == null) return;
+    setState(() => _useUpItems = result);
   }
 
   Widget _buildPickingBody() {
@@ -459,6 +533,8 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             const SizedBox(height: ElioSpacing.lg),
             _buildDietaryStrip(),
           ],
+          const SizedBox(height: ElioSpacing.xl),
+          _buildCravingField(),
           const SizedBox(height: ElioSpacing.xl),
           _section(
             eyebrow: 'time',
@@ -489,6 +565,8 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             selected: _mood,
             onSelect: (v) => setState(() => _mood = v),
           ),
+          const SizedBox(height: ElioSpacing.xl),
+          _buildUseUpRow(),
           const SizedBox(height: ElioSpacing.xl),
           _buildConstraintsSection(),
           const SizedBox(height: ElioSpacing.xxl),

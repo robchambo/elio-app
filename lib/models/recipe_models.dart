@@ -62,6 +62,12 @@ class RecipeGenerationRequest {
   /// e.g. "chicken breast (expires in 2d)", "spinach (expires today)"
   final List<String> perishableInventoryDescriptions;
 
+  /// Free-text "craving" supplied by the user on the prefs screen.
+  /// e.g. "soup", "something with mushrooms", "pizza".
+  /// Treated as a high-priority soft preference — Gemini should honour it
+  /// where possible but never break dietary or required-perishable rules.
+  final String? userRequest;
+
   const RecipeGenerationRequest({
     required this.perishables,
     required this.alwaysHave,
@@ -81,6 +87,7 @@ class RecipeGenerationRequest {
     this.appliances = const [],
     this.isSaverMode = false,
     this.perishableInventoryDescriptions = const [],
+    this.userRequest,
   });
 }
 

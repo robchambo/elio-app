@@ -48,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _runningLowItems = [];
   List<String> _appliances = [];
   List<String> _perishableDescriptions = [];
+  List<String> _perishableInventoryNames = [];
 
   // ── Household profiles (drives active dietary requirements) ────────
   List<Map<String, dynamic>> _householdProfiles = [];
@@ -110,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
           (data['inventoryWithIds'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
         );
         final perishableDescs = <String>[];
+        final perishableNames = <String>[];
         for (final item in inventoryWithIds) {
           if (item['tier'] == 'perishable') {
             final name = item['name'] as String? ?? '';
@@ -118,6 +120,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (rawExpiry != null) expiry = DateTime.tryParse(rawExpiry);
             final invItem = InventoryItem(name: name, tier: 'perishable', expiryDate: expiry);
             perishableDescs.add(invItem.geminiDescription);
+            if (name.isNotEmpty) perishableNames.add(name);
           }
         }
 
@@ -127,6 +130,7 @@ class _HomeScreenState extends State<HomeScreen> {
           _runningLowItems = List<String>.from(data['runningLowItems'] ?? []);
           _appliances = List<String>.from(data['appliances'] ?? []);
           _perishableDescriptions = perishableDescs;
+          _perishableInventoryNames = perishableNames;
           _householdProfiles = List<Map<String, dynamic>>.from(
             (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
           );
@@ -198,6 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
           isGuest: widget.isGuest,
           activeDietary: _activeDietaryRequirements,
           customStyles: _customStyles,
+          perishableInventory: _perishableInventoryNames,
         ),
       ),
     );
@@ -232,8 +237,13 @@ class _HomeScreenState extends State<HomeScreen> {
     // pass; for now we keep the prior best-effort behaviour but make the
     // request-build sync. If the eager load lands later this stays correct
     // (just reads the cached value).
+    // Prefer perishables explicitly chosen on the prefs picker; fall back to
+    // any auto-selected from the post-scan flow.
+    final perishablesForRequest = prefs.useUpItems.isNotEmpty
+        ? prefs.useUpItems
+        : _selectedPerishables.toList();
     return RecipeGenerationRequest(
-      perishables: _selectedPerishables.toList(),
+      perishables: perishablesForRequest,
       alwaysHave: _alwaysHave,
       almostAlwaysHave: _almostAlwaysHave,
       dietaryRequirements: _activeDietaryRequirements,
@@ -250,6 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
       appliances: _appliances,
       isSaverMode: prefs.isSaverMode,
       perishableInventoryDescriptions: _perishableDescriptions,
+      userRequest: prefs.userRequest,
     );
   }
 
@@ -264,7 +275,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_recentTitles.length > 20) _recentTitles.removeAt(0);
 
     _analytics.logEvent('recipe_generated', {
-      'perishable_count': _selectedPerishables.length,
+      'perishable_count': request.perishables.length,
       'is_guest': widget.isGuest,
     });
 

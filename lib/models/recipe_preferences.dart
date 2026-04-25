@@ -6,6 +6,11 @@
 //
 // Sprint 16.3 — added Saver / Leftover constraints. Home folds these into
 // the RecipeGenerationRequest in [_buildRequest].
+//
+// Sprint 16.3 (later) — added [userRequest] free-text craving and
+// [useUpItems] to carry selections from the new Perishables Picker.
+// useUpItems supersedes the old leftover-mode chip editor; when populated,
+// these items become REQUIRED ingredients in the Gemini prompt.
 
 class RecipePreferences {
   final String? time;
@@ -24,6 +29,15 @@ class RecipePreferences {
   /// [isLeftoverMode] is true.
   final List<String> leftoverItems;
 
+  /// Free-text craving from the prefs screen ("soup", "pizza"). Wired
+  /// through to RecipeGenerationRequest.userRequest.
+  final String? userRequest;
+
+  /// Items the user picked in the Perishables Picker — perishable inventory
+  /// items they want to use up plus any custom additions. These become
+  /// REQUIRED ingredients in the recipe (mapped onto request.perishables).
+  final List<String> useUpItems;
+
   const RecipePreferences({
     this.time,
     this.style,
@@ -31,6 +45,8 @@ class RecipePreferences {
     this.isSaverMode = false,
     this.isLeftoverMode = false,
     this.leftoverItems = const [],
+    this.userRequest,
+    this.useUpItems = const [],
   });
 
   const RecipePreferences.any()
@@ -39,5 +55,7 @@ class RecipePreferences {
       mood = null,
       isSaverMode = false,
       isLeftoverMode = false,
-      leftoverItems = const [];
+      leftoverItems = const [],
+      userRequest = null,
+      useUpItems = const [];
 }
