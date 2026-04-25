@@ -7,6 +7,7 @@ import '../../services/guest_pantry_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../utils/dietary_filter.dart';
 import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
 import '../../widgets/elio/elio_add_something_tile.dart';
 import '../../widgets/elio/elio_big_button.dart';
@@ -407,6 +408,12 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
                   );
                 }
                 final name = items[index];
+                final blocked = DietaryFilter.blockReasons(
+                  itemName: name,
+                  dietary: widget.controller.state.dietary,
+                  allergies: widget.controller.state.allergies,
+                  categoryName: cat.name,
+                );
                 return ElioPantryItemTile(
                   key: ValueKey('perishable_$name'),
                   label: name,
@@ -414,6 +421,7 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
                   tiers: const ['unselected', 'fresh', 'thisWeek', 'today'],
                   onCycle: (next) => _cycle(name, next),
                   onLongPress: () => _openLongPressMenu(name),
+                  blockedReasons: blocked,
                 );
               },
               childCount: childCount,

@@ -9,6 +9,7 @@ import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../utils/dietary_filter.dart';
 import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
 import '../../widgets/elio/elio_add_something_tile.dart';
 import '../../widgets/elio/elio_big_button.dart';
@@ -144,15 +145,24 @@ bool _excludedByUser(
 }
 
 /// Build the initial tier map: all default-eligible items start in "usually".
+/// Items also greyed out by [DietaryFilter] (the cross-cutting block layer)
+/// are skipped — they'll render as blocked tiles regardless.
 Map<String, String> _buildDefaultTiers(
   List<String> dietary,
   List<String> allergies,
 ) {
   final map = <String, String>{};
   _kDefaultStaples.forEach((name, rule) {
-    if (!_excludedByUser(rule, dietary, allergies)) {
-      map[name] = 'usually';
+    if (_excludedByUser(rule, dietary, allergies)) return;
+    if (DietaryFilter.isBlocked(
+      itemName: name,
+      dietary: dietary,
+      allergies: allergies,
+      categoryName: rule.category,
+    )) {
+      return;
     }
+    map[name] = 'usually';
   });
   return map;
 }
@@ -436,6 +446,12 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
                   );
                 }
                 final name = items[index];
+                final blocked = DietaryFilter.blockReasons(
+                  itemName: name,
+                  dietary: widget.controller.state.dietary,
+                  allergies: widget.controller.state.allergies,
+                  categoryName: catName,
+                );
                 return ElioPantryItemTile(
                   key: ValueKey('staple_$name'),
                   label: name,
@@ -443,6 +459,7 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
                   tiers: const ['unselected', 'usually', 'always'],
                   onCycle: (next) => _cycle(name, next),
                   onLongPress: () => _jumpToAlways(name),
+                  blockedReasons: blocked,
                 );
               },
               childCount: childCount,

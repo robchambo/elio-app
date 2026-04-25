@@ -49,6 +49,13 @@ class ElioPantryItemTile extends StatelessWidget {
   final ValueChanged<String> onCycle;
   final VoidCallback onLongPress;
 
+  /// When non-empty, the tile is rendered greyed-out + non-interactive
+  /// and shows a small reason badge (e.g. "Vegan", "Gluten"). Used by
+  /// onboarding screens 11/12 to filter conflicting items based on
+  /// dietary/allergy selections from screens 04/05. See
+  /// [DietaryFilter.blockReasons].
+  final List<String> blockedReasons;
+
   const ElioPantryItemTile({
     super.key,
     required this.label,
@@ -57,7 +64,10 @@ class ElioPantryItemTile extends StatelessWidget {
     required this.onCycle,
     required this.onLongPress,
     this.tierStyles,
+    this.blockedReasons = const [],
   });
+
+  bool get _isBlocked => blockedReasons.isNotEmpty;
 
   String _nextTier() {
     final i = tiers.indexOf(tier);
@@ -110,6 +120,8 @@ class ElioPantryItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_isBlocked) return _buildBlocked();
+
     final style = _resolveStyle();
 
     final gestures = <Type, GestureRecognizerFactory>{
@@ -157,6 +169,70 @@ class ElioPantryItemTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  /// Greyed-out, non-interactive variant — used when the item conflicts
+  /// with one or more dietary/allergy selections. Tap + long-press are
+  /// suppressed; reason badge sits in the top-right of the tile.
+  Widget _buildBlocked() {
+    final reason = blockedReasons.first;
+    return Semantics(
+      label: '$label, unavailable: $reason',
+      button: false,
+      child: Container(
+          padding: const EdgeInsets.all(ElioSpacing.sm + 2),
+          decoration: BoxDecoration(
+            color: ElioColors.offWhite,
+            borderRadius: BorderRadius.circular(ElioRadii.md),
+            border: Border.all(
+              color: ElioColors.border.withValues(alpha: 0.6),
+              width: 1.0,
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: Stack(
+            children: [
+              Center(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: ElioTextStyles.bodySmall.copyWith(
+                    color: ElioColors.textMuted.withValues(alpha: 0.7),
+                    fontWeight: FontWeight.w500,
+                    decoration: TextDecoration.lineThrough,
+                    decorationColor:
+                        ElioColors.textMuted.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ElioColors.navy.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(ElioRadii.sm),
+                  ),
+                  child: Text(
+                    reason,
+                    style: ElioTextStyles.bodySmall.copyWith(
+                      fontSize: 10,
+                      color: ElioColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
     );
   }
 }
