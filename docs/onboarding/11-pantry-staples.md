@@ -57,7 +57,7 @@ This is the single most differentiating screen in the app. It's the only reason 
 | Baking Essentials | Plain flour, Caster sugar, Baking powder |
 | Frozen Staples | Frozen peas |
 
-~16 items pre-selected. Covers the median UK household; users add/remove from there.
+Covers the median UK household; users add/remove from there.
 
 **Primary CTA (full-width, sticky at bottom):**
 > Next
