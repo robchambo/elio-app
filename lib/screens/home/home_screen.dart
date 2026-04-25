@@ -4,14 +4,18 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../theme/elio_spacing.dart';
+import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../models/elio_models.dart';
 import '../../models/recipe_models.dart';
 import '../../models/recipe_preferences.dart';
 import 'recipe_preferences_screen.dart';
 import '../../services/firestore_service.dart';
 import '../../services/guest_pantry_service.dart';
+import '../../services/history_service.dart';
 import '../meal_plan/meal_plan_screen.dart';
 import '../paywall/paywall_screen.dart';
+import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/notification_service.dart';
@@ -59,10 +63,14 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Saved custom food styles (e.g. "Mediterranean") ────────────────
   List<String> _customStyles = [];
 
+  // ── Recent recipes peek (last 3 from local history) ────────────────
+  List<SavedRecipe> _recentRecipes = [];
+
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadRecentRecipes();
     // Request notification permission on first HomeScreen load (non-blocking)
     if (!widget.isGuest) {
       NotificationService.instance.requestPermissionAndRegister();
@@ -182,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RecipePreferencesScreen(
           buildRequest: _buildRequest,
@@ -190,6 +198,27 @@ class _HomeScreenState extends State<HomeScreen> {
           isGuest: widget.isGuest,
           activeDietary: _activeDietaryRequirements,
           customStyles: _customStyles,
+        ),
+      ),
+    );
+    // Refresh recents when the user lands back on Home (after popping
+    // RecipeScreen — prefs push-replaces itself with RecipeScreen).
+    if (mounted) _loadRecentRecipes();
+  }
+
+  Future<void> _loadRecentRecipes() async {
+    final history = await HistoryService.getHistory();
+    if (!mounted) return;
+    setState(() => _recentRecipes = history.take(3).toList());
+  }
+
+  void _openRecentRecipe(SavedRecipe r) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RecipeScreen(
+          recipe: r.recipe,
+          isGuest: widget.isGuest,
+          savedAt: r.savedAt,
         ),
       ),
     );
@@ -292,6 +321,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: ElioSpacing.md),
           const ElioEyebrow('your kitchen is ready for elio'),
+          if (_recentRecipes.isNotEmpty) ...[
+            const SizedBox(height: ElioSpacing.lg),
+            _buildRecentRecipesPeek(),
+          ],
           const Spacer(),
           ElioBigButton(
             label: 'Generate a recipe',
@@ -308,6 +341,78 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           const SizedBox(height: ElioSpacing.md),
         ],
+      ),
+    );
+  }
+
+  // ── Recent recipes peek (Sprint 16.3) ───────────────────────────
+  // Compact horizontal row of up to 3 recent generations from local
+  // history. Tap → push RecipeScreen. The full book lives on the
+  // Recipes tab (AppShell); this is just a one-tap re-entry for
+  // "the thing I cooked last night".
+  Widget _buildRecentRecipesPeek() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'recent',
+          style: ElioTextStyles.eyebrow.copyWith(color: ElioColors.amber),
+        ),
+        const SizedBox(height: ElioSpacing.sm),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _recentRecipes.length,
+            separatorBuilder: (_, __) =>
+                const SizedBox(width: ElioSpacing.sm),
+            itemBuilder: (_, i) => _buildRecentCard(_recentRecipes[i]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentCard(SavedRecipe r) {
+    return GestureDetector(
+      onTap: () => _openRecentRecipe(r),
+      child: Container(
+        width: 200,
+        padding: const EdgeInsets.all(ElioSpacing.md),
+        decoration: BoxDecoration(
+          color: ElioColors.cream,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                r.recipe.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: ElioTextStyles.body.copyWith(
+                  color: ElioColors.navy,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: ElioSpacing.xs),
+            Row(
+              children: [
+                const Icon(Icons.schedule,
+                    size: 14, color: ElioColors.textSecondary),
+                const SizedBox(width: 4),
+                Text(
+                  '${r.recipe.totalTimeMinutes} min',
+                  style: ElioTextStyles.bodySmall.copyWith(
+                    color: ElioColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
