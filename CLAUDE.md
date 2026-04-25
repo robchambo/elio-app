@@ -236,7 +236,32 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 | Brand / art direction | `docs/brand-art-concept.md` |
 | Sprint 16 design system | `lib/widgets/elio/` + Design System section above |
 
-## Last Session (22 April 2026) — Sprint 16.2 Copy Polish (IN FLIGHT, screens 03–12 done)
+## Last Session (25 April 2026) — Sprint 16.3 Polish (COMPLETE, APK built, awaiting on-device smoke test)
+
+**Branch:** `sprint/16` at `290d41b` (pushed). Onboarding-rebuild branch ff-merged in then deleted local + remote. `flutter analyze` clean, 276/276 tests pass. APK: `releases/elio-sprint-16.3-polish.apk` (72.0 MB), local tag `build/sprint-16.3-polish`.
+
+**Sprint 16.3 polish work shipped this session:**
+- Recent recipes peek on Home (Task 5).
+- Shopping list polish: tap-grey-in-place (no checked/unchecked split), swipe-to-remove cue, inline right-aligned qty. New `ShoppingListPage` wrapper widget for Navigator pushes (raw push showed black bg). Quantity consolidation via `matchKey` Firestore field — `ShoppingService._singularise()` collapses "Carrots"/"Carrot". Backfills legacy `nameLower`-only docs on read.
+- Pantry/Recipes-tab two-tile import row using `ElioBentoCard`. Bento maxLines clamps + dropped fixed `width: 150` (Expanded controls width).
+- Samsung system-bar clipping fixed: `ElioTopAppBar` → `SafeArea(bottom: false)`, `ElioBottomNav` → `SafeArea(top: false)`, `ElioAppScaffold` body → conditional `SafeArea(bottom: !hasNav)`.
+- Free-text "craving" field at top of `RecipePreferencesScreen` ("Got a craving? Tell me about it") → `RecipePreferences.userRequest` → `RecipeGenerationRequest.userRequest` → emitted under `## PREFERENCES:` in `_buildPrompt` as a high-priority soft preference.
+- New `PerishablesPickerScreen` (`lib/screens/home/perishables_picker_screen.dart`) reached from prefs via "Got something to use up?" row. Replaces the inline leftover-mode chip-editor. Returns `List<String>` via `Navigator.pop`. Selections map onto `RecipeGenerationRequest.perishables` (REQUIRED), falling back to scanner-selected set when picker not used. Home feeds `_perishableInventoryNames` into prefs alongside the existing description list.
+
+**Tracked, not built — flagged for separate work:**
+- Bulk Prep on prefs — Kate design pass (TODO in `recipe_preferences_screen.dart` + roadmap entry).
+- Guest shopping list + screen 13 "Add missing ingredients" — sprint 16.3.x, own commit, approach signed off.
+- Screens 11/12 search bar + full dietary/allergy filtering — content pass, deferred.
+- Screen 10 hero illustration — Kate art.
+
+**Awaiting (you):**
+- On-device smoke test of `releases/elio-sprint-16.3-polish.apk`.
+- Tag `v0.16.0-ui-overhaul` after sign-off.
+- Then Sprint 17 launch prep (separate branch `sprint-17`).
+
+---
+
+## Prior Session (22 April 2026) — Sprint 16.2 Copy Polish (IN FLIGHT, screens 03–12 done)
 
 **Branch:** `sprint/16-onboarding-rebuild` (still off `sprint/16`, pushed). `flutter analyze` clean. Per-screen commits with prefix `copy(sprint-16-onboarding): screen NN …` or `feat(sprint-16-onboarding): …` for feature additions.
 

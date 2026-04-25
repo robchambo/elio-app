@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 22 April 2026 (Sprint 16.2 copy polish in-flight on `sprint/16-onboarding-rebuild`; screens 03–09 copy tightened, "+ Add something" + dedup landed on screens 11/12; still to review screens 13/14/15 before on-device smoke test)
+**Last updated:** 25 April 2026 (Sprint 16.3 polish complete on `sprint/16` at `290d41b`. APK built: `releases/elio-sprint-16.3-polish.apk`, local tag `build/sprint-16.3-polish`. Awaiting on-device smoke test before tagging `v0.16.0-ui-overhaul`. Onboarding-rebuild branch merged ff + deleted.)
 
 ---
 
