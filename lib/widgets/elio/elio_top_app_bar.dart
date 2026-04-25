@@ -14,27 +14,37 @@ class ElioTopAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 64,
+    // Scaffold gives the appBar slot extra height equal to the status-bar
+    // inset, so we wrap with SafeArea(bottom:false) to push the wordmark /
+    // profile row below the system status bar (battery, signal, clock).
+    // Without this, the 64px bar sits flush at y=0 and overlaps the status
+    // bar on devices with a non-zero top inset (most Samsungs).
+    return Material(
       color: ElioColors.offWhite,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            'elio',
-            style: GoogleFonts.outfit(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: ElioColors.amber,
-            ),
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          height: 64,
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'elio',
+                style: GoogleFonts.outfit(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: ElioColors.amber,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.account_circle_outlined,
+                    color: ElioColors.navy, size: 28),
+                onPressed: onProfileTap,
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined,
-                color: ElioColors.navy, size: 28),
-            onPressed: onProfileTap,
-          ),
-        ],
+        ),
       ),
     );
   }

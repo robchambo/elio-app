@@ -22,11 +22,22 @@ class ElioAppScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasNav =
+        showBottomNav && activeTab != null && onTabChanged != null;
     return Scaffold(
       backgroundColor: ElioColors.offWhite,
       appBar: ElioTopAppBar(onProfileTap: onProfileTap),
-      body: SafeArea(bottom: false, child: body),
-      bottomNavigationBar: showBottomNav && activeTab != null && onTabChanged != null
+      // Top inset is consumed by the app bar's own SafeArea. Bottom inset
+      // is consumed by ElioBottomNav when present; when the nav is hidden
+      // (e.g. ShoppingListPage pushed from the meal planner) the body
+      // itself must respect the bottom inset to keep CTAs above the
+      // system gesture bar / 3-button nav.
+      body: SafeArea(
+        top: false,
+        bottom: !hasNav,
+        child: body,
+      ),
+      bottomNavigationBar: hasNav
           ? ElioBottomNav(active: activeTab!, onTap: onTabChanged!)
           : null,
     );

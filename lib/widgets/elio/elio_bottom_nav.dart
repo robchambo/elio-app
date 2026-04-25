@@ -14,22 +14,34 @@ class ElioBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 107,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+    // SafeArea(top:false) lifts the nav row above the system bottom inset
+    // (Samsung 3-button nav, gesture pill) so the icons aren't clipped by
+    // back/home/recents. The Container colour extends *into* the inset so
+    // the bar looks continuous rather than leaving a strip of off-white
+    // behind the system buttons.
+    return Material(
       color: ElioColors.offWhite,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _NavItem(icon: Icons.home_outlined, label: 'HOME',
-              active: active == ElioNavTab.home, onTap: () => onTap(ElioNavTab.home)),
-          _NavItem(icon: Icons.kitchen_outlined, label: 'PANTRY',
-              active: active == ElioNavTab.pantry, onTap: () => onTap(ElioNavTab.pantry)),
-          _NavItem(icon: Icons.menu_book_outlined, label: 'RECIPES',
-              active: active == ElioNavTab.recipes, onTap: () => onTap(ElioNavTab.recipes)),
-          _NavItem(icon: Icons.add_shopping_cart_outlined, label: 'SHOPPING\nLIST',
-              active: active == ElioNavTab.shoppingList, onTap: () => onTap(ElioNavTab.shoppingList)),
-        ],
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 95, // visual nav row height; SafeArea adds inset on top
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _NavItem(icon: Icons.home_outlined, label: 'HOME',
+                    active: active == ElioNavTab.home, onTap: () => onTap(ElioNavTab.home)),
+                _NavItem(icon: Icons.kitchen_outlined, label: 'PANTRY',
+                    active: active == ElioNavTab.pantry, onTap: () => onTap(ElioNavTab.pantry)),
+                _NavItem(icon: Icons.menu_book_outlined, label: 'RECIPES',
+                    active: active == ElioNavTab.recipes, onTap: () => onTap(ElioNavTab.recipes)),
+                _NavItem(icon: Icons.add_shopping_cart_outlined, label: 'SHOPPING\nLIST',
+                    active: active == ElioNavTab.shoppingList, onTap: () => onTap(ElioNavTab.shoppingList)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
