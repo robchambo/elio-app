@@ -128,6 +128,69 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
   /// Custom items added via "+ Add something", keyed by perishable category.
   final Map<String, List<String>> _customItemsByCategory = {};
 
+  @override
+  void initState() {
+    super.initState();
+    _hydrateFromController();
+  }
+
+  /// Re-populates [_tiers] + [_customItemsByCategory] from the
+  /// onboarding controller's current inventory if the user has
+  /// already passed through this screen (e.g. tapped Generate on
+  /// the first-recipe screen and pressed back). Otherwise leaves
+  /// [_tiers] empty so the user starts from a fresh selection.
+  void _hydrateFromController() {
+    final perishables = widget.controller.state.inventory
+        .where((i) => i.tier == 'perishable')
+        .toList();
+    if (perishables.isEmpty) return;
+
+    final now = DateTime.now();
+    for (final i in perishables) {
+      String tier;
+      if (i.isRunningLow == true) {
+        tier = 'today';
+      } else if (i.expiryDate != null) {
+        final daysAway = i.expiryDate!.difference(now).inDays;
+        // _onContinue writes today=now, thisWeek=+3d, fresh=+7d. Map back
+        // with a forgiving cutoff so a same-session round-trip restores
+        // the exact tier the user set.
+        if (daysAway <= 0) {
+          tier = 'today';
+        } else if (daysAway <= 5) {
+          tier = 'thisWeek';
+        } else {
+          tier = 'fresh';
+        }
+      } else {
+        tier = 'fresh';
+      }
+      _tiers[i.name] = tier;
+    }
+
+    // Re-bucket any custom items (those not in the spec) by their
+    // user-chosen perishable category, written by _onContinue below.
+    final specNames = <String>{
+      for (final cat in _perishableCategories) ...cat.items,
+    };
+    for (final i in perishables) {
+      if (specNames.contains(i.name)) continue;
+      final cat = i.category;
+      if (cat == null) continue;
+      _customItemsByCategory.putIfAbsent(cat, () => <String>[]).add(i.name);
+    }
+  }
+
+  /// Reverse map: custom item name → the perishable category the user
+  /// added it under. Used so custom items persist with their user-
+  /// chosen category on back-nav.
+  String? _categoryForCustom(String name) {
+    for (final entry in _customItemsByCategory.entries) {
+      if (entry.value.contains(name)) return entry.key;
+    }
+    return null;
+  }
+
   /// Flat list of everything visible on this screen (spec perishables +
   /// already-added custom items). Used as the dedup scope.
   List<String> _allVisibleItems() {
@@ -251,6 +314,10 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
           tier: 'perishable',
           isRunningLow: runningLow,
           expiryDate: expiry,
+          // Custom items persist with their user-chosen perishable
+          // category so back-nav can re-bucket them under the right
+          // "+ Add something" group.
+          category: _categoryForCustom(name),
         ),
       );
     });

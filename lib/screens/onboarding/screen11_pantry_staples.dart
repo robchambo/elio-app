@@ -199,10 +199,44 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
   @override
   void initState() {
     super.initState();
-    _tiers = _buildDefaultTiers(
-      widget.controller.state.dietary,
-      widget.controller.state.allergies,
-    );
+    _hydrateFromControllerOrDefaults();
+  }
+
+  /// Re-populates [_tiers] + [_customItemsByCategory] from the
+  /// onboarding controller's current inventory if the user has
+  /// already passed through this screen (back-nav from screen 12).
+  /// Otherwise falls back to the dietary-aware defaults.
+  void _hydrateFromControllerOrDefaults() {
+    final existing = widget.controller.state.inventory
+        .where((i) => i.tier == 'alwaysHave' || i.tier == 'almostAlwaysHave')
+        .toList();
+
+    if (existing.isEmpty) {
+      _tiers = _buildDefaultTiers(
+        widget.controller.state.dietary,
+        widget.controller.state.allergies,
+      );
+      return;
+    }
+
+    _tiers = <String, String>{
+      for (final i in existing)
+        i.name: i.tier == 'alwaysHave' ? 'always' : 'usually',
+    };
+
+    // Re-bucket any items not present in the canonical spec back into
+    // their user-chosen category, so the "+ Add something" flow on
+    // re-entry sees them.
+    final specNames = <String>{};
+    for (final cat in PantryCategories.all) {
+      specNames.addAll(cat.allItems);
+    }
+    for (final i in existing) {
+      if (specNames.contains(i.name)) continue;
+      final cat = i.category;
+      if (cat == null) continue;
+      _customItemsByCategory.putIfAbsent(cat, () => <String>[]).add(i.name);
+    }
   }
 
   /// Flat list of every item visible on this screen (spec items across all

@@ -374,6 +374,62 @@ void main() {
     expect(find.text('Ketshup', skipOffstage: false), findsNothing);
   });
 
+  testWidgets('hydrates _tiers from controller.state.inventory on back-nav',
+      (t) async {
+    useTallViewport(t);
+    // Simulate the user having already passed through screen 11: the
+    // controller already holds an inventory of staples + a custom item.
+    final c = OnboardingController()
+      ..setInventory([
+        const InventoryItem(
+          name: 'Olive oil',
+          tier: 'almostAlwaysHave',
+          category: 'Oils & Vinegars',
+        ),
+        const InventoryItem(
+          name: 'Salt',
+          tier: 'alwaysHave',
+          category: 'Spices & Seasonings',
+        ),
+        const InventoryItem(
+          name: 'Truffle salt',
+          tier: 'almostAlwaysHave',
+          category: 'Spices & Seasonings',
+        ),
+      ]);
+    await t.pumpWidget(wrap(Screen11PantryStaples(
+      controller: c,
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+
+    // Footer count reflects the restored 3 items (NOT the ~20 default set).
+    final footer =
+        find.textContaining(RegExp(r'^(\d+) things in your kitchen'));
+    final text = (t.widget(footer) as Text).data!;
+    final count = int.parse(RegExp(r'^(\d+)').firstMatch(text)!.group(1)!);
+    expect(count, 3,
+        reason: 'restored count should match controller, not defaults');
+  });
+
+  testWidgets('falls back to defaults when controller inventory empty',
+      (t) async {
+    useTallViewport(t);
+    final c = OnboardingController(); // empty inventory
+    await t.pumpWidget(wrap(Screen11PantryStaples(
+      controller: c,
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+    final footer =
+        find.textContaining(RegExp(r'^(\d+) things in your kitchen'));
+    final text = (t.widget(footer) as Text).data!;
+    final count = int.parse(RegExp(r'^(\d+)').firstMatch(text)!.group(1)!);
+    expect(count, greaterThanOrEqualTo(15));
+  });
+
   testWidgets('back button fires onBack', (t) async {
     useTallViewport(t);
     var backed = false;

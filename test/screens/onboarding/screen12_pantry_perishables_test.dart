@@ -394,6 +394,66 @@ void main() {
     expect(find.text('Carot', skipOffstage: false), findsNothing);
   });
 
+  testWidgets('hydrates _tiers from controller.state.inventory on back-nav',
+      (t) async {
+    useTallViewport(t);
+    final now = DateTime.now();
+    // Simulate the user having already passed through screen 12: today,
+    // thisWeek, fresh tiers + a custom item.
+    final c = OnboardingController()
+      ..setInventory([
+        InventoryItem(
+          name: 'Onion',
+          tier: 'perishable',
+          isRunningLow: false,
+          expiryDate: now.add(const Duration(days: 7)),
+        ),
+        InventoryItem(
+          name: 'Tomato',
+          tier: 'perishable',
+          isRunningLow: false,
+          expiryDate: now.add(const Duration(days: 3)),
+        ),
+        InventoryItem(
+          name: 'Salmon',
+          tier: 'perishable',
+          isRunningLow: true,
+          expiryDate: now,
+        ),
+        InventoryItem(
+          name: 'Star anise',
+          tier: 'perishable',
+          isRunningLow: false,
+          expiryDate: now.add(const Duration(days: 7)),
+          category: 'Fresh dairy & herbs',
+        ),
+      ]);
+    await t.pumpWidget(wrap(Screen12PantryPerishables(
+      controller: c,
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+
+    // Footer is "{fresh} fresh · {today} today" — fresh count covers the
+    // 'fresh' tier rows only. With our setup: Onion + Star anise = 2 fresh,
+    // Salmon = 1 today.
+    expect(find.text('2 fresh \u00b7 1 today'), findsOneWidget);
+  });
+
+  testWidgets('starts empty when no perishables in controller inventory',
+      (t) async {
+    useTallViewport(t);
+    final c = OnboardingController(); // empty
+    await t.pumpWidget(wrap(Screen12PantryPerishables(
+      controller: c,
+      onContinue: () {},
+      onBack: () {},
+    )));
+    await t.pump();
+    expect(find.text('0 fresh \u00b7 0 today'), findsOneWidget);
+  });
+
   testWidgets('back button fires onBack', (t) async {
     useTallViewport(t);
     var backed = false;
