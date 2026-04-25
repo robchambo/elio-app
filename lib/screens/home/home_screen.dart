@@ -1,25 +1,19 @@
 // Sprint 16 Phase 2 — HomeScreen is rendered inside AppShell, so build()
 // returns only a body widget (Padding/Column). The editorial layout: hero
 // heading, eyebrow, Generate button, optional "Plan your week" card for Pro.
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../theme/elio_theme.dart';
 import '../../theme/elio_spacing.dart';
 import '../../models/elio_models.dart';
 import '../../models/recipe_models.dart';
 import '../../models/recipe_preferences.dart';
 import 'recipe_preferences_screen.dart';
 import '../../services/firestore_service.dart';
-import '../../services/gemini_service.dart';
-import '../../services/history_service.dart';
 import '../../services/guest_pantry_service.dart';
-import '../recipe/recipe_screen.dart';
 import '../meal_plan/meal_plan_screen.dart';
 import '../paywall/paywall_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
-import '../../services/error_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
@@ -50,8 +44,6 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _runningLowItems = [];
   List<String> _appliances = [];
   List<String> _perishableDescriptions = [];
-  bool _isGenerating = false;
-  StreamSubscription<RecipeGenerationStatus>? _generationSub;
 
   // ── Household profiles (drives active dietary requirements) ────────
   List<Map<String, dynamic>> _householdProfiles = [];
@@ -59,6 +51,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Session deduplication memory (last 20 recipe titles) ─────────────
   final List<String> _recentTitles = [];
+
+  // ── Taste profile (loaded eagerly so _buildRequest stays sync) ──────
+  List<String> _likedRecipes = [];
+  List<String> _dislikedRecipes = [];
 
   @override
   void initState() {
@@ -69,21 +65,18 @@ class _HomeScreenState extends State<HomeScreen> {
       NotificationService.instance.requestPermissionAndRegister();
     }
 
-    // If scanned items were passed in, pre-fill and auto-generate
+    // If scanned items were passed in, pre-fill and open prefs (which then
+    // owns the generation phase). User taps Generate from prefs as normal —
+    // the auto-fire-on-mount behaviour was dropped with the editorial
+    // rebuild because the user expects to confirm Time/Style/Mood first.
     if (widget.scannedItems != null && widget.scannedItems!.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() {
           _selectedPerishables.addAll(widget.scannedItems!);
         });
-        _generateRecipe(const RecipePreferences.any());
+        _openPreferencesThenGenerate();
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _generationSub?.cancel();
-    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -131,6 +124,21 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       // Non-critical — user data will stay empty
     }
+
+    // Taste profile (best-effort, signed-in only) — used by _buildRequest
+    if (!widget.isGuest) {
+      try {
+        final tasteProfile = await _firestore.getTasteProfile();
+        if (mounted) {
+          setState(() {
+            _likedRecipes = List<String>.from(tasteProfile['liked'] ?? []);
+            _dislikedRecipes = List<String>.from(tasteProfile['disliked'] ?? []);
+          });
+        }
+      } catch (_) {
+        // Non-critical — proceed without taste profile
+      }
+    }
   }
 
   // ── Compute union of dietary requirements from all ACTIVE profiles ──
@@ -145,56 +153,51 @@ class _HomeScreenState extends State<HomeScreen> {
     return union.toList();
   }
 
-  // ── Launch preferences screen, then generate ─────────────────────
+  // ── Launch preferences screen — prefs now owns the generation phase ──
+  // Sprint 16.3: gate the entitlement check here (before pushing prefs) so
+  // the user never sees the prefs picker if they're already capped. The
+  // prefs screen calls back into [_buildRequest] / [_onRecipeComplete] for
+  // the request build + post-completion bookkeeping.
   Future<void> _openPreferencesThenGenerate() async {
     FocusScope.of(context).unfocus();
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RecipePreferencesScreen()),
-    );
-    if (!mounted) return;
-    if (result is RecipePreferences) {
-      await _generateRecipe(result);
-    }
-  }
 
-  // ── Generate recipe ────────────────────────────────────────────────
-  Future<void> _generateRecipe(RecipePreferences prefs) async {
-    if (_isGenerating) return;
-
-    // Dismiss keyboard before generation/navigation
-    FocusScope.of(context).unfocus();
-
-    // Check free tier cap
+    // Free-tier cap check up front
     if (widget.isGuest) {
       final canGenerate = await EntitlementService.canGuestGenerate();
-      if (!canGenerate && mounted) {
+      if (!mounted) return;
+      if (!canGenerate) {
         _showUpgradeDialog();
         return;
       }
     } else {
       await _entitlements.refresh();
-      if (!_entitlements.canGenerate && mounted) {
+      if (!mounted) return;
+      if (!_entitlements.canGenerate) {
         _showUpgradeDialog();
         return;
       }
     }
 
-    setState(() => _isGenerating = true);
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RecipePreferencesScreen(
+          buildRequest: _buildRequest,
+          onRecipeComplete: _onRecipeComplete,
+          isGuest: widget.isGuest,
+        ),
+      ),
+    );
+  }
 
-    // Load taste profile for adaptive learning (non-blocking, best-effort)
-    List<String> likedRecipes = [];
-    List<String> dislikedRecipes = [];
-    if (!widget.isGuest) {
-      try {
-        final tasteProfile = await _firestore.getTasteProfile();
-        likedRecipes = tasteProfile['liked'] ?? [];
-        dislikedRecipes = tasteProfile['disliked'] ?? [];
-      } catch (_) {
-        // Non-critical — proceed without taste profile
-      }
-    }
-
-    final request = RecipeGenerationRequest(
+  // ── Build the full RecipeGenerationRequest from chip prefs + Home state ──
+  // Called synchronously by RecipePreferencesScreen when the user taps
+  // Generate. Taste profile is fetched best-effort (signed-in only).
+  RecipeGenerationRequest _buildRequest(RecipePreferences prefs) {
+    // Note: taste profile is loaded eagerly in [_loadUserData] in a future
+    // pass; for now we keep the prior best-effort behaviour but make the
+    // request-build sync. If the eager load lands later this stays correct
+    // (just reads the cached value).
+    return RecipeGenerationRequest(
       perishables: _selectedPerishables.toList(),
       alwaysHave: _alwaysHave,
       almostAlwaysHave: _almostAlwaysHave,
@@ -207,79 +210,31 @@ class _HomeScreenState extends State<HomeScreen> {
       runningLowItems: List.from(_runningLowItems),
       isLeftoverMode: false,
       leftoverItems: const [],
-      likedRecipes: likedRecipes,
-      dislikedRecipes: dislikedRecipes,
+      likedRecipes: _likedRecipes,
+      dislikedRecipes: _dislikedRecipes,
       appliances: _appliances,
       isSaverMode: false,
       perishableInventoryDescriptions: _perishableDescriptions,
     );
+  }
 
-    _generationSub = GeminiService.generateRecipeStream(request).listen(
-      (status) {
-        if (!mounted) return;
-        switch (status) {
-          case RecipeGenerating():
-            // No UI message to update in the editorial layout.
-            break;
+  // ── Post-completion bookkeeping (called from RecipePreferencesScreen) ──
+  void _onRecipeComplete(
+    GeneratedRecipe recipe,
+    RecipeGenerationRequest request,
+  ) {
+    if (!mounted) return;
+    // Track title for deduplication (keep last 20)
+    _recentTitles.add(recipe.title);
+    if (_recentTitles.length > 20) _recentTitles.removeAt(0);
 
-          case RecipeComplete():
-            final recipe = status.recipe;
+    _analytics.logEvent('recipe_generated', {
+      'perishable_count': _selectedPerishables.length,
+      'is_guest': widget.isGuest,
+    });
 
-            // Track title for deduplication (keep last 20)
-            _recentTitles.add(recipe.title);
-            if (_recentTitles.length > 20) _recentTitles.removeAt(0);
-
-            // Save to history FIRST so RecipeScreen knows the savedAt
-            final savedAt = DateTime.now().toUtc().toIso8601String();
-            HistoryService.saveRecipe(SavedRecipe(
-              recipe: recipe,
-              savedAt: savedAt,
-            ));
-
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => RecipeScreen(
-                  recipe: recipe,
-                  originalRequest: request,
-                  isGuest: widget.isGuest,
-                  savedAt: savedAt,
-                ),
-              ),
-            );
-
-            // Background saves (Firestore, entitlements) — non-blocking
-            _performBackgroundSaves(recipe);
-
-            _analytics.logEvent('recipe_generated', {
-              'perishable_count': _selectedPerishables.length,
-              'is_guest': widget.isGuest,
-            });
-
-            setState(() => _isGenerating = false);
-
-          case RecipeError():
-            _analytics.logEvent('recipe_generation_failed', {
-              'error_type': 'stream_error',
-            });
-            _showGenerationError(status.message);
-            setState(() => _isGenerating = false);
-        }
-      },
-      onError: (e) {
-        if (!mounted) return;
-        _analytics.logEvent('recipe_generation_failed', {
-          'error_type': e.runtimeType.toString(),
-        });
-        _showGenerationError(e.toString());
-        setState(() => _isGenerating = false);
-      },
-      onDone: () {
-        // Stream completed — if still generating, something went wrong
-        if (mounted && _isGenerating) {
-          setState(() => _isGenerating = false);
-        }
-      },
-    );
+    // Background saves (Firestore, entitlements) — non-blocking
+    _performBackgroundSaves(recipe);
   }
 
   Future<void> _performBackgroundSaves(GeneratedRecipe recipe) async {
@@ -295,32 +250,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       // Firestore save failure is non-critical — recipe is already shown
     }
-  }
-
-  void _showGenerationError(String raw) {
-    ErrorService.log('recipe_generation', raw);
-    if (!mounted) return;
-    final String msg;
-    if (raw.contains('SocketException') ||
-        raw.contains('SocketFailed') ||
-        raw.contains('ClientException') ||
-        raw.contains('No address associated') ||
-        raw.contains('Failed host lookup')) {
-      msg = 'No internet connection. Please check your network and try again.';
-    } else if (raw.contains('429') || raw.contains('quota') || raw.contains('rate limit')) {
-      msg = 'Too many requests. Please wait a moment and try again.';
-    } else if (raw.contains('401') || raw.contains('403') || raw.contains('API key') || raw.contains('access denied')) {
-      msg = 'Authentication error. Please restart the app.';
-    } else {
-      msg = 'Something went wrong. Please try again.';
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: ElioColors.navy,
-        duration: const Duration(seconds: 5),
-      ),
-    );
   }
 
   void _showUpgradeDialog() {
@@ -361,7 +290,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ElioBigButton(
             label: 'Generate a recipe',
             trailingIcon: Icons.chevron_right,
-            loading: _isGenerating,
             onTap: canGenerate ? _openPreferencesThenGenerate : null,
           ),
           const SizedBox(height: ElioSpacing.md),

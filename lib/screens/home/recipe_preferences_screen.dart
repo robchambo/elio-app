@@ -1,26 +1,79 @@
 // lib/screens/home/recipe_preferences_screen.dart
 //
-// Sprint 16 Phase 6 — Recipe Preferences screen sits between Home's Generate
-// CTA and the Recipe Screen. User picks Mood / Style / Time (chips) and taps
-// "Generate", which pops the screen with a [RecipePreferences] result. The
-// screen itself does NOT call GeminiService — Home receives the prefs and
-// runs its existing generation flow.
+// Sprint 16.3 — Recipe Preferences sits between Home's Generate CTA and the
+// Recipe Screen. The user picks Mood / Style / Time (chips) and taps
+// "Generate". This screen now owns the entire generation phase: it streams
+// from GeminiService, displays rotating friendly status messages, and on
+// completion replaces itself with RecipeScreen — so the user never sees Home
+// flicker between prefs and the recipe.
+//
+// Sprint 16.2 regression context: the editorial Home rebuild dropped the
+// streaming progress UI entirely (`// No UI message to update`). Restoring
+// it here, on prefs, avoids the prior flicker problem and keeps generation
+// logic encapsulated. Home still owns request-building (so it can fold in
+// pantry/dietary/appliance state) and post-completion bookkeeping (recent
+// titles, analytics, background Firestore saves) via callbacks.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
+import '../../models/recipe_models.dart';
 import '../../models/recipe_preferences.dart';
-import '../../theme/elio_theme.dart';
+import '../../services/gemini_service.dart';
+import '../../services/history_service.dart';
 import '../../theme/elio_spacing.dart';
+import '../../theme/elio_text_styles.dart';
+import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_chip.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
+import '../recipe/recipe_screen.dart';
+
+/// Builds a generation request from the prefs the user picked. Lives on
+/// Home so it can fold in pantry, dietary, appliance, recent-titles state.
+typedef BuildRequestFn =
+    RecipeGenerationRequest Function(RecipePreferences prefs);
+
+/// Called when the stream emits [RecipeComplete]. Home uses it to update
+/// recent titles, fire analytics, and kick off background Firestore saves.
+typedef OnRecipeCompleteFn =
+    void Function(GeneratedRecipe recipe, RecipeGenerationRequest request);
+
+/// Test seam — production passes [GeminiService.generateRecipeStream].
+typedef RecipeStreamFactory =
+    Stream<RecipeGenerationStatus> Function(RecipeGenerationRequest);
 
 class RecipePreferencesScreen extends StatefulWidget {
-  const RecipePreferencesScreen({super.key});
+  /// Builds the full request from the user's chip picks plus Home-owned
+  /// state (pantry, dietary, appliances, recent titles, etc.).
+  final BuildRequestFn buildRequest;
+
+  /// Side-effects Home wants to run when a recipe completes successfully.
+  /// History save + navigation are handled here on prefs; this callback is
+  /// for the things only Home knows about (analytics, dedup, etc.).
+  final OnRecipeCompleteFn onRecipeComplete;
+
+  /// Forwarded to [RecipeScreen] on push-replacement after generation.
+  final bool isGuest;
+
+  /// Test injection — defaults to [GeminiService.generateRecipeStream].
+  final RecipeStreamFactory? streamFactory;
+
+  const RecipePreferencesScreen({
+    super.key,
+    required this.buildRequest,
+    required this.onRecipeComplete,
+    required this.isGuest,
+    this.streamFactory,
+  });
 
   @override
   State<RecipePreferencesScreen> createState() =>
       _RecipePreferencesScreenState();
 }
+
+enum _PrefsPhase { picking, generating, error }
 
 class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   static const _timeOptions = <String>[
@@ -47,19 +100,138 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     'Any',
   ];
 
+  /// Rotated every [_messageInterval] while generating, looping at the end.
+  /// Voice-aligned with the brand: friendly, present-tense, no jargon.
+  static const _streamingMessages = <String>[
+    'Browsing your pantry…',
+    'Choosing flavours…',
+    'Building the recipe…',
+    'Making it delicious…',
+  ];
+  static const _messageInterval = Duration(milliseconds: 1500);
+
   String _time = 'Any';
   String _style = 'Any';
   String _mood = 'Any';
 
+  _PrefsPhase _phase = _PrefsPhase.picking;
+  int _messageIndex = 0;
+  Timer? _messageTimer;
+  StreamSubscription<RecipeGenerationStatus>? _generationSub;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _messageTimer?.cancel();
+    _generationSub?.cancel();
+    super.dispose();
+  }
+
+  // ── Generate ─────────────────────────────────────────────────────
   void _generate() {
     final prefs = RecipePreferences(
       time: _time == 'Any' ? null : _time,
       style: _style == 'Any' ? null : _style,
       mood: _mood == 'Any' ? null : _mood,
     );
-    Navigator.of(context).pop(prefs);
+
+    final request = widget.buildRequest(prefs);
+    setState(() {
+      _phase = _PrefsPhase.generating;
+      _messageIndex = 0;
+      _errorMessage = null;
+    });
+    _startMessageRotation();
+
+    final factory = widget.streamFactory ?? GeminiService.generateRecipeStream;
+    _generationSub = factory(request).listen(
+      (status) => _handleStatus(status, request),
+      onError: (Object e) {
+        if (!mounted) return;
+        _showError(e.toString());
+      },
+      onDone: () {
+        // If we never saw a complete or error, treat as failure.
+        if (!mounted) return;
+        if (_phase == _PrefsPhase.generating) {
+          _showError(
+            'Generation ended unexpectedly. Please try again.',
+          );
+        }
+      },
+    );
   }
 
+  void _handleStatus(
+    RecipeGenerationStatus status,
+    RecipeGenerationRequest request,
+  ) {
+    if (!mounted) return;
+    switch (status) {
+      case RecipeGenerating():
+        // Rotating messages drive the UI — no per-event work needed.
+        break;
+      case RecipeComplete():
+        _handleComplete(status.recipe, request);
+      case RecipeError():
+        _showError(status.message);
+    }
+  }
+
+  void _handleComplete(GeneratedRecipe recipe, RecipeGenerationRequest request) {
+    // Save to history FIRST so RecipeScreen knows the savedAt and bookmark
+    // toggling treats it as already-saved (mirrors the prior Home behaviour).
+    final savedAt = DateTime.now().toUtc().toIso8601String();
+    HistoryService.saveRecipe(SavedRecipe(recipe: recipe, savedAt: savedAt));
+
+    // Let Home update recent titles, fire analytics, and kick off
+    // background Firestore saves while we navigate.
+    widget.onRecipeComplete(recipe, request);
+
+    _messageTimer?.cancel();
+    _generationSub?.cancel();
+
+    // pushReplacement keeps Home off the visible stack — when the user pops
+    // RecipeScreen they land back on Home, never seeing prefs again.
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => RecipeScreen(
+          recipe: recipe,
+          originalRequest: request,
+          isGuest: widget.isGuest,
+          savedAt: savedAt,
+        ),
+      ),
+    );
+  }
+
+  void _showError(String message) {
+    _messageTimer?.cancel();
+    setState(() {
+      _phase = _PrefsPhase.error;
+      _errorMessage = message;
+    });
+  }
+
+  void _retry() {
+    _generationSub?.cancel();
+    setState(() {
+      _phase = _PrefsPhase.picking;
+      _errorMessage = null;
+    });
+  }
+
+  void _startMessageRotation() {
+    _messageTimer?.cancel();
+    _messageTimer = Timer.periodic(_messageInterval, (_) {
+      if (!mounted) return;
+      setState(() {
+        _messageIndex = (_messageIndex + 1) % _streamingMessages.length;
+      });
+    });
+  }
+
+  // ── UI ───────────────────────────────────────────────────────────
   Widget _section({
     required String eyebrow,
     required List<String> options,
@@ -87,55 +259,155 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     );
   }
 
+  Widget _buildPickingBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(ElioSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const ElioHeroHeading(
+            lines: ['set the', 'mood'],
+            amberLastLine: true,
+            showUnderline: true,
+          ),
+          const SizedBox(height: ElioSpacing.xl),
+          _section(
+            eyebrow: 'time',
+            options: _timeOptions,
+            selected: _time,
+            onSelect: (v) => setState(() => _time = v),
+          ),
+          const SizedBox(height: ElioSpacing.xl),
+          _section(
+            eyebrow: 'style',
+            options: _styleOptions,
+            selected: _style,
+            onSelect: (v) => setState(() => _style = v),
+          ),
+          const SizedBox(height: ElioSpacing.xl),
+          _section(
+            eyebrow: 'mood',
+            options: _moodOptions,
+            selected: _mood,
+            onSelect: (v) => setState(() => _mood = v),
+          ),
+          const SizedBox(height: ElioSpacing.xxl),
+          ElioBigButton(
+            label: 'Generate',
+            trailingIcon: Icons.auto_awesome,
+            onTap: _generate,
+          ),
+          const SizedBox(height: ElioSpacing.md),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGeneratingBody() {
+    return Padding(
+      padding: const EdgeInsets.all(ElioSpacing.xl),
+      child: Column(
+        children: [
+          const Spacer(),
+          const SizedBox(
+            width: 56,
+            height: 56,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation<Color>(ElioColors.amber),
+            ),
+          ),
+          const SizedBox(height: ElioSpacing.xl),
+          // AnimatedSwitcher gives a soft cross-fade between messages.
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            child: Text(
+              _streamingMessages[_messageIndex],
+              key: ValueKey<int>(_messageIndex),
+              textAlign: TextAlign.center,
+              style: ElioTextStyles.heading4.copyWith(color: ElioColors.navy),
+            ),
+          ),
+          const SizedBox(height: ElioSpacing.sm),
+          Text(
+            "Elio is cooking up something good.",
+            textAlign: TextAlign.center,
+            style: ElioTextStyles.body.copyWith(
+              color: ElioColors.textSecondary,
+            ),
+          ),
+          const Spacer(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBody() {
+    return Padding(
+      padding: const EdgeInsets.all(ElioSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Spacer(),
+          Icon(
+            Icons.error_outline,
+            size: 48,
+            color: ElioColors.error,
+          ),
+          const SizedBox(height: ElioSpacing.lg),
+          Text(
+            'Something went wrong.',
+            textAlign: TextAlign.center,
+            style: ElioTextStyles.heading4.copyWith(color: ElioColors.navy),
+          ),
+          const SizedBox(height: ElioSpacing.sm),
+          Text(
+            _errorMessage ?? 'Please try again.',
+            textAlign: TextAlign.center,
+            style: ElioTextStyles.body.copyWith(
+              color: ElioColors.textSecondary,
+            ),
+          ),
+          const Spacer(),
+          ElioBigButton(
+            label: 'Try again',
+            trailingIcon: Icons.refresh,
+            onTap: _retry,
+          ),
+          const SizedBox(height: ElioSpacing.md),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: ElioColors.offWhite,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: ElioColors.navy),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(ElioSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const ElioHeroHeading(
-              lines: ['set the', 'mood'],
-              amberLastLine: true,
-              showUnderline: true,
-            ),
-            const SizedBox(height: ElioSpacing.xl),
-            _section(
-              eyebrow: 'time',
-              options: _timeOptions,
-              selected: _time,
-              onSelect: (v) => setState(() => _time = v),
-            ),
-            const SizedBox(height: ElioSpacing.xl),
-            _section(
-              eyebrow: 'style',
-              options: _styleOptions,
-              selected: _style,
-              onSelect: (v) => setState(() => _style = v),
-            ),
-            const SizedBox(height: ElioSpacing.xl),
-            _section(
-              eyebrow: 'mood',
-              options: _moodOptions,
-              selected: _mood,
-              onSelect: (v) => setState(() => _mood = v),
-            ),
-            const SizedBox(height: ElioSpacing.xxl),
-            ElioBigButton(
-              label: 'Generate',
-              trailingIcon: Icons.auto_awesome,
-              onTap: _generate,
-            ),
-            const SizedBox(height: ElioSpacing.md),
-          ],
+    // While generating, suppress the back arrow — leaving mid-stream would
+    // orphan the subscription and confuse the user. The user can still
+    // retry on error or wait for completion to push-replace to RecipeScreen.
+    final showBack = _phase != _PrefsPhase.generating;
+
+    Widget body;
+    switch (_phase) {
+      case _PrefsPhase.picking:
+        body = _buildPickingBody();
+      case _PrefsPhase.generating:
+        body = _buildGeneratingBody();
+      case _PrefsPhase.error:
+        body = _buildErrorBody();
+    }
+
+    return PopScope(
+      canPop: showBack,
+      child: Scaffold(
+        backgroundColor: ElioColors.offWhite,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: ElioColors.navy),
+          automaticallyImplyLeading: showBack,
         ),
+        body: body,
       ),
     );
   }
