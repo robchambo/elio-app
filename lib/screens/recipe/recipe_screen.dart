@@ -89,6 +89,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
   // ── Regeneration state ──────────────────────────────────────────────────────────────────────────────
   bool _isRegenerating = false;
   bool _isGeneratingSideDish = false;
+  bool _sideDishGenerated = false;
+
+  @visibleForTesting
+  void debugMarkSideDishGenerated() {
+    setState(() => _sideDishGenerated = true);
+  }
+
   late int _regenCount;
   final Set<String> _excludedIngredients = {};
   // Visual-only "ticked off" state for ingredient rows (Sprint 16).
@@ -746,6 +753,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       });
 
       if (mounted) {
+        setState(() => _sideDishGenerated = true);
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => RecipeScreen(
@@ -1649,31 +1657,33 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ],
 
           // ── Secondary actions: side dish + hands-free ───────────────
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _isGeneratingSideDish ? null : _generateSideDish,
-              icon: _isGeneratingSideDish
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: ElioColors.amber),
-                    )
-                  : const Icon(Icons.restaurant_menu_rounded, size: 20),
-              label: Text(_isGeneratingSideDish
-                  ? 'Finding a side dish...'
-                  : 'Suggest a side dish'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: ElioColors.amber,
-                side: const BorderSide(color: ElioColors.amber, width: 1.5),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
+          if (!_sideDishGenerated) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isGeneratingSideDish ? null : _generateSideDish,
+                icon: _isGeneratingSideDish
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: ElioColors.amber),
+                      )
+                    : const Icon(Icons.restaurant_menu_rounded, size: 20),
+                label: Text(_isGeneratingSideDish
+                    ? 'Finding a side dish...'
+                    : 'Suggest a side dish'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: ElioColors.amber,
+                  side: const BorderSide(color: ElioColors.amber, width: 1.5),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: ElioSpacing.sm),
+            const SizedBox(height: ElioSpacing.sm),
+          ],
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
