@@ -1427,7 +1427,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 textColor: ElioColors.amber,
                 onPressed: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
+                    MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                   );
                 },
               ),
@@ -2869,7 +2869,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                     onTap: () {
                       Navigator.pop(context, false);
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
+                        MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                       );
                     },
                     child: Padding(

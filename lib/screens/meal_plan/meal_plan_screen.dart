@@ -388,7 +388,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
               textColor: ElioColors.amber,
               onPressed: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
+                  MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                 );
               },
             ),
@@ -1408,7 +1408,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                     onTap: () {
                       Navigator.pop(context, false);
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ShoppingListScreen()),
+                        MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                       );
                     },
                     child: Padding(

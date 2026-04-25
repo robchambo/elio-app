@@ -9,9 +9,19 @@
 //   • Share icon (top-right of body)
 //   • ElioCustomField — "Add an item" with trailing amber add IconButton
 //   • Firestore stream on users/{uid}/shoppingItems, grouped by grocery aisle
-//   • Each row is a tappable ElioIngredientRow (tap toggles isChecked)
-//   • Swipe-to-delete via Dismissible
-//   • Checked items pushed to the bottom under an "in basket" eyebrow
+//   • Each row tappable: tap = toggle checked + grey-out in place
+//   • Swipe-to-delete via Dismissible (with discoverability cue on first item)
+//   • Quantity rendered inline, right-aligned (no second line)
+//
+// Sprint 16.3 polish:
+//   • Tap-greys-in-place — checked items stay where they are with a strikethrough
+//     instead of jumping into a separate "in basket" section.
+//   • Custom inline row replaces ElioIngredientRow so qty sits on the same line.
+//   • Subtle "swipe to remove ←" hint rendered above the list so the swipe
+//     gesture is discoverable (Rob's note: a few users didn't realise it existed).
+//   • Standalone [ShoppingListPage] wrapper — used when pushed via Navigator
+//     (e.g. from the meal planner snack action) so the screen has its own
+//     scaffold instead of rendering on a black void.
 //
 // Uses ShoppingService for mutations and AisleUtils for grouping. Share uses
 // share_plus and formats the unchecked items grouped by aisle (same format as
@@ -30,9 +40,9 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../utils/aisle_utils.dart';
+import '../../widgets/elio/elio_app_scaffold.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
-import '../../widgets/elio/elio_ingredient_row.dart';
 
 class ShoppingListScreen extends StatefulWidget {
   const ShoppingListScreen({super.key});
@@ -171,9 +181,6 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final unchecked = _items.where((i) => !i.isChecked).toList();
-    final checked = _items.where((i) => i.isChecked).toList();
-
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
         ElioSpacing.screenEdge,
@@ -215,36 +222,54 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
           if (_items.isEmpty)
             _buildEmptyState()
           else ...[
-            ..._buildAisleSections(unchecked),
-            if (checked.isNotEmpty) ...[
-              const SizedBox(height: ElioSpacing.md),
-              const ElioEyebrow('in basket'),
-              const SizedBox(height: ElioSpacing.sm),
-              ...checked.map(_buildRow),
-            ],
+            // Discoverability hint for the swipe-to-delete gesture.
+            Padding(
+              padding: const EdgeInsets.only(bottom: ElioSpacing.xs),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Icon(
+                    Icons.swipe_left_rounded,
+                    size: 14,
+                    color: ElioColors.textSecondary.withValues(alpha: 0.7),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'swipe to remove',
+                    style: ElioTextStyles.bodySmall.copyWith(
+                      color: ElioColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ..._buildAisleSections(_items),
           ],
         ],
       ),
     );
   }
 
-  List<Widget> _buildAisleSections(List<PersistentShoppingItem> unchecked) {
-    if (unchecked.isEmpty) return const [];
+  List<Widget> _buildAisleSections(List<PersistentShoppingItem> items) {
+    if (items.isEmpty) return const [];
+    // Group all items (checked + unchecked) by aisle so checked rows stay in
+    // place greyed instead of jumping to a separate "in basket" section.
     final grouped = <GroceryAisle, List<PersistentShoppingItem>>{};
-    for (final item in unchecked) {
+    for (final item in items) {
       final aisle = AisleUtils.classify(item.name);
       grouped.putIfAbsent(aisle, () => []).add(item);
     }
 
     final sections = <Widget>[];
     for (final aisle in AisleUtils.displayOrder) {
-      final items = grouped[aisle];
-      if (items == null || items.isEmpty) continue;
+      final aisleItems = grouped[aisle];
+      if (aisleItems == null || aisleItems.isEmpty) continue;
       sections.add(Padding(
         padding: const EdgeInsets.only(top: ElioSpacing.sm, bottom: ElioSpacing.xs),
         child: ElioEyebrow(AisleUtils.displayName(aisle)),
       ));
-      sections.addAll(items.map(_buildRow));
+      sections.addAll(aisleItems.map(_buildRow));
     }
     return sections;
   }
@@ -263,11 +288,11 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
         child: const Icon(Icons.delete_outline, color: ElioColors.error),
       ),
       onDismissed: (_) => _remove(item),
-      child: ElioIngredientRow(
+      child: _ShoppingRow(
         name: _capitalise(item.name),
-        detail: item.quantity.isNotEmpty ? item.quantity : null,
+        quantity: item.quantity,
         checked: item.isChecked,
-        onChanged: (_) => _toggle(item),
+        onTap: () => _toggle(item),
       ),
     );
   }
@@ -280,6 +305,99 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
           'your list is empty — add an item above',
           style: ElioTextStyles.bodySmall,
           textAlign: TextAlign.center,
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Standalone page wrapper ─────────────────────────────────────────
+//
+// [ShoppingListScreen] is body-only and lives inside AppShell's scaffold for
+// the Shopping tab. When other flows (e.g. the meal planner "View" snack
+// action) push the list via Navigator, they need their own scaffold —
+// otherwise the body floats on a black void. Use [ShoppingListPage] for
+// those entry points.
+class ShoppingListPage extends StatelessWidget {
+  const ShoppingListPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const ElioAppScaffold(
+      body: ShoppingListScreen(),
+      showBottomNav: false,
+    );
+  }
+}
+
+// ─── Inline shopping row ─────────────────────────────────────────────
+//
+// Bespoke row for the shopping list (NOT ElioIngredientRow): keeps quantity
+// inline on the right and renders checked items greyed/struck-through in
+// place rather than moving them to a separate section.
+class _ShoppingRow extends StatelessWidget {
+  final String name;
+  final String quantity;
+  final bool checked;
+  final VoidCallback onTap;
+
+  const _ShoppingRow({
+    required this.name,
+    required this.quantity,
+    required this.checked,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final mutedColor = ElioColors.textSecondary.withValues(alpha: 0.6);
+    final nameStyle = ElioTextStyles.body.copyWith(
+      color: checked ? mutedColor : ElioColors.navy,
+      decoration: checked ? TextDecoration.lineThrough : null,
+      decorationColor: mutedColor,
+      fontWeight: FontWeight.w600,
+    );
+    final qtyStyle = ElioTextStyles.bodySmall.copyWith(
+      color: checked ? mutedColor : ElioColors.textSecondary,
+      decoration: checked ? TextDecoration.lineThrough : null,
+      decorationColor: mutedColor,
+    );
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: ElioRadii.card,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: ElioSpacing.xs,
+          vertical: ElioSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            // Circle checkbox — matches ElioIngredientRow styling.
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: checked ? ElioColors.amber : Colors.transparent,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: checked ? ElioColors.amber : ElioColors.border,
+                  width: 1.5,
+                ),
+              ),
+              child: checked
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: ElioSpacing.md),
+            Expanded(
+              child: Text(name, style: nameStyle, overflow: TextOverflow.ellipsis),
+            ),
+            if (quantity.isNotEmpty) ...[
+              const SizedBox(width: ElioSpacing.sm),
+              Text(quantity, style: qtyStyle),
+            ],
+          ],
         ),
       ),
     );

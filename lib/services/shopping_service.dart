@@ -109,6 +109,27 @@ class ShoppingService {
     }).toList();
   }
 
+  // ── Match-key normalisation ─────────────────────────────────────────
+  // Storage `nameLower` is the lowercase trimmed name (kept for backwards
+  // compatibility + readability). Lookups go through [_matchKey] which also
+  // strips simple English plurals so "Carrots" and "Carrot" resolve to the
+  // same item. Without this, recipes that use "Carrot" + "Carrots" produce
+  // two separate rows (Sprint 16.3 bug from Rob's screenshot).
+  /// Crude English singulariser — sufficient for produce names. Returns
+  /// the input unchanged when stripping a trailing 's'/'es'/'ies' would
+  /// be wrong (words ending in "ss"/"us"/"is"/short words).
+  static String _singularise(String s) {
+    if (s.length < 4) return s;
+    if (s.endsWith('ss') || s.endsWith('us') || s.endsWith('is')) return s;
+    if (s.endsWith('ies')) return '${s.substring(0, s.length - 3)}y';
+    if (s.endsWith('oes') || s.endsWith('xes') || s.endsWith('ches') ||
+        s.endsWith('shes')) {
+      return s.substring(0, s.length - 2);
+    }
+    if (s.endsWith('s')) return s.substring(0, s.length - 1);
+    return s;
+  }
+
   // ── Add a single item ──────────────────────────────────────────────
   // Returns null (silently) when [name] is a common household staple.
   Future<PersistentShoppingItem?> addItem({
@@ -117,21 +138,31 @@ class ShoppingService {
     ShoppingSource source = ShoppingSource.manual,
   }) async {
     final normalised = name.trim().toLowerCase();
+    final matchKey = _singularise(normalised);
 
     // Silently drop universal staples — they're always in the kitchen.
     if (_isStaple(normalised)) return null;
 
-    // Check for existing item with same name — update instead of duplicate
-    final existing = await _collection
-        .where('nameLower', isEqualTo: normalised)
+    // Check for existing item with same singularised key — update instead of
+    // duplicating ("Carrot" + "Carrots" should merge into one row). Fall back
+    // to nameLower for items written before matchKey existed.
+    var existing = await _collection
+        .where('matchKey', isEqualTo: matchKey)
         .limit(1)
         .get();
+    if (existing.docs.isEmpty) {
+      existing = await _collection
+          .where('nameLower', isEqualTo: normalised)
+          .limit(1)
+          .get();
+    }
 
     if (existing.docs.isNotEmpty) {
       final doc = existing.docs.first;
       // If it was checked, uncheck it (user is re-adding)
       await doc.reference.update({
         'isChecked': false,
+        'matchKey': matchKey, // backfill for legacy rows
         if (quantity.isNotEmpty) 'quantity': quantity,
       });
       final data = doc.data();
@@ -150,6 +181,7 @@ class ShoppingService {
     await ref.set({
       'name': name.trim(),
       'nameLower': normalised,
+      'matchKey': matchKey,
       'quantity': quantity,
       'source': source.name,
       'isChecked': false,
@@ -175,9 +207,11 @@ class ShoppingService {
   // ── Update name and quantity ────────────────────────────────────────
   Future<void> updateItem(String itemId, {required String name, required String quantity}) async {
     if (_uid == null) return;
+    final lower = name.trim().toLowerCase();
     await _collection.doc(itemId).update({
       'name': name.trim(),
-      'nameLower': name.trim().toLowerCase(),
+      'nameLower': lower,
+      'matchKey': _singularise(lower),
       'quantity': quantity.trim(),
     });
   }
@@ -210,49 +244,60 @@ class ShoppingService {
 
     final haveSet = alreadyHave.map((s) => s.toLowerCase().trim()).toSet();
 
-    // Aggregate ingredients from all meals, consolidating quantities per ingredient
+    // Aggregate ingredients from all meals, consolidating quantities per
+    // ingredient. The grouping key is the singularised lowercase name so that
+    // "Carrot" + "Carrots" merge into one entry.
     final quantities = <String, List<ParsedQuantity>>{};
     final displayNames = <String, String>{}; // first display name wins
+    final lowerNames = <String, String>{}; // first lower name wins (for nameLower)
     for (final day in plan.days) {
       for (final meal in day.meals.values) {
         if (meal == null) continue;
         for (final ingredient in meal.ingredients) {
           final cleanName = cleanForShopping(ingredient.name);
-          final key = cleanName.toLowerCase().trim();
+          final lower = cleanName.toLowerCase().trim();
+          final key = _singularise(lower);
           if (haveSet.any((h) => key.contains(h) || h.contains(key))) continue;
-          if (_isStaple(key)) continue;
+          if (_isStaple(lower)) continue;
           displayNames.putIfAbsent(key, () => cleanName);
+          lowerNames.putIfAbsent(key, () => lower);
           final parsed = QuantityUtils.parse(ingredient.quantity, ingredient.unit);
           quantities.putIfAbsent(key, () => []).add(parsed);
         }
       }
     }
 
-    // Batch upsert
+    // Batch upsert — look up by match key, falling back to nameLower for any
+    // legacy items written before [matchKey] existed.
     final existing = await _collection.get();
-    final existingByName = <String, DocumentReference>{};
+    final existingByKey = <String, DocumentReference>{};
     for (final doc in existing.docs) {
-      final name = (doc.data()['nameLower'] as String?) ??
-          (doc.data()['name'] as String? ?? '').toLowerCase().trim();
-      existingByName[name] = doc.reference;
+      final data = doc.data();
+      final stored = (data['matchKey'] as String?) ??
+          _singularise(((data['nameLower'] as String?) ??
+                  (data['name'] as String? ?? '').toLowerCase())
+              .trim());
+      existingByKey[stored] = doc.reference;
     }
 
     final batch = _db.batch();
     for (final key in quantities.keys) {
       final combinedQty = QuantityUtils.combine(quantities[key]!);
       final displayName = displayNames[key] ?? key;
-      if (existingByName.containsKey(key)) {
-        // Update quantity, uncheck if it was checked
-        batch.update(existingByName[key]!, {
+      final lower = lowerNames[key] ?? key;
+      if (existingByKey.containsKey(key)) {
+        batch.update(existingByKey[key]!, {
           'quantity': combinedQty,
           'source': ShoppingSource.mealPlan.name,
           'isChecked': false,
+          'matchKey': key, // backfill for legacy rows
         });
       } else {
         final ref = _collection.doc();
         batch.set(ref, {
           'name': displayName,
-          'nameLower': key,
+          'nameLower': lower,
+          'matchKey': key,
           'quantity': combinedQty,
           'source': ShoppingSource.mealPlan.name,
           'isChecked': false,
