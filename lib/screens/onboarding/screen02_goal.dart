@@ -135,7 +135,7 @@ class Screen02Goal extends StatelessWidget {
                         ),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
-                          "Pick what matters most — we'll tailor things to suit.",
+                          "Pick what matters most — we'll tailor things to suit. Don't worry, you can change anytime.",
                           style: ElioTextStyles.body.copyWith(
                             color: ElioColors.textSecondary,
                           ),
