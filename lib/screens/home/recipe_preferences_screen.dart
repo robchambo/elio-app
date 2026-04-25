@@ -584,38 +584,40 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   Widget _buildGeneratingBody() {
     return Padding(
       padding: const EdgeInsets.all(ElioSpacing.xl),
-      child: Column(
-        children: [
-          const Spacer(),
-          const SizedBox(
-            width: 56,
-            height: 56,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(ElioColors.amber),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(
+              width: 56,
+              height: 56,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(ElioColors.amber),
+              ),
             ),
-          ),
-          const SizedBox(height: ElioSpacing.xl),
-          // AnimatedSwitcher gives a soft cross-fade between messages.
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 350),
-            child: Text(
-              _streamingMessages[_messageIndex],
-              key: ValueKey<int>(_messageIndex),
+            const SizedBox(height: ElioSpacing.xl),
+            // AnimatedSwitcher gives a soft cross-fade between messages.
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              child: Text(
+                _streamingMessages[_messageIndex],
+                key: ValueKey<int>(_messageIndex),
+                textAlign: TextAlign.center,
+                style: ElioTextStyles.heading4.copyWith(color: ElioColors.navy),
+              ),
+            ),
+            const SizedBox(height: ElioSpacing.sm),
+            Text(
+              "Elio is cooking up something good.",
               textAlign: TextAlign.center,
-              style: ElioTextStyles.heading4.copyWith(color: ElioColors.navy),
+              style: ElioTextStyles.body.copyWith(
+                color: ElioColors.textSecondary,
+              ),
             ),
-          ),
-          const SizedBox(height: ElioSpacing.sm),
-          Text(
-            "Elio is cooking up something good.",
-            textAlign: TextAlign.center,
-            style: ElioTextStyles.body.copyWith(
-              color: ElioColors.textSecondary,
-            ),
-          ),
-          const Spacer(),
-        ],
+          ],
+        ),
       ),
     );
   }
