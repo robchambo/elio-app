@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../theme/elio_theme.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/region_utils.dart';
@@ -200,6 +201,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ],
                           ),
                         ),
+                      ),
+
+                      const SizedBox(height: 12),
+                      FutureBuilder<PackageInfo>(
+                        future: PackageInfo.fromPlatform(),
+                        builder: (context, snapshot) {
+                          final info = snapshot.data;
+                          final versionLabel = info == null
+                              ? 'Loading…'
+                              : 'Version ${info.version} (build ${info.buildNumber})';
+                          return Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                            decoration: BoxDecoration(
+                              color: ElioColors.offWhite,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: ElioColors.border),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.info_outline_rounded, size: 22, color: ElioColors.navy),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('About',
+                                          style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                                      const SizedBox(height: 2),
+                                      Text(versionLabel,
+                                          style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
                       ),
 
                       const SizedBox(height: 28),
