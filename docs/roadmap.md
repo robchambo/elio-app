@@ -234,6 +234,7 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 - Screen 11/12 search bar not built (flagged later after on-device feedback).
 - Screen 11/12 full dietary/allergy filtering beyond default-exclude — deferred: needs per-item metadata pass on ~100+ `PantryCategories` items (content authoring, Kate-voice decision on hide vs grey).
 - Coordinator uses per-screen progress bars rather than a single coordinator-owned bar (minor visual refactor).
+- **Bulk Prep on the recipe prefs screen — Kate design pass.** Flagged 24 Apr while restoring Saver / Leftover toggles on `RecipePreferencesScreen`. Bulk Prep can't reuse the regular single-recipe pipeline — `GeminiService.generateBulkRecipeStream` takes `portions`, `mealNumber`, `totalMeals`, `previousMealTitles`, and the result expects a `bulkPrepInfo` block (freezing/reheating/storage). Open questions for Kate: is "Bulk prep" on prefs single-recipe-but-batchable (portions slider, one recipe out) or does it pivot the UI to a mini multi-meal flow? Where does it sit relative to Saver / Leftover (constraints chip, separate hero CTA, dedicated screen)? Until designed, prefs screen has Saver + Leftover only and a `// TODO(sprint-16-polish-bulk-prep)` comment in `recipe_preferences_screen.dart`.
 
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|

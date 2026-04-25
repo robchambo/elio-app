@@ -127,9 +127,11 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   String _mood = 'Any';
 
   // Sprint 16.3 — restored constraint toggles.
-  // Bulk Prep is intentionally NOT here yet: it routes through a separate
-  // Gemini pipeline (`generateBulkRecipeStream`) and needs its own design
-  // pass (portions picker, multi-meal flow). Tracked separately.
+  // TODO(sprint-16-polish-bulk-prep): Bulk Prep is intentionally NOT here
+  // yet — it routes through `GeminiService.generateBulkRecipeStream`
+  // (portions / mealNumber / totalMeals / previousMealTitles) and produces
+  // a recipe with bulkPrepInfo. Needs a Kate design pass before wiring
+  // (see docs/roadmap.md → "Bulk Prep on the recipe prefs screen").
   bool _isSaverMode = false;
   bool _isLeftoverMode = false;
   final List<String> _leftoverItems = [];
