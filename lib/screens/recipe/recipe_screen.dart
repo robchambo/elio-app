@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +14,7 @@ import '../../models/recipe_models.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/pantry_utils.dart';
 import '../../utils/region_utils.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
@@ -104,6 +107,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
   final FirestoreService _firestore = FirestoreService();
   final AnalyticsService _analytics = AnalyticsService.instance;
 
+  // ── Pantry membership lookup (full inventory, normalised names) ──────────
+  // Used by ElioPantryIcon to render green/red on each ingredient row.
+  // Populated from a live Firestore subscription on the user's inventory
+  // sub-collection (staples + perishables together).
+  @visibleForTesting
+  Set<String> normalizedInventoryNames = <String>{};
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _inventorySub;
+
   // ── Rating state ──────────────────────────────────────────────────────────────────────────────
   bool _isRating = false;
 
@@ -137,6 +148,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _savedAt = widget.savedAt;
     _regenCount = widget.regenCount;
     _initTts();
+    _subscribeInventory();
     if (widget.autoSave) {
       _isSaved = true;
       // Save in background — recipe was just imported
@@ -157,6 +169,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   @override
   void dispose() {
+    _inventorySub?.cancel();
     _stopListening();
     _feedbackTimer?.cancel();
     _restartTimer?.cancel();
@@ -164,6 +177,35 @@ class _RecipeScreenState extends State<RecipeScreen> {
     // Always restore audio in case voice was active
     try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
     super.dispose();
+  }
+
+  // ── Inventory subscription ───────────────────────────────────────────────
+  // Streams the user's full pantry (staples + perishables) so ingredient
+  // rows can show a green pantry icon when matched and red when missing.
+  // Uses exact normalised-name match (PantryUtils.normalise) — fuzzy
+  // matching is reserved for add-item dedup per CLAUDE.md.
+  void _subscribeInventory() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final query = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('inventory');
+    _inventorySub = query.snapshots().listen((snap) {
+      if (!mounted) return;
+      final names = <String>{};
+      for (final doc in snap.docs) {
+        final name = (doc.data()['name'] as String?) ?? '';
+        if (name.isEmpty) continue;
+        names.add(PantryUtils.normalise(name));
+      }
+      setState(() => normalizedInventoryNames = names);
+    });
+  }
+
+  bool _isInPantry(RecipeIngredient ing) {
+    final norm = PantryUtils.normalise(ing.name);
+    return normalizedInventoryNames.contains(norm);
   }
 
   // ── TTS setup ──────────────────────────────────────────────────────────────────
@@ -1761,7 +1803,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         name: ing.name,
         detail: detailParts.isEmpty ? null : detailParts.join(' • '),
         checked: isChecked,
-        trailing: ElioPantryIcon(inStock: ing.fromInventory),
+        trailing: ElioPantryIcon(inStock: _isInPantry(ing)),
         onChanged: (v) {
           setState(() {
             if (v) {
