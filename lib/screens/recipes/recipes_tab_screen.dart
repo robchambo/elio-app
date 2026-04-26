@@ -75,17 +75,13 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
     _load();
   }
 
-  Future<void> _openImport() async {
+  Future<void> _openImport({int initialTab = 0}) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RecipeImportScreen()),
+      MaterialPageRoute(
+        builder: (_) => RecipeImportScreen(initialTab: initialTab),
+      ),
     );
     _load();
-  }
-
-  void _showPhotoComingSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Photo import coming soon')),
-    );
   }
 
   // ── Build ──────────────────────────────────────────────────────────
@@ -131,7 +127,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                   kicker: 'From a photo',
                   title: 'Take photo',
                   backgroundColor: const Color(0xFFE87A5C), // salmon, matches Pantry
-                  onTap: _showPhotoComingSoon,
+                  onTap: () => _openImport(initialTab: 0),
                 ),
               ),
               const SizedBox(width: ElioSpacing.lg),
@@ -141,7 +137,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                   kicker: 'URL or text',
                   title: 'Manual entry',
                   backgroundColor: ElioColors.amber,
-                  onTap: _openImport,
+                  onTap: () => _openImport(initialTab: 1),
                 ),
               ),
             ],

@@ -15,14 +15,19 @@ import '../recipe/recipe_screen.dart';
 // ─────────────────────────────────────────────
 
 class RecipeImportScreen extends StatefulWidget {
-  const RecipeImportScreen({super.key});
+  /// Which tab to open on first build: 0 = Photo, 1 = Manual.
+  /// Sprint 16.4: the Recipes-tab bento cards now route here directly,
+  /// so the Photo bento opens on Photo and the Manual bento opens on
+  /// Manual instead of always landing on Photo.
+  final int initialTab;
+  const RecipeImportScreen({super.key, this.initialTab = 0});
 
   @override
   State<RecipeImportScreen> createState() => _RecipeImportScreenState();
 }
 
 class _RecipeImportScreenState extends State<RecipeImportScreen> {
-  int _activeTab = 0; // 0 = Photo, 1 = Manual
+  late int _activeTab = widget.initialTab; // 0 = Photo, 1 = Manual
   bool _isProcessing = false;
   bool _isImportingUrl = false;
 
@@ -35,6 +40,18 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
   final _descriptionController = TextEditingController();
   final _instructionsController = TextEditingController();
   final List<_IngredientRow> _ingredientRows = [_IngredientRow()];
+
+  @override
+  void initState() {
+    super.initState();
+    if (_activeTab == 1) {
+      // Land on Manual? Pre-check clipboard for a recipe URL just like
+      // tapping the Manual tab does later.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkClipboardForUrl();
+      });
+    }
+  }
 
   @override
   void dispose() {
