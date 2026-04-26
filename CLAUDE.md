@@ -236,9 +236,21 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 | Brand / art direction | `docs/brand-art-concept.md` |
 | Sprint 16 design system | `lib/widgets/elio/` + Design System section above |
 
-## Last Session (25 April 2026) — Sprint 16.3 Polish (COMPLETE, APK built, awaiting on-device smoke test)
+## Last Session (25 April 2026) — Sprint 16.4 Polish (COMPLETE, on-device smoke test PASSED, ready to tag)
 
-**Branch:** `sprint/16` at `290d41b` (pushed). Onboarding-rebuild branch ff-merged in then deleted local + remote. `flutter analyze` clean, 276/276 tests pass. APK: `releases/elio-sprint-16.3-polish.apk` (72.0 MB), local tag `build/sprint-16.3-polish`.
+**Branch:** `sprint/16` at `b44a617` (pushed). `flutter analyze` clean, 325/325 tests pass. APK: `releases/elio-sprint-16.4-polish.apk` (72.3 MB), local tag `build/sprint-16.4-polish`.
+
+**Sprint 16.4 bug batch (commits e3f4103 → b44a617):**
+- **Bug 4** — Pantry single-tap removed; long-press → SimpleDialog is the only mutation entry point (Remove lives there). No-op TapGestureRecognizer absorbs taps so they don't bubble to the parent ElioTierRow InkWell and collapse the row.
+- **Bug 5** — Home body wrapped in `LayoutBuilder` + `SingleChildScrollView`; above-the-fold block sized to `constraints.maxHeight`. Recent recipes peek hangs below the fold so Kate's incoming hero image gets the prime spot.
+- **Bug 6** — Recipes-tab filters (search field, makeable-now switch, category chips) all removed. Dropped `_PantrySwitch`, `_loadPantryNames`, four matcher helpers, and the chip row + custom field imports. TODO comment flags the revisit.
+- **Bug 3** — Per-tier `+ Add` chip on Pantry tab inside each expanded `_TierItemsList` Wrap. Reuses `showAddPantryItemDialog` from onboarding 11/12. For perishables, a follow-up SimpleDialog asks fresh / this week / today (mirrors `_expiryForBucket`). Promote-existing branch updates the existing item's tier (and re-anchors expiry for perishables). New test seam `debugPantryAddOverride`.
+- **Bug 1** — `_entitlements.refresh()` kicked off in HomeScreen.initState (signed-in only) with setState on completion. Without this, `EntitlementService.isPro` defaulted to `false` on cold start because `_loadProTesters()` is async — Plan-your-week card was hidden until the user did something else that triggered refresh.
+- **Bug 2** — `_perishableInventoryNames` now sorted by expiry urgency (earliest first, null-expiry last) when built from Firestore. `PerishablesPickerScreen` takes the already-sorted list and pre-ticks the first `autoSelectCount` (default 3) when `initialSelection` is empty. Re-opening with an explicit selection preserves user choice.
+- **Bonus wire-up** — Recipes-tab "Take photo" bento was firing a "coming soon" snackbar; the photo import (`GeminiService.importRecipeFromImage` + `image_picker`) has been live for ages, just never wired up. Added `initialTab` to `RecipeImportScreen` (0 = Photo, 1 = Manual; clipboard-URL pre-check fires on Manual landing too). Both bento cards now route there with the right tab.
+
+**Sprint 16.3 polish (PRIOR, kept for reference):**
+- Branch was at `290d41b` before this session. APK: `releases/elio-sprint-16.3-polish.apk` (72.0 MB).
 
 **Sprint 16.3 polish work shipped this session:**
 - Recent recipes peek on Home (Task 5).

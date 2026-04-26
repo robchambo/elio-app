@@ -1,6 +1,15 @@
 # Elio Roadmap
 
-**Last updated:** 25 April 2026 (Sprint 16.3 polish complete on `sprint/16` at `290d41b`. APK built: `releases/elio-sprint-16.3-polish.apk`, local tag `build/sprint-16.3-polish`. Awaiting on-device smoke test before tagging `v0.16.0-ui-overhaul`. Onboarding-rebuild branch merged ff + deleted.)
+**Last updated:** 25 April 2026 (Sprint 16.4 polish on `sprint/16` at `b44a617`, pushed. On-device smoke test passed — all 6 reported bugs + photo import wire-up confirmed working. APK built: `releases/elio-sprint-16.4-polish.apk`, local tag `build/sprint-16.4-polish`. Ready to tag `v0.16.0-ui-overhaul`.)
+
+**Sprint 16.4 polish (this session):**
+- Bug 4 — Pantry single-tap removed (long-press only); Remove lives in the long-press picker.
+- Bug 5 — Home Recent Recipes pushed below the fold via LayoutBuilder.
+- Bug 6 — Recipes-tab filters (search, makeable-now, category chips) removed; TODO flag for revisit.
+- Bug 3 — Per-tier "+ Add" chip on Pantry tab; perishables get a freshness-bucket follow-up.
+- Bug 1 — EntitlementService.refresh() kicked off on Home initState so Plan-your-week appears on cold start.
+- Bug 2 — Top-3 most-urgent perishables auto-selected in PerishablesPickerScreen (default; overridable).
+- Bonus — Recipes-tab "Take photo" / "Manual entry" bento cards now wire to the live RecipeImportScreen with the right initial tab (photo import was already built, just unwired).
 
 ---
 
