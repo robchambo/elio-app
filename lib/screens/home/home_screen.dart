@@ -75,6 +75,16 @@ class _HomeScreenState extends State<HomeScreen> {
     // Request notification permission on first HomeScreen load (non-blocking)
     if (!widget.isGuest) {
       NotificationService.instance.requestPermissionAndRegister();
+      // Sprint 16.4 (Bug 1): kick off an entitlement refresh on first
+      // build. EntitlementService starts as 'free' until refresh() loads
+      // the proTesters list + queries RevenueCat — without this call,
+      // the Plan-your-week card stays hidden on cold start for Pro users
+      // and only appears after the user taps Generate (which is what
+      // triggers refresh today). setState on completion so the card
+      // pops in as soon as the answer is known.
+      _entitlements.refresh().then((_) {
+        if (mounted) setState(() {});
+      });
     }
 
     // If scanned items were passed in, pre-fill and open prefs (which then
