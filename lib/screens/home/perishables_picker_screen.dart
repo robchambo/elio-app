@@ -38,10 +38,18 @@ class PerishablesPickerScreen extends StatefulWidget {
   /// rendered under the "Other" eyebrow.
   final List<String> initialSelection;
 
+  /// Sprint 16.4 (Bug 2): when [initialSelection] is empty, auto-select
+  /// the first [autoSelectCount] entries of [perishableInventory] (which
+  /// HomeScreen pre-sorts by expiry urgency). Defaults to 3 — feels like
+  /// the right "we picked something for you, change if you want" nudge.
+  /// Pass 0 to disable auto-select entirely.
+  final int autoSelectCount;
+
   const PerishablesPickerScreen({
     super.key,
     required this.perishableInventory,
     this.initialSelection = const [],
+    this.autoSelectCount = 3,
   });
 
   @override
@@ -67,6 +75,16 @@ class _PerishablesPickerScreenState extends State<PerishablesPickerScreen> {
       if (!_allItems.any((i) => i.toLowerCase() == item.toLowerCase())) {
         _allItems.add(item);
       }
+    }
+    // Sprint 16.4 (Bug 2): if we arrived with no prior selection, pre-tick
+    // the top-N most urgent perishables (caller-sorted by expiry). The
+    // user can immediately tap Generate without having to think about it,
+    // and can still untick / add more if they want.
+    if (widget.initialSelection.isEmpty && widget.autoSelectCount > 0) {
+      final take = widget.perishableInventory
+          .take(widget.autoSelectCount)
+          .toList();
+      _selected.addAll(take);
     }
   }
 

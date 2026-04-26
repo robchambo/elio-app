@@ -120,8 +120,12 @@ class _HomeScreenState extends State<HomeScreen> {
         final inventoryWithIds = List<Map<String, dynamic>>.from(
           (data['inventoryWithIds'] as List?)?.map((e) => Map<String, dynamic>.from(e as Map)) ?? [],
         );
+        // Sprint 16.4 (Bug 2): collect perishables WITH their expiry so we
+        // can sort the inventory-name list by urgency (earliest first,
+        // null-expiry last). The picker uses that order to pre-select the
+        // top-N most-urgent items as the default ("auto-select 3").
+        final perishablesWithExpiry = <({String name, DateTime? expiry})>[];
         final perishableDescs = <String>[];
-        final perishableNames = <String>[];
         for (final item in inventoryWithIds) {
           if (item['tier'] == 'perishable') {
             final name = item['name'] as String? ?? '';
@@ -130,9 +134,19 @@ class _HomeScreenState extends State<HomeScreen> {
             if (rawExpiry != null) expiry = DateTime.tryParse(rawExpiry);
             final invItem = InventoryItem(name: name, tier: 'perishable', expiryDate: expiry);
             perishableDescs.add(invItem.geminiDescription);
-            if (name.isNotEmpty) perishableNames.add(name);
+            if (name.isNotEmpty) {
+              perishablesWithExpiry.add((name: name, expiry: expiry));
+            }
           }
         }
+        perishablesWithExpiry.sort((a, b) {
+          if (a.expiry == null && b.expiry == null) return 0;
+          if (a.expiry == null) return 1;
+          if (b.expiry == null) return -1;
+          return a.expiry!.compareTo(b.expiry!);
+        });
+        final perishableNames =
+            perishablesWithExpiry.map((p) => p.name).toList();
 
         setState(() {
           _alwaysHave = List<String>.from(data['alwaysHave'] ?? []);
