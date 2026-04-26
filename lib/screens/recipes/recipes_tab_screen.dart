@@ -34,6 +34,7 @@ import '../../widgets/elio/elio_bento_card.dart';
 import '../../widgets/elio/elio_custom_field.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/recipe_category_chip_row.dart';
 import '../profile/recipe_import_screen.dart';
 import '../recipe/recipe_screen.dart';
 
@@ -50,6 +51,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
   bool _makeableOnly = false;
+  String? _categoryFilter;
 
   List<SavedRecipe> _all = const [];
   Set<String> _pantryLower = const {};
@@ -129,8 +131,14 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
     });
   }
 
+  bool _matchesCategory(SavedRecipe saved) {
+    if (_categoryFilter == null) return true;
+    return saved.recipe.category == _categoryFilter;
+  }
+
   bool _passesFilters(SavedRecipe saved) {
     if (!_matchesQuery(saved)) return false;
+    if (!_matchesCategory(saved)) return false;
     if (_makeableOnly && !_isMakeableNow(saved)) return false;
     return true;
   }
@@ -226,6 +234,13 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
           _PantrySwitch(
             value: _makeableOnly,
             onChanged: (v) => setState(() => _makeableOnly = v),
+          ),
+          const SizedBox(height: ElioSpacing.md),
+
+          // ── Category filter chips ──────────────────────────────────
+          RecipeCategoryChipRow(
+            selected: _categoryFilter,
+            onSelected: (v) => setState(() => _categoryFilter = v),
           ),
           const SizedBox(height: ElioSpacing.lg),
 

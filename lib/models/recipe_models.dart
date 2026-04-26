@@ -150,6 +150,11 @@ class GeneratedRecipe {
   /// Bulk prep info (freezing & storage instructions). Nullable — only present for bulk prep recipes.
   final BulkPrepInfo? bulkPrepInfo;
 
+  /// Recipe category (e.g. "Entrée", "Dessert"). Nullable for legacy
+  /// records generated before Task 8b wired Gemini to populate the field.
+  /// See `lib/data/recipe_categories.dart` for the canonical list.
+  final String? category;
+
   const GeneratedRecipe({
     required this.title,
     required this.prepTimeMinutes,
@@ -164,6 +169,7 @@ class GeneratedRecipe {
     this.estimatedCostPerServingUSD,
     this.estimatedCostPerServingGBP,
     this.bulkPrepInfo,
+    this.category,
   });
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
@@ -193,6 +199,7 @@ class GeneratedRecipe {
       estimatedCostPerServingUSD: (json['estimatedCostPerServingUSD'] as num?)?.toDouble(),
       estimatedCostPerServingGBP: (json['estimatedCostPerServingGBP'] as num?)?.toDouble(),
       bulkPrepInfo: json['bulkPrepInfo'] != null ? BulkPrepInfo.fromJson(json['bulkPrepInfo'] as Map<String, dynamic>) : null,
+      category: json['category'] as String?,
     );
   }
 
@@ -211,12 +218,14 @@ class GeneratedRecipe {
     if (estimatedCostPerServingUSD != null) 'estimatedCostPerServingUSD': estimatedCostPerServingUSD,
     if (estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': estimatedCostPerServingGBP,
     if (bulkPrepInfo != null) 'bulkPrepInfo': bulkPrepInfo!.toMap(),
+    if (category != null) 'category': category,
   };
 
   GeneratedRecipe copyWith({
     List<RecipeIngredient>? ingredients,
     List<RecipeSubstitution>? substitutions,
     BulkPrepInfo? bulkPrepInfo,
+    String? category,
   }) {
     return GeneratedRecipe(
       title: title,
@@ -232,6 +241,7 @@ class GeneratedRecipe {
       estimatedCostPerServingUSD: estimatedCostPerServingUSD,
       estimatedCostPerServingGBP: estimatedCostPerServingGBP,
       bulkPrepInfo: bulkPrepInfo ?? this.bulkPrepInfo,
+      category: category ?? this.category,
     );
   }
 }
@@ -311,6 +321,7 @@ class SavedRecipe {
       if (recipe.estimatedCostPerServingUSD != null) 'estimatedCostPerServingUSD': recipe.estimatedCostPerServingUSD,
       if (recipe.estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': recipe.estimatedCostPerServingGBP,
       if (recipe.bulkPrepInfo != null) 'bulkPrepInfo': recipe.bulkPrepInfo!.toMap(),
+      if (recipe.category != null) 'category': recipe.category,
     },
     'savedAt': savedAt,
     'isBookmarked': isBookmarked,
