@@ -298,13 +298,30 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              Icon(
-                saved.isBookmarked
-                    ? Icons.bookmark_rounded
-                    : Icons.bookmark_outline_rounded,
-                color: saved.isBookmarked
-                    ? ElioColors.amber
-                    : ElioColors.textMuted,
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () async {
+                  await HistoryService.toggleBookmark(saved.savedAt);
+                  if (!mounted) return;
+                  // Reload history only (not pantry) so the icon reflects
+                  // the new bookmark state and the saved/history sections
+                  // re-partition.
+                  final updated = await HistoryService.getHistory();
+                  if (!mounted) return;
+                  setState(() => _all = updated);
+                },
+                child: Padding(
+                  // CLAUDE.md: 48px touch target on bare GestureDetectors.
+                  padding: const EdgeInsets.all(8),
+                  child: Icon(
+                    saved.isBookmarked
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_outline_rounded,
+                    color: saved.isBookmarked
+                        ? ElioColors.amber
+                        : ElioColors.textMuted,
+                  ),
+                ),
               ),
             ],
           ),
