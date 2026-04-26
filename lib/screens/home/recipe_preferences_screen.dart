@@ -83,7 +83,11 @@ class RecipePreferencesScreen extends StatefulWidget {
   /// Test injection — overrides [EntitlementService.instance.isPro] for the
   /// Bulk cook gate so widget tests can exercise the slider dialog without
   /// touching Firebase. Production callers leave this null.
-  final bool? proOverride;
+  ///
+  /// Renamed from `proOverride` to avoid colliding with the retired
+  /// Sprint 17 `subscription.proOverride` Firestore field. This flag is
+  /// purely a widget-level test seam; it does not grant Pro to any user.
+  final bool? proOverrideForTest;
 
   const RecipePreferencesScreen({
     super.key,
@@ -94,7 +98,7 @@ class RecipePreferencesScreen extends StatefulWidget {
     this.customStyles = const [],
     this.perishableInventory = const [],
     this.streamFactory,
-    this.proOverride,
+    this.proOverrideForTest,
   });
 
   @override
@@ -292,22 +296,31 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       if (!mounted) return;
       GeneratedRecipe? result;
       String? errorMsg;
-      await for (final status in GeminiService.generateBulkRecipeStream(
-        request,
-        portions: _bulkPortions,
-        mealNumber: meal,
-        totalMeals: _bulkMeals,
-        previousMealTitles: previousTitles,
-      )) {
-        if (!mounted) return;
-        switch (status) {
-          case RecipeGenerating():
-            break;
-          case RecipeComplete():
-            result = status.recipe;
-          case RecipeError():
-            errorMsg = status.message;
+      try {
+        await for (final status in GeminiService.generateBulkRecipeStream(
+          request,
+          portions: _bulkPortions,
+          mealNumber: meal,
+          totalMeals: _bulkMeals,
+          previousMealTitles: previousTitles,
+        )) {
+          if (!mounted) return;
+          switch (status) {
+            case RecipeGenerating():
+              break;
+            case RecipeComplete():
+              result = status.recipe;
+            case RecipeError():
+              errorMsg = status.message;
+          }
         }
+      } on Object catch (e) {
+        // Stream itself threw (transport / parse failure). Without this
+        // catch the exception bubbles uncaught and the user is stuck in
+        // the generating phase with the message rotation running forever.
+        if (!mounted) return;
+        _showError(e.toString());
+        return;
       }
       if (errorMsg != null) {
         _showError(errorMsg);
@@ -501,7 +514,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   }
 
   bool get _isProActive {
-    if (widget.proOverride != null) return widget.proOverride!;
+    if (widget.proOverrideForTest != null) return widget.proOverrideForTest!;
     return EntitlementService.instance.isPro;
   }
 

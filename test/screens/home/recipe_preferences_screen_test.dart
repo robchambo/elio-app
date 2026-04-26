@@ -28,7 +28,7 @@ RecipeGenerationRequest _stubRequest(RecipePreferences _) =>
 Widget _harness({
   RecipeStreamFactory? streamFactory,
   void Function(GeneratedRecipe, RecipeGenerationRequest)? onComplete,
-  bool? proOverride,
+  bool? proOverrideForTest,
 }) {
   return MaterialApp(
     home: RecipePreferencesScreen(
@@ -36,7 +36,7 @@ Widget _harness({
       onRecipeComplete: onComplete ?? (_, __) {},
       isGuest: true,
       streamFactory: streamFactory,
-      proOverride: proOverride,
+      proOverrideForTest: proOverrideForTest,
     ),
   );
 }
@@ -144,7 +144,7 @@ void main() {
         buildRequest: _stubRequest,
         onRecipeComplete: (_, __) {},
         isGuest: true,
-        proOverride: true,
+        proOverrideForTest: true,
       ),
     ));
     await tester.pump();
