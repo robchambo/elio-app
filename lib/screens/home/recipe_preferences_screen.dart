@@ -19,6 +19,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/recipe_models.dart';
 import '../../models/recipe_preferences.dart';
+import '../../services/entitlement_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
 import '../../theme/elio_spacing.dart';
@@ -29,7 +30,9 @@ import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_chip.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
+import '../paywall/paywall_screen.dart';
 import '../recipe/recipe_screen.dart';
+import 'bulk_prep_results_screen.dart';
 import 'perishables_picker_screen.dart';
 
 /// Builds a generation request from the prefs the user picked. Lives on
@@ -77,6 +80,11 @@ class RecipePreferencesScreen extends StatefulWidget {
   /// Test injection — defaults to [GeminiService.generateRecipeStream].
   final RecipeStreamFactory? streamFactory;
 
+  /// Test injection — overrides [EntitlementService.instance.isPro] for the
+  /// Bulk cook gate so widget tests can exercise the slider dialog without
+  /// touching Firebase. Production callers leave this null.
+  final bool? proOverride;
+
   const RecipePreferencesScreen({
     super.key,
     required this.buildRequest,
@@ -86,6 +94,7 @@ class RecipePreferencesScreen extends StatefulWidget {
     this.customStyles = const [],
     this.perishableInventory = const [],
     this.streamFactory,
+    this.proOverride,
   });
 
   @override
@@ -134,13 +143,14 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   String _style = 'Any';
   String _mood = 'Any';
 
-  // Sprint 16.3 — restored constraint toggles.
-  // TODO(sprint-16-polish-bulk-prep): Bulk Prep is intentionally NOT here
-  // yet — it routes through `GeminiService.generateBulkRecipeStream`
-  // (portions / mealNumber / totalMeals / previousMealTitles) and produces
-  // a recipe with bulkPrepInfo. Needs a Kate design pass before wiring
-  // (see docs/roadmap.md → "Bulk Prep on the recipe prefs screen").
+  // Sprint 16.3 — Saver + Bulk cook live as the top-of-screen toggle row
+  // (above the chip sections). Bulk cook is Pro-gated and opens a slider
+  // dialog (meals 1-3, portions 4-12) on enable; tapping the right side
+  // of the row while enabled re-opens the dialog to tweak the values.
   bool _isSaverMode = false;
+  bool _bulkCookEnabled = false;
+  int _bulkMeals = 2;
+  int _bulkPortions = 6;
 
   // Sprint 16.3 (later) — replaced the leftover chip-editor with two
   // distinct affordances:
@@ -183,6 +193,15 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     );
 
     final request = widget.buildRequest(prefs);
+
+    // Bulk cook routes through a separate multi-meal generation flow
+    // (GeminiService.generateBulkRecipeStream) and pushes BulkPrepResultsScreen
+    // when finished. The standard single-recipe stream path is below.
+    if (_bulkCookEnabled) {
+      _generateBulk(request);
+      return;
+    }
+
     setState(() {
       _phase = _PrefsPhase.generating;
       _messageIndex = 0;
@@ -247,6 +266,80 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           originalRequest: request,
           isGuest: widget.isGuest,
           savedAt: savedAt,
+        ),
+      ),
+    );
+  }
+
+  // ── Bulk cook generation flow ───────────────────────────────────
+  // Loops over the user's chosen meal count, streaming each recipe via
+  // [GeminiService.generateBulkRecipeStream] (which scales for portions
+  // and dedupes against the previously generated meals in the batch).
+  // On success we push BulkPrepResultsScreen with the collected recipes;
+  // on failure we surface the error in the standard error phase.
+  Future<void> _generateBulk(RecipeGenerationRequest request) async {
+    setState(() {
+      _phase = _PrefsPhase.generating;
+      _messageIndex = 0;
+      _errorMessage = null;
+    });
+    _startMessageRotation();
+
+    final completed = <GeneratedRecipe>[];
+    final previousTitles = <String>[];
+
+    for (int meal = 1; meal <= _bulkMeals; meal++) {
+      if (!mounted) return;
+      GeneratedRecipe? result;
+      String? errorMsg;
+      await for (final status in GeminiService.generateBulkRecipeStream(
+        request,
+        portions: _bulkPortions,
+        mealNumber: meal,
+        totalMeals: _bulkMeals,
+        previousMealTitles: previousTitles,
+      )) {
+        if (!mounted) return;
+        switch (status) {
+          case RecipeGenerating():
+            break;
+          case RecipeComplete():
+            result = status.recipe;
+          case RecipeError():
+            errorMsg = status.message;
+        }
+      }
+      if (errorMsg != null) {
+        _showError(errorMsg);
+        return;
+      }
+      if (result != null) {
+        completed.add(result);
+        previousTitles.add(result.title);
+        // Save to history immediately so it's available before the user
+        // taps a card on the results screen (mirrors the single-recipe path).
+        HistoryService.saveRecipe(SavedRecipe(
+          recipe: result,
+          savedAt: DateTime.now().toUtc().toIso8601String(),
+        ));
+        // Let Home update recent titles / analytics / background saves.
+        widget.onRecipeComplete(result, request);
+      }
+    }
+
+    if (!mounted) return;
+    _messageTimer?.cancel();
+    if (completed.isEmpty) {
+      _showError('Bulk cook ended unexpectedly. Please try again.');
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => BulkPrepResultsScreen(
+          recipes: completed,
+          originalRequest: request,
+          isGuest: widget.isGuest,
         ),
       ),
     );
@@ -366,28 +459,221 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     );
   }
 
-  // ── Constraints panel: Saver only (Sprint 16.3 later) ─────────────
-  // The "Use up leftovers" toggle was replaced by a dedicated picker
-  // reached via _buildUseUpRow(). Saver remains a single chip toggle.
-  Widget _buildConstraintsSection() {
+  // ── Top toggles row: Saver + Bulk cook (Sprint 16.3) ─────────────
+  // Promoted from the old "constraints" chip strip into a top-of-screen
+  // row of switch tiles. Saver flips a flag the prompt already honours;
+  // Bulk cook is Pro-gated and opens [_showBulkCookDialog] on enable to
+  // capture meals × portions, which feed the dedicated bulk Gemini path.
+  Widget _buildTopToggles() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const ElioEyebrow('constraints'),
-        const SizedBox(height: ElioSpacing.md),
-        Wrap(
-          spacing: ElioSpacing.sm,
-          runSpacing: ElioSpacing.sm,
-          children: [
-            ElioChip(
-              label: 'Saver',
-              selected: _isSaverMode,
-              onTap: () => setState(() => _isSaverMode = !_isSaverMode),
-            ),
-          ],
+        _buildToggleTile(
+          icon: Icons.savings_outlined,
+          title: 'Saver mode',
+          subtitle: 'Budget-friendly recipes',
+          value: _isSaverMode,
+          onChanged: (v) => setState(() => _isSaverMode = v),
+        ),
+        const SizedBox(height: ElioSpacing.sm),
+        _buildToggleTile(
+          icon: Icons.kitchen_outlined,
+          title: 'Bulk cook',
+          subtitle: _bulkCookEnabled
+              ? '$_bulkMeals meals × $_bulkPortions portions'
+              : 'Freezer-friendly meals in one go',
+          value: _bulkCookEnabled,
+          onChanged: (v) async {
+            if (v) {
+              if (!_isProActive) {
+                await _showBulkPaywall();
+                return;
+              }
+              final accepted = await _showBulkCookDialog();
+              if (!accepted) return;
+            }
+            if (!mounted) return;
+            setState(() => _bulkCookEnabled = v);
+          },
+          trailingTap: _bulkCookEnabled ? () => _showBulkCookDialog() : null,
         ),
       ],
     );
+  }
+
+  bool get _isProActive {
+    if (widget.proOverride != null) return widget.proOverride!;
+    return EntitlementService.instance.isPro;
+  }
+
+  Future<void> _showBulkPaywall() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<bool>(
+        builder: (_) => const PaywallScreen(triggerContext: 'bulk_cook'),
+      ),
+    );
+    // Re-evaluate after the user returns. If they upgraded, open the dialog
+    // straight away and commit on accept.
+    if (!mounted) return;
+    if (_isProActive) {
+      final accepted = await _showBulkCookDialog();
+      if (!mounted || !accepted) return;
+      setState(() => _bulkCookEnabled = true);
+    }
+  }
+
+  Widget _buildToggleTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+    VoidCallback? trailingTap,
+  }) {
+    final card = Container(
+      padding: const EdgeInsets.all(ElioSpacing.md),
+      decoration: BoxDecoration(
+        color: ElioColors.cream,
+        borderRadius: ElioRadii.card,
+        border: Border.all(
+          color: value
+              ? ElioColors.amber
+              : ElioColors.border,
+          width: value ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            color: value ? ElioColors.amber : ElioColors.navy,
+            size: 22,
+          ),
+          const SizedBox(width: ElioSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: ElioTextStyles.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: ElioColors.navy,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: ElioTextStyles.bodySmall.copyWith(
+                    color: ElioColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: ElioColors.amber,
+          ),
+        ],
+      ),
+    );
+    if (trailingTap == null) return card;
+    return InkWell(
+      onTap: trailingTap,
+      borderRadius: ElioRadii.card,
+      child: card,
+    );
+  }
+
+  /// Slider dialog for Bulk cook: meals (1-3) and portions per meal (4-12),
+  /// with a live helper line. Returns true if the user committed values.
+  Future<bool> _showBulkCookDialog() async {
+    int meals = _bulkMeals;
+    int portions = _bulkPortions;
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.kitchen_outlined,
+                  color: ElioColors.amber, size: 20),
+              const SizedBox(width: 8),
+              Text('Bulk cook', style: ElioTextStyles.heading4),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Meals: $meals',
+                  style: ElioTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w600)),
+              Slider(
+                value: meals.toDouble(),
+                min: 1,
+                max: 3,
+                divisions: 2,
+                activeColor: ElioColors.amber,
+                label: '$meals',
+                onChanged: (v) =>
+                    setDialogState(() => meals = v.round()),
+              ),
+              const SizedBox(height: 8),
+              Text('Portions per meal: $portions',
+                  style: ElioTextStyles.body.copyWith(
+                      fontWeight: FontWeight.w600)),
+              Slider(
+                value: portions.toDouble(),
+                min: 4,
+                max: 12,
+                divisions: 8,
+                activeColor: ElioColors.amber,
+                label: '$portions',
+                onChanged: (v) =>
+                    setDialogState(() => portions = v.round()),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Elio will generate $meals freezer-friendly '
+                '${meals == 1 ? "meal" : "meals"}, each scaled for '
+                '$portions portions when you generate.',
+                style: ElioTextStyles.bodySmall.copyWith(
+                  color: ElioColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text('Cancel',
+                  style: TextStyle(color: ElioColors.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: ElioColors.amber,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('OK', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (accepted == true) {
+      setState(() {
+        _bulkMeals = meals;
+        _bulkPortions = portions;
+      });
+      return true;
+    }
+    return false;
   }
 
   // ── Free-text "craving" field (Sprint 16.3 later) ─────────────────
@@ -534,6 +820,8 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             _buildDietaryStrip(),
           ],
           const SizedBox(height: ElioSpacing.xl),
+          _buildTopToggles(),
+          const SizedBox(height: ElioSpacing.xl),
           _buildCravingField(),
           const SizedBox(height: ElioSpacing.xl),
           _section(
@@ -567,8 +855,6 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           ),
           const SizedBox(height: ElioSpacing.xl),
           _buildUseUpRow(),
-          const SizedBox(height: ElioSpacing.xl),
-          _buildConstraintsSection(),
           const SizedBox(height: ElioSpacing.xxl),
           ElioBigButton(
             label: 'Generate',

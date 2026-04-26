@@ -26,8 +26,9 @@ RecipeGenerationRequest _stubRequest(RecipePreferences _) =>
     );
 
 Widget _harness({
-  required RecipeStreamFactory streamFactory,
+  RecipeStreamFactory? streamFactory,
   void Function(GeneratedRecipe, RecipeGenerationRequest)? onComplete,
+  bool? proOverride,
 }) {
   return MaterialApp(
     home: RecipePreferencesScreen(
@@ -35,6 +36,7 @@ Widget _harness({
       onRecipeComplete: onComplete ?? (_, __) {},
       isGuest: true,
       streamFactory: streamFactory,
+      proOverride: proOverride,
     ),
   );
 }
@@ -116,5 +118,45 @@ void main() {
     await tester.tap(find.text('Try again'));
     await tester.pump();
     expect(find.text('Generate'), findsOneWidget);
+  });
+
+  testWidgets('Saver and Bulk cook toggles render at the top of the screen',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: RecipePreferencesScreen(
+        buildRequest: _stubRequest,
+        onRecipeComplete: (_, __) {},
+        isGuest: true,
+      ),
+    ));
+    await tester.pump();
+
+    expect(find.text('Saver mode'), findsOneWidget);
+    expect(find.text('Bulk cook'), findsOneWidget);
+    expect(find.byType(Switch), findsNWidgets(2));
+  });
+
+  testWidgets(
+      'enabling Bulk cook (Pro) opens the slider dialog with default meals/portions',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: RecipePreferencesScreen(
+        buildRequest: _stubRequest,
+        onRecipeComplete: (_, __) {},
+        isGuest: true,
+        proOverride: true,
+      ),
+    ));
+    await tester.pump();
+
+    // Tap the Bulk cook switch (second Switch on the page).
+    final switches = find.byType(Switch);
+    expect(switches, findsNWidgets(2));
+    await tester.tap(switches.last);
+    await tester.pumpAndSettle();
+
+    // Dialog title + slider helper labels.
+    expect(find.text('Meals: 2'), findsOneWidget);
+    expect(find.text('Portions per meal: 6'), findsOneWidget);
   });
 }
