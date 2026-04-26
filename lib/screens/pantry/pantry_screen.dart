@@ -27,6 +27,7 @@ import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
 import '../../widgets/elio/elio_bento_card.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_tier_row.dart';
@@ -58,6 +59,13 @@ List<Map<String, dynamic>>? debugPantryInitialItems;
 @visibleForTesting
 void Function(String itemId, Map<String, dynamic> action)?
     debugPantryMutationOverride;
+
+/// Test seam: when set, `_onAddToTier` calls this instead of
+/// FirestoreService.addInventoryItem. The mock generates a synthetic id
+/// so the new chip appears in the local `_items` list.
+@visibleForTesting
+String Function(String name, String tier, DateTime? expiryDate)?
+    debugPantryAddOverride;
 
 class _PantryScreenState extends State<PantryScreen> {
   final FirestoreService _firestore = FirestoreService();
@@ -302,6 +310,110 @@ class _PantryScreenState extends State<PantryScreen> {
     }
   }
 
+  // ─── Add-to-tier (Bug 3 — Sprint 16.4) ─────────────────────────────
+  // Without this, the only way to add items after onboarding was the
+  // Pantry Builder sheet (staples-flavoured) or scanning. Perishables in
+  // particular had nowhere to go. Each expanded tier now ends in a small
+  // dashed "+ Add" chip that opens the same dialog used by onboarding
+  // 11/12, then for perishables follows up with a fresh/thisWeek/today
+  // bucket picker so the new item gets a sensible expiryDate.
+  Future<void> _onAddToTier(String tier) async {
+    final categoryName = switch (tier) {
+      _tierPerishable => 'Perishables',
+      _tierAlmostAlwaysHave => 'Almost Always Have',
+      _ => 'Always Have',
+    };
+    final existing = _items
+        .map((i) => i['name'] as String? ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    final result = await showAddPantryItemDialog(
+      context,
+      categoryName: categoryName,
+      existing: existing,
+    );
+
+    if (!mounted) return;
+
+    String? chosenName;
+    String? promotedFromId;
+    switch (result) {
+      case AddItemCancelled():
+        return;
+      case AddItemPromoteExisting(existingName: final name):
+        chosenName = name;
+        // If the existing item is in another tier, move it. If it's
+        // already in this tier (perishable case), still continue so the
+        // user can pick a fresh expiryDate bucket.
+        final idx = _items.indexWhere(
+          (i) => (i['name'] as String? ?? '').toLowerCase() ==
+              name.toLowerCase(),
+        );
+        if (idx != -1) promotedFromId = _items[idx]['id'] as String?;
+      case AddItemAddNew(name: final name):
+        chosenName = name;
+    }
+
+    DateTime? expiry;
+    if (tier == _tierPerishable) {
+      final bucket = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text('How fresh is $chosenName?'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'fresh'),
+              child: const Text('Fresh (about a week)'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'thisWeek'),
+              child: const Text('Use this week'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'today'),
+              child: const Text('Use today'),
+            ),
+          ],
+        ),
+      );
+      if (bucket == null) return;
+      expiry = _expiryForBucket(bucket);
+    }
+
+    // Promote existing → updateTier (and expiry for perishables).
+    if (promotedFromId != null) {
+      await _applyMutation(promotedFromId, {'type': 'updateTier', 'tier': tier});
+      if (expiry != null) {
+        await _applyMutation(promotedFromId, {
+          'type': 'updateExpiry',
+          'expiryDate': expiry,
+        });
+      }
+      return;
+    }
+
+    // New item.
+    final addOverride = debugPantryAddOverride;
+    if (addOverride != null) {
+      final id = addOverride(chosenName, tier, expiry);
+      setState(() {
+        _items = [
+          ..._items,
+          {
+            'id': id,
+            'name': chosenName,
+            'tier': tier,
+            'runningLow': false,
+            if (expiry != null) 'expiryDate': expiry.toIso8601String(),
+          },
+        ];
+      });
+      return;
+    }
+    await _firestore.addInventoryItem(chosenName, tier, expiryDate: expiry);
+  }
+
   // ─── Actions ────────────────────────────────────────────────────────
   void _openReceiptScanner() {
     Navigator.of(context).push(
@@ -424,6 +536,7 @@ class _PantryScreenState extends State<PantryScreen> {
                 ? _TierItemsList(
                     items: perishables,
                     onItemLongPress: _onItemLongPress,
+                    onAdd: () => _onAddToTier(_tierPerishable),
                   )
                 : null,
           ),
@@ -436,6 +549,7 @@ class _PantryScreenState extends State<PantryScreen> {
                 ? _TierItemsList(
                     items: alwaysHave,
                     onItemLongPress: _onItemLongPress,
+                    onAdd: () => _onAddToTier(_tierAlwaysHave),
                   )
                 : null,
           ),
@@ -448,6 +562,7 @@ class _PantryScreenState extends State<PantryScreen> {
                 ? _TierItemsList(
                     items: almostAlways,
                     onItemLongPress: _onItemLongPress,
+                    onAdd: () => _onAddToTier(_tierAlmostAlwaysHave),
                   )
                 : null,
           ),
@@ -492,19 +607,15 @@ class _PantryBuilderRow extends StatelessWidget {
 class _TierItemsList extends StatelessWidget {
   final List<Map<String, dynamic>> items;
   final ValueChanged<Map<String, dynamic>> onItemLongPress;
+  final VoidCallback onAdd;
   const _TierItemsList({
     required this.items,
     required this.onItemLongPress,
+    required this.onAdd,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return Text(
-        'No items yet.',
-        style: ElioTextStyles.bodySmall,
-      );
-    }
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -514,7 +625,49 @@ class _TierItemsList extends StatelessWidget {
             item: item,
             onLongPress: () => onItemLongPress(item),
           ),
+        _AddSomethingChip(onTap: onAdd),
       ],
+    );
+  }
+}
+
+/// Small dashed-border chip that mirrors `_TierItemChip` shape and lives
+/// at the end of each tier's expanded body. Single tap (no long-press
+/// here — adding is intentional, not destructive).
+class _AddSomethingChip extends StatelessWidget {
+  final VoidCallback onTap;
+  const _AddSomethingChip({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: ElioRadii.chip,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: ElioColors.cream,
+          borderRadius: ElioRadii.chip,
+          border: Border.all(
+            color: ElioColors.amber,
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.add, color: ElioColors.amber, size: 16),
+            const SizedBox(width: 4),
+            Text(
+              'Add',
+              style: ElioTextStyles.bodySmall.copyWith(
+                color: ElioColors.amber,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

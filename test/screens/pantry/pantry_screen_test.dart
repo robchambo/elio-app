@@ -18,11 +18,13 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     debugPantryInitialItems = null;
     debugPantryMutationOverride = null;
+    debugPantryAddOverride = null;
   });
 
   tearDown(() {
     debugPantryInitialItems = null;
     debugPantryMutationOverride = null;
+    debugPantryAddOverride = null;
   });
 
   Future<void> pumpPantry(WidgetTester tester) async {
@@ -152,5 +154,88 @@ void main() {
     expect(find.text('Mark this week'), findsOneWidget);
     expect(find.text('Mark today'), findsOneWidget);
     expect(find.text('Remove'), findsOneWidget);
+  });
+
+  // Sprint 16.4 (Bug 3): each expanded tier ends in an "+ Add" chip so
+  // the user can grow the pantry after onboarding (perishables in
+  // particular had no add path).
+  testWidgets('Add chip in Always Have tier adds a new staple', (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'salt-1',
+        'name': 'Salt',
+        'tier': 'alwaysHave',
+        'runningLow': false,
+      },
+    ];
+    final added = <Map<String, dynamic>>[];
+    debugPantryAddOverride = (name, tier, expiry) {
+      added.add({'name': name, 'tier': tier, 'expiry': expiry});
+      return 'new-id-${added.length}';
+    };
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Always Have (1)'));
+    await tester.pumpAndSettle();
+
+    // The "+ Add" chip is the only InkWell with an Icons.add child.
+    // Use `.first` because Material wraps InkWell internals.
+    final addChip = find
+        .ancestor(
+          of: find.byIcon(Icons.add),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    await tester.tap(addChip);
+    await tester.pumpAndSettle();
+
+    // Dialog open for the right category.
+    expect(find.text('Add to Always Have'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Olive oil');
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Add'));
+    await tester.pumpAndSettle();
+
+    expect(added, hasLength(1));
+    expect(added.first['name'], 'Olive oil');
+    expect(added.first['tier'], 'alwaysHave');
+    expect(added.first['expiry'], isNull);
+    expect(find.text('Olive oil'), findsOneWidget);
+  });
+
+  testWidgets('Add chip in Perishables prompts a freshness bucket',
+      (tester) async {
+    debugPantryInitialItems = const <Map<String, dynamic>>[];
+    final added = <Map<String, dynamic>>[];
+    debugPantryAddOverride = (name, tier, expiry) {
+      added.add({'name': name, 'tier': tier, 'expiry': expiry});
+      return 'new-id';
+    };
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Perishables (0)'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find
+        .ancestor(
+          of: find.byIcon(Icons.add),
+          matching: find.byType(InkWell),
+        )
+        .first);
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'Spinach');
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Add'));
+    await tester.pumpAndSettle();
+
+    // Bucket dialog appears next.
+    expect(find.text('How fresh is Spinach?'), findsOneWidget);
+    await tester.tap(find.text('Use this week'));
+    await tester.pumpAndSettle();
+
+    expect(added, hasLength(1));
+    expect(added.first['name'], 'Spinach');
+    expect(added.first['tier'], 'perishable');
+    expect(added.first['expiry'], isNotNull);
   });
 }
