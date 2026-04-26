@@ -318,41 +318,63 @@ class _HomeScreenState extends State<HomeScreen> {
     final canGenerate = widget.isGuest || _entitlements.canGenerate;
     final proUnlocked = _entitlements.isPro;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          ElioSpacing.screenEdge, ElioSpacing.lg,
-          ElioSpacing.screenEdge, ElioSpacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ElioHeroHeading(
-            lines: ['hey ${firstName.toLowerCase()}.', 'lets get', 'started'],
-            amberLastLine: true,
-            showUnderline: true,
+    // Sprint 16.4 (Bug 5): the home body is now scrollable. The
+    // above-the-fold block fills exactly one viewport (hero + eyebrow +
+    // Spacer + Generate + Plan-your-week). Recent recipes hang BELOW
+    // the fold so the prime spot is reserved for Kate's incoming hero
+    // image; they're still discoverable via a downward scroll.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: constraints.maxHeight,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      ElioSpacing.screenEdge, ElioSpacing.lg,
+                      ElioSpacing.screenEdge, ElioSpacing.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ElioHeroHeading(
+                        lines: ['hey ${firstName.toLowerCase()}.', 'lets get', 'started'],
+                        amberLastLine: true,
+                        showUnderline: true,
+                      ),
+                      const SizedBox(height: ElioSpacing.md),
+                      const ElioEyebrow('your kitchen is ready for elio'),
+                      const Spacer(),
+                      ElioBigButton(
+                        label: 'Generate a recipe',
+                        trailingIcon: Icons.chevron_right,
+                        onTap: canGenerate ? _openPreferencesThenGenerate : null,
+                      ),
+                      const SizedBox(height: ElioSpacing.md),
+                      if (proUnlocked)
+                        ElioSecondaryCard(
+                          title: 'Plan your week',
+                          subtitle: '21 meals generated in one tap',
+                          actionLabel: 'View',
+                          onAction: _openMealPlanner,
+                        ),
+                      const SizedBox(height: ElioSpacing.md),
+                    ],
+                  ),
+                ),
+              ),
+              if (_recentRecipes.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                      ElioSpacing.screenEdge, ElioSpacing.lg,
+                      ElioSpacing.screenEdge, ElioSpacing.lg),
+                  child: _buildRecentRecipesPeek(),
+                ),
+            ],
           ),
-          const SizedBox(height: ElioSpacing.md),
-          const ElioEyebrow('your kitchen is ready for elio'),
-          if (_recentRecipes.isNotEmpty) ...[
-            const SizedBox(height: ElioSpacing.lg),
-            _buildRecentRecipesPeek(),
-          ],
-          const Spacer(),
-          ElioBigButton(
-            label: 'Generate a recipe',
-            trailingIcon: Icons.chevron_right,
-            onTap: canGenerate ? _openPreferencesThenGenerate : null,
-          ),
-          const SizedBox(height: ElioSpacing.md),
-          if (proUnlocked)
-            ElioSecondaryCard(
-              title: 'Plan your week',
-              subtitle: '21 meals generated in one tap',
-              actionLabel: 'View',
-              onAction: _openMealPlanner,
-            ),
-          const SizedBox(height: ElioSpacing.md),
-        ],
-      ),
+        );
+      },
     );
   }
 
