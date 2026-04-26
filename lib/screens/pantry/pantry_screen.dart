@@ -19,6 +19,7 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/firestore_service.dart';
@@ -44,6 +45,20 @@ class PantryScreen extends StatefulWidget {
   State<PantryScreen> createState() => _PantryScreenState();
 }
 
+/// Test seam: when set, [_PantryScreenState._subscribeInventory] is skipped
+/// and these items are used as the initial inventory. Lets widget tests
+/// exercise the tap/long-press behaviour without booting FirebaseAuth.
+@visibleForTesting
+List<Map<String, dynamic>>? debugPantryInitialItems;
+
+/// Test seam: when set, tier mutations call this instead of FirestoreService.
+/// Receives (itemId, action) where action's `type` is one of
+/// `updateTier` (with `tier`), `updateExpiry` (with `expiryDate`),
+/// or `delete`.
+@visibleForTesting
+void Function(String itemId, Map<String, dynamic> action)?
+    debugPantryMutationOverride;
+
 class _PantryScreenState extends State<PantryScreen> {
   final FirestoreService _firestore = FirestoreService();
 
@@ -57,6 +72,12 @@ class _PantryScreenState extends State<PantryScreen> {
   @override
   void initState() {
     super.initState();
+    final seed = debugPantryInitialItems;
+    if (seed != null) {
+      _items = List<Map<String, dynamic>>.from(seed);
+      _loading = false;
+      return;
+    }
     _subscribeInventory();
   }
 
@@ -139,6 +160,191 @@ class _PantryScreenState extends State<PantryScreen> {
     setState(() {
       _expandedTier = (_expandedTier == tier) ? null : tier;
     });
+  }
+
+  // ─── Tier mutation (tap-cycle + long-press picker) ─────────────────
+
+  /// Bucket a perishable item by days-from-today on its expiryDate.
+  /// Mirrors the suffix logic in [_TierItemChip] and the inverse of
+  /// `screen12_pantry_perishables._onContinue`.
+  String _perishableBucket(Map<String, dynamic> item) {
+    final expiryStr = item['expiryDate'] as String?;
+    if (expiryStr == null) return 'fresh';
+    final expiry = DateTime.tryParse(expiryStr);
+    if (expiry == null) return 'fresh';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final exp = DateTime(expiry.year, expiry.month, expiry.day);
+    final days = exp.difference(today).inDays;
+    if (days <= 0) return 'today';
+    if (days <= 6) return 'thisWeek';
+    return 'fresh';
+  }
+
+  Future<void> _applyMutation(
+      String itemId, Map<String, dynamic> action) async {
+    final override = debugPantryMutationOverride;
+    if (override != null) {
+      override(itemId, action);
+      // Reflect change in local state so the test can observe it
+      // without a Firestore stream.
+      setState(() {
+        switch (action['type']) {
+          case 'updateTier':
+            final i = _items.indexWhere((it) => it['id'] == itemId);
+            if (i != -1) {
+              _items[i] = {..._items[i], 'tier': action['tier']};
+            }
+            break;
+          case 'updateExpiry':
+            final i = _items.indexWhere((it) => it['id'] == itemId);
+            if (i != -1) {
+              final d = action['expiryDate'] as DateTime;
+              _items[i] = {
+                ..._items[i],
+                'expiryDate': d.toIso8601String(),
+              };
+            }
+            break;
+          case 'delete':
+            _items = _items.where((it) => it['id'] != itemId).toList();
+            break;
+        }
+      });
+      return;
+    }
+    switch (action['type']) {
+      case 'updateTier':
+        await _firestore.updateInventoryItem(itemId,
+            tier: action['tier'] as String);
+        break;
+      case 'updateExpiry':
+        await _firestore.updateInventoryItem(itemId,
+            expiryDate: action['expiryDate'] as DateTime);
+        break;
+      case 'delete':
+        await _firestore.deleteInventoryItem(itemId);
+        break;
+    }
+  }
+
+  /// Map a perishable bucket to the same expiryDate anchors used by
+  /// `screen12_pantry_perishables._onContinue` so a tier set here matches
+  /// what onboarding would have written.
+  DateTime _expiryForBucket(String bucket) {
+    final now = DateTime.now();
+    switch (bucket) {
+      case 'today':
+        return now;
+      case 'thisWeek':
+        return now.add(const Duration(days: 3));
+      case 'fresh':
+      default:
+        return now.add(const Duration(days: 7));
+    }
+  }
+
+  Future<void> _onItemTap(Map<String, dynamic> item) async {
+    final id = item['id'] as String?;
+    if (id == null) return;
+    final tier = item['tier'] as String?;
+    if (tier == _tierAlwaysHave) {
+      await _applyMutation(
+          id, {'type': 'updateTier', 'tier': _tierAlmostAlwaysHave});
+    } else if (tier == _tierAlmostAlwaysHave) {
+      await _applyMutation(id, const {'type': 'delete'});
+    } else if (tier == _tierPerishable) {
+      // fresh → thisWeek → today → removed
+      final bucket = _perishableBucket(item);
+      switch (bucket) {
+        case 'fresh':
+          await _applyMutation(id, {
+            'type': 'updateExpiry',
+            'expiryDate': _expiryForBucket('thisWeek'),
+          });
+          break;
+        case 'thisWeek':
+          await _applyMutation(id, {
+            'type': 'updateExpiry',
+            'expiryDate': _expiryForBucket('today'),
+          });
+          break;
+        case 'today':
+        default:
+          await _applyMutation(id, const {'type': 'delete'});
+          break;
+      }
+    }
+  }
+
+  Future<void> _onItemLongPress(Map<String, dynamic> item) async {
+    final id = item['id'] as String?;
+    if (id == null) return;
+    final tier = item['tier'] as String?;
+    final name = item['name'] as String? ?? '';
+    if (tier == _tierPerishable) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text(name),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'fresh'),
+              child: const Text('Mark fresh'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'thisWeek'),
+              child: const Text('Mark this week'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'today'),
+              child: const Text('Mark today'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '__remove__'),
+              child: const Text('Remove'),
+            ),
+          ],
+        ),
+      );
+      if (choice == null) return;
+      if (choice == '__remove__') {
+        await _applyMutation(id, const {'type': 'delete'});
+      } else {
+        await _applyMutation(id, {
+          'type': 'updateExpiry',
+          'expiryDate': _expiryForBucket(choice),
+        });
+      }
+    } else {
+      // Staple picker
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: Text(name),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, _tierAlwaysHave),
+              child: const Text('Always have'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, _tierAlmostAlwaysHave),
+              child: const Text('Almost always have'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '__remove__'),
+              child: const Text('Remove'),
+            ),
+          ],
+        ),
+      );
+      if (choice == null) return;
+      if (choice == '__remove__') {
+        await _applyMutation(id, const {'type': 'delete'});
+      } else {
+        await _applyMutation(id, {'type': 'updateTier', 'tier': choice});
+      }
+    }
   }
 
   // ─── Actions ────────────────────────────────────────────────────────
@@ -260,7 +466,11 @@ class _PantryScreenState extends State<PantryScreen> {
             count: _countForTier(_tierPerishable),
             onTap: () => _toggleTier(_tierPerishable),
             expandedBody: _expandedTier == _tierPerishable
-                ? _TierItemsList(items: perishables)
+                ? _TierItemsList(
+                    items: perishables,
+                    onItemTap: _onItemTap,
+                    onItemLongPress: _onItemLongPress,
+                  )
                 : null,
           ),
           const SizedBox(height: ElioSpacing.sm),
@@ -269,7 +479,11 @@ class _PantryScreenState extends State<PantryScreen> {
             count: _countForTier(_tierAlwaysHave),
             onTap: () => _toggleTier(_tierAlwaysHave),
             expandedBody: _expandedTier == _tierAlwaysHave
-                ? _TierItemsList(items: alwaysHave)
+                ? _TierItemsList(
+                    items: alwaysHave,
+                    onItemTap: _onItemTap,
+                    onItemLongPress: _onItemLongPress,
+                  )
                 : null,
           ),
           const SizedBox(height: ElioSpacing.sm),
@@ -278,7 +492,11 @@ class _PantryScreenState extends State<PantryScreen> {
             count: _countForTier(_tierAlmostAlwaysHave),
             onTap: () => _toggleTier(_tierAlmostAlwaysHave),
             expandedBody: _expandedTier == _tierAlmostAlwaysHave
-                ? _TierItemsList(items: almostAlways)
+                ? _TierItemsList(
+                    items: almostAlways,
+                    onItemTap: _onItemTap,
+                    onItemLongPress: _onItemLongPress,
+                  )
                 : null,
           ),
         ],
@@ -321,7 +539,13 @@ class _PantryBuilderRow extends StatelessWidget {
 // ─── Inline tier items list (expanded body) ───────────────────────────
 class _TierItemsList extends StatelessWidget {
   final List<Map<String, dynamic>> items;
-  const _TierItemsList({required this.items});
+  final ValueChanged<Map<String, dynamic>> onItemTap;
+  final ValueChanged<Map<String, dynamic>> onItemLongPress;
+  const _TierItemsList({
+    required this.items,
+    required this.onItemTap,
+    required this.onItemLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -335,7 +559,12 @@ class _TierItemsList extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        for (final item in items) _TierItemChip(item: item),
+        for (final item in items)
+          _TierItemChip(
+            item: item,
+            onTap: () => onItemTap(item),
+            onLongPress: () => onItemLongPress(item),
+          ),
       ],
     );
   }
@@ -343,7 +572,13 @@ class _TierItemsList extends StatelessWidget {
 
 class _TierItemChip extends StatelessWidget {
   final Map<String, dynamic> item;
-  const _TierItemChip({required this.item});
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+  const _TierItemChip({
+    required this.item,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -370,16 +605,39 @@ class _TierItemChip extends StatelessWidget {
         }
       }
     }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: ElioColors.white,
-        borderRadius: ElioRadii.chip,
-        border: Border.all(color: ElioColors.border),
-      ),
-      child: Text(
-        suffix == null ? name : '$name · $suffix',
-        style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.navy),
+    // RawGestureDetector with explicit recognizers — bare GestureDetector
+    // long-press loses to Wrap/scrollable scroll arbitration. See CLAUDE.md.
+    return RawGestureDetector(
+      behavior: HitTestBehavior.opaque,
+      gestures: <Type, GestureRecognizerFactory>{
+        TapGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+          () => TapGestureRecognizer(),
+          (TapGestureRecognizer r) {
+            r.onTap = onTap;
+          },
+        ),
+        LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+            LongPressGestureRecognizer>(
+          () => LongPressGestureRecognizer(
+            duration: const Duration(milliseconds: 300),
+          ),
+          (LongPressGestureRecognizer r) {
+            r.onLongPress = onLongPress;
+          },
+        ),
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: ElioColors.white,
+          borderRadius: ElioRadii.chip,
+          border: Border.all(color: ElioColors.border),
+        ),
+        child: Text(
+          suffix == null ? name : '$name · $suffix',
+          style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.navy),
+        ),
       ),
     );
   }
