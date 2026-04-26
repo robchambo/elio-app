@@ -512,8 +512,10 @@ class GeminiService {
     buffer.writeln();
     buffer.writeln('## JSON SCHEMA (return exactly this structure):');
     buffer.writeln('Include estimated per-serving nutritional values in the "nutrition" field.');
+    buffer.writeln('Set "category" to the single best fit for this recipe; use exactly one of the listed values.');
     buffer.writeln('''{
   "title": "string",
+  "category": "<one of: Appetizer | Entrée | Side dish | Dessert | Breakfast | Brunch | Lunch | Snack | Soup | Salad | Drink>",
   "description": "string (1-2 sentences)",
   "prepTimeMinutes": 10,
   "cookTimeMinutes": 20,
