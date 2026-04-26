@@ -496,6 +496,7 @@ class GeminiService {
 
     buffer.writeln();
     buffer.writeln('## RULES:');
+    buffer.writeln('- Assume the user always has water, salt, and basic cooking oil (olive / vegetable / sunflower / rapeseed / canola) — do NOT list these in the ingredients array, but you may reference them in the steps (e.g. "season with salt", "splash of oil", "boil 1 cup of water").');
     buffer.writeln('- Recipe title must sound like home cooking, NOT a pre-made product. E.g. "Lemon Herb Chicken with Roasted Vegetables", not "Cooked Mediterranean Chicken".');
     buffer.writeln('- Ingredients must be raw/purchasable items, NOT pre-prepared dishes. Never list a cooked dish as an ingredient.');
     buffer.writeln('- Keep steps SHORT (1-2 sentences each). Max 8 steps total.');

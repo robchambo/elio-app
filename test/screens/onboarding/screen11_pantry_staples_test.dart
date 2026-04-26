@@ -116,16 +116,17 @@ void main() {
 
     final before = readCount();
 
-    // Tap Olive oil (a default) twice: usually → always → unselected.
-    final olive = find.ancestor(
-      of: find.text('Olive oil', skipOffstage: false),
+    // Tap Ketchup (a default) twice: usually → always → unselected.
+    // (Cooking oils removed from defaults in Sprint 16.3 Bug 10.)
+    final ketchup = find.ancestor(
+      of: find.text('Ketchup', skipOffstage: false),
       matching: find.byType(ElioPantryItemTile, skipOffstage: false),
     );
-    await t.ensureVisible(olive);
+    await t.ensureVisible(ketchup);
     await t.pump();
-    await t.tap(olive);
+    await t.tap(ketchup);
     await t.pump();
-    await t.tap(olive);
+    await t.tap(ketchup);
     await t.pump();
 
     final after = readCount();

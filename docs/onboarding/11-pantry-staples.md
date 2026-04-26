@@ -48,7 +48,7 @@ This is the single most differentiating screen in the app. It's the only reason 
 
 | Category | Default-selected items |
 |---|---|
-| Oils & Vinegars | Olive oil, Vegetable oil |
+| Oils & Vinegars | *(none — basic cooking oils assumed; see Bug 10 below)* |
 | Spices & Seasonings | Salt, Black pepper, Mixed herbs, Paprika |
 | Sauces & Condiments | Ketchup, Soy sauce, Mustard, Honey |
 | Canned & Jarred | Tinned tomatoes, Chickpeas |
@@ -58,6 +58,15 @@ This is the single most differentiating screen in the app. It's the only reason 
 | Frozen Staples | Frozen peas |
 
 Covers the median UK household; users add/remove from there.
+
+> **Sprint 16.3 Bug 10 — basic cooking oils dropped from staples.** Olive oil
+> and Vegetable oil were previously pre-selected (and the underlying spec
+> items themselves) in *Oils & Vinegars*. They've been removed from both
+> `_kDefaultStaples` and the `PantryCategories.all` list for that category —
+> rationale: everyone has a cooking oil, so the Gemini prompt now assumes
+> water + salt + basic cooking oil and never lists them in the ingredients
+> array. Coconut, Sesame, and Spray oil stay (specialty, not assumed).
+> Vinegars stay (not assumed).
 
 **Primary CTA (full-width, sticky at bottom):**
 > Next

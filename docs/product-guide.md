@@ -23,7 +23,7 @@ Your pantry is the foundation of everything Elio does. Items are organised into 
 
 | Tier | Purpose | Examples |
 |------|---------|----------|
-| **Always Have** | Staples you never run out of | Salt, olive oil, rice, flour |
+| **Always Have** | Staples you never run out of | Rice, flour, soy sauce, ketchup |
 | **Almost Always Have** | Usually stocked, occasionally low | Butter, eggs, onions |
 | **Perishable** | Fresh items with limited shelf life | Chicken breast, spinach, milk |
 

@@ -109,5 +109,26 @@ void main() {
       expect(prompt, contains('oven'));
       expect(prompt, contains('air fryer'));
     });
+
+    // Sprint 16.3 Bug 10 — Gemini must assume the user has water, salt,
+    // and basic cooking oil so they aren't listed in the ingredients
+    // array. Regression guard: a single rules line covers all three.
+    test('assumes water, salt, and cooking oil are always available', () {
+      final prompt = GeminiService.buildEphemeralPromptForTest(
+        pantry: const [],
+        prefs: OnboardingState(),
+      );
+
+      // The assumption rule sits in the RULES block and mentions all
+      // three so they're treated consistently.
+      final rulesIndex = prompt.indexOf('## RULES:');
+      expect(rulesIndex, greaterThan(-1));
+      final rules = prompt.substring(rulesIndex);
+      expect(rules.toLowerCase(), contains('water'));
+      expect(rules.toLowerCase(), contains('salt'));
+      expect(rules.toLowerCase(), contains('oil'));
+      // And tells Gemini NOT to list them as ingredients.
+      expect(rules.toLowerCase(), contains('do not list'));
+    });
   });
 }

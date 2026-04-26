@@ -77,9 +77,9 @@ class _DefaultRule {
 /// Pre-selected defaults per docs/onboarding/11-pantry-staples.md §Pre-selected
 /// defaults table — ~16 items, all entering in the "usually" tier.
 const Map<String, _DefaultRule> _kDefaultStaples = {
-  // Oils & Vinegars
-  'Olive oil': _DefaultRule(category: 'Oils & Vinegars'),
-  'Vegetable oil': _DefaultRule(category: 'Oils & Vinegars'),
+  // Cooking oils (Olive, Vegetable) intentionally excluded — Sprint 16.3
+  // Bug 10: everyone has a basic cooking oil, so the Gemini prompt now
+  // assumes water/salt/oil. Vinegars stay (specialty, not assumed).
   // Spices & Seasonings
   'Salt': _DefaultRule(category: 'Spices & Seasonings'),
   'Black pepper': _DefaultRule(category: 'Spices & Seasonings'),
