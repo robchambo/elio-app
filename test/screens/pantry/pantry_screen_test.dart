@@ -38,7 +38,12 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('Tapping an alwaysHave staple chip cycles to almostAlwaysHave',
+  // Sprint 16.4 (Bug 4): tapping a chip is now a no-op. Long-press is
+  // the only mutation entry point — chips were vanishing on a stray tap
+  // because the cycle ended in delete. Remove now lives only inside the
+  // long-press SimpleDialog (covered by the two long-press tests below).
+
+  testWidgets('Tapping a staple chip does NOT mutate the item',
       (tester) async {
     debugPantryInitialItems = [
       {
@@ -54,50 +59,19 @@ void main() {
     };
 
     await pumpPantry(tester);
-
-    // Expand "Always Have" tier so the chip is visible.
     await tester.tap(find.text('Always Have (1)'));
     await tester.pumpAndSettle();
-
     expect(find.text('Salt'), findsOneWidget);
+
     await tester.tap(find.text('Salt'));
     await tester.pumpAndSettle();
 
-    expect(calls, hasLength(1));
-    expect(calls.first['id'], 'salt-1');
-    expect(calls.first['type'], 'updateTier');
-    expect(calls.first['tier'], 'almostAlwaysHave');
+    expect(calls, isEmpty,
+        reason: 'Single tap should be a no-op — only long-press mutates.');
+    expect(find.text('Salt'), findsOneWidget);
   });
 
-  testWidgets(
-      'Tapping an almostAlwaysHave chip cycles to removed (delete)',
-      (tester) async {
-    debugPantryInitialItems = [
-      {
-        'id': 'mustard-1',
-        'name': 'Mustard',
-        'tier': 'almostAlwaysHave',
-        'runningLow': false,
-      },
-    ];
-    final calls = <Map<String, dynamic>>[];
-    debugPantryMutationOverride = (id, action) {
-      calls.add({'id': id, ...action});
-    };
-
-    await pumpPantry(tester);
-
-    await tester.tap(find.text('Almost Always Have (1)'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Mustard'));
-    await tester.pumpAndSettle();
-
-    expect(calls, hasLength(1));
-    expect(calls.first['type'], 'delete');
-    expect(calls.first['id'], 'mustard-1');
-  });
-
-  testWidgets('Tapping a fresh perishable cycles to thisWeek expiry',
+  testWidgets('Tapping a perishable chip does NOT mutate the item',
       (tester) async {
     final freshExpiry =
         DateTime.now().add(const Duration(days: 7)).toIso8601String();
@@ -121,12 +95,9 @@ void main() {
     await tester.tap(find.textContaining('Tomato'));
     await tester.pumpAndSettle();
 
-    expect(calls, hasLength(1));
-    expect(calls.first['type'], 'updateExpiry');
-    final newExpiry = calls.first['expiryDate'] as DateTime;
-    final daysAhead = newExpiry.difference(DateTime.now()).inDays;
-    // thisWeek = now + 3 days
-    expect(daysAhead, inInclusiveRange(2, 3));
+    expect(calls, isEmpty,
+        reason: 'Single tap should be a no-op — only long-press mutates.');
+    expect(find.textContaining('Tomato'), findsOneWidget);
   });
 
   testWidgets('Long-pressing a staple chip opens tier picker dialog',

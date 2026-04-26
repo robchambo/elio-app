@@ -162,24 +162,7 @@ class _PantryScreenState extends State<PantryScreen> {
     });
   }
 
-  // ─── Tier mutation (tap-cycle + long-press picker) ─────────────────
-
-  /// Bucket a perishable item by days-from-today on its expiryDate.
-  /// Mirrors the suffix logic in [_TierItemChip] and the inverse of
-  /// `screen12_pantry_perishables._onContinue`.
-  String _perishableBucket(Map<String, dynamic> item) {
-    final expiryStr = item['expiryDate'] as String?;
-    if (expiryStr == null) return 'fresh';
-    final expiry = DateTime.tryParse(expiryStr);
-    if (expiry == null) return 'fresh';
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final exp = DateTime(expiry.year, expiry.month, expiry.day);
-    final days = exp.difference(today).inDays;
-    if (days <= 0) return 'today';
-    if (days <= 6) return 'thisWeek';
-    return 'fresh';
-  }
+  // ─── Tier mutation (long-press picker only) ────────────────────────
 
   Future<void> _applyMutation(
       String itemId, Map<String, dynamic> action) async {
@@ -244,38 +227,10 @@ class _PantryScreenState extends State<PantryScreen> {
     }
   }
 
-  Future<void> _onItemTap(Map<String, dynamic> item) async {
-    final id = item['id'] as String?;
-    if (id == null) return;
-    final tier = item['tier'] as String?;
-    if (tier == _tierAlwaysHave) {
-      await _applyMutation(
-          id, {'type': 'updateTier', 'tier': _tierAlmostAlwaysHave});
-    } else if (tier == _tierAlmostAlwaysHave) {
-      await _applyMutation(id, const {'type': 'delete'});
-    } else if (tier == _tierPerishable) {
-      // fresh → thisWeek → today → removed
-      final bucket = _perishableBucket(item);
-      switch (bucket) {
-        case 'fresh':
-          await _applyMutation(id, {
-            'type': 'updateExpiry',
-            'expiryDate': _expiryForBucket('thisWeek'),
-          });
-          break;
-        case 'thisWeek':
-          await _applyMutation(id, {
-            'type': 'updateExpiry',
-            'expiryDate': _expiryForBucket('today'),
-          });
-          break;
-        case 'today':
-        default:
-          await _applyMutation(id, const {'type': 'delete'});
-          break;
-      }
-    }
-  }
+  // Sprint 16.4 (Bug 4): single-tap on a chip used to cycle the tier and
+  // ultimately delete the item. Too easy to lose items by mistake. The
+  // long-press picker (below) already exposes Remove, so tap is now a
+  // no-op — long-press is the only mutation path.
 
   Future<void> _onItemLongPress(Map<String, dynamic> item) async {
     final id = item['id'] as String?;
@@ -468,7 +423,6 @@ class _PantryScreenState extends State<PantryScreen> {
             expandedBody: _expandedTier == _tierPerishable
                 ? _TierItemsList(
                     items: perishables,
-                    onItemTap: _onItemTap,
                     onItemLongPress: _onItemLongPress,
                   )
                 : null,
@@ -481,7 +435,6 @@ class _PantryScreenState extends State<PantryScreen> {
             expandedBody: _expandedTier == _tierAlwaysHave
                 ? _TierItemsList(
                     items: alwaysHave,
-                    onItemTap: _onItemTap,
                     onItemLongPress: _onItemLongPress,
                   )
                 : null,
@@ -494,7 +447,6 @@ class _PantryScreenState extends State<PantryScreen> {
             expandedBody: _expandedTier == _tierAlmostAlwaysHave
                 ? _TierItemsList(
                     items: almostAlways,
-                    onItemTap: _onItemTap,
                     onItemLongPress: _onItemLongPress,
                   )
                 : null,
@@ -539,11 +491,9 @@ class _PantryBuilderRow extends StatelessWidget {
 // ─── Inline tier items list (expanded body) ───────────────────────────
 class _TierItemsList extends StatelessWidget {
   final List<Map<String, dynamic>> items;
-  final ValueChanged<Map<String, dynamic>> onItemTap;
   final ValueChanged<Map<String, dynamic>> onItemLongPress;
   const _TierItemsList({
     required this.items,
-    required this.onItemTap,
     required this.onItemLongPress,
   });
 
@@ -562,7 +512,6 @@ class _TierItemsList extends StatelessWidget {
         for (final item in items)
           _TierItemChip(
             item: item,
-            onTap: () => onItemTap(item),
             onLongPress: () => onItemLongPress(item),
           ),
       ],
@@ -572,11 +521,9 @@ class _TierItemsList extends StatelessWidget {
 
 class _TierItemChip extends StatelessWidget {
   final Map<String, dynamic> item;
-  final VoidCallback onTap;
   final VoidCallback onLongPress;
   const _TierItemChip({
     required this.item,
-    required this.onTap,
     required this.onLongPress,
   });
 
@@ -605,8 +552,17 @@ class _TierItemChip extends StatelessWidget {
         }
       }
     }
-    // RawGestureDetector with explicit recognizers — bare GestureDetector
-    // long-press loses to Wrap/scrollable scroll arbitration. See CLAUDE.md.
+    // RawGestureDetector with long-press + a no-op tap recogniser.
+    // Sprint 16.4 (Bug 4): tap removed because the cycle ended in delete
+    // and chips were vanishing on a stray tap. Long-press → SimpleDialog
+    // is the only mutation entry point now (Remove lives in the dialog).
+    //
+    // The no-op TapGestureRecognizer is required to ABSORB the tap so it
+    // doesn't bubble up to the parent ElioTierRow's InkWell — without it,
+    // tapping a chip would collapse the whole tier.
+    //
+    // CLAUDE.md gotcha: bare GestureDetector long-press loses to
+    // Wrap/scrollable scroll arbitration — RawGestureDetector required.
     return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
       gestures: <Type, GestureRecognizerFactory>{
@@ -614,7 +570,7 @@ class _TierItemChip extends StatelessWidget {
             GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
           () => TapGestureRecognizer(),
           (TapGestureRecognizer r) {
-            r.onTap = onTap;
+            r.onTap = () {}; // no-op — absorb tap, prevent parent toggle
           },
         ),
         LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<
