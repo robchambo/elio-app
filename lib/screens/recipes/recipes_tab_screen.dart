@@ -24,17 +24,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/recipe_models.dart';
-import '../../services/firestore_service.dart';
 import '../../services/history_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_bento_card.dart';
-import '../../widgets/elio/elio_custom_field.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
-import '../../widgets/recipe_category_chip_row.dart';
 import '../profile/recipe_import_screen.dart';
 import '../recipe/recipe_screen.dart';
 
@@ -48,99 +45,22 @@ class RecipesTabScreen extends StatefulWidget {
 }
 
 class _RecipesTabScreenState extends State<RecipesTabScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  String _query = '';
-  bool _makeableOnly = false;
-  String? _categoryFilter;
-
   List<SavedRecipe> _all = const [];
-  Set<String> _pantryLower = const {};
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() => _query = _searchController.text.trim());
-    });
     _load();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
     final all = await HistoryService.getHistory();
-    final pantry = await _loadPantryNames();
     if (!mounted) return;
     setState(() {
       _all = all;
-      _pantryLower = pantry;
       _loading = false;
     });
-  }
-
-  Future<Set<String>> _loadPantryNames() async {
-    try {
-      final userData = await FirestoreService().getUserData();
-      final alwaysHave = List<String>.from(userData['alwaysHave'] ?? []);
-      final almostAlwaysHave =
-          List<String>.from(userData['almostAlwaysHave'] ?? []);
-      final inventoryWithIds = List<Map<String, dynamic>>.from(
-        (userData['inventoryWithIds'] as List<dynamic>? ?? [])
-            .map((e) => e as Map<String, dynamic>),
-      );
-      final inventoryNames = inventoryWithIds
-          .map((i) => i['name'] as String? ?? '')
-          .where((n) => n.isNotEmpty);
-      return {
-        ...alwaysHave.map((s) => s.toLowerCase().trim()),
-        ...almostAlwaysHave.map((s) => s.toLowerCase().trim()),
-        ...inventoryNames.map((s) => s.toLowerCase().trim()),
-      }..removeWhere((s) => s.isEmpty);
-    } catch (_) {
-      return const {};
-    }
-  }
-
-  // ── Filtering ──────────────────────────────────────────────────────
-  bool _matchesQuery(SavedRecipe saved) {
-    if (_query.isEmpty) return true;
-    final q = _query.toLowerCase();
-    final r = saved.recipe;
-    if (r.title.toLowerCase().contains(q)) return true;
-    if (r.description.toLowerCase().contains(q)) return true;
-    if (r.dietaryTags.any((t) => t.toLowerCase().contains(q))) return true;
-    if (r.ingredients.any((i) => i.name.toLowerCase().contains(q))) return true;
-    return false;
-  }
-
-  /// Exact match: every ingredient's lowercased name must exist in the
-  /// pantry set. Per CLAUDE.md, fuzzy matching is reserved for add-item
-  /// dedup only, not for toggle filters.
-  bool _isMakeableNow(SavedRecipe saved) {
-    final ingredients = saved.recipe.ingredients;
-    if (ingredients.isEmpty) return true;
-    if (_pantryLower.isEmpty) return false;
-    return ingredients.every((ing) {
-      final name = ing.name.toLowerCase().trim();
-      return _pantryLower.contains(name);
-    });
-  }
-
-  bool _matchesCategory(SavedRecipe saved) {
-    if (_categoryFilter == null) return true;
-    return saved.recipe.category == _categoryFilter;
-  }
-
-  bool _passesFilters(SavedRecipe saved) {
-    if (!_matchesQuery(saved)) return false;
-    if (!_matchesCategory(saved)) return false;
-    if (_makeableOnly && !_isMakeableNow(saved)) return false;
-    return true;
   }
 
   // ── Actions ────────────────────────────────────────────────────────
@@ -175,13 +95,15 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    // TODO(Bug 6 / Sprint 16.4): Filters removed (search field, makeable-now
+    // pantry switch, category chips). Revisit after launch — likely re-add as
+    // a single unified search + saved/history split, but only once we know
+    // what users actually need from this surface.
     final saved = _all
         .where((r) => r.isBookmarked)
-        .where(_passesFilters)
         .take(_kMaxPerSection)
         .toList();
-    final history =
-        _all.where(_passesFilters).take(_kMaxPerSection).toList();
+    final history = _all.take(_kMaxPerSection).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -226,33 +148,11 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
           ),
           const SizedBox(height: ElioSpacing.xl),
 
-          ElioCustomField(
-            placeholder: 'Search everything',
-            controller: _searchController,
-          ),
-          const SizedBox(height: ElioSpacing.md),
-          _PantrySwitch(
-            value: _makeableOnly,
-            onChanged: (v) => setState(() => _makeableOnly = v),
-          ),
-          const SizedBox(height: ElioSpacing.md),
-
-          // ── Category filter chips ──────────────────────────────────
-          RecipeCategoryChipRow(
-            selected: _categoryFilter,
-            onSelected: (v) => setState(() => _categoryFilter = v),
-          ),
-          const SizedBox(height: ElioSpacing.lg),
-
           // ── Saved ──────────────────────────────────────────────────
           const ElioEyebrow('saved'),
           const SizedBox(height: ElioSpacing.sm),
           if (saved.isEmpty)
-            _emptyText(
-              _makeableOnly || _query.isNotEmpty
-                  ? 'No saved recipes match.'
-                  : 'You haven\'t bookmarked any recipes yet.',
-            )
+            _emptyText("You haven't bookmarked any recipes yet.")
           else
             ...saved.map(_buildRecipeCard),
 
@@ -262,11 +162,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
           const ElioEyebrow('history'),
           const SizedBox(height: ElioSpacing.sm),
           if (history.isEmpty)
-            _emptyText(
-              _makeableOnly || _query.isNotEmpty
-                  ? 'No history recipes match.'
-                  : 'Recipes you generate will appear here.',
-            )
+            _emptyText('Recipes you generate will appear here.')
           else
             ...history.map(_buildRecipeCard),
         ],
@@ -351,36 +247,3 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
       );
 }
 
-class _PantrySwitch extends StatelessWidget {
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _PantrySwitch({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: ElioColors.offWhite,
-        borderRadius: ElioRadii.card,
-        border: Border.all(color: ElioColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              'Show only recipes I can cook now',
-              style: ElioTextStyles.body,
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeTrackColor: ElioColors.amber,
-          ),
-        ],
-      ),
-    );
-  }
-}
