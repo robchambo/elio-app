@@ -39,7 +39,7 @@ class BulkPrepResultsScreen extends StatelessWidget {
                   color: ElioColors.amber,
                 ),
                 const SizedBox(width: 6),
-                Text('Bulk Prep', style: ElioText.headingMedium),
+                Text('Bulk cook', style: ElioText.headingMedium),
               ],
             ),
             Text(
