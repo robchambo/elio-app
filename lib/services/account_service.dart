@@ -90,14 +90,15 @@ class AccountService {
   AccountService._();
   static final AccountService instance = AccountService._();
 
-  /// Subcollections under `users/{uid}` that must be wiped.
+  /// Subcollections under `users/{uid}` that must be wiped — also
+  /// the canonical "what is the user's data?" list that
+  /// [DataExportService] iterates for GDPR access requests.
   ///
   /// Sourced from CLAUDE.md's Firestore Schema and verified by code
   /// search (Sprint 17 GDPR survey). If a new subcollection is added
   /// to the user doc, append its name here AND update CLAUDE.md.
   /// `account_service_test.dart` asserts this list matches the schema
   /// doc so the failure mode is a red test, not a quiet data leak.
-  @visibleForTesting
   static const List<String> userSubcollections = <String>[
     'profiles',
     'inventory',
