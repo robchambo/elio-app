@@ -179,7 +179,7 @@ Source files: download from Google Fonts (`fonts.google.com/specimen/Bricolage+G
 
 `ElioBackdropIllustration()` widget — **no variant API** (YAGNI; add when a second illustration ships):
 - Returns a `Positioned` `SvgPicture.asset('assets/illustrations/backdrop_kale.svg')` aligned to the right edge of the parent stack, overflowing the right ~30%.
-- Applies a `ColorFilter` with mocha @ ~12% opacity.
+- 5% opacity, no `ColorFilter` (SVG has multi-colour painted detail Kate intends to read as a soft tonal shape at that opacity).
 - Inserted by `ElioAppScaffold` into a `Stack` between scaffold background and body.
 - When Kate ships a second illustration, refactor to `ElioBackdropIllustration({Variant variant = .kale})` — 5-minute change.
 

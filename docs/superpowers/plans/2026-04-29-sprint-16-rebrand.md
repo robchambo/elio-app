@@ -1187,13 +1187,12 @@ class ElioBackdropIllustration extends StatelessWidget {
       right: -120, // bleeds off the right edge by ~30%
       child: IgnorePointer(
         child: Opacity(
-          opacity: 0.12,
+          opacity: 0.05, // matches Kate's Figma comp
           child: SvgPicture.asset(
             'assets/illustrations/backdrop_kale.svg',
-            colorFilter: const ColorFilter.mode(
-              ElioColors.mocha,
-              BlendMode.srcIn,
-            ),
+            // No colorFilter — the SVG has multi-colour painted detail
+            // (dark green outline, cream highlights). At 5% opacity the
+            // natural colours read as a soft tonal shape.
             fit: BoxFit.fitHeight,
           ),
         ),
