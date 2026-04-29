@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../services/entitlement_service.dart';
 
@@ -431,7 +431,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     children: [
                       Expanded(
                         child: Text(member['name'] as String? ?? 'Member',
-                            style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                            style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.navy)),
                       ),
                       Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted.withValues(alpha: 0.5)),
                     ],

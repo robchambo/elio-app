@@ -4,10 +4,10 @@
 // ProfileScreen as the destination of the top-bar person-icon tap. It is a
 // simple list of tiles, one per sub-screen, matching the V1 user flow.
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/auth_service.dart';
 import '../../theme/elio_spacing.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_secondary_card.dart';
@@ -142,9 +142,7 @@ class AccountScreen extends StatelessWidget {
               onPressed: () => _signOut(context),
               child: Text(
                 'Sign out',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                style: ElioTextStyles.uiLabelStyle.copyWith(
                   color: ElioColors.navy.withValues(alpha: 0.7),
                 ),
               ),
