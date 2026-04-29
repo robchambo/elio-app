@@ -27,7 +27,8 @@ class ElioColors {
   static const Color white = Color(0xFFFFFFFF);
   static const Color offWhite = Color(0xFFF7F5F2);
   // Warmer cream used on cards that sit on offWhite backgrounds (Sprint 16).
-  static const Color cream = Color(0xFFFBF3E7);
+  // Hex updated to #F4ECE0 by Sprint 16 rebrand (Task 5); was #FBF3E7.
+  static const Color cream = Color(0xFFF4ECE0);
   static const Color border = Color(0xFFE8E4DF);
   static const Color textPrimary = Color(0xFF1A2744);
   static const Color textSecondary = Color(0xFF6B6B6B);
@@ -41,6 +42,16 @@ class ElioColors {
   static const Color freshGreen = Color(0xFF3D9970);
   static const Color perishThisWeek = amber;
   static const Color perishToday = Color(0xFFE06C5E);
+
+  // ─── Sprint 16 rebrand: new palette tokens ──────────────────────────
+  // These supersede navy/amber/sky/offWhite/border. Old tokens stay
+  // until every caller migrates (Task 36), then they are removed.
+  static const Color creamDeep = Color(0xFFEFE3D2);
+  static const Color terracotta = Color(0xFFE37B53);
+  static const Color peach = Color(0xFFF2C9A8);
+  static const Color espresso = Color(0xFF2A1F1A);
+  static const Color mocha = Color(0xFF6B5A4F);
+  static const Color rule = Color(0xFFD7C5B0);
 }
 
 // ─── Text styles using GoogleFonts.outfit() ──────────────────────────────────
