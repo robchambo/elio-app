@@ -1,6 +1,7 @@
 // lib/widgets/elio/elio_app_scaffold.dart
 import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
+import 'elio_backdrop_illustration.dart';
 import 'elio_bottom_nav.dart';
 import 'elio_top_app_bar.dart';
 
@@ -35,7 +36,13 @@ class ElioAppScaffold extends StatelessWidget {
       body: SafeArea(
         top: false,
         bottom: !hasNav,
-        child: body,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const ElioBackdropIllustration(),
+            body,
+          ],
+        ),
       ),
       bottomNavigationBar: hasNav
           ? ElioBottomNav(active: activeTab!, onTap: onTabChanged!)
