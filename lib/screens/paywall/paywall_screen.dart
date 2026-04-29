@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
@@ -454,9 +453,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 trial
                     ? '7 days free, then $_selectedPriceString/$_selectedPeriodString. Cancel anytime in Google Play.'
                     : '$_selectedPriceString billed every $_selectedPeriodString. Cancel anytime in Google Play.',
-                style: GoogleFonts.quicksand(
+                style: ElioTextStyles.bodySmallStyle.copyWith(
                   fontSize: 11,
-                  height: 1.4,
                   color: ElioColors.textMuted,
                 ),
                 textAlign: TextAlign.center,
@@ -730,7 +728,7 @@ class _PricingPill extends StatelessWidget {
                 child: Text(
                   badge!,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.eyebrowStyle.copyWith(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,

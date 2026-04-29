@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../services/analytics_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../shell/app_shell.dart';
 import 'email_register_screen.dart';
@@ -95,7 +95,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
           SnackBar(
             content: Text(
               'Password reset email sent to $email',
-              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+              style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.white, fontSize: 14),
             ),
             backgroundColor: ElioColors.success,
           ),
@@ -113,7 +113,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
       SnackBar(
         content: Text(
           message,
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+          style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.white, fontSize: 14),
         ),
         backgroundColor: ElioColors.error,
       ),
@@ -257,9 +257,8 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     ),
                     child: Text(
                       'Forgot password?',
-                      style: GoogleFonts.outfit(
+                      style: ElioTextStyles.uiLabelStyle.copyWith(
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
                         color: ElioColors.amber,
                       ),
                     ),
@@ -294,9 +293,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                           )
                         : Text(
                             'Sign in',
-                            style: GoogleFonts.outfit(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                            style: ElioTextStyles.uiLabelStyle.copyWith(
                               color: ElioColors.white,
                             ),
                           ),
@@ -330,9 +327,8 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                           padding: const EdgeInsets.all(8),
                           child: Text(
                             'Register',
-                            style: GoogleFonts.outfit(
+                            style: ElioTextStyles.uiLabelStyle.copyWith(
                               fontSize: 14,
-                              fontWeight: FontWeight.w700,
                               color: ElioColors.amber,
                             ),
                           ),

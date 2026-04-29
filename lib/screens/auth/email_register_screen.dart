@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../services/analytics_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../shell/app_shell.dart';
 import 'email_login_screen.dart';
@@ -92,7 +92,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
       SnackBar(
         content: Text(
           message,
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+          style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.white, fontSize: 14),
         ),
         backgroundColor: ElioColors.error,
       ),
@@ -324,9 +324,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                           )
                         : Text(
                             'Create account',
-                            style: GoogleFonts.outfit(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                            style: ElioTextStyles.uiLabelStyle.copyWith(
                               color: ElioColors.white,
                             ),
                           ),
@@ -360,9 +358,8 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                           padding: const EdgeInsets.all(8),
                           child: Text(
                             'Sign in',
-                            style: GoogleFonts.outfit(
+                            style: ElioTextStyles.uiLabelStyle.copyWith(
                               fontSize: 14,
-                              fontWeight: FontWeight.w700,
                               color: ElioColors.amber,
                             ),
                           ),

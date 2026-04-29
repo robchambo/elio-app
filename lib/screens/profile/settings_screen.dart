@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/region_utils.dart';
@@ -121,10 +121,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Manage household members',
-                                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                                        style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.navy)),
                                     const SizedBox(height: 2),
                                     Text('Add or remove people and their dietary needs',
-                                        style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),
+                                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textSecondary)),
                                   ],
                                 ),
                               ),
@@ -156,10 +156,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Dietary & Allergens',
-                                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                                        style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.navy)),
                                     const SizedBox(height: 2),
                                     Text('Adjust your dietary requirements',
-                                        style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),
+                                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textSecondary)),
                                   ],
                                 ),
                               ),
@@ -190,10 +190,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Kitchen Appliances',
-                                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                                        style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.navy)),
                                     const SizedBox(height: 2),
                                     Text('Select the appliances you own',
-                                        style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),
+                                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textSecondary)),
                                   ],
                                 ),
                               ),
@@ -228,10 +228,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text('About',
-                                          style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w600, color: ElioColors.navy)),
+                                          style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.navy)),
                                       const SizedBox(height: 2),
                                       Text(versionLabel,
-                                          style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textSecondary)),
+                                          style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textSecondary)),
                                     ],
                                   ),
                                 ),
