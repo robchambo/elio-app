@@ -25,12 +25,12 @@ class ElioChip extends StatelessWidget {
     final borderColor = selected ? ElioColors.amber : ElioColors.border;
     return InkWell(
       onTap: onTap,
-      borderRadius: ElioRadii.chip,
+      borderRadius: BorderRadius.circular(ElioRadii.chip),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: ElioRadii.chip,
+          borderRadius: BorderRadius.circular(ElioRadii.chip),
           border: Border.all(color: borderColor, width: 1.5),
         ),
         child: Row(

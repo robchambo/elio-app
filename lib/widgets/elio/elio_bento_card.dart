@@ -23,13 +23,13 @@ class ElioBentoCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: ElioRadii.card,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
       child: Container(
         // Width is determined by parent (commonly Expanded inside a Row).
         // Fixed height keeps both tiles in a pair visually aligned.
         height: 150,
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(color: backgroundColor, borderRadius: ElioRadii.card),
+        decoration: BoxDecoration(color: backgroundColor, borderRadius: BorderRadius.circular(ElioRadii.card)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

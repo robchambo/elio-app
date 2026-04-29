@@ -320,7 +320,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   widget.recipeThumbnailUrl!.isNotEmpty) ...[
                 Center(
                   child: ClipRRect(
-                    borderRadius: ElioRadii.card,
+                    borderRadius: BorderRadius.circular(ElioRadii.card),
                     child: Image.network(
                       widget.recipeThumbnailUrl!,
                       key: const Key('paywallRecipeThumbnail'),
@@ -651,7 +651,7 @@ class _FeatureInfoCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: ElioColors.cream,
-        borderRadius: ElioRadii.card,
+        borderRadius: BorderRadius.circular(ElioRadii.card),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -706,13 +706,13 @@ class _PricingPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: ElioRadii.card,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
         decoration: BoxDecoration(
           color: isSelected ? ElioColors.amber.withValues(alpha: 0.12) : Colors.white,
-          borderRadius: ElioRadii.card,
+          borderRadius: BorderRadius.circular(ElioRadii.card),
           border: Border.all(
             color: isSelected ? ElioColors.amber : ElioColors.border,
             width: isSelected ? 2 : 1,
@@ -725,7 +725,7 @@ class _PricingPill extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
                   color: ElioColors.amber,
-                  borderRadius: ElioRadii.chip,
+                  borderRadius: BorderRadius.circular(ElioRadii.chip),
                 ),
                 child: Text(
                   badge!,

@@ -34,13 +34,13 @@ class ElioBigButton extends StatelessWidget {
           };
     return InkWell(
       onTap: handler,
-      borderRadius: ElioRadii.button,
+      borderRadius: BorderRadius.circular(ElioRadii.button),
       child: Container(
         height: 100,
         padding: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
           color: onTap == null ? ElioColors.amber.withValues(alpha: 0.5) : ElioColors.amber,
-          borderRadius: ElioRadii.button,
+          borderRadius: BorderRadius.circular(ElioRadii.button),
         ),
         alignment: Alignment.centerLeft,
         child: Row(

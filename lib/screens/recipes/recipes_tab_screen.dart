@@ -175,12 +175,12 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
       padding: const EdgeInsets.only(bottom: ElioSpacing.sm),
       child: InkWell(
         onTap: () => _openRecipe(saved),
-        borderRadius: ElioRadii.card,
+        borderRadius: BorderRadius.circular(ElioRadii.card),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: ElioColors.cream,
-            borderRadius: ElioRadii.card,
+            borderRadius: BorderRadius.circular(ElioRadii.card),
           ),
           child: Row(
             children: [

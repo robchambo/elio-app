@@ -546,7 +546,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       padding: const EdgeInsets.all(ElioSpacing.md),
       decoration: BoxDecoration(
         color: ElioColors.cream,
-        borderRadius: ElioRadii.card,
+        borderRadius: BorderRadius.circular(ElioRadii.card),
         border: Border.all(
           color: value
               ? ElioColors.amber
@@ -594,7 +594,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     if (trailingTap == null) return card;
     return InkWell(
       onTap: trailingTap,
-      borderRadius: ElioRadii.card,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
       child: card,
     );
   }
@@ -698,7 +698,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       padding: const EdgeInsets.fromLTRB(20, 4, 4, 4),
       decoration: BoxDecoration(
         color: ElioColors.cream,
-        borderRadius: ElioRadii.card,
+        borderRadius: BorderRadius.circular(ElioRadii.card),
       ),
       child: Row(
         children: [
@@ -742,12 +742,12 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
         const SizedBox(height: ElioSpacing.sm),
         InkWell(
           onTap: _openPerishablesPicker,
-          borderRadius: ElioRadii.card,
+          borderRadius: BorderRadius.circular(ElioRadii.card),
           child: Container(
             padding: const EdgeInsets.all(ElioSpacing.md),
             decoration: BoxDecoration(
               color: ElioColors.cream,
-              borderRadius: ElioRadii.card,
+              borderRadius: BorderRadius.circular(ElioRadii.card),
               border: Border.all(
                 color: hasSelection
                     ? ElioColors.amber

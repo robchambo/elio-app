@@ -22,12 +22,12 @@ class ElioTierRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: ElioRadii.card,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         decoration: BoxDecoration(
           color: ElioColors.cream,
-          borderRadius: ElioRadii.card,
+          borderRadius: BorderRadius.circular(ElioRadii.card),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

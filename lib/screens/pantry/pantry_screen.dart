@@ -446,7 +446,7 @@ class _PantryScreenState extends State<PantryScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         child: ClipRRect(
-          borderRadius: ElioRadii.card,
+          borderRadius: BorderRadius.circular(ElioRadii.card),
           child: Material(
             color: ElioColors.white,
             child: PantryBuilderSheet(
@@ -581,13 +581,13 @@ class _PantryBuilderRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: ElioRadii.card,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         decoration: BoxDecoration(
           color: ElioColors.cream,
-          borderRadius: ElioRadii.card,
+          borderRadius: BorderRadius.circular(ElioRadii.card),
         ),
         child: Row(
           children: [
@@ -642,12 +642,12 @@ class _AddSomethingChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: ElioRadii.chip,
+      borderRadius: BorderRadius.circular(ElioRadii.chip),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: ElioColors.cream,
-          borderRadius: ElioRadii.chip,
+          borderRadius: BorderRadius.circular(ElioRadii.chip),
           border: Border.all(
             color: ElioColors.amber,
             width: 1.2,
@@ -740,7 +740,7 @@ class _TierItemChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           color: ElioColors.white,
-          borderRadius: ElioRadii.chip,
+          borderRadius: BorderRadius.circular(ElioRadii.chip),
           border: Border.all(color: ElioColors.border),
         ),
         child: Text(

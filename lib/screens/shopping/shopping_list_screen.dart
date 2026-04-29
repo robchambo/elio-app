@@ -283,7 +283,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
           color: ElioColors.error.withValues(alpha: 0.1),
-          borderRadius: ElioRadii.card,
+          borderRadius: BorderRadius.circular(ElioRadii.card),
         ),
         child: const Icon(Icons.delete_outline, color: ElioColors.error),
       ),
@@ -365,7 +365,7 @@ class _ShoppingRow extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: ElioRadii.card,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
       child: Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: ElioSpacing.xs,
@@ -417,7 +417,7 @@ class _AddItemField extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 6, 6, 6),
       decoration: BoxDecoration(
         color: ElioColors.cream,
-        borderRadius: ElioRadii.card,
+        borderRadius: BorderRadius.circular(ElioRadii.card),
       ),
       child: Row(
         children: [

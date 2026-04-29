@@ -22,7 +22,7 @@ class ElioCustomField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
         color: ElioColors.cream,
-        borderRadius: ElioRadii.card,
+        borderRadius: BorderRadius.circular(ElioRadii.card),
       ),
       child: TextField(
         controller: controller,

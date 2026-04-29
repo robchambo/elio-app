@@ -199,7 +199,7 @@ class _PerishablesPickerScreenState extends State<PerishablesPickerScreen> {
                       padding: const EdgeInsets.all(ElioSpacing.md),
                       decoration: BoxDecoration(
                         color: ElioColors.cream,
-                        borderRadius: ElioRadii.card,
+                        borderRadius: BorderRadius.circular(ElioRadii.card),
                       ),
                       child: Text(
                         'No perishables flagged in your pantry yet — add items '
@@ -292,7 +292,7 @@ class _CustomAddField extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 6, 6, 6),
       decoration: BoxDecoration(
         color: ElioColors.cream,
-        borderRadius: ElioRadii.card,
+        borderRadius: BorderRadius.circular(ElioRadii.card),
       ),
       child: Row(
         children: [

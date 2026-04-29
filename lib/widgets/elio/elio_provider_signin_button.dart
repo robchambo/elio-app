@@ -39,18 +39,18 @@ class ElioProviderSignInButton extends StatelessWidget {
       width: double.infinity,
       child: Material(
         color: style.bg,
-        borderRadius: ElioRadii.button,
+        borderRadius: BorderRadius.circular(ElioRadii.button),
         elevation: 0,
         child: InkWell(
           onTap: onPressed,
-          borderRadius: ElioRadii.button,
+          borderRadius: BorderRadius.circular(ElioRadii.button),
           child: Container(
             padding: const EdgeInsets.symmetric(
               horizontal: ElioSpacing.lg,
               vertical: ElioSpacing.md,
             ),
             decoration: BoxDecoration(
-              borderRadius: ElioRadii.button,
+              borderRadius: BorderRadius.circular(ElioRadii.button),
               border: style.border,
             ),
             child: Row(
