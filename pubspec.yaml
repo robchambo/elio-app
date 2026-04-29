@@ -107,3 +107,19 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  assets:
+    - assets/illustrations/
+
+  fonts:
+    - family: Bricolage Grotesque
+      fonts:
+        - asset: assets/fonts/bricolage_grotesque/BricolageGrotesque-VariableFont.ttf
+    - family: DM Sans
+      fonts:
+        - asset: assets/fonts/dm_sans/DMSans-VariableFont.ttf
+    - family: DM Mono
+      fonts:
+        - asset: assets/fonts/dm_mono/DMMono-Regular.ttf
+        - asset: assets/fonts/dm_mono/DMMono-Medium.ttf
+          weight: 500
