@@ -64,3 +64,18 @@ class ElioPageTitle extends StatelessWidget {
     );
   }
 }
+
+/// Hero display — same rendering as [ElioPageTitle] with a larger default
+/// font size (64). Use on splash / cover screens.
+class ElioHeroDisplay extends StatelessWidget {
+  const ElioHeroDisplay(this.text, {super.key, this.fontSize = 64, this.textAlign});
+
+  final String text;
+  final double fontSize;
+  final TextAlign? textAlign;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElioPageTitle(text, fontSize: fontSize, textAlign: textAlign);
+  }
+}
