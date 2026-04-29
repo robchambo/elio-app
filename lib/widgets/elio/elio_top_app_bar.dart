@@ -1,7 +1,7 @@
 // lib/widgets/elio/elio_top_app_bar.dart
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
 
 /// 64px top app bar: elio wordmark left, profile icon right.
 class ElioTopAppBar extends StatelessWidget implements PreferredSizeWidget {
@@ -31,8 +31,7 @@ class ElioTopAppBar extends StatelessWidget implements PreferredSizeWidget {
             children: [
               Text(
                 'elio',
-                style: GoogleFonts.outfit(
-                  fontSize: 24,
+                style: ElioTextStyles.sectionHeadingStyle.copyWith(
                   fontWeight: FontWeight.w800,
                   color: ElioColors.amber,
                 ),

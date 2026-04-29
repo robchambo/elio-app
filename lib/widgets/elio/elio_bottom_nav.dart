@@ -1,8 +1,8 @@
 // lib/widgets/elio/elio_bottom_nav.dart
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_radii.dart';
+import '../../theme/elio_text_styles.dart';
 
 enum ElioNavTab { home, pantry, recipes, shoppingList }
 
@@ -72,7 +72,7 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: 4),
             Text(label,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.outfit(
+                style: ElioTextStyles.tabLabelStyle.copyWith(
                   fontSize: 10, fontWeight: FontWeight.w600,
                   letterSpacing: 0.8, color: fg)),
           ],

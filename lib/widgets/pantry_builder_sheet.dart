@@ -1,9 +1,9 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../data/pantry_categories.dart';
 import '../theme/elio_theme.dart';
+import '../theme/elio_text_styles.dart';
 /// Bottom sheet for browsing and adding pantry items by category.
 /// Tap to add (defaults to Always Have), long-press to choose tier.
 class PantryBuilderSheet extends StatefulWidget {
@@ -308,7 +308,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                   filled: true,
                   fillColor: ElioColors.offWhite,
                 ),
-                style: GoogleFonts.outfit(fontSize: 14),
+                style: ElioTextStyles.bodySmallStyle,
                 onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
               ),
             ),
@@ -339,7 +339,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                         filled: true,
                         fillColor: ElioColors.offWhite,
                       ),
-                      style: GoogleFonts.outfit(fontSize: 14),
+                      style: ElioTextStyles.bodySmallStyle,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _addCustomItem(),
                     ),
@@ -365,8 +365,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                 child: Text(
                   _customItemError!,
-                  style: GoogleFonts.quicksand(
-                    fontSize: 12,
+                  style: ElioTextStyles.eyebrowStyle.copyWith(
                     fontWeight: FontWeight.w600,
                     color: ElioColors.amber,
                   ),

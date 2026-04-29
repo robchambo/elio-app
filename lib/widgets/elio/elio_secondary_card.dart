@@ -1,6 +1,5 @@
 // lib/widgets/elio/elio_secondary_card.dart
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_text_styles.dart';
@@ -50,9 +49,7 @@ class ElioSecondaryCard extends StatelessWidget {
                 borderRadius: ElioRadii.all(24),
               ),
               child: Text(actionLabel,
-                  style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                  style: ElioTextStyles.uiLabelStyle.copyWith(
                       color: Colors.white)),
             ),
           ),
