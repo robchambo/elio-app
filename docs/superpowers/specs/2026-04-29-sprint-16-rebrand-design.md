@@ -17,7 +17,7 @@ Rebrand Elio's UI to Kate's 2026 design language in a single hard-rename migrati
 
 ### In scope
 
-- **Hard token rename** (no V1/V2 coexistence): `navy → espresso`, `amber → terracotta`, `offWhite → cream`, `sky → terracotta` (31 callers across 7 files; sky was secondary accent for info states, terracotta absorbs that role per Kate's frames), plus new tokens (`creamDeep`, `peach`, `mocha`, `rule`).
+- **Hard token rename** (no V1/V2 coexistence): `navy → espresso`, `amber → terracotta`, `offWhite → cream`, `sky → peach` for fill backgrounds, `sky → mocha` for icons/text (31 callers across 7 files; sky was secondary accent for info states; per-call decision based on whether the colour was a background or a foreground), plus new tokens (`creamDeep`, `peach`, `mocha`, `rule`).
 - **Font swap, bundled as assets**: Outfit → Bricolage Grotesque (display), Quicksand → DM Sans (body), introduce DM Mono (technical eyebrows/labels). Remove `google_fonts` package dependency.
 - **New heading widgets**: `ElioPageTitle`, `ElioHeroDisplay`, `ElioSectionHeading`. The first two implement the **D-rule** (string-convention period detection — see §5).
 - **Restyle every existing widget** in `lib/widgets/elio/` (~30 widgets) to the new tokens.
@@ -81,9 +81,9 @@ Source of truth: type specimen CSS variables, cross-checked against Kate's frame
 
 | Role | Family | Weight | Size | Tracking | Case | Used on |
 |---|---|---|---|---|---|---|
-| Hero display | Bricolage | 800 | 56–84 | -3.5% | lowercase | Onboarding splash |
-| Page title | Bricolage | 800 | 40–48 | -3% | lowercase | Home, Recipe Detail, in-app screen titles |
-| Section heading | Bricolage | 700 | 22–28 | -2.5% | sentence case | "Ingredients", "Pantry Builder", "Dietary requirements" |
+| Hero display | Bricolage | 800 | 54 | -3.5% | lowercase | Onboarding splash, Home, Recipe Detail, in-app screen titles |
+| Page title | Bricolage | 800 | 54 | -3% | lowercase | Same role as hero display — single size 54 across all hero/page-title moments |
+| Section heading | Bricolage | 700 | 24 | -2.5% | sentence case | "Ingredients", "Pantry Builder", "Dietary requirements" |
 | Lede / tagline | DM Sans | 500 | 17–22 | 0 | natural | Onboarding splash sub-copy |
 | Body | DM Sans | 400 | 16 | 0 | natural | Paragraphs |
 | Body small | DM Sans | 400 | 14 | 0 | natural | Sub-copy under page titles, sub-lines on rows |
@@ -177,11 +177,11 @@ Source files: download from Google Fonts (`fonts.google.com/specimen/Bricolage+G
 
 `assets/illustrations/backdrop_kale.svg` — kale leaf, sketched style, single-colour outline (mocha tint, ~12% opacity overlay).
 
-`ElioBackdropIllustration({Variant variant = .kale})` widget:
-- Returns a `Positioned` `SvgPicture.asset(...)` aligned to the right edge of the parent stack, overflowing the right ~30%.
+`ElioBackdropIllustration()` widget — **no variant API** (YAGNI; add when a second illustration ships):
+- Returns a `Positioned` `SvgPicture.asset('assets/illustrations/backdrop_kale.svg')` aligned to the right edge of the parent stack, overflowing the right ~30%.
 - Applies a `ColorFilter` with mocha @ ~12% opacity.
-- Variant enum (`kale`, future: `tomato`, `herbs`, etc.) selects asset path; default is `kale`.
 - Inserted by `ElioAppScaffold` into a `Stack` between scaffold background and body.
+- When Kate ships a second illustration, refactor to `ElioBackdropIllustration({Variant variant = .kale})` — 5-minute change.
 
 If the SVG can't be exported from Figma in time, ship a 2× PNG fallback at `assets/illustrations/backdrop_kale@2x.png` and load via `Image.asset` with the same opacity treatment. Figma's Dev Mode export should work; if not, Kate to provide.
 
@@ -253,7 +253,7 @@ Migrate in this order (matches Kate-delivery confidence and minimizes blast radi
 8. **Pantry tab** ("what did you pick up?" + Pantry Builder accordion)
 9. **Dietary & Allergens** (in-app settings sub-screen)
 10. **Recipe Detail** ("creamy lemon pasta" + ingredients + method)
-11. **Sweep**: every other screen using restyled widgets (recipes tab, shopping list, account, paywall, etc.). These don't have new Kate designs yet — apply the new tokens/widgets and accept that the look is "tokens-correct but not Kate-blessed." Flag the unblessed screens in the merge PR for Kate to review next.
+11. **No manual sweep of unblessed screens.** The ~16 screens Kate hasn't designed (account, paywall, meal plan, history, scanner result, profile sub-screens, auth, etc.) inherit the new look automatically via the restyled widget primitives — no per-screen tuning in this branch. PR notes list every unblessed screen for Kate review. When Kate ships more designs, a follow-up `sprint/16-rebrand-polish` branch tunes those specific screens.
 12. **Cleanup**: delete `ElioHeroHeading` legacy widget, delete `ElioText` legacy class, drop `google_fonts` from pubspec, run final analyze + test.
 
 ---
