@@ -21,6 +21,8 @@ import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
 import '../../services/shopping_service.dart';
 import '../../utils/quantity_utils.dart';
+import '../../widgets/elio/elio_page_title.dart';
+import '../../widgets/elio/elio_section_heading.dart';
 import '../../widgets/elio/elio_stat_badge.dart';
 import '../../widgets/elio/elio_servings_control.dart';
 import '../../widgets/elio/elio_ingredient_row.dart';
@@ -1566,10 +1568,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
             const SizedBox(height: 8),
             _shimmerBlock(height: 16, width: 220),
           ] else ...[
-            Text(r.title, style: ElioTextStyles.heroDisplayAccent),
+            ElioPageTitle(r.title),
             if (r.description.isNotEmpty) ...[
               const SizedBox(height: ElioSpacing.md),
-              Text(r.description, style: ElioTextStyles.body),
+              Text(r.description, style: ElioTextStyles.ledeStyle),
             ],
           ],
           const SizedBox(height: ElioSpacing.lg),
@@ -1618,7 +1620,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
               const Icon(Icons.people_outline, color: ElioColors.espresso),
               const SizedBox(width: 12),
               Expanded(
-                child: Text('Servings', style: ElioTextStyles.heading5),
+                child: Text('Servings', style: ElioTextStyles.uiLabelStyle),
               ),
               ElioServingsControl(
                 value: _servings,
@@ -1629,7 +1631,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           const SizedBox(height: ElioSpacing.xl),
 
           // ── Ingredients ──────────────────────────────────────────────
-          Text('Ingredients', style: ElioTextStyles.heading2),
+          ElioSectionHeading('Ingredients'),
           const SizedBox(height: ElioSpacing.md),
           for (int i = 0; i < r.ingredients.length; i++)
             _buildIngredientRow(i, r.ingredients[i]),
@@ -1637,7 +1639,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           const SizedBox(height: ElioSpacing.xl),
 
           // ── Method ───────────────────────────────────────────────────
-          Text('Method', style: ElioTextStyles.heading2),
+          ElioSectionHeading('Method'),
           const SizedBox(height: ElioSpacing.md),
           for (int i = 0; i < r.steps.length; i++)
             ElioMethodStep(
