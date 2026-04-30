@@ -8,8 +8,8 @@ import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_chip.dart';
 import '../../widgets/elio/elio_chip_text_input.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
+import '../../widgets/elio/elio_page_title.dart';
 
 // ─────────────────────────────────────────────
 // Screen 05 — Allergies & dislikes
@@ -164,20 +164,15 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const ElioHeroHeading(
-                          lines: ['Anything we', 'should avoid?'],
-                          amberLastLine: true,
-                        ),
+                        const ElioPageTitle('anything we should avoid?'),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
-                          "Allergies first, then anything you'd rather skip.",
-                          style: ElioTextStyles.body.copyWith(
-                            color: ElioColors.mocha,
-                          ),
+                          "allergies first, then anything you'd rather skip.",
+                          style: ElioTextStyles.ledeStyle,
                         ),
                         const SizedBox(height: ElioSpacing.lg),
                         Text('Any allergies?',
-                            style: ElioTextStyles.heading5),
+                            style: ElioTextStyles.uiLabelStyle),
                         const SizedBox(height: ElioSpacing.sm),
                         Wrap(
                           spacing: ElioSpacing.sm,
@@ -209,7 +204,7 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                         const Divider(height: 1, color: ElioColors.rule),
                         const SizedBox(height: ElioSpacing.lg),
                         Text("Anything you'd rather skip?",
-                            style: ElioTextStyles.heading5),
+                            style: ElioTextStyles.uiLabelStyle),
                         const SizedBox(height: ElioSpacing.sm),
                         ElioChipTextInput(
                           values: s.dislikes,
@@ -237,7 +232,6 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                           _logStep();
                           widget.onContinue();
                         },
-                        trailingIcon: Icons.arrow_forward,
                       ),
                       const SizedBox(height: ElioSpacing.sm),
                       Center(
@@ -245,7 +239,7 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                           onPressed: _skip,
                           child: Text(
                             'Nothing to avoid — skip',
-                            style: ElioTextStyles.bodySmall.copyWith(
+                            style: ElioTextStyles.bodySmallStyle.copyWith(
                               color: ElioColors.mocha,
                             ),
                           ),
