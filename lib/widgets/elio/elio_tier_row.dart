@@ -26,7 +26,7 @@ class ElioTierRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         decoration: BoxDecoration(
-          color: ElioColors.cream,
+          color: ElioColors.creamDeep,
           borderRadius: BorderRadius.circular(ElioRadii.card),
         ),
         child: Column(
@@ -35,7 +35,7 @@ class ElioTierRow extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: Text('$label ($count)', style: ElioTextStyles.heading5),
+                  child: Text('$label ($count)', style: ElioTextStyles.sectionHeadingStyle),
                 ),
                 const Icon(Icons.chevron_right,
                     color: ElioColors.espresso, size: 24),

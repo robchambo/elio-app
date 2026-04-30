@@ -126,7 +126,6 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                   icon: Icons.photo_camera_outlined,
                   kicker: 'From a photo',
                   title: 'Take photo',
-                  backgroundColor: const Color(0xFFE87A5C), // salmon, matches Pantry
                   onTap: () => _openImport(initialTab: 0),
                 ),
               ),
@@ -136,7 +135,6 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                   icon: Icons.link_rounded,
                   kicker: 'URL or text',
                   title: 'Manual entry',
-                  backgroundColor: ElioColors.terracotta,
                   onTap: () => _openImport(initialTab: 1),
                 ),
               ),

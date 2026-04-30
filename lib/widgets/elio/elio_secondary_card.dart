@@ -23,7 +23,7 @@ class ElioSecondaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ElioColors.cream,
+        color: ElioColors.creamDeep,
         borderRadius: BorderRadius.circular(ElioRadii.card),
       ),
       child: Row(
@@ -32,9 +32,9 @@ class ElioSecondaryCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: ElioTextStyles.heading3),
+                Text(title, style: ElioTextStyles.sectionHeadingStyle),
                 const SizedBox(height: 4),
-                Text(subtitle, style: ElioTextStyles.bodySmall),
+                Text(subtitle, style: ElioTextStyles.bodySmallStyle),
               ],
             ),
           ),
@@ -45,12 +45,11 @@ class ElioSecondaryCard extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               decoration: BoxDecoration(
-                color: ElioColors.terracotta,
+                color: ElioColors.peach,
                 borderRadius: ElioRadii.all(24),
               ),
               child: Text(actionLabel,
-                  style: ElioTextStyles.uiLabelStyle.copyWith(
-                      color: Colors.white)),
+                  style: ElioTextStyles.uiLabelStyle),
             ),
           ),
         ],

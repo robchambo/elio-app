@@ -509,7 +509,6 @@ class _PantryScreenState extends State<PantryScreen> {
                   icon: Icons.receipt_long_outlined,
                   kicker: 'From a photo',
                   title: 'Scan receipt',
-                  backgroundColor: const Color(0xFFE87A5C), // salmon from Figma
                   onTap: _openReceiptScanner,
                 ),
               ),
@@ -519,7 +518,6 @@ class _PantryScreenState extends State<PantryScreen> {
                   icon: Icons.qr_code_scanner_outlined,
                   kicker: 'Item lookup',
                   title: 'Scan barcode',
-                  backgroundColor: ElioColors.terracotta,
                   onTap: _openBarcodeScanner,
                 ),
               ),
