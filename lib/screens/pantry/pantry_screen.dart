@@ -29,7 +29,8 @@ import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
 import '../../widgets/elio/elio_bento_card.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
+import '../../widgets/elio/elio_section_heading.dart';
 import '../../widgets/elio/elio_tier_row.dart';
 import '../../widgets/pantry_builder_sheet.dart';
 import '../scanner/scanner_screen.dart';
@@ -496,11 +497,7 @@ class _PantryScreenState extends State<PantryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ElioHeroHeading(
-            lines: ['what did you', 'pick up?'],
-            amberLastLine: true,
-            showUnderline: true,
-          ),
+          const ElioPageTitle('what did you pick up?'),
           const SizedBox(height: ElioSpacing.xl),
           Row(
             children: [
@@ -584,13 +581,13 @@ class _PantryBuilderRow extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
         decoration: BoxDecoration(
-          color: ElioColors.cream,
+          color: ElioColors.creamDeep,
           borderRadius: BorderRadius.circular(ElioRadii.card),
         ),
         child: Row(
           children: [
             Expanded(
-              child: Text('Pantry Builder', style: ElioTextStyles.heading5),
+              child: ElioSectionHeading('Pantry Builder'),
             ),
             const Icon(Icons.chevron_right,
                 color: ElioColors.espresso, size: 24),
