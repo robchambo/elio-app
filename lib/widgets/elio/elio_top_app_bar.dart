@@ -31,10 +31,7 @@ class ElioTopAppBar extends StatelessWidget implements PreferredSizeWidget {
             children: [
               Text(
                 'elio',
-                style: ElioTextStyles.sectionHeadingStyle.copyWith(
-                  fontWeight: FontWeight.w800,
-                  color: ElioColors.terracotta,
-                ),
+                style: ElioTextStyles.pageTitleStyle.copyWith(fontSize: 28),
               ),
               IconButton(
                 icon: const Icon(Icons.account_circle_outlined,
