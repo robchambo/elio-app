@@ -13,17 +13,17 @@ class ElioStatBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: ElioColors.cream,
-        borderRadius: ElioRadii.all(12),
+        color: ElioColors.creamDeep,
+        borderRadius: BorderRadius.circular(ElioRadii.panel),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: ElioColors.espresso),
+          Icon(icon, size: 18, color: ElioColors.terracotta),
           const SizedBox(width: 8),
-          Text(value, style: ElioTextStyles.statValue),
+          Text(value, style: ElioTextStyles.uiLabelStyle),
         ],
       ),
     );

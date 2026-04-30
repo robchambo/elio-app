@@ -29,7 +29,7 @@ class ElioServingsControl extends StatelessWidget {
           width: 48,
           child: Text('$value',
               textAlign: TextAlign.center,
-              style: ElioTextStyles.heading3),
+              style: ElioTextStyles.sectionHeadingStyle),
         ),
         _RoundButton(icon: Icons.add,
             onTap: value < max ? () => onChanged(value + 1) : null),
@@ -51,10 +51,10 @@ class _RoundButton extends StatelessWidget {
       child: Container(
         width: 36, height: 36,
         decoration: BoxDecoration(
-          color: enabled ? ElioColors.terracotta : ElioColors.terracotta.withValues(alpha: 0.3),
+          color: enabled ? ElioColors.peach : ElioColors.peach.withValues(alpha: 0.4),
           borderRadius: ElioRadii.all(999),
         ),
-        child: Icon(icon, color: Colors.white, size: 20),
+        child: Icon(icon, color: ElioColors.espresso, size: 20),
       ),
     );
   }

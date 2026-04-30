@@ -29,29 +29,28 @@ class ElioIngredientRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 24, height: 24,
-              margin: const EdgeInsets.only(right: 16, top: 2),
-              decoration: BoxDecoration(
-                color: checked ? ElioColors.terracotta : Colors.transparent,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: checked ? ElioColors.terracotta : ElioColors.rule,
-                  width: 2,
-                ),
-              ),
+            Padding(
+              padding: const EdgeInsets.only(right: 16, top: 2),
               child: checked
-                  ? const Icon(Icons.check, color: Colors.white, size: 16)
-                  : null,
+                  ? Container(
+                      width: 22, height: 22,
+                      decoration: const BoxDecoration(
+                        color: ElioColors.terracotta,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.check, color: Colors.white, size: 14),
+                    )
+                  : const Icon(Icons.circle_outlined,
+                      size: 22, color: ElioColors.terracotta),
             ),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: ElioTextStyles.heading5),
+                  Text(name, style: ElioTextStyles.uiLabelStyle),
                   if (detail != null) ...[
                     const SizedBox(height: 2),
-                    Text(detail!, style: ElioTextStyles.bodySmall),
+                    Text(detail!, style: ElioTextStyles.bodySmallStyle),
                   ],
                 ],
               ),

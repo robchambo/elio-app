@@ -14,12 +14,15 @@ class ElioFeedbackBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: ElioColors.cream,
+        color: ElioColors.creamDeep,
         borderRadius: BorderRadius.circular(ElioRadii.card),
       ),
       child: Row(
         children: [
-          Expanded(child: Text('How was the recipe?', style: ElioTextStyles.heading5)),
+          Expanded(
+            child: Text('How was the recipe?',
+                style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.mocha)),
+          ),
           IconButton(
             icon: const Icon(Icons.thumb_up_outlined, color: ElioColors.espresso),
             onPressed: () => onRated(true),
