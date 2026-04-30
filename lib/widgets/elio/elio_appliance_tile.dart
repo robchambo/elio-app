@@ -25,14 +25,9 @@ class ElioApplianceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected ? ElioColors.terracotta : ElioColors.rule;
-    final bg = selected
-        ? ElioColors.terracotta.withValues(alpha: 0.08)
-        : ElioColors.cream;
-
     return InkWell(
       onTap: () => onTap(value),
-      borderRadius: BorderRadius.circular(ElioRadii.lg),
+      borderRadius: BorderRadius.circular(ElioRadii.card),
       // Stack+Positioned.fill so the background tile always occupies the
       // full grid cell. Without Positioned.fill the Container shrank to
       // its content width, which made single-word tiles ("Oven",
@@ -46,12 +41,8 @@ class ElioApplianceTile extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(ElioSpacing.sm),
               decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(ElioRadii.lg),
-                border: Border.all(
-                  color: borderColor,
-                  width: selected ? 2.0 : 1.5,
-                ),
+                color: ElioColors.creamDeep,
+                borderRadius: BorderRadius.circular(ElioRadii.card),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -63,10 +54,7 @@ class ElioApplianceTile extends StatelessWidget {
                     textAlign: TextAlign.center,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.espresso,
-                      fontWeight: FontWeight.w600,
-                    ),
+                    style: ElioTextStyles.uiLabelStyle,
                   ),
                 ],
               ),

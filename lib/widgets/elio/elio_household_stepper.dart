@@ -31,9 +31,8 @@ class ElioHouseholdStepper extends StatelessWidget {
         vertical: ElioSpacing.xs,
       ),
       decoration: BoxDecoration(
-        color: ElioColors.cream,
+        color: ElioColors.creamDeep,
         borderRadius: BorderRadius.circular(ElioRadii.pill),
-        border: Border.all(color: ElioColors.rule),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -47,7 +46,7 @@ class ElioHouseholdStepper extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: ElioSpacing.lg),
             child: Text(
               '$value',
-              style: ElioTextStyles.heading3,
+              style: ElioTextStyles.sectionHeadingStyle,
             ),
           ),
           _StepButton(
@@ -74,7 +73,6 @@ class _StepButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = enabled ? ElioColors.espresso : ElioColors.mocha;
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
@@ -82,13 +80,10 @@ class _StepButton extends StatelessWidget {
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: enabled ? ElioColors.cream : Colors.transparent,
+          color: enabled ? ElioColors.peach : ElioColors.peach.withValues(alpha: 0.4),
           shape: BoxShape.circle,
-          border: Border.all(
-            color: enabled ? ElioColors.rule : Colors.transparent,
-          ),
         ),
-        child: Icon(icon, color: color, size: 20),
+        child: Icon(icon, color: ElioColors.espresso, size: 20),
       ),
     );
   }

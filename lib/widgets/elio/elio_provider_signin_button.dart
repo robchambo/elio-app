@@ -60,10 +60,7 @@ class ElioProviderSignInButton extends StatelessWidget {
                 const SizedBox(width: ElioSpacing.sm + 4),
                 Text(
                   style.label,
-                  style: ElioTextStyles.heading5.copyWith(
-                    color: style.fg,
-                    fontSize: 16,
-                  ),
+                  style: ElioTextStyles.uiLabelStyle.copyWith(color: style.fg),
                 ),
               ],
             ),
@@ -96,7 +93,7 @@ class ElioProviderSignInButton extends StatelessWidget {
         );
       case ProviderButtonKind.email:
         return (
-          bg: ElioColors.cream,
+          bg: Colors.white,
           fg: ElioColors.espresso,
           glyph: const Icon(Icons.mail_outline, color: ElioColors.espresso, size: 20),
           label: 'Continue with email',

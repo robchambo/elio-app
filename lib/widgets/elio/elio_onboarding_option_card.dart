@@ -29,24 +29,14 @@ class ElioOnboardingOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor =
-        selected ? ElioColors.terracotta : ElioColors.rule;
-    final bg = selected
-        ? ElioColors.terracotta.withValues(alpha: 0.08)
-        : ElioColors.cream;
-
     return InkWell(
       onTap: () => onTap(value),
-      borderRadius: BorderRadius.circular(ElioRadii.lg),
+      borderRadius: BorderRadius.circular(ElioRadii.card),
       child: Container(
         padding: const EdgeInsets.all(ElioSpacing.md),
         decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(ElioRadii.lg),
-          border: Border.all(
-            color: borderColor,
-            width: selected ? 2.0 : 1.5,
-          ),
+          color: ElioColors.creamDeep,
+          borderRadius: BorderRadius.circular(ElioRadii.card),
         ),
         child: Row(
           children: [
@@ -58,13 +48,10 @@ class ElioOnboardingOptionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: ElioTextStyles.heading5),
+                  Text(title, style: ElioTextStyles.uiLabelStyle),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style: ElioTextStyles.bodySmall,
-                    ),
+                    Text(subtitle!, style: ElioTextStyles.bodySmallStyle),
                   ],
                 ],
               ),
@@ -90,7 +77,7 @@ class _Tick extends StatelessWidget {
         height: 24,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: ElioColors.rule, width: 1.5),
+          border: Border.all(color: ElioColors.terracotta, width: 1.5),
         ),
       );
     }

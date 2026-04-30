@@ -18,9 +18,9 @@ class ElioOnboardingProgressBar extends StatelessWidget {
       borderRadius: BorderRadius.circular(ElioRadii.pill),
       child: LinearProgressIndicator(
         value: v,
-        minHeight: 6,
-        backgroundColor: ElioColors.cream,
-        valueColor: const AlwaysStoppedAnimation<Color>(ElioColors.terracotta),
+        minHeight: 4,
+        backgroundColor: ElioColors.rule,
+        valueColor: const AlwaysStoppedAnimation<Color>(ElioColors.mocha),
       ),
     );
   }
