@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:elio_app/controllers/onboarding_controller.dart';
 import 'package:elio_app/screens/onboarding/screen01_welcome.dart';
 import 'package:elio_app/widgets/elio/phone_mockup_recipe_card.dart';
-import 'package:elio_app/widgets/elio/elio_hero_heading.dart';
+import 'package:elio_app/widgets/elio/elio_page_title.dart';
 import 'package:elio_app/widgets/elio/elio_big_button.dart';
 import 'package:elio_app/widgets/elio/elio_onboarding_progress_bar.dart';
 
@@ -18,10 +18,10 @@ void main() {
       onSignInTap: () {},
     )));
     expect(find.byType(PhoneMockupRecipeCard), findsOneWidget);
-    expect(find.byType(ElioHeroHeading), findsOneWidget);
+    expect(find.byType(ElioPageTitle), findsOneWidget);
     expect(find.byType(ElioBigButton), findsOneWidget);
     expect(find.text('Get started'), findsOneWidget);
-    expect(find.text('I already have an account'), findsOneWidget);
+    expect(find.text('i already have an account'), findsOneWidget);
   });
 
   testWidgets('no back button on screen 01', (t) async {
@@ -57,7 +57,7 @@ void main() {
       onContinue: () {},
       onSignInTap: () => signInTapped++,
     )));
-    await t.tap(find.text('I already have an account'));
+    await t.tap(find.text('i already have an account'));
     await t.pump();
     expect(signInTapped, 1);
   });

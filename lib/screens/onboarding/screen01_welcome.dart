@@ -6,8 +6,8 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/phone_mockup_recipe_card.dart';
 import '../auth/email_login_screen.dart';
 
@@ -64,20 +64,11 @@ class Screen01Welcome extends StatelessWidget {
             children: [
               const ElioOnboardingProgressBar(value: 1 / 15),
               const SizedBox(height: ElioSpacing.xl),
-              const ElioHeroHeading(
-                lines: [
-                  "Tonight's dinner,",
-                  'from what you',
-                  'already have.',
-                ],
-                amberLastLine: true,
-              ),
+              const ElioPageTitle('tonights dinner, from what you already have.'),
               const SizedBox(height: ElioSpacing.md),
               Text(
-                "Recipes built around what's already in your kitchen.",
-                style: ElioTextStyles.body.copyWith(
-                  color: ElioColors.mocha,
-                ),
+                "recipes built around you. tailored to you, tailored to your kitchen",
+                style: ElioTextStyles.ledeStyle,
               ),
               const SizedBox(height: ElioSpacing.lg),
               const Expanded(child: PhoneMockupRecipeCard()),
@@ -91,17 +82,15 @@ class Screen01Welcome extends StatelessWidget {
                   );
                   onContinue();
                 },
-                trailingIcon: Icons.arrow_forward,
               ),
               const SizedBox(height: ElioSpacing.sm),
               Center(
                 child: TextButton(
                   onPressed: () => _handleSignInTap(context),
                   child: Text(
-                    'I already have an account',
-                    style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.espresso,
-                      fontWeight: FontWeight.w600,
+                    'i already have an account',
+                    style: ElioTextStyles.bodyStyle.copyWith(
+                      color: ElioColors.mocha,
                       decoration: TextDecoration.underline,
                     ),
                   ),
