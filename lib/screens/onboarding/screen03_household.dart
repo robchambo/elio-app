@@ -6,10 +6,10 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_household_stepper.dart';
 import '../../widgets/elio/elio_onboarding_option_card.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
+import '../../widgets/elio/elio_page_title.dart';
 
 // ─────────────────────────────────────────────
 // Screen 03 — Household
@@ -115,21 +115,16 @@ class Screen03Household extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const ElioHeroHeading(
-                          lines: ['Who are you', 'cooking for?'],
-                          amberLastLine: true,
-                        ),
+                        const ElioPageTitle('who are you cooking for?'),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
                           // Goal-aware subhead: softer for users who picked
                           // "Feed the whole household" on screen 02.
                           // See docs/onboarding/03-household.md §Copy.
                           controller.state.userGoal == 'household'
-                              ? "We'll make sure everyone's covered."
-                              : "We'll size recipes and plan around your household.",
-                          style: ElioTextStyles.body.copyWith(
-                            color: ElioColors.mocha,
-                          ),
+                              ? "we'll make sure everyone's covered."
+                              : "we'll size recipes and plan around your household.",
+                          style: ElioTextStyles.ledeStyle,
                         ),
                         const SizedBox(height: ElioSpacing.lg),
                         for (int i = 0; i < _options.length; i++) ...[
@@ -147,7 +142,7 @@ class Screen03Household extends StatelessWidget {
                           const SizedBox(height: ElioSpacing.lg),
                           Text(
                             'How many in total?',
-                            style: ElioTextStyles.heading5,
+                            style: ElioTextStyles.uiLabelStyle,
                           ),
                           const SizedBox(height: ElioSpacing.sm),
                           Center(
@@ -183,7 +178,6 @@ class Screen03Household extends StatelessWidget {
                             );
                             onContinue();
                           },
-                    trailingIcon: Icons.arrow_forward,
                   ),
                 ),
               ],

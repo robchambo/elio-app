@@ -175,9 +175,9 @@ void main() {
       onContinue: () {},
       onBack: () {},
     )));
-    expect(find.text("We'll size recipes and plan around your household."),
+    expect(find.text("we'll size recipes and plan around your household."),
         findsOneWidget);
-    expect(find.text("We'll make sure everyone's covered."), findsNothing);
+    expect(find.text("we'll make sure everyone's covered."), findsNothing);
   });
 
   testWidgets('subhead softens when userGoal == household', (t) async {
@@ -189,8 +189,8 @@ void main() {
       onContinue: () {},
       onBack: () {},
     )));
-    expect(find.text("We'll make sure everyone's covered."), findsOneWidget);
-    expect(find.text("We'll size recipes and plan around your household."),
+    expect(find.text("we'll make sure everyone's covered."), findsOneWidget);
+    expect(find.text("we'll size recipes and plan around your household."),
         findsNothing);
   });
 
