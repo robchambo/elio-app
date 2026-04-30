@@ -37,8 +37,8 @@ class ElioBentoCard extends StatelessWidget {
       child: Container(
         // Width is determined by parent (commonly Expanded inside a Row).
         // Fixed height keeps both tiles in a pair visually aligned.
-        height: 150,
-        padding: const EdgeInsets.all(16),
+        height: 180,
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: ElioColors.creamDeep,
           borderRadius: BorderRadius.circular(ElioRadii.card),
@@ -48,13 +48,13 @@ class ElioBentoCard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 64,
+              height: 64,
               decoration: BoxDecoration(
                 color: iconBackgroundColor,
-                borderRadius: BorderRadius.circular(ElioRadii.panel),
+                borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(icon, color: iconColor, size: 22),
+              child: Icon(icon, color: iconColor, size: 30),
             ),
             // Clamp wrap behaviour so the title can't bleed outside the
             // rounded background (Sprint 16.3 — was overflowing on the
@@ -65,14 +65,19 @@ class ElioBentoCard extends StatelessWidget {
               children: [
                 Text(
                   kicker,
-                  style: ElioTextStyles.eyebrowStyle,
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
+                    fontSize: 13,
+                    color: ElioColors.mocha,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   title,
-                  style: ElioTextStyles.uiLabelStyle,
+                  style: ElioTextStyles.sectionHeadingStyle.copyWith(
+                    fontSize: 19,
+                  ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),

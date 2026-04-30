@@ -504,8 +504,8 @@ class _PantryScreenState extends State<PantryScreen> {
               Expanded(
                 child: ElioBentoCard(
                   icon: Icons.photo_camera_outlined,
-                  kicker: 'Photo or camera',
-                  title: 'Scan receipt',
+                  kicker: 'Photo Or Camera',
+                  title: 'Scan Receipt',
                   iconBackgroundColor: ElioColors.peach,
                   onTap: _openReceiptScanner,
                 ),
@@ -514,8 +514,8 @@ class _PantryScreenState extends State<PantryScreen> {
               Expanded(
                 child: ElioBentoCard(
                   icon: Icons.qr_code_scanner_outlined,
-                  kicker: 'Item lookup',
-                  title: 'Scan barcode',
+                  kicker: 'Item Lookup',
+                  title: 'Scan Barcode',
                   iconBackgroundColor: const Color(0xFFF5C26B),
                   onTap: _openBarcodeScanner,
                 ),

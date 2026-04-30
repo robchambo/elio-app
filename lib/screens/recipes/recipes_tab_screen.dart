@@ -124,8 +124,8 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
               Expanded(
                 child: ElioBentoCard(
                   icon: Icons.photo_camera_outlined,
-                  kicker: 'Photo or camera',
-                  title: 'Take photo',
+                  kicker: 'Photo Or Camera',
+                  title: 'Take Photo',
                   iconBackgroundColor: ElioColors.peach,
                   onTap: () => _openImport(initialTab: 0),
                 ),
@@ -134,8 +134,8 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
               Expanded(
                 child: ElioBentoCard(
                   icon: Icons.link_rounded,
-                  kicker: 'URL or text',
-                  title: 'Manual entry',
+                  kicker: 'URL Or Text',
+                  title: 'Manual Entry',
                   iconBackgroundColor: const Color(0xFFF5C26B),
                   onTap: () => _openImport(initialTab: 1),
                 ),
