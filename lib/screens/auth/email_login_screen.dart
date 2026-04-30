@@ -274,7 +274,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     onPressed: _isLoading ? null : _handleSignIn,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ElioColors.terracotta,
-                      foregroundColor: ElioColors.white,
+                      foregroundColor: Colors.white,
                       disabledBackgroundColor:
                           ElioColors.terracotta.withValues(alpha: 0.5),
                       shape: RoundedRectangleBorder(
@@ -288,13 +288,13 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                             height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              color: ElioColors.white,
+                              color: Colors.white,
                             ),
                           )
                         : Text(
                             'Sign in',
                             style: ElioTextStyles.uiLabelStyle.copyWith(
-                              color: ElioColors.white,
+                              color: Colors.white,
                             ),
                           ),
                   ),

@@ -305,7 +305,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: ElioColors.terracotta,
-                      foregroundColor: ElioColors.white,
+                      foregroundColor: Colors.white,
                       disabledBackgroundColor:
                           ElioColors.terracotta.withValues(alpha: 0.5),
                       shape: RoundedRectangleBorder(
@@ -319,13 +319,13 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                             height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              color: ElioColors.white,
+                              color: Colors.white,
                             ),
                           )
                         : Text(
                             'Create account',
                             style: ElioTextStyles.uiLabelStyle.copyWith(
-                              color: ElioColors.white,
+                              color: Colors.white,
                             ),
                           ),
                   ),

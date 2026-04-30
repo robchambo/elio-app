@@ -185,7 +185,7 @@ class ScanSuccessScreen extends StatelessWidget {
             label: const Text('Generate Recipe with These'),
             style: ElevatedButton.styleFrom(
               backgroundColor: ElioColors.terracotta,
-              foregroundColor: ElioColors.white,
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),

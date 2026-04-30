@@ -21,11 +21,6 @@ class ElioRadii {
   /// Text fields.
   static const double input = 14.0;
 
-  // Legacy size aliases — kept until widgets migrate. Removed in Task 36.
-  static const double small = panel;
-  static const double medium = card;
-  static const double large = button;
-
   // Legacy named aliases used by pre-rebrand widgets.
   static const double sm = 8.0;
   static const double md = 16.0;

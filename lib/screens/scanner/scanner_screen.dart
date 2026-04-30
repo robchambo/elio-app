@@ -410,7 +410,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         label: Text(label),
         style: ElevatedButton.styleFrom(
           backgroundColor: ElioColors.terracotta,
-          foregroundColor: ElioColors.white,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15),
           elevation: 0,
