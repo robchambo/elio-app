@@ -13,7 +13,7 @@ class ElioBigButton extends StatelessWidget {
   const ElioBigButton({
     super.key,
     required this.label,
-    this.trailingIcon,
+    this.trailingIcon = Icons.chevron_right,
     this.onTap,
     this.loading = false,
   });
@@ -36,28 +36,26 @@ class ElioBigButton extends StatelessWidget {
       onTap: handler,
       borderRadius: BorderRadius.circular(ElioRadii.button),
       child: Container(
-        height: 100,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
         decoration: BoxDecoration(
           color: onTap == null ? ElioColors.terracotta.withValues(alpha: 0.5) : ElioColors.terracotta,
           borderRadius: BorderRadius.circular(ElioRadii.button),
         ),
-        alignment: Alignment.centerLeft,
         child: Row(
           children: [
             Expanded(
               child: Text(
                 label,
-                style: ElioTextStyles.heading3.copyWith(color: ElioColors.espresso),
+                style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.white),
               ),
             ),
             if (loading)
               const SizedBox(
                 width: 24, height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.espresso),
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               )
             else if (trailingIcon != null)
-              Icon(trailingIcon, color: ElioColors.espresso, size: 28),
+              Icon(trailingIcon, color: Colors.white, size: 24),
           ],
         ),
       ),

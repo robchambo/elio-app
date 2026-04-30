@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:elio_app/theme/elio_radii.dart';
+import 'package:elio_app/theme/elio_theme.dart';
 import 'package:elio_app/widgets/elio/elio_big_button.dart';
+
+Future<void> _pump(WidgetTester tester, Widget child) async {
+  await tester.pumpWidget(MaterialApp(theme: elioTheme(), home: Scaffold(body: child)));
+}
 
 // ─────────────────────────────────────────────
 // ElioBigButton — keyboard-dismiss contract.
@@ -78,5 +84,36 @@ void main() {
     // Disabled button → no onTap → keyboard stays as the user left it.
     // The important assertion is "no crash".
     expect(find.byType(ElioBigButton), findsOneWidget);
+  });
+
+  // Sprint 16 rebrand — terracotta pill with white chevron.
+  testWidgets('ElioBigButton uses terracotta background', (tester) async {
+    await _pump(tester, ElioBigButton(label: 'Generate', onTap: () {}));
+    final box = tester.widget<DecoratedBox>(
+      find.descendant(of: find.byType(ElioBigButton), matching: find.byType(DecoratedBox)).first,
+    );
+    final decoration = box.decoration as BoxDecoration;
+    expect(decoration.color, ElioColors.terracotta);
+  });
+
+  testWidgets('ElioBigButton uses pill radius (ElioRadii.button)', (tester) async {
+    await _pump(tester, ElioBigButton(label: 'Generate', onTap: () {}));
+    final box = tester.widget<DecoratedBox>(
+      find.descendant(of: find.byType(ElioBigButton), matching: find.byType(DecoratedBox)).first,
+    );
+    final decoration = box.decoration as BoxDecoration;
+    final radius = (decoration.borderRadius as BorderRadius).topLeft;
+    expect(radius, Radius.circular(ElioRadii.button));
+  });
+
+  testWidgets('ElioBigButton renders trailing chevron icon by default', (tester) async {
+    await _pump(tester, ElioBigButton(label: 'Generate', onTap: () {}));
+    expect(find.byIcon(Icons.chevron_right), findsOneWidget);
+  });
+
+  testWidgets('ElioBigButton renders label text in white', (tester) async {
+    await _pump(tester, ElioBigButton(label: 'Generate', onTap: () {}));
+    final text = tester.widget<Text>(find.text('Generate'));
+    expect(text.style?.color, Colors.white);
   });
 }
