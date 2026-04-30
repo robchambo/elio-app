@@ -36,7 +36,7 @@ class ElioBottomNav extends StatelessWidget {
                     active: active == ElioNavTab.pantry, onTap: () => onTap(ElioNavTab.pantry)),
                 _NavItem(icon: Icons.menu_book_outlined, label: 'RECIPES',
                     active: active == ElioNavTab.recipes, onTap: () => onTap(ElioNavTab.recipes)),
-                _NavItem(icon: Icons.add_shopping_cart_outlined, label: 'SHOPPING\nLIST',
+                _NavItem(icon: Icons.checklist_outlined, label: 'SHOPPING LIST',
                     active: active == ElioNavTab.shoppingList, onTap: () => onTap(ElioNavTab.shoppingList)),
               ],
             ),
@@ -57,14 +57,12 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = active ? ElioColors.terracotta : Colors.transparent;
-    final fg = active ? Colors.white : ElioColors.mocha;
+    final fg = active ? ElioColors.espresso : ElioColors.mocha;
     return InkWell(
       onTap: onTap,
       borderRadius: ElioRadii.all(24),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: active ? 14 : 8, vertical: 6),
-        decoration: BoxDecoration(color: bg, borderRadius: ElioRadii.all(24)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -72,9 +70,7 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: 4),
             Text(label,
                 textAlign: TextAlign.center,
-                style: ElioTextStyles.tabLabelStyle.copyWith(
-                  fontSize: 10, fontWeight: FontWeight.w600,
-                  letterSpacing: 0.8, color: fg)),
+                style: ElioTextStyles.tabLabelStyle.copyWith(color: fg)),
           ],
         ),
       ),
