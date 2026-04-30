@@ -503,9 +503,10 @@ class _PantryScreenState extends State<PantryScreen> {
             children: [
               Expanded(
                 child: ElioBentoCard(
-                  icon: Icons.receipt_long_outlined,
-                  kicker: 'From a photo',
+                  icon: Icons.photo_camera_outlined,
+                  kicker: 'Photo or camera',
                   title: 'Scan receipt',
+                  iconBackgroundColor: ElioColors.peach,
                   onTap: _openReceiptScanner,
                 ),
               ),
@@ -515,6 +516,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   icon: Icons.qr_code_scanner_outlined,
                   kicker: 'Item lookup',
                   title: 'Scan barcode',
+                  iconBackgroundColor: const Color(0xFFF5C26B),
                   onTap: _openBarcodeScanner,
                 ),
               ),
@@ -567,33 +569,50 @@ class _PantryScreenState extends State<PantryScreen> {
   }
 }
 
-// ─── Pantry Builder row (full-width cream card) ───────────────────────
+// ─── Pantry Builder section header (Kate's Sprint-16 pantry frame) ─────
+//
+// Section header + sub-line, with a discrete pencil icon button on the
+// right that opens the PantryBuilderSheet. Replaces the previous
+// full-width chevron-card affordance — only the pencil is now tappable,
+// the heading/sub-copy are read-only.
 class _PantryBuilderRow extends StatelessWidget {
   final VoidCallback onTap;
   const _PantryBuilderRow({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(ElioRadii.card),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        decoration: BoxDecoration(
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ElioSectionHeading('Pantry Builder'),
+              const SizedBox(height: 2),
+              Text(
+                'Browse and add by category',
+                style: ElioTextStyles.bodySmallStyle,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: ElioSpacing.md),
+        Material(
           color: ElioColors.creamDeep,
-          borderRadius: BorderRadius.circular(ElioRadii.card),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: ElioSectionHeading('Pantry Builder'),
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: const Padding(
+              padding: EdgeInsets.all(10),
+              child: Icon(Icons.edit_note_rounded,
+                  color: ElioColors.espresso, size: 22),
             ),
-            const Icon(Icons.chevron_right,
-                color: ElioColors.espresso, size: 24),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -675,15 +694,31 @@ class _TierItemChip extends StatelessWidget {
     required this.onLongPress,
   });
 
+  /// Map the item's expiry date to a leading-dot urgency colour.
+  ///
+  /// Returns null when the item has no expiry date (no dot rendered).
+  /// Buckets are Kate-blessed (2026-04-29):
+  ///   days >= 7  → perishFresh   (sage green)
+  ///   days 1..6  → perishSoon    (saturated orange)
+  ///   days <= 0  → perishGone    (deep red — today + already-expired)
+  Color? _urgencyDotColor() {
+    final expiryStr = item['expiryDate'] as String?;
+    if (expiryStr == null) return null;
+    final expiry = DateTime.tryParse(expiryStr);
+    if (expiry == null) return null;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final exp = DateTime(expiry.year, expiry.month, expiry.day);
+    final days = exp.difference(today).inDays;
+    if (days <= 0) return ElioColors.perishGone;
+    if (days <= 6) return ElioColors.perishSoon;
+    return ElioColors.perishFresh;
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = item['name'] as String? ?? '';
-    // TODO(perishable-urgency-colors): replace this with a colour-coded chip
-    // background driven by `item['expiryDate']` — green = fresh, amber = this
-    // week, terracotta = today/expired. Tokens already exist as
-    // ElioColors.freshGreen / perishThisWeek / perishToday. The text suffix
-    // ("· Expired" / "· 3d" / "· 1w") was removed 2026-04-29 ahead of that
-    // change so the chip surface is the only urgency signal once it lands.
+    final dotColor = _urgencyDotColor();
 
     // RawGestureDetector with long-press + a no-op tap recogniser.
     // Sprint 16.4 (Bug 4): tap removed because the cycle ended in delete
@@ -723,9 +758,25 @@ class _TierItemChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(ElioRadii.chip),
           border: Border.all(color: ElioColors.rule),
         ),
-        child: Text(
-          name,
-          style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (dotColor != null) ...[
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              name,
+              style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso),
+            ),
+          ],
         ),
       ),
     );

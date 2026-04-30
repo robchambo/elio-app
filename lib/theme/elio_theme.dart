@@ -40,6 +40,17 @@ class ElioColors {
   static const Color freshGreen = Color(0xFF3D9970);
   static const Color perishThisWeek = terracotta;
   static const Color perishToday = Color(0xFFE06C5E);
+
+  // Pantry tab perishable-pill urgency dots (Kate-blessed 2026-04-29).
+  // Used as a leading filled circle inside the existing creamDeep chip;
+  // chip surface stays unchanged. Mapping in `_TierItemChip`:
+  //   days >= 7  → perishFresh
+  //   days 1..6  → perishSoon
+  //   days <= 0  → perishGone (today + already-expired)
+  //   null expiry → no dot
+  static const Color perishFresh = Color(0xFF7A876D);
+  static const Color perishSoon = Color(0xFFFE9D00);
+  static const Color perishGone = Color(0xFFA43D09);
 }
 
 // ─── Legacy ElioText aliases ─────────────────────────────────────────────
