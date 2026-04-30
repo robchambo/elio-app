@@ -1,109 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'elio_theme.dart';
 
-/// Editorial type ramp for the Sprint 16 UI refresh.
+/// Editorial type ramp for the Sprint 16 rebrand.
 ///
-/// Kept separate from the existing [ElioText] class so we can migrate screens
-/// incrementally without breaking legacy screens. Outfit for display / headings
-/// / eyebrow, Quicksand for body.
+/// All entries use bundled-font assets declared in pubspec.yaml:
+///   - Bricolage Grotesque (display, w200-w800)
+///   - DM Sans (body)
+///   - DM Mono (technical)
+///
+/// Legacy names (`heading1-5`, `body`, `bodySmall`, `eyebrow`, `statValue`,
+/// `stepNumeral`, `heroDisplay`, `heroDisplayAccent`) are kept as aliases
+/// pointing at the new roles so existing call sites keep compiling. Prefer
+/// the canonical names (`pageTitleStyle`, `sectionHeadingStyle`, `ledeStyle`,
+/// `bodyStyle`, `bodySmallStyle`, `uiLabelStyle`, `tabLabelStyle`,
+/// `eyebrowStyle`, `numericStyle`) for new code.
 class ElioTextStyles {
   ElioTextStyles._();
 
-  // ─── Editorial display ────────────────────────────────────────────────
-  static TextStyle get heroDisplay => GoogleFonts.outfit(
-        fontSize: 54,
-        height: 1.0,
-        fontWeight: FontWeight.w800,
-        color: ElioColors.espresso,
-        letterSpacing: -1.5,
-      );
-
-  static TextStyle get heroDisplayAccent => heroDisplay.copyWith(
-        color: ElioColors.terracotta,
-      );
-
-  // ─── Section headings ─────────────────────────────────────────────────
-  static TextStyle get heading1 => GoogleFonts.outfit(
-        fontSize: 36,
-        height: 1.1,
-        fontWeight: FontWeight.w700,
-        color: ElioColors.espresso,
-      );
-
-  static TextStyle get heading2 => GoogleFonts.outfit(
-        fontSize: 28,
-        height: 1.2,
-        fontWeight: FontWeight.w700,
-        color: ElioColors.espresso,
-      );
-
-  static TextStyle get heading3 => GoogleFonts.outfit(
-        fontSize: 22,
-        height: 1.25,
-        fontWeight: FontWeight.w700,
-        color: ElioColors.espresso,
-      );
-
-  static TextStyle get heading4 => GoogleFonts.outfit(
-        fontSize: 20,
-        height: 1.3,
-        fontWeight: FontWeight.w600,
-        color: ElioColors.espresso,
-      );
-
-  static TextStyle get heading5 => GoogleFonts.outfit(
-        fontSize: 18,
-        height: 1.3,
-        fontWeight: FontWeight.w600,
-        color: ElioColors.espresso,
-      );
-
-  // ─── Eyebrow / overline ───────────────────────────────────────────────
-  static TextStyle get eyebrow => GoogleFonts.outfit(
-        fontSize: 12,
-        height: 1.2,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 1.8,
-        color: ElioColors.mocha,
-      );
-
-  // ─── Body ─────────────────────────────────────────────────────────────
-  static TextStyle get body => GoogleFonts.quicksand(
-        fontSize: 16,
-        height: 1.4,
-        fontWeight: FontWeight.w500,
-        color: ElioColors.espresso,
-      );
-
-  static TextStyle get bodySmall => GoogleFonts.quicksand(
-        fontSize: 14,
-        height: 1.4,
-        fontWeight: FontWeight.w500,
-        color: ElioColors.mocha,
-      );
-
-  // ─── Stat / pill label ────────────────────────────────────────────────
-  static TextStyle get statValue => GoogleFonts.outfit(
-        fontSize: 16,
-        height: 1.2,
-        fontWeight: FontWeight.w600,
-        color: ElioColors.espresso,
-      );
-
-  // ─── Big numeral (method step) ────────────────────────────────────────
-  static TextStyle get stepNumeral => GoogleFonts.outfit(
-        fontSize: 48,
-        height: 1.0,
-        fontWeight: FontWeight.w800,
-        color: ElioColors.terracotta,
-      );
-
-  // ─── Sprint 16 rebrand: bundled-font ramp ─────────────────────────
-  // These use the bundled Bricolage Grotesque / DM Sans / DM Mono
-  // font assets declared in pubspec.yaml. They replace the old
-  // GoogleFonts.outfit() / GoogleFonts.quicksand() entries above.
-  // The old entries are removed in Task 35.
+  // ─── Canonical Sprint 16 rebrand ramp ─────────────────────────────────
 
   static const TextStyle pageTitleStyle = TextStyle(
     fontFamily: 'Bricolage Grotesque',
@@ -160,7 +74,7 @@ class ElioTextStyles {
     fontWeight: FontWeight.w500,
     fontSize: 11,
     height: 1.2,
-    letterSpacing: 1.98, // 18% of 11
+    letterSpacing: 1.98,
     color: ElioColors.mocha,
   );
 
@@ -169,16 +83,41 @@ class ElioTextStyles {
     fontWeight: FontWeight.w500,
     fontSize: 12,
     height: 1.2,
-    letterSpacing: 2.4, // 20% of 12
+    letterSpacing: 2.4,
     color: ElioColors.mocha,
   );
 
   static const TextStyle numericStyle = TextStyle(
     fontFamily: 'DM Mono',
-    fontWeight: FontWeight.w500, // Medium static
+    fontWeight: FontWeight.w500,
     fontSize: 14,
     height: 1.2,
-    letterSpacing: 0.42, // 3% of 14
+    letterSpacing: 0.42,
     color: ElioColors.espresso,
+  );
+
+  // ─── Legacy aliases (Sprint 16 rebrand) ───────────────────────────────
+  // These point at the new ramp so existing call sites compile while new
+  // code migrates to the canonical names above.
+
+  static const TextStyle heroDisplay = pageTitleStyle;
+  static TextStyle get heroDisplayAccent =>
+      pageTitleStyle.copyWith(color: ElioColors.terracotta);
+  static const TextStyle heading1 = pageTitleStyle;
+  static const TextStyle heading2 = sectionHeadingStyle;
+  static const TextStyle heading3 = sectionHeadingStyle;
+  static const TextStyle heading4 = sectionHeadingStyle;
+  static const TextStyle heading5 = uiLabelStyle;
+  static const TextStyle eyebrow = eyebrowStyle;
+  static const TextStyle body = bodyStyle;
+  static const TextStyle bodySmall = bodySmallStyle;
+  static const TextStyle statValue = uiLabelStyle;
+  static const TextStyle stepNumeral = TextStyle(
+    fontFamily: 'Bricolage Grotesque',
+    fontWeight: FontWeight.w800,
+    fontSize: 56,
+    height: 1.0,
+    letterSpacing: -1.5,
+    color: ElioColors.terracotta,
   );
 }

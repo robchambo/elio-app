@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'elio_text_styles.dart';
 import 'elio_radii.dart';
 
@@ -57,61 +56,24 @@ class ElioColors {
   static const Color rule = Color(0xFFD7C5B0);
 }
 
-// ─── Text styles using GoogleFonts.outfit() ──────────────────────────────────
-// These are functions (not constants) because GoogleFonts returns a new
-// TextStyle object each time — it cannot be a compile-time const.
+// ─── Legacy ElioText aliases ─────────────────────────────────────────────
+// Kept as aliases pointing at the Sprint 16 rebrand ramp so existing call
+// sites keep compiling. New code should use `ElioTextStyles.<role>`.
 
 class ElioText {
   ElioText._();
 
-  static TextStyle get displayLarge => GoogleFonts.outfit(
-        fontSize: 32,
-        fontWeight: FontWeight.w800,
-        color: ElioColors.textPrimary,
-        height: 1.2,
-      );
-
-  static TextStyle get displayMedium => GoogleFonts.outfit(
-        fontSize: 24,
-        fontWeight: FontWeight.w700,
-        color: ElioColors.textPrimary,
-        height: 1.3,
-      );
-
-  static TextStyle get headingLarge => GoogleFonts.outfit(
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-        color: ElioColors.textPrimary,
-        height: 1.3,
-      );
-
-  static TextStyle get headingMedium => GoogleFonts.outfit(
-        fontSize: 17,
-        fontWeight: FontWeight.w700,
-        color: ElioColors.textPrimary,
-        height: 1.4,
-      );
-
-  static TextStyle get bodyLarge => GoogleFonts.outfit(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        color: ElioColors.textPrimary,
-        height: 1.55,
-      );
-
-  static TextStyle get bodyMedium => GoogleFonts.outfit(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: ElioColors.textPrimary,
-        height: 1.5,
-      );
-
-  static TextStyle get label => GoogleFonts.outfit(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: ElioColors.textPrimary,
-        letterSpacing: 0.3,
-      );
+  static TextStyle get displayLarge =>
+      ElioTextStyles.pageTitleStyle.copyWith(fontSize: 32);
+  static TextStyle get displayMedium => ElioTextStyles.sectionHeadingStyle;
+  static TextStyle get headingLarge =>
+      ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 20);
+  static TextStyle get headingMedium =>
+      ElioTextStyles.uiLabelStyle.copyWith(fontWeight: FontWeight.w700);
+  static TextStyle get bodyLarge => ElioTextStyles.bodyStyle;
+  static TextStyle get bodyMedium => ElioTextStyles.bodySmallStyle;
+  static TextStyle get label =>
+      ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, fontWeight: FontWeight.w600);
 }
 
 ThemeData elioTheme() {
