@@ -722,7 +722,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                 }),
                 child: Text(
                   _selectedDays.length == 7 ? 'Clear all' : 'Select all',
-                  style: ElioText.label.copyWith(color: ElioColors.sky, fontWeight: FontWeight.w600),
+                  style: ElioText.label.copyWith(color: ElioColors.mocha, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -1238,7 +1238,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                         child: Text(
                           'Select all',
                           style: ElioText.label.copyWith(
-                            color: ElioColors.sky,
+                            color: ElioColors.mocha,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1416,7 +1416,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                       child: Text(
                         'View shopping list',
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.sky,
+                          color: ElioColors.mocha,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

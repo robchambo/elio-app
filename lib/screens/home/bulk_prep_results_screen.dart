@@ -225,14 +225,14 @@ class _RecipeCard extends StatelessWidget {
         const Icon(
           Icons.ac_unit_rounded,
           size: 14,
-          color: ElioColors.sky,
+          color: ElioColors.mocha,
         ),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
             bulkPrepInfo!.storageLife,
             style: ElioTextStyles.bodySmallStyle.copyWith(
-              color: ElioColors.sky,
+              color: ElioColors.mocha,
             ),
           ),
         ),

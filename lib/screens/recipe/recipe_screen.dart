@@ -1247,13 +1247,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
               color: Colors.transparent,
               child: Row(
                 children: [
-                  Icon(Icons.ac_unit_rounded, size: 20, color: ElioColors.sky),
+                  Icon(Icons.ac_unit_rounded, size: 20, color: ElioColors.mocha),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Freezing & Storage',
                       style: ElioText.bodyMedium.copyWith(
-                        color: ElioColors.sky,
+                        color: ElioColors.mocha,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1264,7 +1264,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     child: Icon(
                       Icons.expand_more_rounded,
                       size: 22,
-                      color: ElioColors.sky,
+                      color: ElioColors.mocha,
                     ),
                   ),
                 ],
@@ -1303,7 +1303,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: ElioColors.sky),
+          Icon(icon, size: 18, color: ElioColors.mocha),
           const SizedBox(width: 10),
           Expanded(
             child: RichText(
@@ -1887,9 +1887,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: ElioColors.sky.withValues(alpha: 0.06),
+                color: ElioColors.peach.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: ElioColors.sky.withValues(alpha: 0.3)),
+                border: Border.all(color: ElioColors.mocha.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1897,7 +1897,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   Row(
                     children: [
                       const Icon(Icons.swap_horiz_rounded,
-                          color: ElioColors.sky, size: 18),
+                          color: ElioColors.mocha, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -2398,7 +2398,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
         // Option 1: Suggest substitution
         _buildOptionTile(
           icon: Icons.swap_horiz_rounded,
-          iconColor: ElioColors.sky,
+          iconColor: ElioColors.mocha,
           title: 'Suggest a substitution',
           subtitle: 'AI-powered, instant',
           onTap: _requestSubstitution,
@@ -2532,7 +2532,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
       children: [
         Row(
           children: [
-            Icon(Icons.swap_horiz_rounded, color: ElioColors.sky, size: 22),
+            Icon(Icons.swap_horiz_rounded, color: ElioColors.mocha, size: 22),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -2547,9 +2547,9 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: ElioColors.sky.withValues(alpha: 0.06),
+            color: ElioColors.peach.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: ElioColors.sky.withValues(alpha: 0.3)),
+            border: Border.all(color: ElioColors.mocha.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2777,7 +2777,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                         child: Text(
                           'Select all',
                           style: ElioText.label.copyWith(
-                            color: ElioColors.sky,
+                            color: ElioColors.mocha,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -2920,7 +2920,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                       child: Text(
                         'View shopping list',
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.sky,
+                          color: ElioColors.mocha,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
