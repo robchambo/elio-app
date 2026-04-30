@@ -3,6 +3,7 @@
 // heading, eyebrow, Generate button, optional "Plan your week" card for Pro.
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_text_styles.dart';
@@ -412,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const SizedBox(height: ElioSpacing.sm),
         SizedBox(
-          height: 96,
+          height: 120,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _recentRecipes.length,
@@ -432,24 +433,19 @@ class _HomeScreenState extends State<HomeScreen> {
         width: 200,
         padding: const EdgeInsets.all(ElioSpacing.md),
         decoration: BoxDecoration(
-          color: ElioColors.cream,
-          borderRadius: BorderRadius.circular(14),
+          color: ElioColors.creamDeep,
+          borderRadius: BorderRadius.circular(ElioRadii.panel),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Expanded(
-              child: Text(
-                r.recipe.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: ElioTextStyles.body.copyWith(
-                  color: ElioColors.espresso,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+            Text(
+              r.recipe.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: ElioTextStyles.uiLabelStyle,
             ),
-            const SizedBox(height: ElioSpacing.xs),
             Row(
               children: [
                 const Icon(Icons.schedule,
@@ -457,9 +453,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 4),
                 Text(
                   '${r.recipe.totalTimeMinutes} min',
-                  style: ElioTextStyles.bodySmall.copyWith(
-                    color: ElioColors.mocha,
-                  ),
+                  style: ElioTextStyles.bodySmallStyle,
                 ),
               ],
             ),
