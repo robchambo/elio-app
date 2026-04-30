@@ -7,7 +7,8 @@ import '../../theme/elio_text_styles.dart';
 import '../../widgets/elio/elio_chip.dart';
 import '../../widgets/elio/elio_custom_field.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
+import '../../widgets/elio/elio_section_heading.dart';
 
 // ─────────────────────────────────────────────
 // DietaryScreen
@@ -180,17 +181,14 @@ class _DietaryScreenState extends State<DietaryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const ElioHeroHeading(
-                    lines: ['dietary &', 'allergens'],
-                    amberLastLine: true,
-                  ),
+                  const ElioPageTitle('dietary and allergens'),
                   const SizedBox(height: ElioSpacing.md),
                   Text(
-                    "elio wont suggest recipes that dont work for you.",
-                    style: ElioTextStyles.body,
+                    "elio wont suggest recipes that dont work for you and your settings.",
+                    style: ElioTextStyles.ledeStyle,
                   ),
                   const SizedBox(height: ElioSpacing.xl),
-                  Text('Dietary requirements', style: ElioTextStyles.heading3),
+                  ElioSectionHeading('Dietary requirements'),
                   const SizedBox(height: ElioSpacing.sm),
                   const ElioEyebrow('you can pick multiple'),
                   const SizedBox(height: ElioSpacing.md),
@@ -208,14 +206,11 @@ class _DietaryScreenState extends State<DietaryScreen> {
                     ],
                   ),
                   const SizedBox(height: ElioSpacing.xxl),
-                  Text(
-                    'Custom allergens or dietary requirements',
-                    style: ElioTextStyles.heading3,
-                  ),
+                  ElioSectionHeading('Custom allergens or dietary requirements'),
                   const SizedBox(height: ElioSpacing.sm),
                   Text(
                     "add anything that isn't listed above in the custom text field below",
-                    style: ElioTextStyles.bodySmall,
+                    style: ElioTextStyles.bodySmallStyle,
                   ),
                   const SizedBox(height: ElioSpacing.md),
                   if (_allergens.isNotEmpty) ...[
@@ -239,7 +234,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
                                 children: [
                                   Text(
                                     allergen,
-                                    style: ElioTextStyles.body.copyWith(color: ElioColors.espresso),
+                                    style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.espresso),
                                   ),
                                   const SizedBox(width: 6),
                                   const Icon(Icons.close, size: 16, color: ElioColors.espresso),
