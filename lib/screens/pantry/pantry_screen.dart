@@ -678,28 +678,13 @@ class _TierItemChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = item['name'] as String? ?? '';
-    final expiryStr = item['expiryDate'] as String?;
-    String? suffix;
-    if (expiryStr != null) {
-      final expiry = DateTime.tryParse(expiryStr);
-      if (expiry != null) {
-        final today =
-            DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-        final exp = DateTime(expiry.year, expiry.month, expiry.day);
-        final days = exp.difference(today).inDays;
-        if (days < 0) {
-          suffix = 'Expired';
-        } else if (days == 0) {
-          suffix = 'Today';
-        } else if (days <= 6) {
-          suffix = '${days}d';
-        } else if (days <= 13) {
-          suffix = '1w';
-        } else {
-          suffix = '${(days / 7).round()}w';
-        }
-      }
-    }
+    // TODO(perishable-urgency-colors): replace this with a colour-coded chip
+    // background driven by `item['expiryDate']` — green = fresh, amber = this
+    // week, terracotta = today/expired. Tokens already exist as
+    // ElioColors.freshGreen / perishThisWeek / perishToday. The text suffix
+    // ("· Expired" / "· 3d" / "· 1w") was removed 2026-04-29 ahead of that
+    // change so the chip surface is the only urgency signal once it lands.
+
     // RawGestureDetector with long-press + a no-op tap recogniser.
     // Sprint 16.4 (Bug 4): tap removed because the cycle ended in delete
     // and chips were vanishing on a stray tap. Long-press → SimpleDialog
@@ -739,8 +724,8 @@ class _TierItemChip extends StatelessWidget {
           border: Border.all(color: ElioColors.rule),
         ),
         child: Text(
-          suffix == null ? name : '$name · $suffix',
-          style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.espresso),
+          name,
+          style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso),
         ),
       ),
     );
