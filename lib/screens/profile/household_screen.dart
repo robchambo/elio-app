@@ -168,17 +168,17 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Remove $name?', style: ElioText.headingMedium),
         content: Text(
           'This will remove $name and their dietary requirements from your household.',
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -244,12 +244,12 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                       decoration: BoxDecoration(
-                        color: isSelected ? ElioColors.espresso : ElioColors.offWhite,
+                        color: isSelected ? ElioColors.espresso : ElioColors.cream,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: isSelected ? ElioColors.espresso : ElioColors.border),
+                        border: Border.all(color: isSelected ? ElioColors.espresso : ElioColors.rule),
                       ),
                       child: Text(req, style: ElioText.label.copyWith(
-                        color: isSelected ? Colors.white : ElioColors.textPrimary,
+                        color: isSelected ? Colors.white : ElioColors.espresso,
                       )),
                     ),
                   );
@@ -311,7 +311,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           children: [
@@ -346,7 +346,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                   children: [
                     Text(
                       'Add household members so Elio can respect everyone\'s dietary needs when generating recipes.',
-                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                      style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                     ),
                     const SizedBox(height: 20),
                     if (_members.isEmpty)
@@ -354,11 +354,11 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Row(
                           children: [
-                            const Icon(Icons.people_outline, size: 20, color: ElioColors.textMuted),
+                            const Icon(Icons.people_outline, size: 20, color: ElioColors.mocha),
                             const SizedBox(width: 10),
                             Text(
                               'No household members added yet.',
-                              style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                              style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                             ),
                           ],
                         ),
@@ -373,7 +373,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                         decoration: BoxDecoration(
                           color: Colors.transparent,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: ElioColors.border, width: 1.5),
+                          border: Border.all(color: ElioColors.rule, width: 1.5),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -402,9 +402,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: ElioColors.offWhite,
+          color: ElioColors.cream,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: ElioColors.border),
+          border: Border.all(color: ElioColors.rule),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,7 +433,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                         child: Text(member['name'] as String? ?? 'Member',
                             style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.espresso)),
                       ),
-                      Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted.withValues(alpha: 0.5)),
+                      Icon(Icons.edit_outlined, size: 16, color: ElioColors.mocha.withValues(alpha: 0.5)),
                     ],
                   ),
                   if (reqs.isNotEmpty) ...[
@@ -452,7 +452,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     ),
                   ] else
                     Text('No dietary requirements',
-                        style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted, fontSize: 13)),
+                        style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha, fontSize: 13)),
                 ],
               ),
             ),

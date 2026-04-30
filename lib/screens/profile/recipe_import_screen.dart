@@ -133,9 +133,9 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
@@ -152,9 +152,9 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
             child: Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                color: ElioColors.offWhite,
+                color: ElioColors.cream,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: ElioColors.border),
+                border: Border.all(color: ElioColors.rule),
               ),
               child: Row(
                 children: [
@@ -186,7 +186,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: isSelected ? ElioColors.white : Colors.transparent,
+            color: isSelected ? ElioColors.cream : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             boxShadow: isSelected
                 ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 1))]
@@ -195,14 +195,14 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 16, color: isSelected ? ElioColors.espresso : ElioColors.textMuted),
+              Icon(icon, size: 16, color: isSelected ? ElioColors.espresso : ElioColors.mocha),
               const SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  color: isSelected ? ElioColors.espresso : ElioColors.textMuted,
+                  color: isSelected ? ElioColors.espresso : ElioColors.mocha,
                 ),
               ),
             ],
@@ -239,20 +239,20 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
           Text(
             'Take a photo of any recipe — from a book, magazine, or screen — and Elio will extract it for you.',
             textAlign: TextAlign.center,
-            style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+            style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
           ),
           const SizedBox(height: 8),
           Text(
             'Works best with clear, well-lit photos. Handwritten recipes may not extract perfectly.',
             textAlign: TextAlign.center,
-            style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textMuted),
+            style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.mocha),
           ),
           const SizedBox(height: 32),
           // Buttons
           if (_isProcessing) ...[
             const CircularProgressIndicator(color: ElioColors.terracotta),
             const SizedBox(height: 12),
-            Text('Extracting recipe...', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+            Text('Extracting recipe...', style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
           ] else ...[
             Row(
               children: [
@@ -280,7 +280,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
                       icon: const Icon(Icons.photo_library_rounded, size: 18, color: ElioColors.espresso),
                       label: Text('Gallery', style: TextStyle(color: ElioColors.espresso, fontWeight: FontWeight.w700)),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: ElioColors.border),
+                        side: const BorderSide(color: ElioColors.rule),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
                     ),
@@ -411,15 +411,15 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
           // ── Divider ─────────────────────────────────────────────────
           Row(
             children: [
-              const Expanded(child: Divider(color: ElioColors.border)),
+              const Expanded(child: Divider(color: ElioColors.rule)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
                   'Or enter manually',
-                  style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textMuted, fontWeight: FontWeight.w600),
+                  style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.mocha, fontWeight: FontWeight.w600),
                 ),
               ),
-              const Expanded(child: Divider(color: ElioColors.border)),
+              const Expanded(child: Divider(color: ElioColors.rule)),
             ],
           ),
           const SizedBox(height: 20),
@@ -493,17 +493,17 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
       style: ElioText.bodyMedium,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+        hintStyle: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
         filled: true,
-        fillColor: ElioColors.offWhite,
+        fillColor: ElioColors.cream,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ElioColors.border),
+          borderSide: BorderSide(color: ElioColors.rule),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: ElioColors.border),
+          borderSide: BorderSide(color: ElioColors.rule),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -527,17 +527,17 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
               style: ElioText.bodyMedium,
               decoration: InputDecoration(
                 hintText: 'Qty',
-                hintStyle: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                hintStyle: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                 filled: true,
-                fillColor: ElioColors.offWhite,
+                fillColor: ElioColors.cream,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: ElioColors.border),
+                  borderSide: BorderSide(color: ElioColors.rule),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: ElioColors.border),
+                  borderSide: BorderSide(color: ElioColors.rule),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -554,17 +554,17 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
               style: ElioText.bodyMedium,
               decoration: InputDecoration(
                 hintText: 'Ingredient name',
-                hintStyle: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                hintStyle: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                 filled: true,
-                fillColor: ElioColors.offWhite,
+                fillColor: ElioColors.cream,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: ElioColors.border),
+                  borderSide: BorderSide(color: ElioColors.rule),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: ElioColors.border),
+                  borderSide: BorderSide(color: ElioColors.rule),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -579,7 +579,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
               onTap: () => _removeIngredientRow(index),
               child: Padding(
                 padding: const EdgeInsets.only(left: 6),
-                child: Icon(Icons.close_rounded, size: 18, color: ElioColors.textMuted),
+                child: Icon(Icons.close_rounded, size: 18, color: ElioColors.mocha),
               ),
             ),
         ],

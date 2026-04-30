@@ -65,7 +65,7 @@ class ElioTextStyles {
         height: 1.2,
         fontWeight: FontWeight.w500,
         letterSpacing: 1.8,
-        color: ElioColors.textSecondary,
+        color: ElioColors.mocha,
       );
 
   // ─── Body ─────────────────────────────────────────────────────────────
@@ -73,14 +73,14 @@ class ElioTextStyles {
         fontSize: 16,
         height: 1.4,
         fontWeight: FontWeight.w500,
-        color: ElioColors.textPrimary,
+        color: ElioColors.espresso,
       );
 
   static TextStyle get bodySmall => GoogleFonts.quicksand(
         fontSize: 14,
         height: 1.4,
         fontWeight: FontWeight.w500,
-        color: ElioColors.textSecondary,
+        color: ElioColors.mocha,
       );
 
   // ─── Stat / pill label ────────────────────────────────────────────────

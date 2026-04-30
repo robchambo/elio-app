@@ -128,7 +128,7 @@ class Screen04Dietary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: AnimatedBuilder(
           animation: controller,
@@ -183,7 +183,7 @@ class Screen04Dietary extends StatelessWidget {
                         Text(
                           'Pick all that apply. Allergies come next.',
                           style: ElioTextStyles.body.copyWith(
-                            color: ElioColors.textSecondary,
+                            color: ElioColors.mocha,
                           ),
                         ),
                         const SizedBox(height: ElioSpacing.lg),
@@ -200,7 +200,7 @@ class Screen04Dietary extends StatelessWidget {
                         if (showHouseholdToggle) ...[
                           const SizedBox(height: ElioSpacing.lg),
                           const Divider(
-                              height: 1, color: ElioColors.border),
+                              height: 1, color: ElioColors.rule),
                           const SizedBox(height: ElioSpacing.sm),
                           SwitchListTile(
                             contentPadding: EdgeInsets.zero,
@@ -223,7 +223,7 @@ class Screen04Dietary extends StatelessWidget {
                           Text(
                             "Pick everything that applies to anyone — including you. We'll make sure no one gets left out.",
                             style: ElioTextStyles.bodySmall.copyWith(
-                              color: ElioColors.textSecondary,
+                              color: ElioColors.mocha,
                             ),
                           ),
                           const SizedBox(height: ElioSpacing.md),
@@ -243,7 +243,7 @@ class Screen04Dietary extends StatelessWidget {
                             Text(
                               "Pick at least one — or turn the toggle off if everyone's the same.",
                               style: ElioTextStyles.bodySmall.copyWith(
-                                color: ElioColors.textMuted,
+                                color: ElioColors.mocha,
                               ),
                             ),
                           ],

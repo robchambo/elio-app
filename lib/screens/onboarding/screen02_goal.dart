@@ -86,7 +86,7 @@ class Screen02Goal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: AnimatedBuilder(
           animation: controller,
@@ -137,7 +137,7 @@ class Screen02Goal extends StatelessWidget {
                         Text(
                           "Pick what matters most — we'll tailor things to suit. Don't worry, you can change anytime.",
                           style: ElioTextStyles.body.copyWith(
-                            color: ElioColors.textSecondary,
+                            color: ElioColors.mocha,
                           ),
                         ),
                         const SizedBox(height: ElioSpacing.lg),
@@ -188,7 +188,7 @@ class Screen02Goal extends StatelessWidget {
                         child: Text(
                           'You can change this later.',
                           style: ElioTextStyles.bodySmall.copyWith(
-                            color: ElioColors.textMuted,
+                            color: ElioColors.mocha,
                           ),
                         ),
                       ),

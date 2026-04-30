@@ -25,10 +25,10 @@ class ElioApplianceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected ? ElioColors.terracotta : ElioColors.border;
+    final borderColor = selected ? ElioColors.terracotta : ElioColors.rule;
     final bg = selected
         ? ElioColors.terracotta.withValues(alpha: 0.08)
-        : ElioColors.white;
+        : ElioColors.cream;
 
     return InkWell(
       onTap: () => onTap(value),

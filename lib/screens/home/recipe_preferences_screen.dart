@@ -452,7 +452,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: ElioColors.white,
+                    color: ElioColors.cream,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
                       color: ElioColors.terracotta.withValues(alpha: 0.3),
@@ -550,7 +550,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
         border: Border.all(
           color: value
               ? ElioColors.terracotta
-              : ElioColors.border,
+              : ElioColors.rule,
           width: value ? 1.5 : 1,
         ),
       ),
@@ -577,7 +577,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                 Text(
                   subtitle,
                   style: ElioTextStyles.bodySmall.copyWith(
-                    color: ElioColors.textSecondary,
+                    color: ElioColors.mocha,
                   ),
                 ),
               ],
@@ -655,7 +655,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                 '${meals == 1 ? "meal" : "meals"}, each scaled for '
                 '$portions portions when you generate.',
                 style: ElioTextStyles.bodySmall.copyWith(
-                  color: ElioColors.textSecondary,
+                  color: ElioColors.mocha,
                 ),
               ),
             ],
@@ -664,7 +664,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
               child: Text('Cancel',
-                  style: TextStyle(color: ElioColors.textSecondary)),
+                  style: TextStyle(color: ElioColors.mocha)),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
@@ -716,7 +716,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
               decoration: InputDecoration(
                 hintText: 'Got a craving? Tell me about it',
                 hintStyle: ElioTextStyles.body.copyWith(
-                  color: ElioColors.textSecondary,
+                  color: ElioColors.mocha,
                 ),
                 border: InputBorder.none,
                 isDense: true,
@@ -751,7 +751,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
               border: Border.all(
                 color: hasSelection
                     ? ElioColors.terracotta
-                    : ElioColors.border,
+                    : ElioColors.rule,
                 width: hasSelection ? 1.5 : 1,
               ),
             ),
@@ -783,7 +783,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                             ? _useUpItems.join(', ')
                             : 'Pick perishables or add leftovers',
                         style: ElioTextStyles.bodySmall.copyWith(
-                          color: ElioColors.textSecondary,
+                          color: ElioColors.mocha,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -793,7 +793,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                 ),
                 const Icon(
                   Icons.chevron_right,
-                  color: ElioColors.textSecondary,
+                  color: ElioColors.mocha,
                 ),
               ],
             ),
@@ -912,7 +912,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
               "Elio is cooking up something good.",
               textAlign: TextAlign.center,
               style: ElioTextStyles.body.copyWith(
-                color: ElioColors.textSecondary,
+                color: ElioColors.mocha,
               ),
             ),
           ],
@@ -944,7 +944,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             _errorMessage ?? 'Please try again.',
             textAlign: TextAlign.center,
             style: ElioTextStyles.body.copyWith(
-              color: ElioColors.textSecondary,
+              color: ElioColors.mocha,
             ),
           ),
           const Spacer(),
@@ -979,7 +979,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     return PopScope(
       canPop: showBack,
       child: Scaffold(
-        backgroundColor: ElioColors.offWhite,
+        backgroundColor: ElioColors.cream,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,

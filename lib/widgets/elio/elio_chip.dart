@@ -22,7 +22,7 @@ class ElioChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final bg = selected ? ElioColors.terracotta : Colors.white;
     final fg = selected ? Colors.white : ElioColors.espresso;
-    final borderColor = selected ? ElioColors.terracotta : ElioColors.border;
+    final borderColor = selected ? ElioColors.terracotta : ElioColors.rule;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(ElioRadii.chip),

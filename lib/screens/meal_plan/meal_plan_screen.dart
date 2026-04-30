@@ -214,18 +214,18 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text('Restart meal plan?', style: ElioTextStyles.heading4),
         content: Text(
           'This will clear your current week. You can generate a fresh plan straight after.',
-          style: ElioTextStyles.body.copyWith(color: ElioColors.textSecondary),
+          style: ElioTextStyles.body.copyWith(color: ElioColors.mocha),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text('Cancel',
-                style: ElioTextStyles.body.copyWith(color: ElioColors.textSecondary)),
+                style: ElioTextStyles.body.copyWith(color: ElioColors.mocha)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -460,7 +460,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,14 +510,14 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                 if (_plan == null)
                   Text(
                     'Generate your week in one tap',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   )
                 else
                   Text(
                     'Tap a meal to view full recipe',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -532,14 +532,14 @@ class _MealPlanScreenState extends State<MealPlanScreen>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: ElioColors.offWhite,
+                  color: ElioColors.cream,
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: ElioColors.border),
+                  border: Border.all(color: ElioColors.rule),
                 ),
                 child: Text(
                   'Restart plan',
                   style: ElioTextStyles.bodySmall.copyWith(
-                    color: ElioColors.textSecondary,
+                    color: ElioColors.mocha,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -570,10 +570,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         indicatorWeight: 2.5,
         indicatorSize: TabBarIndicatorSize.label,
         labelColor: ElioColors.espresso,
-        unselectedLabelColor: ElioColors.textMuted,
+        unselectedLabelColor: ElioColors.mocha,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        dividerColor: ElioColors.border,
+        dividerColor: ElioColors.rule,
         tabs: _dayAbbreviations.map((d) => Tab(text: d)).toList(),
       ),
     );
@@ -653,12 +653,12 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           const SizedBox(height: 24),
           Text(
             'Pick your days and meal types — Elio will plan the week around your pantry.',
-            style: ElioTextStyles.body.copyWith(color: ElioColors.textSecondary),
+            style: ElioTextStyles.body.copyWith(color: ElioColors.mocha),
           ),
           const SizedBox(height: 28),
 
           // ── Meal types ──────────────────────────────────────────────
-          Text('Meal types', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
+          Text('Meal types', style: ElioText.label.copyWith(color: ElioColors.mocha, letterSpacing: 0.5)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 10,
@@ -677,10 +677,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isOn ? ElioColors.espresso : ElioColors.offWhite,
+                    color: isOn ? ElioColors.espresso : ElioColors.cream,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isOn ? ElioColors.espresso : ElioColors.border,
+                      color: isOn ? ElioColors.espresso : ElioColors.rule,
                       width: 1.5,
                     ),
                   ),
@@ -694,7 +694,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: isOn ? Colors.white : ElioColors.textSecondary,
+                          color: isOn ? Colors.white : ElioColors.mocha,
                         ),
                       ),
                     ],
@@ -710,7 +710,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Days', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
+              Text('Days', style: ElioText.label.copyWith(color: ElioColors.mocha, letterSpacing: 0.5)),
               GestureDetector(
                 onTap: () => setState(() {
                   if (_selectedDays.length == 7) {
@@ -749,10 +749,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: _selectedDays.contains(entry.$2) ? ElioColors.terracotta : ElioColors.offWhite,
+                      color: _selectedDays.contains(entry.$2) ? ElioColors.terracotta : ElioColors.cream,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: _selectedDays.contains(entry.$2) ? ElioColors.terracotta : ElioColors.border,
+                        color: _selectedDays.contains(entry.$2) ? ElioColors.terracotta : ElioColors.rule,
                         width: 1.5,
                       ),
                     ),
@@ -762,7 +762,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: _selectedDays.contains(entry.$2) ? Colors.white : ElioColors.textSecondary,
+                          color: _selectedDays.contains(entry.$2) ? Colors.white : ElioColors.mocha,
                         ),
                       ),
                     ),
@@ -778,13 +778,13 @@ class _MealPlanScreenState extends State<MealPlanScreen>
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: ElioColors.offWhite,
+              color: ElioColors.cream,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: ElioColors.border),
+              border: Border.all(color: ElioColors.rule),
             ),
             child: Text(
               summaryText,
-              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
               textAlign: TextAlign.center,
             ),
           ),
@@ -864,9 +864,9 @@ class _GenerateButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: hasExistingPlan ? ElioColors.offWhite : ElioColors.terracotta,
+          color: hasExistingPlan ? ElioColors.cream : ElioColors.terracotta,
           borderRadius: BorderRadius.circular(20),
-          border: hasExistingPlan ? Border.all(color: ElioColors.border) : null,
+          border: hasExistingPlan ? Border.all(color: ElioColors.rule) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -874,7 +874,7 @@ class _GenerateButton extends StatelessWidget {
             Icon(
               hasExistingPlan ? Icons.refresh : Icons.auto_awesome,
               size: 14,
-              color: hasExistingPlan ? ElioColors.textSecondary : Colors.white,
+              color: hasExistingPlan ? ElioColors.mocha : Colors.white,
             ),
             const SizedBox(width: 4),
             Text(
@@ -882,7 +882,7 @@ class _GenerateButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: hasExistingPlan ? ElioColors.textSecondary : Colors.white,
+                color: hasExistingPlan ? ElioColors.mocha : Colors.white,
               ),
             ),
           ],
@@ -915,9 +915,9 @@ class _MealCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         decoration: BoxDecoration(
-          color: ElioColors.offWhite,
+          color: ElioColors.cream,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: ElioColors.border),
+          border: Border.all(color: ElioColors.rule),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -932,7 +932,7 @@ class _MealCard extends StatelessWidget {
                   Text(
                     mealType.displayName.toUpperCase(),
                     style: ElioText.label.copyWith(
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -941,7 +941,7 @@ class _MealCard extends StatelessWidget {
                   if (meal != null && !isRegenerating)
                     const Padding(
                       padding: EdgeInsets.only(right: 8),
-                      child: Icon(Icons.chevron_right, size: 16, color: ElioColors.textMuted),
+                      child: Icon(Icons.chevron_right, size: 16, color: ElioColors.mocha),
                     ),
                   // Regenerate button
                   GestureDetector(
@@ -950,9 +950,9 @@ class _MealCard extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: ElioColors.white,
+                        color: ElioColors.cream,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: ElioColors.border),
+                        border: Border.all(color: ElioColors.rule),
                       ),
                       child: isRegenerating
                           ? const Padding(
@@ -962,7 +962,7 @@ class _MealCard extends StatelessWidget {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Icon(Icons.refresh, size: 16, color: ElioColors.textSecondary),
+                          : const Icon(Icons.refresh, size: 16, color: ElioColors.mocha),
                     ),
                   ),
                 ],
@@ -991,7 +991,7 @@ class _MealCard extends StatelessWidget {
           height: 18,
           width: 200,
           decoration: BoxDecoration(
-            color: ElioColors.border,
+            color: ElioColors.rule,
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -1000,7 +1000,7 @@ class _MealCard extends StatelessWidget {
           height: 14,
           width: 140,
           decoration: BoxDecoration(
-            color: ElioColors.border.withValues(alpha: 0.6),
+            color: ElioColors.rule.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -1011,7 +1011,7 @@ class _MealCard extends StatelessWidget {
   Widget _buildEmptySlot() {
     return Text(
       'Tap ↺ to generate',
-      style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+      style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
     );
   }
 
@@ -1026,7 +1026,7 @@ class _MealCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           meal.description,
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
@@ -1158,7 +1158,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Edit item', style: ElioText.headingMedium),
         content: Column(
@@ -1181,7 +1181,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
           ),
           TextButton(
             onPressed: () {
@@ -1207,7 +1207,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       child: ConstrainedBox(
@@ -1228,7 +1228,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                   const SizedBox(height: 4),
                   Text(
                     '$_includedCount of ${_items.length} items selected',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -1249,7 +1249,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                         child: Text(
                           'Deselect all',
                           style: ElioText.label.copyWith(
-                            color: ElioColors.textMuted,
+                            color: ElioColors.mocha,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1269,7 +1269,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                       child: Center(
                         child: Text(
                           'All ingredients are already in your pantry!',
-                          style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                          style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -1286,7 +1286,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                             margin: const EdgeInsets.only(bottom: 4),
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                             decoration: BoxDecoration(
-                              color: item.included ? Colors.transparent : ElioColors.offWhite.withValues(alpha: 0.5),
+                              color: item.included ? Colors.transparent : ElioColors.cream.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
@@ -1300,7 +1300,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                                     color: item.included ? ElioColors.espresso : Colors.transparent,
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: item.included ? ElioColors.espresso : ElioColors.border,
+                                      color: item.included ? ElioColors.espresso : ElioColors.rule,
                                       width: 1.5,
                                     ),
                                   ),
@@ -1320,19 +1320,19 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
                                           color: item.included
-                                              ? ElioColors.textPrimary
-                                              : ElioColors.textMuted,
+                                              ? ElioColors.espresso
+                                              : ElioColors.mocha,
                                           decoration: item.included
                                               ? null
                                               : TextDecoration.lineThrough,
-                                          decorationColor: ElioColors.textMuted,
+                                          decorationColor: ElioColors.mocha,
                                         ),
                                       ),
                                       if (item.quantity.isNotEmpty)
                                         Text(
                                           item.quantity,
                                           style: ElioText.label.copyWith(
-                                            color: ElioColors.textMuted,
+                                            color: ElioColors.mocha,
                                             fontSize: 12,
                                           ),
                                         ),
@@ -1363,7 +1363,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                                   onTap: () => _editItem(i),
                                   child: const Padding(
                                     padding: EdgeInsets.all(4),
-                                    child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted),
+                                    child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.mocha),
                                   ),
                                 ),
                               ],
@@ -1389,7 +1389,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ElioColors.terracotta,
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: ElioColors.border,
+                        disabledBackgroundColor: ElioColors.rule,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,

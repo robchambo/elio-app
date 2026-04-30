@@ -75,13 +75,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.offWhite,
-        title: Text('Clear history?', style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 20, color: ElioColors.textPrimary)),
-        content: Text('All saved recipes will be removed from this device.', style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.textSecondary)),
+        backgroundColor: ElioColors.cream,
+        title: Text('Clear history?', style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 20, color: ElioColors.espresso)),
+        content: Text('All saved recipes will be removed from this device.', style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.mocha)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.textSecondary)),
+            child: Text('Cancel', style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.mocha)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
@@ -113,9 +113,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
-        backgroundColor: ElioColors.offWhite,
+        backgroundColor: ElioColors.cream,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.espresso, size: 20),
@@ -138,7 +138,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
               TextSpan(
                 text: ' History',
-                style: ElioTextStyles.bodyStyle.copyWith(fontSize: 18, color: ElioColors.textSecondary),
+                style: ElioTextStyles.bodyStyle.copyWith(fontSize: 18, color: ElioColors.mocha),
               ),
             ],
           ),
@@ -166,17 +166,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.menu_book_rounded, size: 64, color: ElioColors.border),
+            Icon(Icons.menu_book_rounded, size: 64, color: ElioColors.rule),
             const SizedBox(height: 20),
             Text(
               'No recipes yet',
-              style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 22, color: ElioColors.textPrimary),
+              style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 22, color: ElioColors.espresso),
             ),
             const SizedBox(height: 8),
             Text(
               'Recipes you generate will appear here automatically.',
               textAlign: TextAlign.center,
-              style: ElioTextStyles.bodyStyle.copyWith(fontSize: 15, color: ElioColors.textSecondary, height: 1.5),
+              style: ElioTextStyles.bodyStyle.copyWith(fontSize: 15, color: ElioColors.mocha, height: 1.5),
             ),
           ],
         ),
@@ -200,7 +200,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
           Expanded(
             child: Text(
               'Upgrade for full history — free accounts show the 20 most recent recipes.',
-              style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.textPrimary, height: 1.4),
+              style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso, height: 1.4),
             ),
           ),
         ],
@@ -240,9 +240,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: ElioColors.offWhite,
+                color: ElioColors.cream,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: ElioColors.border, width: 1),
+                border: Border.all(color: ElioColors.rule, width: 1),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +255,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         Text(
                           recipe.title,
                           style: ElioTextStyles.uiLabelStyle.copyWith(
-                            color: ElioColors.textPrimary,
+                            color: ElioColors.espresso,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -264,7 +264,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         Text(
                           recipe.description,
                           style: ElioTextStyles.bodySmallStyle.copyWith(
-                            color: ElioColors.textSecondary,
+                            color: ElioColors.mocha,
                             height: 1.4,
                           ),
                           maxLines: 2,
@@ -279,7 +279,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             const Spacer(),
                             Text(
                               _formatDate(saved.savedAt),
-                              style: ElioTextStyles.tabLabelStyle.copyWith(color: ElioColors.textSecondary),
+                              style: ElioTextStyles.tabLabelStyle.copyWith(color: ElioColors.mocha),
                             ),
                           ],
                         ),
@@ -288,7 +288,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                   // Right: arrow
                   const SizedBox(width: 12),
-                  Icon(Icons.chevron_right_rounded, color: ElioColors.border, size: 22),
+                  Icon(Icons.chevron_right_rounded, color: ElioColors.rule, size: 22),
                 ],
               ),
             ),
@@ -302,9 +302,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: ElioColors.textSecondary),
+        Icon(icon, size: 12, color: ElioColors.mocha),
         const SizedBox(width: 3),
-        Text(label, style: ElioTextStyles.tabLabelStyle.copyWith(color: ElioColors.textSecondary)),
+        Text(label, style: ElioTextStyles.tabLabelStyle.copyWith(color: ElioColors.mocha)),
       ],
     );
   }

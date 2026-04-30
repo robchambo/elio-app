@@ -86,18 +86,18 @@ class _ElioChipTextInputState extends State<ElioChipTextInput> {
             hintText: widget.hintText,
             hintStyle: ElioTextStyles.bodySmall,
             filled: true,
-            fillColor: ElioColors.offWhite,
+            fillColor: ElioColors.cream,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: ElioSpacing.md,
               vertical: ElioSpacing.sm + 2,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(ElioRadii.md),
-              borderSide: const BorderSide(color: ElioColors.border),
+              borderSide: const BorderSide(color: ElioColors.rule),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(ElioRadii.md),
-              borderSide: const BorderSide(color: ElioColors.border),
+              borderSide: const BorderSide(color: ElioColors.rule),
             ),
           ),
         ),

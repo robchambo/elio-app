@@ -458,12 +458,12 @@ class _HomeScreenState extends State<HomeScreen> {
             Row(
               children: [
                 const Icon(Icons.schedule,
-                    size: 14, color: ElioColors.textSecondary),
+                    size: 14, color: ElioColors.mocha),
                 const SizedBox(width: 4),
                 Text(
                   '${r.recipe.totalTimeMinutes} min',
                   style: ElioTextStyles.bodySmall.copyWith(
-                    color: ElioColors.textSecondary,
+                    color: ElioColors.mocha,
                   ),
                 ),
               ],

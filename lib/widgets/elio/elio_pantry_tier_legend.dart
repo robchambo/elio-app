@@ -91,7 +91,7 @@ class ElioPantryTierLegend extends StatelessWidget {
         Text(
           e.label,
           style: ElioTextStyles.bodySmall.copyWith(
-            color: ElioColors.textMuted,
+            color: ElioColors.mocha,
           ),
         ),
       ],

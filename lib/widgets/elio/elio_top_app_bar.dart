@@ -20,7 +20,7 @@ class ElioTopAppBar extends StatelessWidget implements PreferredSizeWidget {
     // Without this, the 64px bar sits flush at y=0 and overlaps the status
     // bar on devices with a non-zero top inset (most Samsungs).
     return Material(
-      color: ElioColors.offWhite,
+      color: ElioColors.cream,
       child: SafeArea(
         bottom: false,
         child: Container(

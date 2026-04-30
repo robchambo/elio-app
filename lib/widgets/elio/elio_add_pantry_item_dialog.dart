@@ -54,7 +54,7 @@ Future<AddItemResult> showAddPantryItemDialog(
     context: context,
     builder: (ctx) {
       return AlertDialog(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(ElioRadii.lg),
         ),
@@ -69,11 +69,11 @@ Future<AddItemResult> showAddPantryItemDialog(
           decoration: InputDecoration(
             hintText: 'e.g. Miso paste',
             hintStyle: ElioTextStyles.body.copyWith(
-              color: ElioColors.textMuted,
+              color: ElioColors.mocha,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(ElioRadii.md),
-              borderSide: const BorderSide(color: ElioColors.border),
+              borderSide: const BorderSide(color: ElioColors.rule),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(ElioRadii.md),
@@ -97,7 +97,7 @@ Future<AddItemResult> showAddPantryItemDialog(
             child: Text(
               'Cancel',
               style: ElioTextStyles.body.copyWith(
-                color: ElioColors.textSecondary,
+                color: ElioColors.mocha,
               ),
             ),
           ),

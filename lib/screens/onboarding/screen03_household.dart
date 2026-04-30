@@ -72,7 +72,7 @@ class Screen03Household extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: AnimatedBuilder(
           animation: controller,
@@ -128,7 +128,7 @@ class Screen03Household extends StatelessWidget {
                               ? "We'll make sure everyone's covered."
                               : "We'll size recipes and plan around your household.",
                           style: ElioTextStyles.body.copyWith(
-                            color: ElioColors.textSecondary,
+                            color: ElioColors.mocha,
                           ),
                         ),
                         const SizedBox(height: ElioSpacing.lg),

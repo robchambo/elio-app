@@ -62,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           children: [
@@ -108,9 +108,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                           decoration: BoxDecoration(
-                            color: ElioColors.offWhite,
+                            color: ElioColors.cream,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: ElioColors.border),
+                            border: Border.all(color: ElioColors.rule),
                           ),
                           child: Row(
                             children: [
@@ -124,11 +124,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.espresso)),
                                     const SizedBox(height: 2),
                                     Text('Add or remove people and their dietary needs',
-                                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textSecondary)),
+                                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.mocha)),
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.chevron_right_rounded, size: 22, color: ElioColors.textMuted),
+                              const Icon(Icons.chevron_right_rounded, size: 22, color: ElioColors.mocha),
                             ],
                           ),
                         ),
@@ -143,9 +143,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                           decoration: BoxDecoration(
-                            color: ElioColors.offWhite,
+                            color: ElioColors.cream,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: ElioColors.border),
+                            border: Border.all(color: ElioColors.rule),
                           ),
                           child: Row(
                             children: [
@@ -159,11 +159,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.espresso)),
                                     const SizedBox(height: 2),
                                     Text('Adjust your dietary requirements',
-                                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textSecondary)),
+                                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.mocha)),
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.chevron_right_rounded, size: 22, color: ElioColors.textMuted),
+                              const Icon(Icons.chevron_right_rounded, size: 22, color: ElioColors.mocha),
                             ],
                           ),
                         ),
@@ -177,9 +177,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                           decoration: BoxDecoration(
-                            color: ElioColors.offWhite,
+                            color: ElioColors.cream,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: ElioColors.border),
+                            border: Border.all(color: ElioColors.rule),
                           ),
                           child: Row(
                             children: [
@@ -193,11 +193,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.espresso)),
                                     const SizedBox(height: 2),
                                     Text('Select the appliances you own',
-                                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textSecondary)),
+                                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.mocha)),
                                   ],
                                 ),
                               ),
-                              const Icon(Icons.chevron_right_rounded, size: 22, color: ElioColors.textMuted),
+                              const Icon(Icons.chevron_right_rounded, size: 22, color: ElioColors.mocha),
                             ],
                           ),
                         ),
@@ -215,9 +215,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                             decoration: BoxDecoration(
-                              color: ElioColors.offWhite,
+                              color: ElioColors.cream,
                               borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: ElioColors.border),
+                              border: Border.all(color: ElioColors.rule),
                             ),
                             child: Row(
                               children: [
@@ -231,7 +231,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                           style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.espresso)),
                                       const SizedBox(height: 2),
                                       Text(versionLabel,
-                                          style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textSecondary)),
+                                          style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.mocha)),
                                     ],
                                   ),
                                 ),
@@ -312,10 +312,10 @@ class _SettingsCard extends StatelessWidget {
         height: 80,
         width: double.infinity,
         decoration: BoxDecoration(
-          color: isSelected ? ElioColors.terracotta.withValues(alpha: 0.12) : ElioColors.offWhite,
+          color: isSelected ? ElioColors.terracotta.withValues(alpha: 0.12) : ElioColors.cream,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? ElioColors.terracotta : ElioColors.border,
+            color: isSelected ? ElioColors.terracotta : ElioColors.rule,
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
@@ -332,7 +332,7 @@ class _SettingsCard extends StatelessWidget {
                   label,
                   style: ElioText.bodyLarge.copyWith(
                     fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                    color: isSelected ? ElioColors.espresso : ElioColors.textPrimary,
+                    color: isSelected ? ElioColors.espresso : ElioColors.espresso,
                   ),
                 ),
               ),

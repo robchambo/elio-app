@@ -86,7 +86,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Add "$itemName"', style: ElioText.headingMedium),
-        content: Text('Choose a tier:', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+        content: Text('Choose a tier:', style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
         actions: [
           TextButton.icon(
             icon: Icon(Icons.inventory_2_outlined, size: 18, color: ElioColors.terracotta),
@@ -149,7 +149,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
               const SizedBox(height: 4),
               Text(
                 'Choose which tier to add this item to.',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
               ),
               const SizedBox(height: 16),
               ListTile(
@@ -163,7 +163,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                   child: const Icon(Icons.inventory_2_outlined, color: ElioColors.terracotta, size: 20),
                 ),
                 title: Text('Always Have', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                subtitle: Text('Staples you always keep', style: ElioText.label.copyWith(color: ElioColors.textSecondary)),
+                subtitle: Text('Staples you always keep', style: ElioText.label.copyWith(color: ElioColors.mocha)),
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onAddItem(itemName, 'alwaysHave', categoryName ?? '');
@@ -184,7 +184,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                   child: const Icon(Icons.kitchen_outlined, color: ElioColors.mocha, size: 20),
                 ),
                 title: Text('Almost Always Have', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                subtitle: Text('Usually have but sometimes run out', style: ElioText.label.copyWith(color: ElioColors.textSecondary)),
+                subtitle: Text('Usually have but sometimes run out', style: ElioText.label.copyWith(color: ElioColors.mocha)),
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onAddItem(itemName, 'almostAlwaysHave', categoryName ?? '');
@@ -205,7 +205,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                   child: const Icon(Icons.eco_outlined, color: Colors.green, size: 20),
                 ),
                 title: Text('Perishable', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                subtitle: Text('Fresh items with a limited shelf life', style: ElioText.label.copyWith(color: ElioColors.textSecondary)),
+                subtitle: Text('Fresh items with a limited shelf life', style: ElioText.label.copyWith(color: ElioColors.mocha)),
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onAddItem(itemName, 'perishable', categoryName ?? '');
@@ -252,7 +252,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
               child: Container(
                 width: 36, height: 4,
                 decoration: BoxDecoration(
-                  color: ElioColors.border,
+                  color: ElioColors.rule,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -272,7 +272,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
               padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
               child: Text(
                 'Tap to add, hold to choose tier.',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
               ),
             ),
             // Search bar
@@ -282,31 +282,31 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: 'Search items...',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: ElioColors.textMuted),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: ElioColors.mocha),
                   suffixIcon: hasSearch
                       ? GestureDetector(
                           onTap: () {
                             _searchController.clear();
                             setState(() => _searchQuery = '');
                           },
-                          child: const Icon(Icons.close_rounded, size: 18, color: ElioColors.textMuted),
+                          child: const Icon(Icons.close_rounded, size: 18, color: ElioColors.mocha),
                         )
                       : null,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: ElioColors.border),
+                    borderSide: const BorderSide(color: ElioColors.rule),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: ElioColors.border),
+                    borderSide: const BorderSide(color: ElioColors.rule),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(color: ElioColors.espresso, width: 1.5),
                   ),
                   filled: true,
-                  fillColor: ElioColors.offWhite,
+                  fillColor: ElioColors.cream,
                 ),
                 style: ElioTextStyles.bodySmallStyle,
                 onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
@@ -322,22 +322,22 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                       controller: _customItemController,
                       decoration: InputDecoration(
                         hintText: 'Add custom item...',
-                        prefixIcon: Icon(Icons.add_rounded, size: 20, color: _customItemError != null ? ElioColors.terracotta : ElioColors.textMuted),
+                        prefixIcon: Icon(Icons.add_rounded, size: 20, color: _customItemError != null ? ElioColors.terracotta : ElioColors.mocha),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: ElioColors.border),
+                          borderSide: const BorderSide(color: ElioColors.rule),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: _customItemError != null ? ElioColors.terracotta : ElioColors.border),
+                          borderSide: BorderSide(color: _customItemError != null ? ElioColors.terracotta : ElioColors.rule),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide(color: _customItemError != null ? ElioColors.terracotta : ElioColors.espresso, width: 1.5),
                         ),
                         filled: true,
-                        fillColor: ElioColors.offWhite,
+                        fillColor: ElioColors.cream,
                       ),
                       style: ElioTextStyles.bodySmallStyle,
                       textInputAction: TextInputAction.done,
@@ -434,7 +434,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                       ),
                       Text(
                         '${filteredItems.length} items${inPantryCount > 0 ? ' · $inPantryCount in pantry' : ''}',
-                        style: ElioText.label.copyWith(color: ElioColors.textSecondary),
+                        style: ElioText.label.copyWith(color: ElioColors.mocha),
                       ),
                     ],
                   ),
@@ -443,7 +443,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                   Icon(
                     isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
                     size: 22,
-                    color: ElioColors.textMuted,
+                    color: ElioColors.mocha,
                   ),
               ],
             ),
@@ -475,12 +475,12 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                     decoration: BoxDecoration(
                       color: inPantry
                           ? ElioColors.terracotta.withValues(alpha: 0.12)
-                          : ElioColors.offWhite,
+                          : ElioColors.cream,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: inPantry
                             ? ElioColors.terracotta.withValues(alpha: 0.5)
-                            : ElioColors.border,
+                            : ElioColors.rule,
                       ),
                     ),
                     child: Row(
@@ -506,7 +506,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
             ),
           ),
         ],
-        const Divider(height: 1, color: ElioColors.border),
+        const Divider(height: 1, color: ElioColors.rule),
       ],
     );
   }

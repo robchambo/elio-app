@@ -279,7 +279,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(ElioSpacing.screenEdge),
@@ -331,7 +331,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
         Text(
           _subheads[_subheadIndex],
           style:
-              ElioTextStyles.body.copyWith(color: ElioColors.textSecondary),
+              ElioTextStyles.body.copyWith(color: ElioColors.mocha),
         ),
         const SizedBox(height: ElioSpacing.xl),
         const Expanded(child: _ShimmerRecipeCard()),
@@ -354,7 +354,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
           Text(
             'Made just for you. Built from your kitchen.',
             style: ElioTextStyles.bodySmall
-                .copyWith(color: ElioColors.textSecondary),
+                .copyWith(color: ElioColors.mocha),
           ),
           const SizedBox(height: ElioSpacing.md),
           Container(
@@ -372,7 +372,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
                   '${r.totalTimeMinutes} min · Serves ${r.servings} · '
                   '${_difficultyLabel(widget.controller.state.cookingConfidence)}',
                   style: ElioTextStyles.bodySmall
-                      .copyWith(color: ElioColors.textSecondary),
+                      .copyWith(color: ElioColors.mocha),
                 ),
                 const SizedBox(height: ElioSpacing.md),
                 Text('Ingredients', style: ElioTextStyles.heading5),
@@ -418,7 +418,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
               child: Text(
                 'Skip — take me to the app',
                 style: ElioTextStyles.bodySmall.copyWith(
-                  color: ElioColors.textSecondary,
+                  color: ElioColors.mocha,
                 ),
               ),
             ),
@@ -440,14 +440,14 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
         Text(
           "Couldn't reach Elio right now. Your pantry's saved — tap retry.",
           style:
-              ElioTextStyles.body.copyWith(color: ElioColors.textSecondary),
+              ElioTextStyles.body.copyWith(color: ElioColors.mocha),
         ),
         if (_errorMessage.isNotEmpty) ...[
           const SizedBox(height: ElioSpacing.sm),
           Text(
             _errorMessage,
             style: ElioTextStyles.bodySmall
-                .copyWith(color: ElioColors.textSecondary),
+                .copyWith(color: ElioColors.mocha),
           ),
         ],
         const Spacer(),

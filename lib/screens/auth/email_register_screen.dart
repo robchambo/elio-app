@@ -117,9 +117,9 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: ElioColors.espresso),
@@ -140,7 +140,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                 Text(
                   'Get personalised recipes in seconds.',
                   style: ElioText.bodyLarge.copyWith(
-                    color: ElioColors.textSecondary,
+                    color: ElioColors.mocha,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -157,7 +157,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   decoration: InputDecoration(
                     hintText: 'Your name',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
@@ -187,7 +187,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   decoration: InputDecoration(
                     hintText: 'you@example.com',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
@@ -219,7 +219,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   decoration: InputDecoration(
                     hintText: 'At least 6 characters',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
@@ -232,7 +232,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                         _obscurePassword
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: ElioColors.textMuted,
+                        color: ElioColors.mocha,
                         size: 20,
                       ),
                       onPressed: () {
@@ -263,7 +263,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   decoration: InputDecoration(
                     hintText: 'Re-enter your password',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
@@ -276,7 +276,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                         _obscureConfirm
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: ElioColors.textMuted,
+                        color: ElioColors.mocha,
                         size: 20,
                       ),
                       onPressed: () {
@@ -340,7 +340,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                       Text(
                         'Already have an account? ',
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.textSecondary,
+                          color: ElioColors.mocha,
                         ),
                       ),
                       GestureDetector(

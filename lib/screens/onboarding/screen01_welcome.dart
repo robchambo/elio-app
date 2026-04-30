@@ -55,7 +55,7 @@ class Screen01Welcome extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(ElioSpacing.screenEdge),
@@ -76,7 +76,7 @@ class Screen01Welcome extends StatelessWidget {
               Text(
                 "Recipes built around what's already in your kitchen.",
                 style: ElioTextStyles.body.copyWith(
-                  color: ElioColors.textSecondary,
+                  color: ElioColors.mocha,
                 ),
               ),
               const SizedBox(height: ElioSpacing.lg),

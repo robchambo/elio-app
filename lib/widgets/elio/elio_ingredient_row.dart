@@ -36,7 +36,7 @@ class ElioIngredientRow extends StatelessWidget {
                 color: checked ? ElioColors.terracotta : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: checked ? ElioColors.terracotta : ElioColors.border,
+                  color: checked ? ElioColors.terracotta : ElioColors.rule,
                   width: 2,
                 ),
               ),

@@ -55,7 +55,7 @@ class PhoneMockupRecipeCard extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(32),
             child: Container(
-              color: ElioColors.offWhite,
+              color: ElioColors.cream,
               padding: const EdgeInsets.all(ElioSpacing.md),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

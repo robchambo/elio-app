@@ -92,15 +92,15 @@ class ElioProviderSignInButton extends StatelessWidget {
           // here is a stand-in — screen 15 wires the real asset.
           glyph: const _GoogleG(),
           label: 'Continue with Google',
-          border: Border.all(color: ElioColors.border, width: 1.5),
+          border: Border.all(color: ElioColors.rule, width: 1.5),
         );
       case ProviderButtonKind.email:
         return (
-          bg: ElioColors.offWhite,
+          bg: ElioColors.cream,
           fg: ElioColors.espresso,
           glyph: const Icon(Icons.mail_outline, color: ElioColors.espresso, size: 20),
           label: 'Continue with email',
-          border: Border.all(color: ElioColors.border, width: 1.5),
+          border: Border.all(color: ElioColors.rule, width: 1.5),
         );
     }
   }

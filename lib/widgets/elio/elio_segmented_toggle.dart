@@ -27,9 +27,9 @@ class ElioSegmentedToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: ElioColors.offWhite,
+        color: ElioColors.cream,
         borderRadius: BorderRadius.circular(ElioRadii.pill),
-        border: Border.all(color: ElioColors.border),
+        border: Border.all(color: ElioColors.rule),
       ),
       child: Row(
         children: [

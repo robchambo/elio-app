@@ -108,7 +108,7 @@ class _Screen09RegionState extends State<Screen09Region> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: AnimatedBuilder(
           animation: widget.controller,
@@ -159,7 +159,7 @@ class _Screen09RegionState extends State<Screen09Region> {
                         Text(
                           'So we get the names and measurements right.',
                           style: ElioTextStyles.body.copyWith(
-                            color: ElioColors.textSecondary,
+                            color: ElioColors.mocha,
                           ),
                         ),
                         const SizedBox(height: ElioSpacing.lg),

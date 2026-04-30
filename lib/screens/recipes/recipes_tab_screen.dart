@@ -226,7 +226,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                         : Icons.bookmark_outline_rounded,
                     color: saved.isBookmarked
                         ? ElioColors.terracotta
-                        : ElioColors.textMuted,
+                        : ElioColors.mocha,
                   ),
                 ),
               ),

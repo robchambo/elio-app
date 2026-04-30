@@ -80,7 +80,7 @@ class AccountScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

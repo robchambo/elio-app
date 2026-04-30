@@ -231,13 +231,13 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                   Icon(
                     Icons.swipe_left_rounded,
                     size: 14,
-                    color: ElioColors.textSecondary.withValues(alpha: 0.7),
+                    color: ElioColors.mocha.withValues(alpha: 0.7),
                   ),
                   const SizedBox(width: 4),
                   Text(
                     'swipe to remove',
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                       fontSize: 12,
                     ),
                   ),
@@ -350,7 +350,7 @@ class _ShoppingRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mutedColor = ElioColors.textSecondary.withValues(alpha: 0.6);
+    final mutedColor = ElioColors.mocha.withValues(alpha: 0.6);
     final nameStyle = ElioTextStyles.body.copyWith(
       color: checked ? mutedColor : ElioColors.espresso,
       decoration: checked ? TextDecoration.lineThrough : null,
@@ -358,7 +358,7 @@ class _ShoppingRow extends StatelessWidget {
       fontWeight: FontWeight.w600,
     );
     final qtyStyle = ElioTextStyles.bodySmall.copyWith(
-      color: checked ? mutedColor : ElioColors.textSecondary,
+      color: checked ? mutedColor : ElioColors.mocha,
       decoration: checked ? TextDecoration.lineThrough : null,
       decorationColor: mutedColor,
     );
@@ -381,7 +381,7 @@ class _ShoppingRow extends StatelessWidget {
                 color: checked ? ElioColors.terracotta : Colors.transparent,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: checked ? ElioColors.terracotta : ElioColors.border,
+                  color: checked ? ElioColors.terracotta : ElioColors.rule,
                   width: 1.5,
                 ),
               ),
@@ -430,7 +430,7 @@ class _AddItemField extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: 'Add an item',
                 hintStyle:
-                    ElioTextStyles.body.copyWith(color: ElioColors.textSecondary),
+                    ElioTextStyles.body.copyWith(color: ElioColors.mocha),
                 border: InputBorder.none,
                 isDense: true,
               ),

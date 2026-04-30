@@ -172,7 +172,7 @@ class _PerishablesPickerScreenState extends State<PerishablesPickerScreen> {
                     'Tap anything you want me to centre the recipe around. '
                     'Selected items become required ingredients.',
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                     ),
                   ),
                   const SizedBox(height: ElioSpacing.xl),
@@ -216,7 +216,7 @@ class _PerishablesPickerScreenState extends State<PerishablesPickerScreen> {
                   Text(
                     'Leftovers, half-used jars, anything not in the pantry.',
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                     ),
                   ),
                   const SizedBox(height: ElioSpacing.sm),
@@ -263,8 +263,8 @@ class _PerishablesPickerScreenState extends State<PerishablesPickerScreen> {
               ElioSpacing.lg,
             ),
             decoration: BoxDecoration(
-              color: ElioColors.offWhite,
-              border: Border(top: BorderSide(color: ElioColors.border)),
+              color: ElioColors.cream,
+              border: Border(top: BorderSide(color: ElioColors.rule)),
             ),
             child: ElioBigButton(
               label: _selected.isEmpty
@@ -305,7 +305,7 @@ class _CustomAddField extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: 'e.g. leftover roast chicken',
                 hintStyle: ElioTextStyles.body
-                    .copyWith(color: ElioColors.textSecondary),
+                    .copyWith(color: ElioColors.mocha),
                 border: InputBorder.none,
                 isDense: true,
               ),

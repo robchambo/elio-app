@@ -26,7 +26,7 @@ class ElioProgressBar extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 2),
             height: 4,
             decoration: BoxDecoration(
-              color: i < currentStep ? ElioColors.terracotta : ElioColors.border,
+              color: i < currentStep ? ElioColors.terracotta : ElioColors.rule,
               borderRadius: BorderRadius.circular(2),
             ),
           ),

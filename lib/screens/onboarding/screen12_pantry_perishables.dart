@@ -344,7 +344,7 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
   Widget build(BuildContext context) {
     final footerRed = _todayCount > 0;
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -394,7 +394,7 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
                     style: ElioTextStyles.bodySmall.copyWith(
                       color: footerRed
                           ? ElioColors.perishToday
-                          : ElioColors.textSecondary,
+                          : ElioColors.mocha,
                       fontWeight:
                           footerRed ? FontWeight.w700 : FontWeight.w500,
                     ),
@@ -429,7 +429,7 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
               Text(
                 "Tap what you've got in. Tap again if it needs using sooner.",
                 style: ElioTextStyles.body.copyWith(
-                  color: ElioColors.textSecondary,
+                  color: ElioColors.mocha,
                 ),
               ),
               const SizedBox(height: ElioSpacing.xs),

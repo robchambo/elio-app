@@ -35,7 +35,7 @@ class ScanSuccessScreen extends StatelessWidget {
     final remainingCount = items.length - 1;
 
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -68,7 +68,7 @@ class ScanSuccessScreen extends StatelessWidget {
               Text(
                 _buildSubtitle(),
                 style: ElioTextStyles.bodySmallStyle.copyWith(
-                  color: ElioColors.textSecondary,
+                  color: ElioColors.mocha,
                   height: 1.4,
                 ),
                 textAlign: TextAlign.center,
@@ -82,7 +82,7 @@ class ScanSuccessScreen extends StatelessWidget {
                 Text(
                   '+ $remainingCount more item${remainingCount == 1 ? '' : 's'}',
                   style: ElioTextStyles.bodySmallStyle.copyWith(
-                    color: ElioColors.textMuted,
+                    color: ElioColors.mocha,
                   ),
                 ),
               ],
@@ -109,9 +109,9 @@ class ScanSuccessScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: ElioColors.offWhite,
+        color: ElioColors.cream,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
+        border: Border.all(color: ElioColors.rule),
       ),
       child: Row(
         children: [
@@ -139,7 +139,7 @@ class ScanSuccessScreen extends StatelessWidget {
                   item.name,
                   style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 15,
-                    color: ElioColors.textPrimary,
+                    color: ElioColors.espresso,
                   ),
                 ),
                 const SizedBox(height: 2),

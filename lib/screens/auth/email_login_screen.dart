@@ -142,9 +142,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: ElioColors.espresso),
@@ -165,7 +165,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                 Text(
                   'Sign in to your Elio account.',
                   style: ElioText.bodyLarge.copyWith(
-                    color: ElioColors.textSecondary,
+                    color: ElioColors.mocha,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -182,7 +182,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                   decoration: InputDecoration(
                     hintText: 'you@example.com',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
@@ -214,7 +214,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                   decoration: InputDecoration(
                     hintText: 'Your password',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
@@ -227,7 +227,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                         _obscurePassword
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: ElioColors.textMuted,
+                        color: ElioColors.mocha,
                         size: 20,
                       ),
                       onPressed: () {
@@ -309,7 +309,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                       Text(
                         "Don't have an account? ",
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.textSecondary,
+                          color: ElioColors.mocha,
                         ),
                       ),
                       GestureDetector(

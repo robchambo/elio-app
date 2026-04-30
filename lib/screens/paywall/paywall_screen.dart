@@ -287,7 +287,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
   Widget build(BuildContext context) {
     final trial = _showTrialState;
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -390,7 +390,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     child: Text(
                       'Continue with Free',
                       style: ElioTextStyles.bodySmall.copyWith(
-                        color: ElioColors.textSecondary,
+                        color: ElioColors.mocha,
                       ),
                     ),
                   ),
@@ -413,33 +413,33 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     child: Text(
                       'Restore',
                       style: ElioTextStyles.bodySmall.copyWith(
-                        color: ElioColors.textSecondary,
+                        color: ElioColors.mocha,
                         decoration: TextDecoration.underline,
                       ),
                     ),
                   ),
                   const Text('·',
-                      style: TextStyle(color: ElioColors.textSecondary)),
+                      style: TextStyle(color: ElioColors.mocha)),
                   TextButton(
                     key: const Key('paywallTermsLink'),
                     onPressed: _isLoading ? null : () => _openLegal('terms'),
                     child: Text(
                       'Terms',
                       style: ElioTextStyles.bodySmall.copyWith(
-                        color: ElioColors.textSecondary,
+                        color: ElioColors.mocha,
                         decoration: TextDecoration.underline,
                       ),
                     ),
                   ),
                   const Text('·',
-                      style: TextStyle(color: ElioColors.textSecondary)),
+                      style: TextStyle(color: ElioColors.mocha)),
                   TextButton(
                     key: const Key('paywallPrivacyLink'),
                     onPressed: _isLoading ? null : () => _openLegal('privacy'),
                     child: Text(
                       'Privacy',
                       style: ElioTextStyles.bodySmall.copyWith(
-                        color: ElioColors.textSecondary,
+                        color: ElioColors.mocha,
                         decoration: TextDecoration.underline,
                       ),
                     ),
@@ -455,7 +455,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                     : '$_selectedPriceString billed every $_selectedPeriodString. Cancel anytime in Google Play.',
                 style: ElioTextStyles.bodySmallStyle.copyWith(
                   fontSize: 11,
-                  color: ElioColors.textMuted,
+                  color: ElioColors.mocha,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -712,7 +712,7 @@ class _PricingPill extends StatelessWidget {
           color: isSelected ? ElioColors.terracotta.withValues(alpha: 0.12) : Colors.white,
           borderRadius: BorderRadius.circular(ElioRadii.card),
           border: Border.all(
-            color: isSelected ? ElioColors.terracotta : ElioColors.border,
+            color: isSelected ? ElioColors.terracotta : ElioColors.rule,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -743,7 +743,7 @@ class _PricingPill extends StatelessWidget {
             Text(
               label,
               style: ElioTextStyles.bodySmall.copyWith(
-                color: isSelected ? ElioColors.espresso : ElioColors.textSecondary,
+                color: isSelected ? ElioColors.espresso : ElioColors.mocha,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -751,7 +751,7 @@ class _PricingPill extends StatelessWidget {
             Text(
               price,
               style: ElioTextStyles.heading4.copyWith(
-                color: isSelected ? ElioColors.espresso : ElioColors.textPrimary,
+                color: isSelected ? ElioColors.espresso : ElioColors.espresso,
               ),
             ),
           ],

@@ -43,9 +43,9 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
@@ -61,7 +61,7 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
               children: [
                 Text(
                   'Choose which notifications you receive.',
-                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                 ),
                 const SizedBox(height: 24),
 
@@ -105,9 +105,9 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: ElioColors.offWhite,
+        color: ElioColors.cream,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
+        border: Border.all(color: ElioColors.rule),
       ),
       child: Row(
         children: [
@@ -121,13 +121,13 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
                   title,
                   style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 15,
-                    color: ElioColors.textPrimary,
+                    color: ElioColors.espresso,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 12),
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha, fontSize: 12),
                 ),
               ],
             ),

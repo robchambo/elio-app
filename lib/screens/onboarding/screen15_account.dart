@@ -236,7 +236,7 @@ class _Screen15AccountState extends State<Screen15Account> {
   Widget build(BuildContext context) {
     final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -343,7 +343,7 @@ class _Screen15AccountState extends State<Screen15Account> {
                   child: Text(
                     'Continue without an account',
                     style: ElioTextStyles.body.copyWith(
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                     ),
                   ),
                 ),
@@ -359,7 +359,7 @@ class _Screen15AccountState extends State<Screen15Account> {
                   Text(
                     'By continuing, you agree to our ',
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.textMuted,
+                      color: ElioColors.mocha,
                     ),
                   ),
                   GestureDetector(
@@ -368,7 +368,7 @@ class _Screen15AccountState extends State<Screen15Account> {
                     child: Text(
                       'Terms',
                       style: ElioTextStyles.bodySmall.copyWith(
-                        color: ElioColors.textSecondary,
+                        color: ElioColors.mocha,
                         decoration: TextDecoration.underline,
                       ),
                     ),
@@ -376,7 +376,7 @@ class _Screen15AccountState extends State<Screen15Account> {
                   Text(
                     ' and ',
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.textMuted,
+                      color: ElioColors.mocha,
                     ),
                   ),
                   GestureDetector(
@@ -385,7 +385,7 @@ class _Screen15AccountState extends State<Screen15Account> {
                     child: Text(
                       'Privacy Policy',
                       style: ElioTextStyles.bodySmall.copyWith(
-                        color: ElioColors.textSecondary,
+                        color: ElioColors.mocha,
                         decoration: TextDecoration.underline,
                       ),
                     ),
@@ -393,7 +393,7 @@ class _Screen15AccountState extends State<Screen15Account> {
                   Text(
                     '.',
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.textMuted,
+                      color: ElioColors.mocha,
                     ),
                   ),
                 ],

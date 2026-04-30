@@ -20,7 +20,7 @@ class ElioBottomNav extends StatelessWidget {
     // the bar looks continuous rather than leaving a strip of off-white
     // behind the system buttons.
     return Material(
-      color: ElioColors.offWhite,
+      color: ElioColors.cream,
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -58,7 +58,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = active ? ElioColors.terracotta : Colors.transparent;
-    final fg = active ? Colors.white : ElioColors.textSecondary;
+    final fg = active ? Colors.white : ElioColors.mocha;
     return InkWell(
       onTap: onTap,
       borderRadius: ElioRadii.all(24),

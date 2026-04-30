@@ -120,7 +120,7 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: AnimatedBuilder(
           animation: widget.controller,
@@ -172,7 +172,7 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                         Text(
                           "Allergies first, then anything you'd rather skip.",
                           style: ElioTextStyles.body.copyWith(
-                            color: ElioColors.textSecondary,
+                            color: ElioColors.mocha,
                           ),
                         ),
                         const SizedBox(height: ElioSpacing.lg),
@@ -206,7 +206,7 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                           ),
                         ],
                         const SizedBox(height: ElioSpacing.lg),
-                        const Divider(height: 1, color: ElioColors.border),
+                        const Divider(height: 1, color: ElioColors.rule),
                         const SizedBox(height: ElioSpacing.lg),
                         Text("Anything you'd rather skip?",
                             style: ElioTextStyles.heading5),
@@ -246,7 +246,7 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                           child: Text(
                             'Nothing to avoid — skip',
                             style: ElioTextStyles.bodySmall.copyWith(
-                              color: ElioColors.textMuted,
+                              color: ElioColors.mocha,
                             ),
                           ),
                         ),

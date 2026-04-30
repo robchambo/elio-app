@@ -345,7 +345,7 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -393,7 +393,7 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
                     '$_count things in your kitchen',
                     textAlign: TextAlign.center,
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                     ),
                   ),
                 ],
@@ -426,7 +426,7 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
               Text(
                 "Tap what you've usually got. Long-press anything you always have — we'll lean on those heavier.",
                 style: ElioTextStyles.body.copyWith(
-                  color: ElioColors.textSecondary,
+                  color: ElioColors.mocha,
                 ),
               ),
               const SizedBox(height: ElioSpacing.xs),

@@ -448,7 +448,7 @@ class _PantryScreenState extends State<PantryScreen> {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(ElioRadii.card),
           child: Material(
-            color: ElioColors.white,
+            color: ElioColors.cream,
             child: PantryBuilderSheet(
               existingItemNames: existingNames,
               onAddItem: (name, tier, category) async {
@@ -739,9 +739,9 @@ class _TierItemChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: ElioColors.white,
+          color: ElioColors.cream,
           borderRadius: BorderRadius.circular(ElioRadii.chip),
-          border: Border.all(color: ElioColors.border),
+          border: Border.all(color: ElioColors.rule),
         ),
         child: Text(
           suffix == null ? name : '$name · $suffix',

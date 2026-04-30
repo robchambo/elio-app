@@ -54,7 +54,7 @@ class Screen10PantryIntro extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(ElioSpacing.screenEdge),
@@ -86,7 +86,7 @@ class Screen10PantryIntro extends StatelessWidget {
                   Text(
                     subhead,
                     style: ElioTextStyles.body.copyWith(
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                     ),
                   ),
                   const SizedBox(height: ElioSpacing.xl),

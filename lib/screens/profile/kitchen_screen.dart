@@ -77,7 +77,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           children: [
@@ -107,7 +107,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
                   children: [
                     Text(
                       "Select the appliances you own and we'll tailor recipes to make the most of them.",
-                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                      style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                     ),
                     const SizedBox(height: 20),
                     Wrap(
@@ -121,17 +121,17 @@ class _KitchenScreenState extends State<KitchenScreen> {
                             duration: const Duration(milliseconds: 150),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: isSelected ? ElioColors.terracotta : ElioColors.offWhite,
+                              color: isSelected ? ElioColors.terracotta : ElioColors.cream,
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: isSelected ? ElioColors.terracotta : ElioColors.border,
+                                color: isSelected ? ElioColors.terracotta : ElioColors.rule,
                                 width: isSelected ? 1.5 : 1,
                               ),
                             ),
                             child: Text(
                               appliance,
                               style: ElioText.label.copyWith(
-                                color: isSelected ? Colors.white : ElioColors.textPrimary,
+                                color: isSelected ? Colors.white : ElioColors.espresso,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),

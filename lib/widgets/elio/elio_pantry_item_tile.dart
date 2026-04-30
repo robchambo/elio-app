@@ -83,8 +83,8 @@ class ElioPantryItemTile extends StatelessWidget {
   static const Map<String, PantryTierStyle> _defaultStyles = {
     'unselected': PantryTierStyle(
       background: Color(0xFFFFFFFF),
-      glyphColor: ElioColors.textMuted,
-      borderColor: ElioColors.border,
+      glyphColor: ElioColors.mocha,
+      borderColor: ElioColors.rule,
     ),
     'usually': PantryTierStyle(
       background: Color(0x1FE37B53), // terracotta @ 12%
@@ -152,7 +152,7 @@ class ElioPantryItemTile extends StatelessWidget {
           color: style.background,
           borderRadius: BorderRadius.circular(ElioRadii.md),
           border: Border.all(
-            color: style.borderColor ?? ElioColors.border,
+            color: style.borderColor ?? ElioColors.rule,
             width: tier == 'unselected' ? 1.5 : 2.0,
           ),
         ),
@@ -183,10 +183,10 @@ class ElioPantryItemTile extends StatelessWidget {
       child: Container(
           padding: const EdgeInsets.all(ElioSpacing.sm + 2),
           decoration: BoxDecoration(
-            color: ElioColors.offWhite,
+            color: ElioColors.cream,
             borderRadius: BorderRadius.circular(ElioRadii.md),
             border: Border.all(
-              color: ElioColors.border.withValues(alpha: 0.6),
+              color: ElioColors.rule.withValues(alpha: 0.6),
               width: 1.0,
               style: BorderStyle.solid,
             ),
@@ -200,11 +200,11 @@ class ElioPantryItemTile extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: ElioTextStyles.bodySmall.copyWith(
-                    color: ElioColors.textMuted.withValues(alpha: 0.7),
+                    color: ElioColors.mocha.withValues(alpha: 0.7),
                     fontWeight: FontWeight.w500,
                     decoration: TextDecoration.lineThrough,
                     decorationColor:
-                        ElioColors.textMuted.withValues(alpha: 0.6),
+                        ElioColors.mocha.withValues(alpha: 0.6),
                   ),
                 ),
               ),
@@ -224,7 +224,7 @@ class ElioPantryItemTile extends StatelessWidget {
                     reason,
                     style: ElioTextStyles.bodySmall.copyWith(
                       fontSize: 10,
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                       fontWeight: FontWeight.w600,
                     ),
                   ),

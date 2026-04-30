@@ -30,10 +30,10 @@ class ElioOnboardingOptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor =
-        selected ? ElioColors.terracotta : ElioColors.border;
+        selected ? ElioColors.terracotta : ElioColors.rule;
     final bg = selected
         ? ElioColors.terracotta.withValues(alpha: 0.08)
-        : ElioColors.white;
+        : ElioColors.cream;
 
     return InkWell(
       onTap: () => onTap(value),
@@ -90,7 +90,7 @@ class _Tick extends StatelessWidget {
         height: 24,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: ElioColors.border, width: 1.5),
+          border: Border.all(color: ElioColors.rule, width: 1.5),
         ),
       );
     }

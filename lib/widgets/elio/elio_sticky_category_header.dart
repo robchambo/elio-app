@@ -26,7 +26,7 @@ class ElioStickyCategoryHeader extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Container(
-      color: ElioColors.offWhite,
+      color: ElioColors.cream,
       padding: const EdgeInsets.symmetric(
         horizontal: ElioSpacing.md,
         vertical: ElioSpacing.sm,

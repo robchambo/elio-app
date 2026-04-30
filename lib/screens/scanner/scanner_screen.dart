@@ -80,7 +80,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
@@ -111,7 +111,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       child: Container(
         height: 44,
         decoration: BoxDecoration(
-          color: ElioColors.offWhite,
+          color: ElioColors.cream,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -133,7 +133,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: isActive ? ElioColors.white : Colors.transparent,
+            color: isActive ? ElioColors.cream : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             boxShadow: isActive
                 ? [
@@ -151,7 +151,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             style: ElioTextStyles.uiLabelStyle.copyWith(
               fontSize: 14,
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              color: isActive ? ElioColors.espresso : ElioColors.textSecondary,
+              color: isActive ? ElioColors.espresso : ElioColors.mocha,
             ),
           ),
         ),
@@ -428,7 +428,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: ElioColors.espresso,
-          side: const BorderSide(color: ElioColors.border, width: 1.5),
+          side: const BorderSide(color: ElioColors.rule, width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 14),
         ),
@@ -551,8 +551,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: item.isNonFood ? ElioColors.offWhite.withValues(alpha: 0.5) : ElioColors.white,
-        border: Border(bottom: BorderSide(color: ElioColors.border.withValues(alpha: 0.5))),
+        color: item.isNonFood ? ElioColors.cream.withValues(alpha: 0.5) : ElioColors.cream,
+        border: Border(bottom: BorderSide(color: ElioColors.rule.withValues(alpha: 0.5))),
       ),
       child: Row(
         children: [
@@ -565,7 +565,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   item.name,
                   style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 15,
-                    color: item.isNonFood ? ElioColors.textMuted : ElioColors.textPrimary,
+                    color: item.isNonFood ? ElioColors.mocha : ElioColors.espresso,
                     decoration: item.isNonFood ? TextDecoration.lineThrough : null,
                   ),
                 ),
@@ -573,7 +573,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   Text(
                     item.brand!,
                     style: ElioTextStyles.bodySmallStyle.copyWith(
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                     ),
                   ),
               ],
@@ -595,7 +595,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       'alwaysHave' => (const Color(0xFFE8F5E9), ElioColors.success, 'Always Have'),
       'almostAlways' => (const Color(0xFFE3F2FD), ElioColors.mocha, 'Almost Always'),
       'perishable' => (const Color(0xFFFFF3E0), ElioColors.terracotta, 'Perishable'),
-      _ => (ElioColors.offWhite, ElioColors.textSecondary, tier),
+      _ => (ElioColors.cream, ElioColors.mocha, tier),
     };
 
     return Container(

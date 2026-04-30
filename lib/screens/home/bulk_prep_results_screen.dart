@@ -21,7 +21,7 @@ class BulkPrepResultsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
@@ -45,7 +45,7 @@ class BulkPrepResultsScreen extends StatelessWidget {
             Text(
               _subtitleText(),
               style: ElioText.label.copyWith(
-                color: ElioColors.textSecondary,
+                color: ElioColors.mocha,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -106,13 +106,13 @@ class BulkPrepResultsScreen extends StatelessWidget {
             Icon(
               Icons.check_circle_outline_rounded,
               size: 16,
-              color: ElioColors.textSecondary.withValues(alpha: 0.7),
+              color: ElioColors.mocha.withValues(alpha: 0.7),
             ),
             const SizedBox(width: 6),
             Text(
               'Recipes saved to your history',
               style: ElioText.bodyMedium.copyWith(
-                color: ElioColors.textSecondary.withValues(alpha: 0.7),
+                color: ElioColors.mocha.withValues(alpha: 0.7),
               ),
             ),
           ],
@@ -145,9 +145,9 @@ class _RecipeCard extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: ElioColors.white,
+            color: ElioColors.cream,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: ElioColors.border),
+            border: Border.all(color: ElioColors.rule),
           ),
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -163,7 +163,7 @@ class _RecipeCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: ElioText.bodyMedium.copyWith(
-                    color: ElioColors.textSecondary,
+                    color: ElioColors.mocha,
                   ),
                 ),
               ],
@@ -254,20 +254,20 @@ class _MetaChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: ElioColors.offWhite,
+        color: ElioColors.cream,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: ElioColors.border),
+        border: Border.all(color: ElioColors.rule),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: ElioColors.textSecondary),
+          Icon(icon, size: 14, color: ElioColors.mocha),
           const SizedBox(width: 4),
           Text(
             label,
             style: ElioTextStyles.bodySmallStyle.copyWith(
               fontWeight: FontWeight.w600,
-              color: ElioColors.textSecondary,
+              color: ElioColors.mocha,
             ),
           ),
         ],

@@ -26,7 +26,7 @@ class ElioAppScaffold extends StatelessWidget {
     final hasNav =
         showBottomNav && activeTab != null && onTabChanged != null;
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       appBar: ElioTopAppBar(onProfileTap: onProfileTap),
       // Top inset is consumed by the app bar's own SafeArea. Bottom inset
       // is consumed by ElioBottomNav when present; when the nav is hidden

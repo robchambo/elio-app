@@ -30,7 +30,7 @@ class ElioCustomField extends StatelessWidget {
         style: ElioTextStyles.body,
         decoration: InputDecoration(
           hintText: placeholder,
-          hintStyle: ElioTextStyles.body.copyWith(color: ElioColors.textSecondary),
+          hintStyle: ElioTextStyles.body.copyWith(color: ElioColors.mocha),
           border: InputBorder.none,
           isDense: true,
         ),

@@ -417,7 +417,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
               const SizedBox(height: 16),
               Text(
                 "Say 'Hey Elio' followed by:",
-                style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+                style: ElioText.bodyLarge.copyWith(color: ElioColors.mocha),
               ),
               const SizedBox(height: 16),
               _buildVoiceHelpRow('"Hey Elio, next"', 'Go to the next step'),
@@ -431,7 +431,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
               Text(
                 'Tap the mic button to turn voice control on/off',
                 style: ElioText.bodyMedium.copyWith(
-                  color: ElioColors.textMuted,
+                  color: ElioColors.mocha,
                   fontStyle: FontStyle.italic,
                 ),
                 textAlign: TextAlign.center,
@@ -484,7 +484,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         Expanded(
           child: Text(
             description,
-            style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+            style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
           ),
         ),
       ],
@@ -867,7 +867,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             }
 
             return AlertDialog(
-              backgroundColor: ElioColors.offWhite,
+              backgroundColor: ElioColors.cream,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
               actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
@@ -1080,7 +1080,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: ElioColors.border,
+                  color: ElioColors.rule,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1090,7 +1090,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             const SizedBox(height: 4),
             Text(
               'Based on $_servings serving${_servings == 1 ? '' : 's'}',
-              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
             ),
             const SizedBox(height: 20),
             // Calories — full width
@@ -1122,7 +1122,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: ElioColors.textSecondary,
+                            color: ElioColors.mocha,
                           ),
                         ),
                       ],
@@ -1176,7 +1176,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             Text(
               'Estimates only — actual values may vary.',
               style: ElioText.bodyMedium.copyWith(
-                color: ElioColors.textMuted,
+                color: ElioColors.mocha,
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -1201,7 +1201,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           children: [
             Container(
               width: 40, height: 4,
-              decoration: BoxDecoration(color: ElioColors.border, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: ElioColors.rule, borderRadius: BorderRadius.circular(2)),
             ),
             const SizedBox(height: 20),
             const Icon(Icons.info_outline, color: ElioColors.terracotta, size: 32),
@@ -1210,7 +1210,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             const SizedBox(height: 8),
             Text(
               "Elio's best estimate based on standard, non-premium ingredients. Actual costs may vary depending on where you shop!",
-              style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+              style: ElioText.bodyLarge.copyWith(color: ElioColors.mocha),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -1232,9 +1232,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
     final info = _currentRecipe.bulkPrepInfo!;
     return Container(
       decoration: BoxDecoration(
-        color: ElioColors.offWhite,
+        color: ElioColors.cream,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
+        border: Border.all(color: ElioColors.rule),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -1550,7 +1550,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         : null;
 
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: _buildTopBar(),
       body: ListView(
         padding: const EdgeInsets.symmetric(
@@ -1810,7 +1810,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   // ─── Minimal top bar — back + action icons ──────────────────────────────────
   PreferredSizeWidget _buildTopBar() {
     return AppBar(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       leading: IconButton(
@@ -1910,7 +1910,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       ),
                       Icon(
                         isExpanded ? Icons.expand_less : Icons.expand_more,
-                        color: ElioColors.textSecondary,
+                        color: ElioColors.mocha,
                         size: 20,
                       ),
                     ],
@@ -1920,7 +1920,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     Text(
                       sub.tradeOff,
                       style: ElioText.bodyMedium
-                          .copyWith(color: ElioColors.textSecondary),
+                          .copyWith(color: ElioColors.mocha),
                     ),
                   ],
                 ],
@@ -1957,7 +1957,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     final isLast = _currentStep == steps.length - 1;
 
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           children: [
@@ -1978,7 +1978,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     child: Text(
                       _currentRecipe.title,
                       style: ElioTextStyles.bodySmall.copyWith(
-                        color: ElioColors.textSecondary,
+                        color: ElioColors.mocha,
                         fontWeight: FontWeight.w600,
                       ),
                       maxLines: 1,
@@ -2045,7 +2045,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 2),
                       height: 4,
                       decoration: BoxDecoration(
-                        color: i <= _currentStep ? ElioColors.terracotta : ElioColors.border,
+                        color: i <= _currentStep ? ElioColors.terracotta : ElioColors.rule,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -2135,14 +2135,14 @@ class _HandsFreeCircleButton extends StatelessWidget {
         width: 44,
         height: 44,
         decoration: BoxDecoration(
-          color: ElioColors.white,
+          color: ElioColors.cream,
           shape: BoxShape.circle,
-          border: Border.all(color: ElioColors.border),
+          border: Border.all(color: ElioColors.rule),
         ),
         child: Icon(
           icon,
           size: 20,
-          color: disabled ? ElioColors.textMuted : ElioColors.espresso,
+          color: disabled ? ElioColors.mocha : ElioColors.espresso,
         ),
       ),
     );
@@ -2170,7 +2170,7 @@ class _HandsFreeMicButton extends StatelessWidget {
           width: 72,
           height: 72,
           decoration: BoxDecoration(
-            color: enabled ? ElioColors.terracotta : ElioColors.border,
+            color: enabled ? ElioColors.terracotta : ElioColors.rule,
             shape: BoxShape.circle,
             boxShadow: listening
                 ? [
@@ -2185,7 +2185,7 @@ class _HandsFreeMicButton extends StatelessWidget {
           child: Icon(
             enabled ? Icons.mic_rounded : Icons.mic_off_rounded,
             size: 32,
-            color: enabled ? Colors.white : ElioColors.textSecondary,
+            color: enabled ? Colors.white : ElioColors.mocha,
           ),
         ),
       ),
@@ -2245,7 +2245,7 @@ class _NutritionTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                     ),
                   ),
                 ],
@@ -2343,7 +2343,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: ElioColors.border,
+                color: ElioColors.rule,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -2371,7 +2371,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
         const SizedBox(height: 4),
         Text(
           '${ing.name}${qty.isNotEmpty ? ' — $qty' : ''}',
-          style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+          style: ElioText.bodyLarge.copyWith(color: ElioColors.mocha),
         ),
         if (ing.fromInventory) ...[
           const SizedBox(height: 8),
@@ -2388,7 +2388,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
               const SizedBox(width: 6),
               Text(
                 'This is from your pantry',
-                style: ElioText.label.copyWith(color: ElioColors.textSecondary),
+                style: ElioText.label.copyWith(color: ElioColors.mocha),
               ),
             ],
           ),
@@ -2452,9 +2452,9 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: ElioColors.offWhite,
+          color: ElioColors.cream,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: ElioColors.border),
+          border: Border.all(color: ElioColors.rule),
         ),
         child: Row(
           children: [
@@ -2476,20 +2476,20 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
                     title,
                     style: ElioText.bodyMedium.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: locked ? ElioColors.textMuted : ElioColors.textPrimary,
+                      color: locked ? ElioColors.mocha : ElioColors.espresso,
                     ),
                   ),
                   Text(
                     locked ? 'Sign in to use' : subtitle,
-                    style: ElioText.label.copyWith(color: ElioColors.textMuted),
+                    style: ElioText.label.copyWith(color: ElioColors.mocha),
                   ),
                 ],
               ),
             ),
             if (locked)
-              const Icon(Icons.lock_outline_rounded, size: 18, color: ElioColors.textMuted)
+              const Icon(Icons.lock_outline_rounded, size: 18, color: ElioColors.mocha)
             else
-              const Icon(Icons.chevron_right_rounded, size: 20, color: ElioColors.textMuted),
+              const Icon(Icons.chevron_right_rounded, size: 20, color: ElioColors.mocha),
           ],
         ),
       ),
@@ -2514,7 +2514,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
             const SizedBox(height: 16),
             Text(
               'Finding a substitution...',
-              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
             ),
           ],
         ),
@@ -2537,7 +2537,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
             Expanded(
               child: Text(
                 'Instead of ${widget.ingredient.name}',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
               ),
             ),
           ],
@@ -2560,11 +2560,11 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
               ),
               if (qty.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(qty, style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary)),
+                Text(qty, style: ElioText.bodyLarge.copyWith(color: ElioColors.mocha)),
               ],
               if (r.tradeOff.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(r.tradeOff, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+                Text(r.tradeOff, style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
               ],
             ],
           ),
@@ -2594,7 +2594,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              side: const BorderSide(color: ElioColors.border),
+              side: const BorderSide(color: ElioColors.rule),
             ),
             child: const Text('Never mind'),
           ),
@@ -2612,7 +2612,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
         const SizedBox(height: 8),
         Text(
           _errorMessage,
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
         ),
         const SizedBox(height: 20),
         SizedBox(
@@ -2636,7 +2636,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              side: const BorderSide(color: ElioColors.border),
+              side: const BorderSide(color: ElioColors.rule),
             ),
             child: const Text('Dismiss'),
           ),
@@ -2697,7 +2697,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Edit item', style: ElioText.headingMedium),
         content: Column(
@@ -2720,7 +2720,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
           ),
           TextButton(
             onPressed: () {
@@ -2746,7 +2746,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       child: ConstrainedBox(
@@ -2767,7 +2767,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                   const SizedBox(height: 4),
                   Text(
                     '$_includedCount of ${_items.length} items selected',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -2788,7 +2788,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                         child: Text(
                           'Deselect all',
                           style: ElioText.label.copyWith(
-                            color: ElioColors.textMuted,
+                            color: ElioColors.mocha,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -2814,7 +2814,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                       margin: const EdgeInsets.only(bottom: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                       decoration: BoxDecoration(
-                        color: item.included ? Colors.transparent : ElioColors.offWhite.withValues(alpha: 0.5),
+                        color: item.included ? Colors.transparent : ElioColors.cream.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -2827,7 +2827,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                               color: item.included ? ElioColors.espresso : Colors.transparent,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: item.included ? ElioColors.espresso : ElioColors.border,
+                                color: item.included ? ElioColors.espresso : ElioColors.rule,
                                 width: 1.5,
                               ),
                             ),
@@ -2846,19 +2846,19 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: item.included
-                                        ? ElioColors.textPrimary
-                                        : ElioColors.textMuted,
+                                        ? ElioColors.espresso
+                                        : ElioColors.mocha,
                                     decoration: item.included
                                         ? null
                                         : TextDecoration.lineThrough,
-                                    decorationColor: ElioColors.textMuted,
+                                    decorationColor: ElioColors.mocha,
                                   ),
                                 ),
                                 if (item.quantity.isNotEmpty)
                                   Text(
                                     item.quantity,
                                     style: ElioText.label.copyWith(
-                                      color: ElioColors.textMuted,
+                                      color: ElioColors.mocha,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -2869,7 +2869,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                             onTap: () => _editItem(i),
                             child: const Padding(
                               padding: EdgeInsets.all(4),
-                              child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted),
+                              child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.mocha),
                             ),
                           ),
                         ],
@@ -2894,7 +2894,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ElioColors.terracotta,
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: ElioColors.border,
+                        disabledBackgroundColor: ElioColors.rule,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,

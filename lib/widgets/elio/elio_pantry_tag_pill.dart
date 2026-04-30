@@ -68,8 +68,8 @@ class ElioPantryTagPill extends StatelessWidget {
         );
       case PantryTagKind.needToBuy:
         return (
-          fg: ElioColors.textSecondary,
-          bg: ElioColors.textSecondary.withValues(alpha: 0.10),
+          fg: ElioColors.mocha,
+          bg: ElioColors.mocha.withValues(alpha: 0.10),
           label: 'Shopping list',
         );
     }
