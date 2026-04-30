@@ -140,6 +140,51 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     await ShoppingService.instance.removeItem(item.id);
   }
 
+  Future<void> _clearChecked() async {
+    final checkedCount = _items.where((i) => i.isChecked).length;
+    if (checkedCount == 0) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.creamDeep,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ElioRadii.card),
+        ),
+        title: Text(
+          checkedCount == 1
+              ? 'Remove 1 checked item?'
+              : 'Remove $checkedCount checked items?',
+          style: ElioTextStyles.sectionHeadingStyle,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancel',
+              style: ElioTextStyles.uiLabelStyle.copyWith(color: ElioColors.mocha),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Remove',
+              style: ElioTextStyles.uiLabelStyle.copyWith(color: ElioColors.terracotta),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ShoppingService.instance.clearChecked();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not remove items.')),
+      );
+    }
+  }
+
   void _share() {
     final unchecked = _items.where((i) => !i.isChecked).toList();
     if (unchecked.isEmpty) {
@@ -245,6 +290,13 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
               ),
             ),
             ..._buildAisleSections(_items),
+            if (_items.any((i) => i.isChecked)) ...[
+              const SizedBox(height: ElioSpacing.lg),
+              _ClearCheckedButton(
+                count: _items.where((i) => i.isChecked).length,
+                onTap: _clearChecked,
+              ),
+            ],
           ],
         ],
       ),
@@ -398,6 +450,38 @@ class _ShoppingRow extends StatelessWidget {
               Text(quantity, style: qtyStyle),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Bottom CTA: clear all checked items ─────────────────────────────
+class _ClearCheckedButton extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+
+  const _ClearCheckedButton({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count == 1 ? 'Delete 1 checked item' : 'Delete $count checked items';
+    return Center(
+      child: TextButton.icon(
+        onPressed: onTap,
+        icon: const Icon(Icons.delete_outline, size: 18, color: ElioColors.mocha),
+        label: Text(
+          label,
+          style: ElioTextStyles.uiLabelStyle.copyWith(color: ElioColors.mocha),
+        ),
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(
+            horizontal: ElioSpacing.lg,
+            vertical: ElioSpacing.sm,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(ElioRadii.button),
+          ),
         ),
       ),
     );
