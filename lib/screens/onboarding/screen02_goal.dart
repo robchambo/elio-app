@@ -7,9 +7,9 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_onboarding_option_card.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
+import '../../widgets/elio/elio_page_title.dart';
 
 // ─────────────────────────────────────────────
 // Screen 02 — Goal
@@ -129,16 +129,11 @@ class Screen02Goal extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const ElioHeroHeading(
-                          lines: ['What brought', 'you to Elio?'],
-                          amberLastLine: true,
-                        ),
+                        const ElioPageTitle('what brought you to elio?'),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
-                          "Pick what matters most — we'll tailor things to suit. Don't worry, you can change anytime.",
-                          style: ElioTextStyles.body.copyWith(
-                            color: ElioColors.mocha,
-                          ),
+                          "pick what matters most — we'll tailor things to suit. don't worry, you can change anytime.",
+                          style: ElioTextStyles.ledeStyle,
                         ),
                         const SizedBox(height: ElioSpacing.lg),
                         for (int i = 0; i < goalOptions.length; i++) ...[
@@ -181,13 +176,12 @@ class Screen02Goal extends StatelessWidget {
                                 );
                                 onContinue();
                               },
-                        trailingIcon: Icons.arrow_forward,
                       ),
                       const SizedBox(height: ElioSpacing.sm),
                       Center(
                         child: Text(
                           'You can change this later.',
-                          style: ElioTextStyles.bodySmall.copyWith(
+                          style: ElioTextStyles.bodySmallStyle.copyWith(
                             color: ElioColors.mocha,
                           ),
                         ),
