@@ -71,6 +71,21 @@ class _NavItem extends StatelessWidget {
             Text(label,
                 textAlign: TextAlign.center,
                 style: ElioTextStyles.tabLabelStyle.copyWith(color: fg)),
+            const SizedBox(height: 4),
+            // Active-tab tick — small terracotta underline below the label.
+            // SizedBox keeps the row vertical metrics stable on idle tabs.
+            SizedBox(
+              height: 2,
+              width: 18,
+              child: active
+                  ? const DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: ElioColors.terracotta,
+                        borderRadius: BorderRadius.all(Radius.circular(1)),
+                      ),
+                    )
+                  : null,
+            ),
           ],
         ),
       ),
