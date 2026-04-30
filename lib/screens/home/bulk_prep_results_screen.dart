@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
 import '../recipe/recipe_screen.dart';
@@ -231,9 +231,7 @@ class _RecipeCard extends StatelessWidget {
         Flexible(
           child: Text(
             bulkPrepInfo!.storageLife,
-            style: GoogleFonts.quicksand(
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
               color: ElioColors.sky,
             ),
           ),
@@ -267,8 +265,7 @@ class _MetaChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: GoogleFonts.quicksand(
-              fontSize: 12,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
               fontWeight: FontWeight.w600,
               color: ElioColors.textSecondary,
             ),

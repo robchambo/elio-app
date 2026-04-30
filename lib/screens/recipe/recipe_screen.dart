@@ -16,7 +16,6 @@ import '../../services/history_service.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/pantry_utils.dart';
 import '../../utils/region_utils.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
@@ -849,9 +848,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 child: InputChip(
                   label: Text(
                     label,
-                    style: GoogleFonts.quicksand(
+                    style: ElioTextStyles.uiLabelStyle.copyWith(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
@@ -875,9 +873,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
               actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
               title: Text(
                 'Not finding what you want?',
-                style: GoogleFonts.outfit(
+                style: ElioTextStyles.sectionHeadingStyle.copyWith(
                   fontSize: 20,
-                  fontWeight: FontWeight.w700,
                   color: ElioColors.navy,
                 ),
               ),
@@ -888,8 +885,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   children: [
                     Text(
                       'Adjust your preferences and try again',
-                      style: GoogleFonts.quicksand(
-                        fontSize: 14,
+                      style: ElioTextStyles.bodySmallStyle.copyWith(
                         color: ElioColors.navy.withValues(alpha: 0.7),
                       ),
                     ),
@@ -899,9 +895,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     if (selectedStyle != null || selectedTime != null || selectedMood != null) ...[
                       Text(
                         'Current selections:',
-                        style: GoogleFonts.outfit(
+                        style: ElioTextStyles.uiLabelStyle.copyWith(
                           fontSize: 14,
-                          fontWeight: FontWeight.w600,
                           color: ElioColors.navy,
                         ),
                       ),
@@ -931,9 +926,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     // Alternative styles
                     Text(
                       'Try something different:',
-                      style: GoogleFonts.outfit(
+                      style: ElioTextStyles.uiLabelStyle.copyWith(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
                         color: ElioColors.navy,
                       ),
                     ),
@@ -946,8 +940,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         return ChoiceChip(
                           label: Text(
                             style,
-                            style: GoogleFonts.quicksand(
-                              fontSize: 13,
+                            style: ElioTextStyles.bodySmallStyle.copyWith(
                               fontWeight: FontWeight.w600,
                               color: isSelected ? Colors.white : ElioColors.navy,
                             ),
@@ -1012,10 +1005,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          textStyle: GoogleFonts.outfit(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15),
                           elevation: 0,
                         ),
                         child: const Text('Generate with these'),
@@ -1027,7 +1017,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         onPressed: () => Navigator.of(dialogContext).pop(null),
                         child: Text(
                           'Cancel',
-                          style: GoogleFonts.quicksand(
+                          style: ElioTextStyles.bodyStyle.copyWith(
                             color: ElioColors.navy.withValues(alpha: 0.6),
                             fontWeight: FontWeight.w600,
                           ),

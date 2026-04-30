@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
 import '../../services/gemini_service.dart';
@@ -245,7 +245,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
           Text(
             'Works best with clear, well-lit photos. Handwritten recipes may not extract perfectly.',
             textAlign: TextAlign.center,
-            style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textMuted),
+            style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textMuted),
           ),
           const SizedBox(height: 32),
           // Buttons
@@ -376,7 +376,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
                     Flexible(
                       child: Text(
                         'Paste from clipboard',
-                        style: GoogleFonts.quicksand(fontSize: 12, fontWeight: FontWeight.w600, color: ElioColors.sky),
+                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, fontWeight: FontWeight.w600, color: ElioColors.sky),
                       ),
                     ),
                   ],
@@ -416,7 +416,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
                   'Or enter manually',
-                  style: GoogleFonts.quicksand(fontSize: 12, color: ElioColors.textMuted, fontWeight: FontWeight.w600),
+                  style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, color: ElioColors.textMuted, fontWeight: FontWeight.w600),
                 ),
               ),
               const Expanded(child: Divider(color: ElioColors.border)),

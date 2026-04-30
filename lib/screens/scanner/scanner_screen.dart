@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../services/analytics_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/scanner_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import 'receipt_results_screen.dart';
 import 'scan_success_screen.dart';
@@ -148,7 +148,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           alignment: Alignment.center,
           child: Text(
             label,
-            style: GoogleFonts.outfit(
+            style: ElioTextStyles.uiLabelStyle.copyWith(
               fontSize: 14,
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
               color: isActive ? ElioColors.navy : ElioColors.textSecondary,
@@ -240,10 +240,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
           ),
           child: Text(
             text,
-            style: GoogleFonts.outfit(
-              fontSize: 13,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
               color: Colors.white70,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -330,25 +328,22 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 const SizedBox(height: 12),
                 Text(
                   'Capture your receipt',
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.sectionHeadingStyle.copyWith(
                     fontSize: 18,
-                    fontWeight: FontWeight.w700,
                     color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   "Hold steady — we'll extract the items",
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
                     color: Colors.white54,
                   ),
                 ),
                 const SizedBox(height: 20),
                 Text(
                   'Tip: Lay receipt flat for best results',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
+                  style: ElioTextStyles.eyebrowStyle.copyWith(
                     color: Colors.white38,
                   ),
                 ),
@@ -358,8 +353,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   child: Text(
                     'Receipt quality varies — Elio may not extract every item. You can always add missing items manually.',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
+                    style: ElioTextStyles.tabLabelStyle.copyWith(
                       color: Colors.white24,
                     ),
                   ),
@@ -418,7 +412,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           backgroundColor: ElioColors.amber,
           foregroundColor: ElioColors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700),
+          textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15),
           elevation: 0,
         ),
       ),
@@ -436,7 +430,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           foregroundColor: ElioColors.navy,
           side: const BorderSide(color: ElioColors.border, width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 14),
         ),
       ),
     );
@@ -519,9 +513,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 onTap: _editAllItems,
                 child: Text(
                   'Edit all',
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
                     color: ElioColors.amber,
                   ),
                 ),
@@ -570,9 +563,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
               children: [
                 Text(
                   item.name,
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
                     color: item.isNonFood ? ElioColors.textMuted : ElioColors.textPrimary,
                     decoration: item.isNonFood ? TextDecoration.lineThrough : null,
                   ),
@@ -580,8 +572,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 if (item.brand != null && item.brand!.isNotEmpty)
                   Text(
                     item.brand!,
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
+                    style: ElioTextStyles.bodySmallStyle.copyWith(
                       color: ElioColors.textSecondary,
                     ),
                   ),
@@ -615,8 +606,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       ),
       child: Text(
         label,
-        style: GoogleFonts.outfit(
-          fontSize: 11,
+        style: ElioTextStyles.tabLabelStyle.copyWith(
           fontWeight: FontWeight.w700,
           color: fg,
         ),
@@ -684,9 +674,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   )
                 : Text(
                     'Add ${foodItems.length} Item${foodItems.length == 1 ? '' : 's'} to Pantry',
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                    style: ElioTextStyles.uiLabelStyle.copyWith(
                       color: Colors.white,
                     ),
                   ),

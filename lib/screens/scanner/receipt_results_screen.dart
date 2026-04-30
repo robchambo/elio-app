@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/scanner_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 
 // ─────────────────────────────────────────────
@@ -35,16 +35,14 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: ElioColors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text('Edit Name', style: GoogleFonts.outfit(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
+        title: Text('Edit Name', style: ElioTextStyles.uiLabelStyle.copyWith(
           color: ElioColors.navy,
         )),
         content: TextField(
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.words,
-          style: GoogleFonts.outfit(fontSize: 14, color: ElioColors.navy),
+          style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.navy),
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -59,12 +57,11 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: GoogleFonts.outfit(color: ElioColors.textSecondary)),
+            child: Text('Cancel', style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.textSecondary)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: Text('Save', style: GoogleFonts.outfit(
-              fontWeight: FontWeight.w700,
+            child: Text('Save', style: ElioTextStyles.uiLabelStyle.copyWith(
               color: ElioColors.amber,
             )),
           ),
@@ -151,9 +148,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           Expanded(
             child: Text(
               'Elio remembered tier preferences for $_tierMemoryCount item${_tierMemoryCount == 1 ? '' : 's'} from previous receipts',
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
+              style: ElioTextStyles.bodySmallStyle.copyWith(
                 color: ElioColors.sky,
               ),
             ),
@@ -179,8 +174,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
               ),
             Text(
               '${_foodItems.length} food item${_foodItems.length == 1 ? '' : 's'} found',
-              style: GoogleFonts.outfit(
-                fontSize: 13,
+              style: ElioTextStyles.bodySmallStyle.copyWith(
                 color: ElioColors.textSecondary,
               ),
             ),
@@ -195,8 +189,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           ),
           child: Text(
             '${_items.length} total',
-            style: GoogleFonts.outfit(
-              fontSize: 12,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
               fontWeight: FontWeight.w700,
               color: ElioColors.amber,
             ),
@@ -266,9 +259,8 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                               Flexible(
                                 child: Text(
                                   item.name,
-                                  style: GoogleFonts.outfit(
+                                  style: ElioTextStyles.uiLabelStyle.copyWith(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w600,
                                     color: ElioColors.textPrimary,
                                   ),
                                 ),
@@ -280,9 +272,8 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                         )
                       : Text(
                           item.name,
-                          style: GoogleFonts.outfit(
+                          style: ElioTextStyles.uiLabelStyle.copyWith(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
                             color: item.isNonFood ? ElioColors.textMuted : ElioColors.textPrimary,
                             decoration: item.isNonFood ? TextDecoration.lineThrough : null,
                           ),
@@ -303,8 +294,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                   const SizedBox(width: 10),
                   Text(
                     '\$${item.price!}',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
+                    style: ElioTextStyles.bodySmallStyle.copyWith(
                       color: ElioColors.textSecondary,
                     ),
                   ),
@@ -330,8 +320,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   'Tap tier badge to change category',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
+                  style: ElioTextStyles.tabLabelStyle.copyWith(
                     color: ElioColors.textMuted,
                   ),
                 ),
@@ -370,8 +359,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
         children: [
           Text(
             label,
-            style: GoogleFonts.outfit(
-              fontSize: 10,
+            style: ElioTextStyles.tabLabelStyle.copyWith(
               fontWeight: FontWeight.w700,
               color: fg,
             ),
@@ -415,8 +403,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
             ),
             child: Text(
               tier.$2,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
+              style: ElioTextStyles.bodySmallStyle.copyWith(
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected ? ElioColors.amber : ElioColors.textSecondary,
               ),
@@ -438,8 +425,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
       children: [
         Text(
           'Expires in:',
-          style: GoogleFonts.outfit(
-            fontSize: 11,
+          style: ElioTextStyles.tabLabelStyle.copyWith(
             fontWeight: FontWeight.w600,
             color: ElioColors.textSecondary,
           ),
@@ -466,8 +452,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                 ),
                 child: Text(
                   preset,
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
+                  style: ElioTextStyles.tabLabelStyle.copyWith(
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: isSelected ? ElioColors.amber : ElioColors.textSecondary,
                   ),
@@ -491,8 +476,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           const SizedBox(width: 6),
           Text(
             '$_nonFoodCount non-food item${_nonFoodCount == 1 ? '' : 's'} filtered',
-            style: GoogleFonts.outfit(
-              fontSize: 12,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
               color: ElioColors.textMuted,
             ),
           ),
@@ -534,9 +518,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
             ),
             child: Text(
               'Add $count Item${count == 1 ? '' : 's'} to Pantry',
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+              style: ElioTextStyles.uiLabelStyle.copyWith(
                 color: Colors.white,
               ),
             ),

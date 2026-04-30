@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/scanner_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../home/home_screen.dart';
 import '../pantry/pantry_screen.dart';
@@ -67,8 +67,7 @@ class ScanSuccessScreen extends StatelessWidget {
               // Subtitle breakdown
               Text(
                 _buildSubtitle(),
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
+                style: ElioTextStyles.bodySmallStyle.copyWith(
                   color: ElioColors.textSecondary,
                   height: 1.4,
                 ),
@@ -82,10 +81,8 @@ class ScanSuccessScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   '+ $remainingCount more item${remainingCount == 1 ? '' : 's'}',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
                     color: ElioColors.textMuted,
-                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -140,17 +137,15 @@ class ScanSuccessScreen extends StatelessWidget {
               children: [
                 Text(
                   item.name,
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
                     color: ElioColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Perishable',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
                     color: ElioColors.amber,
                     fontWeight: FontWeight.w600,
                   ),
@@ -194,10 +189,7 @@ class ScanSuccessScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              textStyle: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+              textStyle: ElioTextStyles.uiLabelStyle,
               elevation: 0,
             ),
           ),
@@ -223,10 +215,7 @@ class ScanSuccessScreen extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              textStyle: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              textStyle: ElioTextStyles.uiLabelStyle,
             ),
           ),
         ),
