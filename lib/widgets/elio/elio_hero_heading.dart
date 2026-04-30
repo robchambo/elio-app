@@ -3,8 +3,17 @@ import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_text_styles.dart';
 
-/// Editorial display heading — up to 3 lines, last line optionally in amber.
-/// Example: ElioHeroHeading(lines: ['hey kate.', 'lets get', 'started'], amberLastLine: true)
+/// Legacy editorial heading. The Sprint 16 rebrand replaced this with
+/// [ElioPageTitle] (single-string D-rule). This widget is kept as a thin
+/// wrapper that renders each [lines] entry on its own line in the new
+/// page-title style so existing call sites keep their line-break layout
+/// without a per-site migration.
+///
+/// `amberLastLine` is honoured by colouring the final line in terracotta.
+/// `showUnderline` still draws the small terracotta rule below the block
+/// for callers that opted into that treatment.
+///
+/// New code should use [ElioPageTitle] directly.
 class ElioHeroHeading extends StatelessWidget {
   final List<String> lines;
   final bool amberLastLine;
@@ -28,8 +37,8 @@ class ElioHeroHeading extends StatelessWidget {
           Text(
             lines[i],
             style: (amberLastLine && i == lastIndex)
-                ? ElioTextStyles.heroDisplayAccent
-                : ElioTextStyles.heroDisplay,
+                ? ElioTextStyles.pageTitleStyle.copyWith(color: ElioColors.terracotta)
+                : ElioTextStyles.pageTitleStyle,
           ),
         if (showUnderline) ...[
           const SizedBox(height: 16),
