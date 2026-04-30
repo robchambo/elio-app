@@ -127,35 +127,40 @@ users/{uid}/
 
 **Do NOT change without testing on-device:** model name, temperature, thinkingBudget, responseMimeType, maxOutputTokens. Each must be verified individually.
 
-## Design System
+## Design System (Sprint 16 rebrand)
 
-- **Navy:** `#1A2744` — primary surfaces, trust, calm
-- **Amber:** `#F08C14` — single accent, CTAs, "Elio is doing something"
-- **Sky:** `#4A90D9` — secondary accent, info states
-- **Off-white:** `#F7F5F2` — backgrounds, breathing room
-- **Fonts:** `GoogleFonts.outfit()` headings, `GoogleFonts.quicksand()` body
-- **Shape:** Rounded corners throughout, soft cards, no hard edges. Shimmer skeletons during streaming.
-- **API:** `.withValues(alpha: x)` not `.withOpacity(x)` | `activeTrackColor` not `activeColor`
+- **Cream:** `#F4ECE0` — primary background
+- **Cream-deep:** `#EFE3D2` — card surfaces, idle inputs, chip idle
+- **Terracotta:** `#E37B53` — primary CTA, period closer (D-rule), selected states
+- **Peach:** `#F2C9A8` — secondary pill, soft accent
+- **Espresso:** `#2A1F1A` — primary text, active nav
+- **Mocha:** `#6B5A4F` — secondary text, idle nav, lede sub-copy
+- **Rule:** `#D7C5B0` — dividers, progress bar track
+- **Fonts:** bundled `Bricolage Grotesque` (display, w200-w800), `DM Sans` (body), `DM Mono` (technical). No `google_fonts` dependency.
+- **Heading rule (D rule):** `ElioPageTitle` walks the source string and renders any `.` in terracotta — authors include the period in source where the brand calls for it. Section headings use `ElioSectionHeading` (sentence case, no period).
+- **Backdrop:** `ElioBackdropIllustration` (kale leaf SVG, mocha @ 5% opacity) sits behind every page via `ElioAppScaffold`.
+- **Shape:** Rounded corners throughout (`ElioRadii.card` 16, `ElioRadii.button` 20, `ElioRadii.panel` 14, `ElioRadii.input` 14, `ElioRadii.chip` 999). Shimmer skeletons during streaming.
+- **API:** `.withValues(alpha: x)` not `.withOpacity(x)` | `activeTrackColor` not `activeColor` | always `Theme.of(context).textTheme.<role>` or `ElioTextStyles.<role>` (never hardcode `fontFamily`).
 
-### Sprint 16 design system (new)
+### Token files
 
-Extended token files live alongside `elio_theme.dart`:
-
+- `lib/theme/elio_theme.dart` — `ElioColors` palette + `elioTheme()` ThemeData factory.
 - `lib/theme/elio_spacing.dart` — 8-point spacing scale (`xs`/`sm`/`md`/`lg`/`xl`/`xxl`/`xxxl` + `screenEdge`).
-- `lib/theme/elio_radii.dart` — rounded-corner scale + `card`/`button`/`chip` presets.
-- `lib/theme/elio_text_styles.dart` — editorial ramp (`heroDisplay`/`heroDisplayAccent`/`heading1-5`/`eyebrow`/`body`/`bodySmall`/`statValue`/`stepNumeral`).
-- `ElioColors.cream` — warmer cream used on cards over off-white backgrounds.
+- `lib/theme/elio_radii.dart` — rounded-corner scale + `card`/`button`/`chip`/`panel`/`input` presets.
+- `lib/theme/elio_text_styles.dart` — editorial ramp: `pageTitleStyle`, `sectionHeadingStyle`, `ledeStyle`, `bodyStyle`, `bodySmallStyle`, `uiLabelStyle`, `tabLabelStyle`, `eyebrowStyle`, `numericStyle`. Legacy names (`heading1-5`/`body`/`bodySmall`/`heroDisplay`/etc.) are aliases pointing at the new ramp — prefer the canonical names for new code.
 
-Reusable widgets in `lib/widgets/elio/`:
+### Reusable widgets in `lib/widgets/elio/`
 
-- Shell: `ElioAppScaffold`, `ElioTopAppBar`, `ElioBottomNav` (4 tabs: home / pantry / recipes / shopping).
-- Type: `ElioHeroHeading` (editorial 1-3 line display with amber last line + underline), `ElioEyebrow`.
-- CTAs: `ElioBigButton` (amber primary), `ElioChip` (selectable pill).
-- Cards: `ElioSecondaryCard` (cream + View action), `ElioBentoCard` (two-tone action card).
-- Lists: `ElioTierRow` (expandable tier), `ElioIngredientRow` (checkable), `ElioMethodStep` (big amber numeral).
-- Pills / controls: `ElioStatBadge`, `ElioServingsControl`, `ElioFeedbackBar`, `ElioCustomField`.
+- Shell: `ElioAppScaffold` (with backdrop illustration), `ElioTopAppBar` (lowercase `elio` wordmark + profile icon), `ElioBottomNav` (4 tabs: home / pantry / recipes / shopping list — espresso active, mocha idle, no pill).
+- Type: `ElioPageTitle` (D-rule display heading), `ElioSectionHeading`, `ElioHeroDisplay` (alias for `ElioPageTitle`), `ElioEyebrow` (DM Mono uppercase).
+- CTAs: `ElioBigButton` (terracotta pill, white text + chevron, `onTap`/`label`/`loading`/optional `trailingIcon` override), `ElioChip` (selected = terracotta + check; idle = creamDeep + espresso).
+- Cards: `ElioSecondaryCard` (creamDeep + peach pill action), `ElioBentoCard` (creamDeep + terracotta-tinted icon — single tone after rebrand).
+- Lists: `ElioTierRow` (creamDeep), `ElioIngredientRow` (terracotta circle outline / filled tick), `ElioMethodStep` (Bricolage 800 56px terracotta numeral).
+- Pills / controls: `ElioStatBadge` (creamDeep panel + terracotta icon), `ElioServingsControl` (peach +/- buttons, espresso numeral), `ElioFeedbackBar` (creamDeep), `ElioCustomField` (creamDeep + ElioRadii.input).
 
-Screens wired into the new shell (`AppShell`): `HomeScreen`, `PantryScreen`, `RecipesTabScreen`, `ShoppingListScreen`. The top-bar profile icon opens `AccountScreen` (Subscription / Household / Dietary / Food Style / Appliances / Metrics tiles). Recipe, Meal Plan, and Paywall keep their own `Scaffold` (pushed via Navigator). `RecipePreferencesScreen` is the new interstitial between Home's Generate CTA and `RecipeScreen`.
+`ElioHeroHeading` is retained as a thin wrapper rendering each line in `pageTitleStyle` (with terracotta last line if `amberLastLine: true`) — kept for legacy callers that haven't migrated to `ElioPageTitle` yet.
+
+Screens wired into the new shell (`AppShell`): `HomeScreen`, `PantryScreen`, `RecipesTabScreen`, `ShoppingListScreen`. The top-bar profile icon opens `AccountScreen`. Recipe, Meal Plan, and Paywall keep their own `Scaffold` (pushed via Navigator). `RecipePreferencesScreen` is the interstitial between Home's Generate CTA and `RecipeScreen`.
 
 ## Monetisation
 
