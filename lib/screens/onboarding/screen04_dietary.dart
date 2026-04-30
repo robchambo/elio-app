@@ -6,9 +6,9 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
 import '../../widgets/elio/elio_onboarding_option_card.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
+import '../../widgets/elio/elio_page_title.dart';
 
 // ─────────────────────────────────────────────
 // Screen 04 — Dietary (Option B union-capture)
@@ -175,16 +175,11 @@ class Screen04Dietary extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const ElioHeroHeading(
-                          lines: ['Any dietary rules', 'we should follow?'],
-                          amberLastLine: true,
-                        ),
+                        const ElioPageTitle('any dietary rules we should follow?'),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
-                          'Pick all that apply. Allergies come next.',
-                          style: ElioTextStyles.body.copyWith(
-                            color: ElioColors.mocha,
-                          ),
+                          'pick all that apply. allergies come next.',
+                          style: ElioTextStyles.ledeStyle,
                         ),
                         const SizedBox(height: ElioSpacing.lg),
                         for (int i = 0; i < _options.length; i++) ...[
@@ -209,7 +204,7 @@ class Screen04Dietary extends StatelessWidget {
                             activeTrackColor: ElioColors.terracotta,
                             title: Text(
                               'Does anyone else in your household eat differently?',
-                              style: ElioTextStyles.body,
+                              style: ElioTextStyles.bodyStyle,
                             ),
                           ),
                         ],
@@ -217,12 +212,12 @@ class Screen04Dietary extends StatelessWidget {
                           const SizedBox(height: ElioSpacing.md),
                           Text(
                             "Cover everyone's needs",
-                            style: ElioTextStyles.heading5,
+                            style: ElioTextStyles.uiLabelStyle,
                           ),
                           const SizedBox(height: ElioSpacing.xs),
                           Text(
                             "Pick everything that applies to anyone — including you. We'll make sure no one gets left out.",
-                            style: ElioTextStyles.bodySmall.copyWith(
+                            style: ElioTextStyles.bodySmallStyle.copyWith(
                               color: ElioColors.mocha,
                             ),
                           ),
@@ -242,7 +237,7 @@ class Screen04Dietary extends StatelessWidget {
                             const SizedBox(height: ElioSpacing.sm),
                             Text(
                               "Pick at least one — or turn the toggle off if everyone's the same.",
-                              style: ElioTextStyles.bodySmall.copyWith(
+                              style: ElioTextStyles.bodySmallStyle.copyWith(
                                 color: ElioColors.mocha,
                               ),
                             ),
@@ -274,7 +269,6 @@ class Screen04Dietary extends StatelessWidget {
                             onContinue();
                           }
                         : null,
-                    trailingIcon: Icons.arrow_forward,
                   ),
                 ),
               ],
