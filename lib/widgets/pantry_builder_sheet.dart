@@ -2,10 +2,26 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/pantry_categories.dart';
-import '../theme/elio_theme.dart';
+import '../theme/elio_radii.dart';
+import '../theme/elio_spacing.dart';
 import '../theme/elio_text_styles.dart';
+import '../theme/elio_theme.dart';
+
 /// Bottom sheet for browsing and adding pantry items by category.
-/// Tap to add (defaults to Always Have), long-press to choose tier.
+///
+/// Sprint-16-rebrand pass:
+///  • Cream background (matches app shell), creamDeep input fields, no
+///    border-rule outlines.
+///  • Category headers use Material outlined icons (Streamline-adjacent
+///    line style) inside a small peach rounded-square container, mirroring
+///    the bento-tile inner-icon language.
+///  • Item chips use the canonical ElioChip language (creamDeep idle,
+///    terracotta + check selected) but keep RawGestureDetector locally so
+///    long-press can open the tier picker without bottom-sheet conflicts.
+///
+/// Behaviour: tap to add (defaults to Always Have), long-press to choose
+/// tier. Search filters across all categories. Custom add appends a new
+/// custom item with a forced tier picker.
 class PantryBuilderSheet extends StatefulWidget {
   final List<String> existingItemNames;
   final Future<void> Function(String name, String tier, String? category) onAddItem;
@@ -49,6 +65,43 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
     return _existingLower.contains(itemName.toLowerCase().trim());
   }
 
+  /// Map a category to a Streamline-adjacent Material outlined icon.
+  ///
+  /// Stock outlined icons are the closest single-stroke set we have
+  /// without shipping bundled SVG assets. If we later license the
+  /// Streamline pack for an exact match, swap this to a string→AssetImage
+  /// lookup; the call sites won't change.
+  static IconData _iconFor(String categoryName) {
+    switch (categoryName) {
+      case 'Spices & Seasonings':
+        return Icons.local_fire_department_outlined;
+      case 'Asian Pantry':
+        return Icons.ramen_dining_outlined;
+      case 'Indian Pantry':
+        return Icons.rice_bowl_outlined;
+      case 'Mexican & Latin':
+        return Icons.lunch_dining_outlined;
+      case 'Mediterranean':
+        return Icons.eco_outlined;
+      case 'Oils & Vinegars':
+        return Icons.water_drop_outlined;
+      case 'Dairy & Eggs':
+        return Icons.egg_outlined;
+      case 'Canned & Jarred':
+        return Icons.inventory_2_outlined;
+      case 'Grains & Pasta':
+        return Icons.dinner_dining_outlined;
+      case 'Baking Essentials':
+        return Icons.cake_outlined;
+      case 'Sauces & Condiments':
+        return Icons.opacity_outlined;
+      case 'Frozen Staples':
+        return Icons.ac_unit_outlined;
+      default:
+        return Icons.kitchen_outlined;
+    }
+  }
+
   void _toggleItem(String itemName, String categoryName) {
     HapticFeedback.selectionClick();
     final key = itemName.toLowerCase().trim();
@@ -67,7 +120,6 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
     final key = name.toLowerCase();
 
     if (_existingLower.contains(key)) {
-      // Already in pantry — haptic + inline error, keep text visible
       HapticFeedback.heavyImpact();
       setState(() => _customItemError = '"$name" is already in your pantry');
       Future.delayed(const Duration(seconds: 3), () {
@@ -81,137 +133,87 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
 
   /// Tier picker as a dialog — works reliably on top of the bottom sheet.
   void _showCustomItemTierPicker(String itemName) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Add "$itemName"', style: ElioText.headingMedium),
-        content: Text('Choose a tier:', style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
-        actions: [
-          TextButton.icon(
-            icon: Icon(Icons.inventory_2_outlined, size: 18, color: ElioColors.terracotta),
-            label: const Text('Always Have'),
-            onPressed: () {
-              Navigator.pop(ctx);
-              widget.onAddItem(itemName, 'alwaysHave', '');
-              setState(() {
-                _existingLower.add(itemName.toLowerCase().trim());
-                _customItemController.clear();
-                _customItemError = null;
-              });
-            },
-          ),
-          TextButton.icon(
-            icon: Icon(Icons.kitchen_outlined, size: 18, color: ElioColors.mocha),
-            label: const Text('Almost Always'),
-            onPressed: () {
-              Navigator.pop(ctx);
-              widget.onAddItem(itemName, 'almostAlwaysHave', '');
-              setState(() {
-                _existingLower.add(itemName.toLowerCase().trim());
-                _customItemController.clear();
-                _customItemError = null;
-              });
-            },
-          ),
-          TextButton.icon(
-            icon: const Icon(Icons.eco_outlined, size: 18, color: Colors.green),
-            label: const Text('Perishable'),
-            onPressed: () {
-              Navigator.pop(ctx);
-              widget.onAddItem(itemName, 'perishable', '');
-              setState(() {
-                _existingLower.add(itemName.toLowerCase().trim());
-                _customItemController.clear();
-                _customItemError = null;
-              });
-            },
-          ),
-        ],
-      ),
-    );
+    _showTierPickerForItem(itemName, null, clearCustomFieldOnAdd: true);
   }
 
-  void _showTierPickerForItem(String itemName, String? categoryName) {
+  void _showTierPickerForItem(
+    String itemName,
+    String? categoryName, {
+    bool clearCustomFieldOnAdd = false,
+  }) {
     // Must use showDialog — not showModalBottomSheet — because the Pantry
     // Builder is already a bottom sheet and nested sheets fail silently.
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: ElioColors.cream,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ElioRadii.card),
+        ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Add "$itemName"', style: ElioText.headingMedium),
+              Text('Add "$itemName"', style: ElioTextStyles.sectionHeadingStyle),
               const SizedBox(height: 4),
               Text(
-                'Choose which tier to add this item to.',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
+                'Pick a tier.',
+                style: ElioTextStyles.bodySmallStyle,
               ),
-              const SizedBox(height: 16),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: ElioColors.terracotta.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.inventory_2_outlined, color: ElioColors.terracotta, size: 20),
-                ),
-                title: Text('Always Have', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                subtitle: Text('Staples you always keep', style: ElioText.label.copyWith(color: ElioColors.mocha)),
+              const SizedBox(height: ElioSpacing.md),
+              _TierTile(
+                icon: Icons.star_outline_rounded,
+                iconBg: ElioColors.peach,
+                title: 'Always have',
+                subtitle: 'Staples you always keep',
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onAddItem(itemName, 'alwaysHave', categoryName ?? '');
                   setState(() {
                     _existingLower.add(itemName.toLowerCase().trim());
-                    _customItemController.clear();
+                    if (clearCustomFieldOnAdd) {
+                      _customItemController.clear();
+                      _customItemError = null;
+                    }
                   });
                 },
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: ElioColors.peach.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.kitchen_outlined, color: ElioColors.mocha, size: 20),
-                ),
-                title: Text('Almost Always Have', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                subtitle: Text('Usually have but sometimes run out', style: ElioText.label.copyWith(color: ElioColors.mocha)),
+              const SizedBox(height: ElioSpacing.xs),
+              _TierTile(
+                icon: Icons.kitchen_outlined,
+                iconBg: const Color(0xFFF5C26B),
+                title: 'Almost always have',
+                subtitle: 'Usually in, sometimes runs out',
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onAddItem(itemName, 'almostAlwaysHave', categoryName ?? '');
                   setState(() {
                     _existingLower.add(itemName.toLowerCase().trim());
-                    _customItemController.clear();
+                    if (clearCustomFieldOnAdd) {
+                      _customItemController.clear();
+                      _customItemError = null;
+                    }
                   });
                 },
               ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.eco_outlined, color: Colors.green, size: 20),
-                ),
-                title: Text('Perishable', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-                subtitle: Text('Fresh items with a limited shelf life', style: ElioText.label.copyWith(color: ElioColors.mocha)),
+              const SizedBox(height: ElioSpacing.xs),
+              _TierTile(
+                icon: Icons.eco_outlined,
+                iconBg: ElioColors.perishFresh.withValues(alpha: 0.25),
+                iconColor: ElioColors.perishFresh,
+                title: 'Perishable',
+                subtitle: 'Fresh items with a shelf life',
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onAddItem(itemName, 'perishable', categoryName ?? '');
                   setState(() {
                     _existingLower.add(itemName.toLowerCase().trim());
-                    _customItemController.clear();
+                    if (clearCustomFieldOnAdd) {
+                      _customItemController.clear();
+                      _customItemError = null;
+                    }
                   });
                 },
               ),
@@ -225,10 +227,8 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
 
   void _longPressItem(String itemName, String categoryName) {
     HapticFeedback.mediumImpact();
-    // Allow long-press even for items already in pantry — lets user change tier
     _showTierPickerForItem(itemName, categoryName);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -241,137 +241,104 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
       expand: false,
       builder: (context, scrollController) => Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: ElioColors.cream,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         child: Column(
           children: [
-            // Handle
+            // Drag handle.
             Padding(
               padding: const EdgeInsets.only(top: 12, bottom: 8),
               child: Container(
-                width: 36, height: 4,
+                width: 36,
+                height: 4,
                 decoration: BoxDecoration(
                   color: ElioColors.rule,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-            // Title
+            // Title + sub.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Pantry Builder',
+                      style: ElioTextStyles.sectionHeadingStyle),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tap to add, hold to choose tier.',
+                    style: ElioTextStyles.bodySmallStyle,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: ElioSpacing.md),
+            // Search field — creamDeep, no border.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _SoftField(
+                controller: _searchController,
+                hintText: 'Search items',
+                prefixIcon: Icons.search_rounded,
+                suffixIcon: hasSearch ? Icons.close_rounded : null,
+                onSuffixTap: hasSearch
+                    ? () {
+                        _searchController.clear();
+                        setState(() => _searchQuery = '');
+                      }
+                    : null,
+                onChanged: (v) =>
+                    setState(() => _searchQuery = v.trim().toLowerCase()),
+              ),
+            ),
+            const SizedBox(height: ElioSpacing.sm),
+            // Custom-add row — field + terracotta circular button.
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  const Icon(Icons.construction_rounded, size: 22, color: ElioColors.terracotta),
-                  const SizedBox(width: 8),
-                  Text('Pantry Builder', style: ElioText.headingLarge),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-              child: Text(
-                'Tap to add, hold to choose tier.',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
-              ),
-            ),
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Search items...',
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20, color: ElioColors.mocha),
-                  suffixIcon: hasSearch
-                      ? GestureDetector(
-                          onTap: () {
-                            _searchController.clear();
-                            setState(() => _searchQuery = '');
-                          },
-                          child: const Icon(Icons.close_rounded, size: 18, color: ElioColors.mocha),
-                        )
-                      : null,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: ElioColors.rule),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: ElioColors.rule),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: ElioColors.espresso, width: 1.5),
-                  ),
-                  filled: true,
-                  fillColor: ElioColors.creamDeep,
-                ),
-                style: ElioTextStyles.bodySmallStyle,
-                onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
-              ),
-            ),
-            // Custom item input
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: Row(
-                children: [
                   Expanded(
-                    child: TextField(
+                    child: _SoftField(
                       controller: _customItemController,
-                      decoration: InputDecoration(
-                        hintText: 'Add custom item...',
-                        prefixIcon: Icon(Icons.add_rounded, size: 20, color: _customItemError != null ? ElioColors.terracotta : ElioColors.mocha),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: ElioColors.rule),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: _customItemError != null ? ElioColors.terracotta : ElioColors.rule),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: _customItemError != null ? ElioColors.terracotta : ElioColors.espresso, width: 1.5),
-                        ),
-                        filled: true,
-                        fillColor: ElioColors.creamDeep,
-                      ),
-                      style: ElioTextStyles.bodySmallStyle,
+                      hintText: 'Add custom item',
+                      prefixIcon: Icons.add_rounded,
+                      errorTinted: _customItemError != null,
                       textInputAction: TextInputAction.done,
                       onSubmitted: (_) => _addCustomItem(),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: _addCustomItem,
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: ElioColors.espresso,
-                        borderRadius: BorderRadius.circular(12),
+                  const SizedBox(width: ElioSpacing.sm),
+                  Material(
+                    color: ElioColors.terracotta,
+                    shape: const CircleBorder(),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _addCustomItem,
+                      child: const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: Icon(Icons.add_rounded,
+                            color: Colors.white, size: 22),
                       ),
-                      child: const Icon(Icons.add_rounded, size: 22, color: Colors.white),
                     ),
                   ),
                 ],
               ),
             ),
-            // Inline error for duplicate custom items
             if (_customItemError != null)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                padding:
+                    const EdgeInsets.fromLTRB(20, ElioSpacing.xs, 20, 0),
                 child: Text(
                   _customItemError!,
                   style: ElioTextStyles.eyebrowStyle.copyWith(
-                    fontWeight: FontWeight.w600,
                     color: ElioColors.terracotta,
                   ),
                 ),
               ),
-            // Categories list
+            const SizedBox(height: ElioSpacing.sm),
+            // Category list — fills remaining height.
             Expanded(
               child: ListView.builder(
                 controller: scrollController,
@@ -390,25 +357,27 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
   }
 
   Widget _buildCategory(PantryCategory cat) {
-    // Filter items by search
     final allItems = cat.allItems;
     final filteredItems = _searchQuery.isEmpty
         ? allItems
-        : allItems.where((item) => item.toLowerCase().contains(_searchQuery)).toList();
+        : allItems
+            .where((item) => item.toLowerCase().contains(_searchQuery))
+            .toList();
 
-    // Hide entire category if no items match search
-    if (filteredItems.isEmpty && _searchQuery.isNotEmpty) return const SizedBox.shrink();
+    if (filteredItems.isEmpty && _searchQuery.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
 
-    final isExpanded = _expandedCategories.contains(cat.name) || _searchQuery.isNotEmpty;
+    final isExpanded =
+        _expandedCategories.contains(cat.name) || _searchQuery.isNotEmpty;
     final inPantryCount = filteredItems.where(_isInPantry).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Category header
         GestureDetector(
           onTap: () {
-            if (_searchQuery.isNotEmpty) return; // Always expanded during search
+            if (_searchQuery.isNotEmpty) return;
             setState(() {
               if (_expandedCategories.contains(cat.name)) {
                 _expandedCategories.remove(cat.name);
@@ -422,26 +391,39 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Row(
               children: [
-                Text(cat.icon, style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: ElioColors.peach,
+                    borderRadius: BorderRadius.circular(ElioRadii.panel),
+                  ),
+                  child: Icon(
+                    _iconFor(cat.name),
+                    color: ElioColors.espresso,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: ElioSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Text(cat.name, style: ElioTextStyles.uiLabelStyle),
+                      const SizedBox(height: 2),
                       Text(
-                        cat.name,
-                        style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      Text(
-                        '${filteredItems.length} items${inPantryCount > 0 ? ' · $inPantryCount in pantry' : ''}',
-                        style: ElioText.label.copyWith(color: ElioColors.mocha),
+                        '${filteredItems.length} items'
+                        '${inPantryCount > 0 ? ' · $inPantryCount in pantry' : ''}',
+                        style: ElioTextStyles.bodySmallStyle,
                       ),
                     ],
                   ),
                 ),
                 if (_searchQuery.isEmpty)
                   Icon(
-                    isExpanded ? Icons.expand_more_rounded : Icons.chevron_right_rounded,
+                    isExpanded
+                        ? Icons.expand_more_rounded
+                        : Icons.chevron_right_rounded,
                     size: 22,
                     color: ElioColors.mocha,
                   ),
@@ -449,7 +431,6 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
             ),
           ),
         ),
-        // Expanded items
         if (isExpanded) ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -458,56 +439,211 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
               runSpacing: 8,
               children: filteredItems.map((itemName) {
                 final inPantry = _isInPantry(itemName);
-                return RawGestureDetector(
-                  gestures: <Type, GestureRecognizerFactory>{
-                    TapGestureRecognizer: GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-                      () => TapGestureRecognizer(),
-                      (instance) => instance.onTap = () => _toggleItem(itemName, cat.name),
-                    ),
-                    LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-                      () => LongPressGestureRecognizer(duration: const Duration(milliseconds: 300)),
-                      (instance) => instance.onLongPress = () => _longPressItem(itemName, cat.name),
-                    ),
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: inPantry
-                          ? ElioColors.terracotta.withValues(alpha: 0.12)
-                          : ElioColors.creamDeep,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: inPantry
-                            ? ElioColors.terracotta.withValues(alpha: 0.5)
-                            : ElioColors.rule,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (inPantry) ...[
-                          Icon(Icons.check_rounded, size: 14, color: ElioColors.terracotta),
-                          const SizedBox(width: 4),
-                        ],
-                        Text(
-                          itemName,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: inPantry ? FontWeight.w600 : FontWeight.w500,
-                            color: inPantry ? ElioColors.terracotta : ElioColors.espresso,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                return _BuilderChip(
+                  label: itemName,
+                  selected: inPantry,
+                  onTap: () => _toggleItem(itemName, cat.name),
+                  onLongPress: () => _longPressItem(itemName, cat.name),
                 );
               }).toList(),
             ),
           ),
         ],
-        const Divider(height: 1, color: ElioColors.rule),
+        Divider(
+          height: 1,
+          color: ElioColors.rule.withValues(alpha: 0.4),
+        ),
       ],
+    );
+  }
+}
+
+// ─── Soft input field (creamDeep fill, no border) ────────────────────
+class _SoftField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hintText;
+  final IconData? prefixIcon;
+  final IconData? suffixIcon;
+  final VoidCallback? onSuffixTap;
+  final bool errorTinted;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final TextInputAction? textInputAction;
+
+  const _SoftField({
+    required this.controller,
+    required this.hintText,
+    this.prefixIcon,
+    this.suffixIcon,
+    this.onSuffixTap,
+    this.errorTinted = false,
+    this.onChanged,
+    this.onSubmitted,
+    this.textInputAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tint = errorTinted ? ElioColors.terracotta : ElioColors.mocha;
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      onSubmitted: onSubmitted,
+      textInputAction: textInputAction,
+      style: ElioTextStyles.bodyStyle,
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle:
+            ElioTextStyles.bodyStyle.copyWith(color: ElioColors.mocha),
+        prefixIcon: prefixIcon == null
+            ? null
+            : Icon(prefixIcon, size: 20, color: tint),
+        suffixIcon: suffixIcon == null
+            ? null
+            : GestureDetector(
+                onTap: onSuffixTap,
+                child: Icon(suffixIcon, size: 18, color: ElioColors.mocha),
+              ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        filled: true,
+        fillColor: ElioColors.creamDeep,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ElioRadii.input),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ElioRadii.input),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(ElioRadii.input),
+          borderSide: BorderSide.none,
+        ),
+        isDense: true,
+      ),
+    );
+  }
+}
+
+// ─── Toggle-add chip with tap + long-press ───────────────────────────
+//
+// Visually mirrors ElioChip (creamDeep idle / terracotta selected with
+// trailing check) but keeps RawGestureDetector locally so long-press can
+// open the tier picker without losing the gesture to the wrapping
+// scrollable.
+class _BuilderChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _BuilderChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = selected ? ElioColors.terracotta : ElioColors.creamDeep;
+    final fg = selected ? Colors.white : ElioColors.espresso;
+    return RawGestureDetector(
+      gestures: <Type, GestureRecognizerFactory>{
+        TapGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+          () => TapGestureRecognizer(),
+          (instance) => instance.onTap = onTap,
+        ),
+        LongPressGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+          () => LongPressGestureRecognizer(
+              duration: const Duration(milliseconds: 300)),
+          (instance) => instance.onLongPress = onLongPress,
+        ),
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(ElioRadii.chip),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: ElioTextStyles.bodySmallStyle.copyWith(
+                color: fg,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (selected) ...[
+              const SizedBox(width: 6),
+              const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Tier-picker dialog tile ─────────────────────────────────────────
+class _TierTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconBg;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _TierTile({
+    required this.icon,
+    required this.iconBg,
+    this.iconColor = ElioColors.espresso,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: ElioSpacing.sm,
+          vertical: ElioSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(ElioRadii.panel),
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: ElioSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: ElioTextStyles.uiLabelStyle),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: ElioTextStyles.bodySmallStyle),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
