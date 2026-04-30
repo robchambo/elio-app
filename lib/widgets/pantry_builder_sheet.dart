@@ -306,7 +306,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                     borderSide: const BorderSide(color: ElioColors.espresso, width: 1.5),
                   ),
                   filled: true,
-                  fillColor: ElioColors.cream,
+                  fillColor: ElioColors.creamDeep,
                 ),
                 style: ElioTextStyles.bodySmallStyle,
                 onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
@@ -337,7 +337,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                           borderSide: BorderSide(color: _customItemError != null ? ElioColors.terracotta : ElioColors.espresso, width: 1.5),
                         ),
                         filled: true,
-                        fillColor: ElioColors.cream,
+                        fillColor: ElioColors.creamDeep,
                       ),
                       style: ElioTextStyles.bodySmallStyle,
                       textInputAction: TextInputAction.done,
@@ -475,7 +475,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                     decoration: BoxDecoration(
                       color: inPantry
                           ? ElioColors.terracotta.withValues(alpha: 0.12)
-                          : ElioColors.cream,
+                          : ElioColors.creamDeep,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: inPantry
