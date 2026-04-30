@@ -98,7 +98,7 @@ class ElioPantryTagPill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             overrideLabel ?? s.label,
-            style: ElioTextStyles.bodySmall.copyWith(
+            style: ElioTextStyles.bodySmallStyle.copyWith(
               color: s.fg,
               fontSize: 12,
               fontWeight: FontWeight.w700,

@@ -21,16 +21,16 @@ class ElioCustomField extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
-        color: ElioColors.cream,
-        borderRadius: BorderRadius.circular(ElioRadii.card),
+        color: ElioColors.creamDeep,
+        borderRadius: BorderRadius.circular(ElioRadii.input),
       ),
       child: TextField(
         controller: controller,
         onSubmitted: onSubmitted,
-        style: ElioTextStyles.body,
+        style: ElioTextStyles.bodyStyle,
         decoration: InputDecoration(
           hintText: placeholder,
-          hintStyle: ElioTextStyles.body.copyWith(color: ElioColors.mocha),
+          hintStyle: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.mocha),
           border: InputBorder.none,
           isDense: true,
         ),

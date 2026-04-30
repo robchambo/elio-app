@@ -162,7 +162,7 @@ class ElioPantryItemTile extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: ElioTextStyles.bodySmall.copyWith(
+            style: ElioTextStyles.bodySmallStyle.copyWith(
               color: ElioColors.espresso,
               fontWeight: FontWeight.w600,
             ),
@@ -199,7 +199,7 @@ class ElioPantryItemTile extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: ElioTextStyles.bodySmall.copyWith(
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
                     color: ElioColors.mocha.withValues(alpha: 0.7),
                     fontWeight: FontWeight.w500,
                     decoration: TextDecoration.lineThrough,
@@ -222,7 +222,7 @@ class ElioPantryItemTile extends StatelessWidget {
                   ),
                   child: Text(
                     reason,
-                    style: ElioTextStyles.bodySmall.copyWith(
+                    style: ElioTextStyles.bodySmallStyle.copyWith(
                       fontSize: 10,
                       color: ElioColors.mocha,
                       fontWeight: FontWeight.w600,

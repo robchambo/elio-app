@@ -54,13 +54,13 @@ Future<AddItemResult> showAddPantryItemDialog(
     context: context,
     builder: (ctx) {
       return AlertDialog(
-        backgroundColor: ElioColors.cream,
+        backgroundColor: ElioColors.creamDeep,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(ElioRadii.lg),
+          borderRadius: BorderRadius.circular(ElioRadii.card),
         ),
         title: Text(
           'Add to $categoryName',
-          style: ElioTextStyles.heading4,
+          style: ElioTextStyles.sectionHeadingStyle,
         ),
         content: TextField(
           controller: controller,
@@ -68,15 +68,15 @@ Future<AddItemResult> showAddPantryItemDialog(
           textCapitalization: TextCapitalization.sentences,
           decoration: InputDecoration(
             hintText: 'e.g. Miso paste',
-            hintStyle: ElioTextStyles.body.copyWith(
+            hintStyle: ElioTextStyles.bodyStyle.copyWith(
               color: ElioColors.mocha,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(ElioRadii.md),
+              borderRadius: BorderRadius.circular(ElioRadii.input),
               borderSide: const BorderSide(color: ElioColors.rule),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(ElioRadii.md),
+              borderRadius: BorderRadius.circular(ElioRadii.input),
               borderSide: const BorderSide(
                 color: ElioColors.terracotta,
                 width: 1.5,
@@ -96,7 +96,7 @@ Future<AddItemResult> showAddPantryItemDialog(
             onPressed: () => Navigator.of(ctx).pop(null),
             child: Text(
               'Cancel',
-              style: ElioTextStyles.body.copyWith(
+              style: ElioTextStyles.uiLabelStyle.copyWith(
                 color: ElioColors.mocha,
               ),
             ),
@@ -106,15 +106,14 @@ Future<AddItemResult> showAddPantryItemDialog(
               side: const BorderSide(color: ElioColors.terracotta, width: 1.5),
               foregroundColor: ElioColors.terracotta,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(ElioRadii.md),
+                borderRadius: BorderRadius.circular(ElioRadii.input),
               ),
             ),
             onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
             child: Text(
               'Add',
-              style: ElioTextStyles.body.copyWith(
+              style: ElioTextStyles.uiLabelStyle.copyWith(
                 color: ElioColors.terracotta,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),

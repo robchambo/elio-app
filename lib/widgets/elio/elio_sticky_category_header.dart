@@ -37,9 +37,7 @@ class ElioStickyCategoryHeader extends SliverPersistentHeaderDelegate {
           Expanded(
             child: Text(
               title,
-              style: ElioTextStyles.heading5.copyWith(
-                color: ElioColors.espresso,
-              ),
+              style: ElioTextStyles.sectionHeadingStyle,
             ),
           ),
           if (count != null && count! > 0)
@@ -54,7 +52,7 @@ class ElioStickyCategoryHeader extends SliverPersistentHeaderDelegate {
               ),
               child: Text(
                 '$count',
-                style: ElioTextStyles.bodySmall.copyWith(
+                style: ElioTextStyles.bodySmallStyle.copyWith(
                   color: ElioColors.terracotta,
                   fontWeight: FontWeight.w700,
                 ),

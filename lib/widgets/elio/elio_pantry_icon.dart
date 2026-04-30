@@ -17,7 +17,7 @@ class ElioPantryIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = inStock ? ElioColors.freshGreen : ElioColors.perishToday;
+    final color = inStock ? ElioColors.espresso : ElioColors.terracotta;
     return Semantics(
       label: inStock ? 'In your pantry' : 'Not in your pantry',
       child: Icon(Icons.kitchen_outlined, size: size, color: color),

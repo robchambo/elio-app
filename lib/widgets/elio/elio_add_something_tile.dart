@@ -35,7 +35,7 @@ class ElioAddSomethingTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(ElioSpacing.sm + 2),
           decoration: BoxDecoration(
-            color: ElioColors.cream,
+            color: ElioColors.creamDeep,
             borderRadius: BorderRadius.circular(ElioRadii.md),
           ),
           child: Column(
@@ -48,9 +48,8 @@ class ElioAddSomethingTile extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: ElioTextStyles.bodySmall.copyWith(
+                style: ElioTextStyles.uiLabelStyle.copyWith(
                   color: ElioColors.terracotta,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

@@ -13,7 +13,7 @@ class ElioEyebrow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text.toUpperCase(),
-      style: ElioTextStyles.eyebrow,
+      style: ElioTextStyles.eyebrowStyle,
       textAlign: textAlign,
     );
   }

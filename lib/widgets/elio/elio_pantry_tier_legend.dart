@@ -90,7 +90,7 @@ class ElioPantryTierLegend extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           e.label,
-          style: ElioTextStyles.bodySmall.copyWith(
+          style: ElioTextStyles.bodySmallStyle.copyWith(
             color: ElioColors.mocha,
           ),
         ),

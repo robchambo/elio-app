@@ -65,7 +65,7 @@ class PhoneMockupRecipeCard extends StatelessWidget {
                   const SizedBox(height: ElioSpacing.md),
                   Text(
                     recipeTitle,
-                    style: ElioTextStyles.heading4.copyWith(fontSize: 18),
+                    style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 18),
                   ),
                   const SizedBox(height: ElioSpacing.sm),
                   Expanded(
@@ -114,10 +114,7 @@ class _IngredientRow extends StatelessWidget {
         Expanded(
           child: Text(
             ingredient.name,
-            style: ElioTextStyles.bodySmall.copyWith(
-              color: ElioColors.espresso,
-              fontWeight: FontWeight.w600,
-            ),
+            style: ElioTextStyles.uiLabelStyle,
           ),
         ),
         if (ingredient.tag != null) ElioPantryTagPill(kind: ingredient.tag!),

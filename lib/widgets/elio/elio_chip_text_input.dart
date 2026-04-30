@@ -84,20 +84,20 @@ class _ElioChipTextInputState extends State<ElioChipTextInput> {
           textInputAction: TextInputAction.done,
           decoration: InputDecoration(
             hintText: widget.hintText,
-            hintStyle: ElioTextStyles.bodySmall,
+            hintStyle: ElioTextStyles.bodySmallStyle,
             filled: true,
-            fillColor: ElioColors.cream,
+            fillColor: ElioColors.creamDeep,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: ElioSpacing.md,
               vertical: ElioSpacing.sm + 2,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(ElioRadii.md),
-              borderSide: const BorderSide(color: ElioColors.rule),
+              borderRadius: BorderRadius.circular(ElioRadii.input),
+              borderSide: BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(ElioRadii.md),
-              borderSide: const BorderSide(color: ElioColors.rule),
+              borderRadius: BorderRadius.circular(ElioRadii.input),
+              borderSide: BorderSide.none,
             ),
           ),
         ),
@@ -129,7 +129,7 @@ class _TokenChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.espresso)),
+          Text(label, style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso)),
           const SizedBox(width: 4),
           InkWell(
             onTap: onRemove,
