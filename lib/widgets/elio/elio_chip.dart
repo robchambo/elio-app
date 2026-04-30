@@ -20,24 +20,25 @@ class ElioChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? ElioColors.terracotta : Colors.white;
+    final bg = selected ? ElioColors.terracotta : ElioColors.creamDeep;
     final fg = selected ? Colors.white : ElioColors.espresso;
-    final borderColor = selected ? ElioColors.terracotta : ElioColors.rule;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(ElioRadii.chip),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: bg,
           borderRadius: BorderRadius.circular(ElioRadii.chip),
-          border: Border.all(color: borderColor, width: 1.5),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: ElioTextStyles.body.copyWith(color: fg)),
-            if (hasDropdown) ...[
+            Text(label, style: ElioTextStyles.uiLabelStyle.copyWith(color: fg)),
+            if (selected) ...[
+              const SizedBox(width: 6),
+              const Icon(Icons.check, color: Colors.white, size: 18),
+            ] else if (hasDropdown) ...[
               const SizedBox(width: 6),
               Icon(Icons.keyboard_arrow_down, color: fg, size: 18),
             ],
