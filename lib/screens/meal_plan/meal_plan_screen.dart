@@ -249,6 +249,13 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     final slotKey = '${dayIndex}_${mealType.name}';
     if (_regeneratingSlots.contains(slotKey)) return;
 
+    // dayIndex is the UI tab index (0=Mon..6=Sun); _plan.days is sparse
+    // (only populated days), so look up by name rather than indexing.
+    const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayName = fullDayNames[dayIndex];
+    final existingDayIndex = _plan!.days.indexWhere((d) => d.dayName == dayName);
+    final existingDay = existingDayIndex >= 0 ? _plan!.days[existingDayIndex] : null;
+
     setState(() => _regeneratingSlots.add(slotKey));
 
     try {
@@ -260,7 +267,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       }
 
       final newMeal = await MealPlanService.regenerateMeal(
-        dayName: _plan!.days[dayIndex].dayName,
+        dayName: dayName,
         mealType: mealType,
         dietaryRequirements: _dietaryRequirements,
         alwaysHave: _alwaysHave,
@@ -270,8 +277,15 @@ class _MealPlanScreenState extends State<MealPlanScreen>
 
       if (mounted) {
         setState(() {
-          final updatedDay = _plan!.days[dayIndex].copyWithMeal(mealType, newMeal);
-          _plan = _plan!.copyWithDay(dayIndex, updatedDay);
+          final base = existingDay ?? DayPlan(dayName: dayName, meals: const {});
+          final updatedDay = base.copyWithMeal(mealType, newMeal);
+          final newDays = List<DayPlan>.from(_plan!.days);
+          if (existingDayIndex >= 0) {
+            newDays[existingDayIndex] = updatedDay;
+          } else {
+            newDays.add(updatedDay);
+          }
+          _plan = MealPlan(days: newDays, generatedAt: _plan!.generatedAt);
         });
         _savePlan();
         _analytics.logEvent('meal_plan_meal_regenerated', {
@@ -426,9 +440,15 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       try {
         final detailed = await MealPlanService.generateMealDetail(meal);
         if (!mounted) return;
+        // Look up the populated day by name — _plan.days is sparse and the
+        // tab dayIndex (0=Mon..6=Sun) doesn't always match the array index.
+        const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        final dayName = fullDayNames[dayIndex];
+        final existingDayIndex = _plan!.days.indexWhere((d) => d.dayName == dayName);
+        if (existingDayIndex < 0) return;
         setState(() {
-          final updatedDay = _plan!.days[dayIndex].copyWithMeal(mealType, detailed);
-          _plan = _plan!.copyWithDay(dayIndex, updatedDay);
+          final updatedDay = _plan!.days[existingDayIndex].copyWithMeal(mealType, detailed);
+          _plan = _plan!.copyWithDay(existingDayIndex, updatedDay);
         });
         _savePlan();
         Navigator.of(context).push(
