@@ -20,7 +20,7 @@ import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_secondary_card.dart';
 
@@ -362,17 +362,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      ElioHeroHeading(
-                        lines: ['hey ${firstName.toLowerCase()}.', 'lets get', 'started'],
-                        amberLastLine: true,
-                        showUnderline: true,
-                      ),
+                      ElioPageTitle('hey ${firstName.toLowerCase()}. lets get started'),
                       const SizedBox(height: ElioSpacing.md),
                       const ElioEyebrow('your kitchen is ready for elio'),
                       const Spacer(),
                       ElioBigButton(
                         label: 'Generate a recipe',
-                        trailingIcon: Icons.chevron_right,
                         onTap: canGenerate ? _openPreferencesThenGenerate : null,
                       ),
                       const SizedBox(height: ElioSpacing.md),
