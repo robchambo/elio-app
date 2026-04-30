@@ -74,7 +74,7 @@ class Screen06Time extends StatelessWidget {
                   child: Row(
                     children: [
                       BackButton(
-                        color: ElioColors.navy,
+                        color: ElioColors.espresso,
                         onPressed: onBack,
                       ),
                       const SizedBox(width: ElioSpacing.sm),

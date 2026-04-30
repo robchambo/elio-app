@@ -122,7 +122,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
         backgroundColor: ElioColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: ElioColors.navy),
+          icon: const Icon(Icons.arrow_back, color: ElioColors.espresso),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -161,7 +161,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -191,7 +191,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -223,7 +223,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -267,7 +267,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -304,10 +304,10 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: ElioColors.amber,
+                      backgroundColor: ElioColors.terracotta,
                       foregroundColor: ElioColors.white,
                       disabledBackgroundColor:
-                          ElioColors.amber.withValues(alpha: 0.5),
+                          ElioColors.terracotta.withValues(alpha: 0.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -360,7 +360,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                             'Sign in',
                             style: ElioTextStyles.uiLabelStyle.copyWith(
                               fontSize: 14,
-                              color: ElioColors.amber,
+                              color: ElioColors.terracotta,
                             ),
                           ),
                         ),

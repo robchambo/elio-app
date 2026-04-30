@@ -140,7 +140,7 @@ class _Screen05AllergiesState extends State<Screen05Allergies> {
                   child: Row(
                     children: [
                       BackButton(
-                        color: ElioColors.navy,
+                        color: ElioColors.espresso,
                         onPressed: widget.onBack,
                       ),
                       const SizedBox(width: ElioSpacing.sm),

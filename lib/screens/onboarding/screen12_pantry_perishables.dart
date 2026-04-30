@@ -360,7 +360,7 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
               child: Row(
                 children: [
                   BackButton(
-                    color: ElioColors.navy,
+                    color: ElioColors.espresso,
                     onPressed: widget.onBack,
                   ),
                   const SizedBox(width: ElioSpacing.sm),

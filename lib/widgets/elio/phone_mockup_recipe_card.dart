@@ -49,7 +49,7 @@ class PhoneMockupRecipeCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(ElioSpacing.sm),
           decoration: BoxDecoration(
-            color: ElioColors.navy,
+            color: ElioColors.espresso,
             borderRadius: BorderRadius.circular(40),
           ),
           child: ClipRRect(
@@ -93,12 +93,12 @@ class _HeroStrip extends StatelessWidget {
     return Container(
       height: 80,
       decoration: BoxDecoration(
-        color: ElioColors.amber.withValues(alpha: 0.25),
+        color: ElioColors.terracotta.withValues(alpha: 0.25),
         borderRadius: BorderRadius.circular(ElioRadii.md),
       ),
       alignment: Alignment.center,
       child: Icon(Icons.restaurant,
-          color: ElioColors.amber.withValues(alpha: 0.7), size: 28),
+          color: ElioColors.terracotta.withValues(alpha: 0.7), size: 28),
     );
   }
 }
@@ -115,7 +115,7 @@ class _IngredientRow extends StatelessWidget {
           child: Text(
             ingredient.name,
             style: ElioTextStyles.bodySmall.copyWith(
-              color: ElioColors.navy,
+              color: ElioColors.espresso,
               fontWeight: FontWeight.w600,
             ),
           ),

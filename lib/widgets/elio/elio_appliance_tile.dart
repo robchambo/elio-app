@@ -25,9 +25,9 @@ class ElioApplianceTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected ? ElioColors.amber : ElioColors.border;
+    final borderColor = selected ? ElioColors.terracotta : ElioColors.border;
     final bg = selected
-        ? ElioColors.amber.withValues(alpha: 0.08)
+        ? ElioColors.terracotta.withValues(alpha: 0.08)
         : ElioColors.white;
 
     return InkWell(
@@ -56,7 +56,7 @@ class ElioApplianceTile extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, color: ElioColors.navy, size: 28),
+                  Icon(icon, color: ElioColors.espresso, size: 28),
                   const SizedBox(height: ElioSpacing.xs),
                   Text(
                     label,
@@ -64,7 +64,7 @@ class ElioApplianceTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.navy,
+                      color: ElioColors.espresso,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -81,7 +81,7 @@ class ElioApplianceTile extends StatelessWidget {
                 height: 22,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: ElioColors.amber,
+                  color: ElioColors.terracotta,
                 ),
                 child: const Icon(Icons.check, size: 14, color: Colors.white),
               ),

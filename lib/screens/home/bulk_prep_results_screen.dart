@@ -36,7 +36,7 @@ class BulkPrepResultsScreen extends StatelessWidget {
                 const Icon(
                   Icons.ac_unit_rounded,
                   size: 18,
-                  color: ElioColors.amber,
+                  color: ElioColors.terracotta,
                 ),
                 const SizedBox(width: 6),
                 Text('Bulk cook', style: ElioText.headingMedium),
@@ -185,13 +185,13 @@ class _RecipeCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: ElioColors.amber.withValues(alpha: 0.12),
+        color: ElioColors.terracotta.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         'Meal $mealNumber',
         style: ElioText.label.copyWith(
-          color: ElioColors.amber,
+          color: ElioColors.terracotta,
           fontSize: 11,
         ),
       ),

@@ -100,7 +100,7 @@ class Screen01Welcome extends StatelessWidget {
                   child: Text(
                     'I already have an account',
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.navy,
+                      color: ElioColors.espresso,
                       fontWeight: FontWeight.w600,
                       decoration: TextDecoration.underline,
                     ),

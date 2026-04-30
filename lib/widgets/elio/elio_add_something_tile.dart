@@ -26,7 +26,7 @@ class ElioAddSomethingTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(ElioRadii.md),
       child: CustomPaint(
         painter: _DashedBorderPainter(
-          color: ElioColors.amber,
+          color: ElioColors.terracotta,
           radius: ElioRadii.md,
           strokeWidth: 1.5,
           dash: 5,
@@ -41,7 +41,7 @@ class ElioAddSomethingTile extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.add, color: ElioColors.amber, size: 22),
+              const Icon(Icons.add, color: ElioColors.terracotta, size: 22),
               const SizedBox(height: 4),
               Text(
                 'Add something',
@@ -49,7 +49,7 @@ class ElioAddSomethingTile extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: ElioTextStyles.bodySmall.copyWith(
-                  color: ElioColors.amber,
+                  color: ElioColors.terracotta,
                   fontWeight: FontWeight.w600,
                 ),
               ),

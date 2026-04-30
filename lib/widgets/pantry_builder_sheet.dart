@@ -89,7 +89,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
         content: Text('Choose a tier:', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
         actions: [
           TextButton.icon(
-            icon: Icon(Icons.inventory_2_outlined, size: 18, color: ElioColors.amber),
+            icon: Icon(Icons.inventory_2_outlined, size: 18, color: ElioColors.terracotta),
             label: const Text('Always Have'),
             onPressed: () {
               Navigator.pop(ctx);
@@ -102,7 +102,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
             },
           ),
           TextButton.icon(
-            icon: Icon(Icons.kitchen_outlined, size: 18, color: ElioColors.sky),
+            icon: Icon(Icons.kitchen_outlined, size: 18, color: ElioColors.mocha),
             label: const Text('Almost Always'),
             onPressed: () {
               Navigator.pop(ctx);
@@ -157,10 +157,10 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                 leading: Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: ElioColors.amber.withValues(alpha: 0.12),
+                    color: ElioColors.terracotta.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.inventory_2_outlined, color: ElioColors.amber, size: 20),
+                  child: const Icon(Icons.inventory_2_outlined, color: ElioColors.terracotta, size: 20),
                 ),
                 title: Text('Always Have', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
                 subtitle: Text('Staples you always keep', style: ElioText.label.copyWith(color: ElioColors.textSecondary)),
@@ -178,10 +178,10 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                 leading: Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: ElioColors.sky.withValues(alpha: 0.12),
+                    color: ElioColors.peach.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.kitchen_outlined, color: ElioColors.sky, size: 20),
+                  child: const Icon(Icons.kitchen_outlined, color: ElioColors.mocha, size: 20),
                 ),
                 title: Text('Almost Always Have', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
                 subtitle: Text('Usually have but sometimes run out', style: ElioText.label.copyWith(color: ElioColors.textSecondary)),
@@ -262,7 +262,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  const Icon(Icons.construction_rounded, size: 22, color: ElioColors.amber),
+                  const Icon(Icons.construction_rounded, size: 22, color: ElioColors.terracotta),
                   const SizedBox(width: 8),
                   Text('Pantry Builder', style: ElioText.headingLarge),
                 ],
@@ -303,7 +303,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: ElioColors.navy, width: 1.5),
+                    borderSide: const BorderSide(color: ElioColors.espresso, width: 1.5),
                   ),
                   filled: true,
                   fillColor: ElioColors.offWhite,
@@ -322,7 +322,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                       controller: _customItemController,
                       decoration: InputDecoration(
                         hintText: 'Add custom item...',
-                        prefixIcon: Icon(Icons.add_rounded, size: 20, color: _customItemError != null ? ElioColors.amber : ElioColors.textMuted),
+                        prefixIcon: Icon(Icons.add_rounded, size: 20, color: _customItemError != null ? ElioColors.terracotta : ElioColors.textMuted),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -330,11 +330,11 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: _customItemError != null ? ElioColors.amber : ElioColors.border),
+                          borderSide: BorderSide(color: _customItemError != null ? ElioColors.terracotta : ElioColors.border),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: _customItemError != null ? ElioColors.amber : ElioColors.navy, width: 1.5),
+                          borderSide: BorderSide(color: _customItemError != null ? ElioColors.terracotta : ElioColors.espresso, width: 1.5),
                         ),
                         filled: true,
                         fillColor: ElioColors.offWhite,
@@ -350,7 +350,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: ElioColors.navy,
+                        color: ElioColors.espresso,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(Icons.add_rounded, size: 22, color: Colors.white),
@@ -367,7 +367,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                   _customItemError!,
                   style: ElioTextStyles.eyebrowStyle.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: ElioColors.amber,
+                    color: ElioColors.terracotta,
                   ),
                 ),
               ),
@@ -474,12 +474,12 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     decoration: BoxDecoration(
                       color: inPantry
-                          ? ElioColors.amber.withValues(alpha: 0.12)
+                          ? ElioColors.terracotta.withValues(alpha: 0.12)
                           : ElioColors.offWhite,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: inPantry
-                            ? ElioColors.amber.withValues(alpha: 0.5)
+                            ? ElioColors.terracotta.withValues(alpha: 0.5)
                             : ElioColors.border,
                       ),
                     ),
@@ -487,7 +487,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (inPantry) ...[
-                          Icon(Icons.check_rounded, size: 14, color: ElioColors.amber),
+                          Icon(Icons.check_rounded, size: 14, color: ElioColors.terracotta),
                           const SizedBox(width: 4),
                         ],
                         Text(
@@ -495,7 +495,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: inPantry ? FontWeight.w600 : FontWeight.w500,
-                            color: inPantry ? ElioColors.amber : ElioColors.navy,
+                            color: inPantry ? ElioColors.terracotta : ElioColors.espresso,
                           ),
                         ),
                       ],

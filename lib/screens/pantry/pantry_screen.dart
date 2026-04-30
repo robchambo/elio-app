@@ -519,7 +519,7 @@ class _PantryScreenState extends State<PantryScreen> {
                   icon: Icons.qr_code_scanner_outlined,
                   kicker: 'Item lookup',
                   title: 'Scan barcode',
-                  backgroundColor: ElioColors.amber,
+                  backgroundColor: ElioColors.terracotta,
                   onTap: _openBarcodeScanner,
                 ),
               ),
@@ -595,7 +595,7 @@ class _PantryBuilderRow extends StatelessWidget {
               child: Text('Pantry Builder', style: ElioTextStyles.heading5),
             ),
             const Icon(Icons.chevron_right,
-                color: ElioColors.navy, size: 24),
+                color: ElioColors.espresso, size: 24),
           ],
         ),
       ),
@@ -649,19 +649,19 @@ class _AddSomethingChip extends StatelessWidget {
           color: ElioColors.cream,
           borderRadius: BorderRadius.circular(ElioRadii.chip),
           border: Border.all(
-            color: ElioColors.amber,
+            color: ElioColors.terracotta,
             width: 1.2,
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.add, color: ElioColors.amber, size: 16),
+            const Icon(Icons.add, color: ElioColors.terracotta, size: 16),
             const SizedBox(width: 4),
             Text(
               'Add',
               style: ElioTextStyles.bodySmall.copyWith(
-                color: ElioColors.amber,
+                color: ElioColors.terracotta,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -745,7 +745,7 @@ class _TierItemChip extends StatelessWidget {
         ),
         child: Text(
           suffix == null ? name : '$name · $suffix',
-          style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.navy),
+          style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.espresso),
         ),
       ),
     );

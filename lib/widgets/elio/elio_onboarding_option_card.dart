@@ -30,9 +30,9 @@ class ElioOnboardingOptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor =
-        selected ? ElioColors.amber : ElioColors.border;
+        selected ? ElioColors.terracotta : ElioColors.border;
     final bg = selected
-        ? ElioColors.amber.withValues(alpha: 0.08)
+        ? ElioColors.terracotta.withValues(alpha: 0.08)
         : ElioColors.white;
 
     return InkWell(
@@ -51,7 +51,7 @@ class ElioOnboardingOptionCard extends StatelessWidget {
         child: Row(
           children: [
             if (icon != null) ...[
-              Icon(icon, color: ElioColors.navy, size: 28),
+              Icon(icon, color: ElioColors.espresso, size: 28),
               const SizedBox(width: ElioSpacing.md),
             ],
             Expanded(
@@ -99,7 +99,7 @@ class _Tick extends StatelessWidget {
       height: 24,
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
-        color: ElioColors.amber,
+        color: ElioColors.terracotta,
       ),
       child: const Icon(Icons.check, color: Colors.white, size: 16),
     );

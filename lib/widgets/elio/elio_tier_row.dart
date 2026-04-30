@@ -38,7 +38,7 @@ class ElioTierRow extends StatelessWidget {
                   child: Text('$label ($count)', style: ElioTextStyles.heading5),
                 ),
                 const Icon(Icons.chevron_right,
-                    color: ElioColors.navy, size: 24),
+                    color: ElioColors.espresso, size: 24),
               ],
             ),
             if (expandedBody != null) ...[

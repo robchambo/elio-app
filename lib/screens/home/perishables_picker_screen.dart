@@ -313,7 +313,7 @@ class _CustomAddField extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Material(
-            color: ElioColors.amber,
+            color: ElioColors.terracotta,
             shape: const CircleBorder(),
             child: IconButton(
               onPressed: onSubmit,

@@ -30,7 +30,7 @@ class AccountScreen extends StatelessWidget {
         content: Text(
           'Manage your subscription in the Play Store or App Store.',
         ),
-        backgroundColor: ElioColors.navy,
+        backgroundColor: ElioColors.espresso,
         duration: Duration(seconds: 4),
       ),
     );
@@ -84,7 +84,7 @@ class AccountScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: const IconThemeData(color: ElioColors.navy),
+        iconTheme: const IconThemeData(color: ElioColors.espresso),
       ),
       body: ListView(
         padding: const EdgeInsets.all(ElioSpacing.xl),
@@ -143,7 +143,7 @@ class AccountScreen extends StatelessWidget {
               child: Text(
                 'Sign out',
                 style: ElioTextStyles.uiLabelStyle.copyWith(
-                  color: ElioColors.navy.withValues(alpha: 0.7),
+                  color: ElioColors.espresso.withValues(alpha: 0.7),
                 ),
               ),
             ),

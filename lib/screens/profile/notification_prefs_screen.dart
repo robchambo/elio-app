@@ -48,14 +48,14 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
         backgroundColor: ElioColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text('Notifications', style: ElioText.headingLarge),
         centerTitle: false,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: ElioColors.amber))
+          ? const Center(child: CircularProgressIndicator(color: ElioColors.terracotta))
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
@@ -111,7 +111,7 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 22, color: ElioColors.amber),
+          Icon(icon, size: 22, color: ElioColors.terracotta),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -135,7 +135,7 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
           const SizedBox(width: 8),
           Switch.adaptive(
             value: value,
-            activeTrackColor: ElioColors.amber,
+            activeTrackColor: ElioColors.terracotta,
             onChanged: onChanged,
           ),
         ],

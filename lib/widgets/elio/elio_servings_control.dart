@@ -51,7 +51,7 @@ class _RoundButton extends StatelessWidget {
       child: Container(
         width: 36, height: 36,
         decoration: BoxDecoration(
-          color: enabled ? ElioColors.amber : ElioColors.amber.withValues(alpha: 0.3),
+          color: enabled ? ElioColors.terracotta : ElioColors.terracotta.withValues(alpha: 0.3),
           borderRadius: ElioRadii.all(999),
         ),
         child: Icon(icon, color: Colors.white, size: 20),

@@ -204,7 +204,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
               IconButton(
                 onPressed: _share,
                 icon: const Icon(Icons.ios_share_rounded),
-                color: ElioColors.navy,
+                color: ElioColors.espresso,
                 tooltip: 'Share list',
               ),
             ],
@@ -352,7 +352,7 @@ class _ShoppingRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final mutedColor = ElioColors.textSecondary.withValues(alpha: 0.6);
     final nameStyle = ElioTextStyles.body.copyWith(
-      color: checked ? mutedColor : ElioColors.navy,
+      color: checked ? mutedColor : ElioColors.espresso,
       decoration: checked ? TextDecoration.lineThrough : null,
       decorationColor: mutedColor,
       fontWeight: FontWeight.w600,
@@ -378,10 +378,10 @@ class _ShoppingRow extends StatelessWidget {
               width: 22,
               height: 22,
               decoration: BoxDecoration(
-                color: checked ? ElioColors.amber : Colors.transparent,
+                color: checked ? ElioColors.terracotta : Colors.transparent,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: checked ? ElioColors.amber : ElioColors.border,
+                  color: checked ? ElioColors.terracotta : ElioColors.border,
                   width: 1.5,
                 ),
               ),
@@ -438,7 +438,7 @@ class _AddItemField extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           Material(
-            color: ElioColors.amber,
+            color: ElioColors.terracotta,
             shape: const CircleBorder(),
             child: IconButton(
               onPressed: onSubmit,

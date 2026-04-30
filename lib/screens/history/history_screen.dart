@@ -57,10 +57,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('${saved.recipe.title} removed', style: ElioTextStyles.bodyStyle),
-          backgroundColor: ElioColors.navy,
+          backgroundColor: ElioColors.espresso,
           action: SnackBarAction(
             label: 'Undo',
-            textColor: ElioColors.amber,
+            textColor: ElioColors.terracotta,
             onPressed: () async {
               await HistoryService.saveRecipe(saved);
               _load();
@@ -118,7 +118,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         backgroundColor: ElioColors.offWhite,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.navy, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.espresso, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: RichText(
@@ -130,7 +130,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
               TextSpan(
                 text: 'i',
-                style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 22, fontWeight: FontWeight.w300, color: ElioColors.amber, letterSpacing: -0.5),
+                style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 22, fontWeight: FontWeight.w300, color: ElioColors.terracotta, letterSpacing: -0.5),
               ),
               TextSpan(
                 text: 'O',
@@ -152,7 +152,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: ElioColors.amber))
+          ? const Center(child: CircularProgressIndicator(color: ElioColors.terracotta))
           : _recipes.isEmpty
               ? _buildEmpty()
               : _buildList(),
@@ -189,13 +189,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
       margin: const EdgeInsets.fromLTRB(0, 8, 0, 0),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        color: ElioColors.amber.withValues(alpha: 0.12),
+        color: ElioColors.terracotta.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ElioColors.amber, width: 1),
+        border: Border.all(color: ElioColors.terracotta, width: 1),
       ),
       child: Row(
         children: [
-          const Icon(Icons.lock_outline_rounded, color: ElioColors.amber, size: 20),
+          const Icon(Icons.lock_outline_rounded, color: ElioColors.terracotta, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

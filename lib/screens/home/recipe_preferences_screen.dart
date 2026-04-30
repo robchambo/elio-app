@@ -430,12 +430,12 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           Row(
             children: [
               const Icon(Icons.eco_outlined,
-                  color: ElioColors.amber, size: 18),
+                  color: ElioColors.terracotta, size: 18),
               const SizedBox(width: ElioSpacing.sm),
               Text(
                 'Dietary needs',
                 style: ElioTextStyles.eyebrow.copyWith(
-                  color: ElioColors.navy,
+                  color: ElioColors.espresso,
                 ),
               ),
             ],
@@ -455,13 +455,13 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                     color: ElioColors.white,
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: ElioColors.amber.withValues(alpha: 0.3),
+                      color: ElioColors.terracotta.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Text(
                     req,
                     style: ElioTextStyles.bodySmall.copyWith(
-                      color: ElioColors.navy,
+                      color: ElioColors.espresso,
                     ),
                   ),
                 ),
@@ -549,7 +549,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
         borderRadius: BorderRadius.circular(ElioRadii.card),
         border: Border.all(
           color: value
-              ? ElioColors.amber
+              ? ElioColors.terracotta
               : ElioColors.border,
           width: value ? 1.5 : 1,
         ),
@@ -558,7 +558,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
         children: [
           Icon(
             icon,
-            color: value ? ElioColors.amber : ElioColors.navy,
+            color: value ? ElioColors.terracotta : ElioColors.espresso,
             size: 22,
           ),
           const SizedBox(width: ElioSpacing.md),
@@ -570,7 +570,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                   title,
                   style: ElioTextStyles.body.copyWith(
                     fontWeight: FontWeight.w600,
-                    color: ElioColors.navy,
+                    color: ElioColors.espresso,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -586,7 +586,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeTrackColor: ElioColors.amber,
+            activeTrackColor: ElioColors.terracotta,
           ),
         ],
       ),
@@ -613,7 +613,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           title: Row(
             children: [
               const Icon(Icons.kitchen_outlined,
-                  color: ElioColors.amber, size: 20),
+                  color: ElioColors.terracotta, size: 20),
               const SizedBox(width: 8),
               Text('Bulk cook', style: ElioTextStyles.heading4),
             ],
@@ -630,7 +630,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                 min: 1,
                 max: 3,
                 divisions: 2,
-                activeColor: ElioColors.amber,
+                activeColor: ElioColors.terracotta,
                 label: '$meals',
                 onChanged: (v) =>
                     setDialogState(() => meals = v.round()),
@@ -644,7 +644,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                 min: 4,
                 max: 12,
                 divisions: 8,
-                activeColor: ElioColors.amber,
+                activeColor: ElioColors.terracotta,
                 label: '$portions',
                 onChanged: (v) =>
                     setDialogState(() => portions = v.round()),
@@ -669,7 +669,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
-                backgroundColor: ElioColors.amber,
+                backgroundColor: ElioColors.terracotta,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
               ),
@@ -704,7 +704,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
         children: [
           const Icon(
             Icons.auto_awesome_outlined,
-            color: ElioColors.amber,
+            color: ElioColors.terracotta,
             size: 18,
           ),
           const SizedBox(width: ElioSpacing.sm),
@@ -750,7 +750,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
               borderRadius: BorderRadius.circular(ElioRadii.card),
               border: Border.all(
                 color: hasSelection
-                    ? ElioColors.amber
+                    ? ElioColors.terracotta
                     : ElioColors.border,
                 width: hasSelection ? 1.5 : 1,
               ),
@@ -760,7 +760,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                 Icon(
                   Icons.eco_outlined,
                   color:
-                      hasSelection ? ElioColors.amber : ElioColors.navy,
+                      hasSelection ? ElioColors.terracotta : ElioColors.espresso,
                   size: 20,
                 ),
                 const SizedBox(width: ElioSpacing.md),
@@ -774,7 +774,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                             : 'Got something to use up?',
                         style: ElioTextStyles.body.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: ElioColors.navy,
+                          color: ElioColors.espresso,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -893,7 +893,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
               height: 56,
               child: CircularProgressIndicator(
                 strokeWidth: 3,
-                valueColor: AlwaysStoppedAnimation<Color>(ElioColors.amber),
+                valueColor: AlwaysStoppedAnimation<Color>(ElioColors.terracotta),
               ),
             ),
             const SizedBox(height: ElioSpacing.xl),
@@ -904,7 +904,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                 _streamingMessages[_messageIndex],
                 key: ValueKey<int>(_messageIndex),
                 textAlign: TextAlign.center,
-                style: ElioTextStyles.heading4.copyWith(color: ElioColors.navy),
+                style: ElioTextStyles.heading4.copyWith(color: ElioColors.espresso),
               ),
             ),
             const SizedBox(height: ElioSpacing.sm),
@@ -937,7 +937,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           Text(
             'Something went wrong.',
             textAlign: TextAlign.center,
-            style: ElioTextStyles.heading4.copyWith(color: ElioColors.navy),
+            style: ElioTextStyles.heading4.copyWith(color: ElioColors.espresso),
           ),
           const SizedBox(height: ElioSpacing.sm),
           Text(
@@ -983,7 +983,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
-          iconTheme: const IconThemeData(color: ElioColors.navy),
+          iconTheme: const IconThemeData(color: ElioColors.espresso),
           automaticallyImplyLeading: showBack,
         ),
         body: body,

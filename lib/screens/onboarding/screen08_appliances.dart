@@ -109,7 +109,7 @@ class _Screen08AppliancesState extends State<Screen08Appliances> {
                   child: Row(
                     children: [
                       BackButton(
-                        color: ElioColors.navy,
+                        color: ElioColors.espresso,
                         onPressed: widget.onBack,
                       ),
                       const SizedBox(width: ElioSpacing.sm),

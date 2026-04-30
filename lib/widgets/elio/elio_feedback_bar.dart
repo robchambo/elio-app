@@ -21,11 +21,11 @@ class ElioFeedbackBar extends StatelessWidget {
         children: [
           Expanded(child: Text('How was the recipe?', style: ElioTextStyles.heading5)),
           IconButton(
-            icon: const Icon(Icons.thumb_up_outlined, color: ElioColors.navy),
+            icon: const Icon(Icons.thumb_up_outlined, color: ElioColors.espresso),
             onPressed: () => onRated(true),
           ),
           IconButton(
-            icon: const Icon(Icons.thumb_down_outlined, color: ElioColors.navy),
+            icon: const Icon(Icons.thumb_down_outlined, color: ElioColors.espresso),
             onPressed: () => onRated(false),
           ),
         ],

@@ -72,14 +72,14 @@ class _Segment extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: ElioSpacing.sm + 2),
         decoration: BoxDecoration(
-          color: active ? ElioColors.amber : Colors.transparent,
+          color: active ? ElioColors.terracotta : Colors.transparent,
           borderRadius: BorderRadius.circular(ElioRadii.pill),
         ),
         alignment: Alignment.center,
         child: Text(
           label,
           style: ElioTextStyles.body.copyWith(
-            color: active ? Colors.white : ElioColors.navy,
+            color: active ? Colors.white : ElioColors.espresso,
             fontWeight: FontWeight.w600,
           ),
         ),

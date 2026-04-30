@@ -20,9 +20,9 @@ class ElioChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = selected ? ElioColors.amber : Colors.white;
-    final fg = selected ? Colors.white : ElioColors.navy;
-    final borderColor = selected ? ElioColors.amber : ElioColors.border;
+    final bg = selected ? ElioColors.terracotta : Colors.white;
+    final fg = selected ? Colors.white : ElioColors.espresso;
+    final borderColor = selected ? ElioColors.terracotta : ElioColors.border;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(ElioRadii.chip),

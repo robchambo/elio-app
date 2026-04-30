@@ -68,7 +68,7 @@ class Screen10PantryIntro extends StatelessWidget {
                   Row(
                     children: [
                       BackButton(
-                        color: ElioColors.navy,
+                        color: ElioColors.espresso,
                         onPressed: onBack,
                       ),
                       const SizedBox(width: ElioSpacing.sm),
@@ -102,7 +102,7 @@ class Screen10PantryIntro extends StatelessWidget {
                           width: 240,
                           height: 240,
                           decoration: BoxDecoration(
-                            color: ElioColors.amber.withValues(alpha: 0.12),
+                            color: ElioColors.terracotta.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(24),
                           ),
                           alignment: Alignment.center,

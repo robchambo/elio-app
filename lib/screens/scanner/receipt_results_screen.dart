@@ -36,20 +36,20 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
         backgroundColor: ElioColors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text('Edit Name', style: ElioTextStyles.uiLabelStyle.copyWith(
-          color: ElioColors.navy,
+          color: ElioColors.espresso,
         )),
         content: TextField(
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.words,
-          style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.navy),
+          style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso),
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: ElioColors.amber, width: 1.5),
+              borderSide: const BorderSide(color: ElioColors.terracotta, width: 1.5),
             ),
           ),
           onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
@@ -62,7 +62,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
             child: Text('Save', style: ElioTextStyles.uiLabelStyle.copyWith(
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
             )),
           ),
         ],
@@ -137,19 +137,19 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: ElioColors.sky.withValues(alpha: 0.1),
+        color: ElioColors.peach.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ElioColors.sky.withValues(alpha: 0.25)),
+        border: Border.all(color: ElioColors.mocha.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.psychology_rounded, color: ElioColors.sky, size: 22),
+          const Icon(Icons.psychology_rounded, color: ElioColors.mocha, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Elio remembered tier preferences for $_tierMemoryCount item${_tierMemoryCount == 1 ? '' : 's'} from previous receipts',
               style: ElioTextStyles.bodySmallStyle.copyWith(
-                color: ElioColors.sky,
+                color: ElioColors.mocha,
               ),
             ),
           ),
@@ -184,14 +184,14 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: ElioColors.amber.withValues(alpha: 0.12),
+            color: ElioColors.terracotta.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '${_items.length} total',
             style: ElioTextStyles.bodySmallStyle.copyWith(
               fontWeight: FontWeight.w700,
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
             ),
           ),
         ),
@@ -266,7 +266,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.edit_rounded, size: 14, color: ElioColors.amber),
+                              const Icon(Icons.edit_rounded, size: 14, color: ElioColors.terracotta),
                             ],
                           ),
                         )
@@ -343,8 +343,8 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
   Widget _buildTierBadge(String tier) {
     final (Color bg, Color fg, String label) = switch (tier) {
       'alwaysHave' => (const Color(0xFFE8F5E9), ElioColors.success, 'Always Have'),
-      'almostAlways' => (const Color(0xFFE3F2FD), ElioColors.sky, 'Almost Always'),
-      'perishable' => (const Color(0xFFFFF3E0), ElioColors.amber, 'Perishable'),
+      'almostAlways' => (const Color(0xFFE3F2FD), ElioColors.mocha, 'Almost Always'),
+      'perishable' => (const Color(0xFFFFF3E0), ElioColors.terracotta, 'Perishable'),
       _ => (ElioColors.offWhite, ElioColors.textSecondary, tier),
     };
 
@@ -394,10 +394,10 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected ? ElioColors.amber.withValues(alpha: 0.12) : ElioColors.offWhite,
+              color: isSelected ? ElioColors.terracotta.withValues(alpha: 0.12) : ElioColors.offWhite,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isSelected ? ElioColors.amber : ElioColors.border,
+                color: isSelected ? ElioColors.terracotta : ElioColors.border,
                 width: isSelected ? 1.5 : 1,
               ),
             ),
@@ -405,7 +405,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
               tier.$2,
               style: ElioTextStyles.bodySmallStyle.copyWith(
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? ElioColors.amber : ElioColors.textSecondary,
+                color: isSelected ? ElioColors.terracotta : ElioColors.textSecondary,
               ),
             ),
           ),
@@ -444,17 +444,17 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: isSelected ? ElioColors.amber.withValues(alpha: 0.12) : Colors.transparent,
+                  color: isSelected ? ElioColors.terracotta.withValues(alpha: 0.12) : Colors.transparent,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: isSelected ? ElioColors.amber : ElioColors.border,
+                    color: isSelected ? ElioColors.terracotta : ElioColors.border,
                   ),
                 ),
                 child: Text(
                   preset,
                   style: ElioTextStyles.tabLabelStyle.copyWith(
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? ElioColors.amber : ElioColors.textSecondary,
+                    color: isSelected ? ElioColors.terracotta : ElioColors.textSecondary,
                   ),
                 ),
               ),
@@ -510,7 +510,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           child: ElevatedButton(
             onPressed: () => Navigator.of(context).pop(_foodItems),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.amber,
+              backgroundColor: ElioColors.terracotta,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),

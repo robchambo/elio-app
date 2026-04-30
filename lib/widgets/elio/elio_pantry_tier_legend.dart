@@ -30,12 +30,12 @@ class ElioPantryTierLegend extends StatelessWidget {
         ElioPantryTierLegendEntry(
           label: 'Usually in',
           background: Color(0x1FF08C14), // amber @ 12% — matches tile
-          borderColor: ElioColors.amber,
+          borderColor: ElioColors.terracotta,
         ),
         ElioPantryTierLegendEntry(
           label: 'Always in',
-          background: ElioColors.amber,
-          borderColor: ElioColors.amber,
+          background: ElioColors.terracotta,
+          borderColor: ElioColors.terracotta,
         ),
       ],
     );

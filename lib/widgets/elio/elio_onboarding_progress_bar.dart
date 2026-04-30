@@ -20,7 +20,7 @@ class ElioOnboardingProgressBar extends StatelessWidget {
         value: v,
         minHeight: 6,
         backgroundColor: ElioColors.offWhite,
-        valueColor: const AlwaysStoppedAnimation<Color>(ElioColors.amber),
+        valueColor: const AlwaysStoppedAnimation<Color>(ElioColors.terracotta),
       ),
     );
   }

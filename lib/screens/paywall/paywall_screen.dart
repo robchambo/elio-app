@@ -294,7 +294,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: ElioColors.navy),
+          icon: const Icon(Icons.close, color: ElioColors.espresso),
           onPressed: () {
             _analytics.logEvent('paywall_dismissed', {
               'trigger_context': _resolvedContext ?? 'none',
@@ -658,12 +658,12 @@ class _FeatureInfoCard extends StatelessWidget {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: ElioColors.amber.withValues(alpha: 0.15),
+              color: ElioColors.terracotta.withValues(alpha: 0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.check_rounded,
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
               size: 22,
             ),
           ),
@@ -709,10 +709,10 @@ class _PricingPill extends StatelessWidget {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
         decoration: BoxDecoration(
-          color: isSelected ? ElioColors.amber.withValues(alpha: 0.12) : Colors.white,
+          color: isSelected ? ElioColors.terracotta.withValues(alpha: 0.12) : Colors.white,
           borderRadius: BorderRadius.circular(ElioRadii.card),
           border: Border.all(
-            color: isSelected ? ElioColors.amber : ElioColors.border,
+            color: isSelected ? ElioColors.terracotta : ElioColors.border,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -722,7 +722,7 @@ class _PricingPill extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
-                  color: ElioColors.amber,
+                  color: ElioColors.terracotta,
                   borderRadius: BorderRadius.circular(ElioRadii.chip),
                 ),
                 child: Text(
@@ -743,7 +743,7 @@ class _PricingPill extends StatelessWidget {
             Text(
               label,
               style: ElioTextStyles.bodySmall.copyWith(
-                color: isSelected ? ElioColors.navy : ElioColors.textSecondary,
+                color: isSelected ? ElioColors.espresso : ElioColors.textSecondary,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -751,7 +751,7 @@ class _PricingPill extends StatelessWidget {
             Text(
               price,
               style: ElioTextStyles.heading4.copyWith(
-                color: isSelected ? ElioColors.navy : ElioColors.textPrimary,
+                color: isSelected ? ElioColors.espresso : ElioColors.textPrimary,
               ),
             ),
           ],

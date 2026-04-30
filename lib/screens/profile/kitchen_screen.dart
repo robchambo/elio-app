@@ -89,7 +89,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
                     onTap: () => Navigator.of(context).pop(),
                     child: const Padding(
                       padding: EdgeInsets.all(8),
-                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -99,7 +99,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
             ),
             const SizedBox(height: 16),
             if (_isLoading)
-              const Expanded(child: Center(child: CircularProgressIndicator(color: ElioColors.amber)))
+              const Expanded(child: Center(child: CircularProgressIndicator(color: ElioColors.terracotta)))
             else
               Expanded(
                 child: ListView(
@@ -121,10 +121,10 @@ class _KitchenScreenState extends State<KitchenScreen> {
                             duration: const Duration(milliseconds: 150),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: isSelected ? ElioColors.amber : ElioColors.offWhite,
+                              color: isSelected ? ElioColors.terracotta : ElioColors.offWhite,
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: isSelected ? ElioColors.amber : ElioColors.border,
+                                color: isSelected ? ElioColors.terracotta : ElioColors.border,
                                 width: isSelected ? 1.5 : 1,
                               ),
                             ),

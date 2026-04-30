@@ -57,7 +57,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = active ? ElioColors.amber : Colors.transparent;
+    final bg = active ? ElioColors.terracotta : Colors.transparent;
     final fg = active ? Colors.white : ElioColors.textSecondary;
     return InkWell(
       onTap: onTap,

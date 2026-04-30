@@ -32,8 +32,8 @@ class ElioPantryTagPill extends StatelessWidget {
     switch (kind) {
       case PantryTagKind.inYourPantry:
         return (
-          fg: ElioColors.navy,
-          bg: ElioColors.amber.withValues(alpha: 0.15),
+          fg: ElioColors.espresso,
+          bg: ElioColors.terracotta.withValues(alpha: 0.15),
           label: 'In your pantry',
         );
       case PantryTagKind.useToday:
@@ -45,13 +45,13 @@ class ElioPantryTagPill extends StatelessWidget {
       case PantryTagKind.alwaysHave:
         return (
           fg: Colors.white,
-          bg: ElioColors.amber,
+          bg: ElioColors.terracotta,
           label: 'Always in',
         );
       case PantryTagKind.usuallyHave:
         return (
-          fg: ElioColors.amber,
-          bg: ElioColors.amber.withValues(alpha: 0.12),
+          fg: ElioColors.terracotta,
+          bg: ElioColors.terracotta.withValues(alpha: 0.12),
           label: 'Usually in',
         );
       case PantryTagKind.fresh:

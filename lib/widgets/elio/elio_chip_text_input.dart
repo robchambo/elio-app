@@ -122,21 +122,21 @@ class _TokenChip extends StatelessWidget {
         bottom: 6,
       ),
       decoration: BoxDecoration(
-        color: ElioColors.amber.withValues(alpha: 0.12),
+        color: ElioColors.terracotta.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(ElioRadii.pill),
-        border: Border.all(color: ElioColors.amber.withValues(alpha: 0.4)),
+        border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.navy)),
+          Text(label, style: ElioTextStyles.bodySmall.copyWith(color: ElioColors.espresso)),
           const SizedBox(width: 4),
           InkWell(
             onTap: onRemove,
             customBorder: const CircleBorder(),
             child: const Padding(
               padding: EdgeInsets.all(4),
-              child: Icon(Icons.close, size: 14, color: ElioColors.navy),
+              child: Icon(Icons.close, size: 14, color: ElioColors.espresso),
             ),
           ),
         ],

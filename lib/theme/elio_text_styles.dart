@@ -15,12 +15,12 @@ class ElioTextStyles {
         fontSize: 54,
         height: 1.0,
         fontWeight: FontWeight.w800,
-        color: ElioColors.navy,
+        color: ElioColors.espresso,
         letterSpacing: -1.5,
       );
 
   static TextStyle get heroDisplayAccent => heroDisplay.copyWith(
-        color: ElioColors.amber,
+        color: ElioColors.terracotta,
       );
 
   // ─── Section headings ─────────────────────────────────────────────────
@@ -28,35 +28,35 @@ class ElioTextStyles {
         fontSize: 36,
         height: 1.1,
         fontWeight: FontWeight.w700,
-        color: ElioColors.navy,
+        color: ElioColors.espresso,
       );
 
   static TextStyle get heading2 => GoogleFonts.outfit(
         fontSize: 28,
         height: 1.2,
         fontWeight: FontWeight.w700,
-        color: ElioColors.navy,
+        color: ElioColors.espresso,
       );
 
   static TextStyle get heading3 => GoogleFonts.outfit(
         fontSize: 22,
         height: 1.25,
         fontWeight: FontWeight.w700,
-        color: ElioColors.navy,
+        color: ElioColors.espresso,
       );
 
   static TextStyle get heading4 => GoogleFonts.outfit(
         fontSize: 20,
         height: 1.3,
         fontWeight: FontWeight.w600,
-        color: ElioColors.navy,
+        color: ElioColors.espresso,
       );
 
   static TextStyle get heading5 => GoogleFonts.outfit(
         fontSize: 18,
         height: 1.3,
         fontWeight: FontWeight.w600,
-        color: ElioColors.navy,
+        color: ElioColors.espresso,
       );
 
   // ─── Eyebrow / overline ───────────────────────────────────────────────
@@ -88,7 +88,7 @@ class ElioTextStyles {
         fontSize: 16,
         height: 1.2,
         fontWeight: FontWeight.w600,
-        color: ElioColors.navy,
+        color: ElioColors.espresso,
       );
 
   // ─── Big numeral (method step) ────────────────────────────────────────
@@ -96,7 +96,7 @@ class ElioTextStyles {
         fontSize: 48,
         height: 1.0,
         fontWeight: FontWeight.w800,
-        color: ElioColors.amber,
+        color: ElioColors.terracotta,
       );
 
   // ─── Sprint 16 rebrand: bundled-font ramp ─────────────────────────

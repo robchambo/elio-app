@@ -87,7 +87,7 @@ class ElioProviderSignInButton extends StatelessWidget {
       case ProviderButtonKind.google:
         return (
           bg: Colors.white,
-          fg: ElioColors.navy,
+          fg: ElioColors.espresso,
           // Google brand requires the multi-colour "G" mark. The icon
           // here is a stand-in — screen 15 wires the real asset.
           glyph: const _GoogleG(),
@@ -97,8 +97,8 @@ class ElioProviderSignInButton extends StatelessWidget {
       case ProviderButtonKind.email:
         return (
           bg: ElioColors.offWhite,
-          fg: ElioColors.navy,
-          glyph: const Icon(Icons.mail_outline, color: ElioColors.navy, size: 20),
+          fg: ElioColors.espresso,
+          glyph: const Icon(Icons.mail_outline, color: ElioColors.espresso, size: 20),
           label: 'Continue with email',
           border: Border.all(color: ElioColors.border, width: 1.5),
         );

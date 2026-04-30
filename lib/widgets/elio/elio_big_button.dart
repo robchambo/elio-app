@@ -39,7 +39,7 @@ class ElioBigButton extends StatelessWidget {
         height: 100,
         padding: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
-          color: onTap == null ? ElioColors.amber.withValues(alpha: 0.5) : ElioColors.amber,
+          color: onTap == null ? ElioColors.terracotta.withValues(alpha: 0.5) : ElioColors.terracotta,
           borderRadius: BorderRadius.circular(ElioRadii.button),
         ),
         alignment: Alignment.centerLeft,
@@ -48,16 +48,16 @@ class ElioBigButton extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: ElioTextStyles.heading3.copyWith(color: ElioColors.navy),
+                style: ElioTextStyles.heading3.copyWith(color: ElioColors.espresso),
               ),
             ),
             if (loading)
               const SizedBox(
                 width: 24, height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.navy),
+                child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.espresso),
               )
             else if (trailingIcon != null)
-              Icon(trailingIcon, color: ElioColors.navy, size: 28),
+              Icon(trailingIcon, color: ElioColors.espresso, size: 28),
           ],
         ),
       ),

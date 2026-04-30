@@ -142,15 +142,15 @@ class PantryUtils {
             ),
             OutlinedButton(
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: ElioColors.amber, width: 1.5),
-                foregroundColor: ElioColors.amber,
+                side: const BorderSide(color: ElioColors.terracotta, width: 1.5),
+                foregroundColor: ElioColors.terracotta,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () => Navigator.of(ctx).pop(true),
               child: Text(
                 'Add anyway',
                 style: ElioText.bodyMedium.copyWith(
-                  color: ElioColors.amber,
+                  color: ElioColors.terracotta,
                   fontWeight: FontWeight.w600,
                 ),
               ),

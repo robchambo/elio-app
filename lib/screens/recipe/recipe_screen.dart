@@ -255,7 +255,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Voice control unavailable — microphone permission was denied. Grant it in Settings → Apps → Elio → Permissions.'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
             duration: Duration(seconds: 4),
           ),
         );
@@ -280,7 +280,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Voice control unavailable — check microphone permissions.'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -411,7 +411,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.mic_rounded, color: ElioColors.amber, size: 36),
+              const Icon(Icons.mic_rounded, color: ElioColors.terracotta, size: 36),
               const SizedBox(height: 12),
               Text('Voice commands', style: ElioText.headingMedium),
               const SizedBox(height: 16),
@@ -447,7 +447,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     _speakText(_currentRecipe.steps[_currentStep]);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: ElioColors.amber,
+                    backgroundColor: ElioColors.terracotta,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -469,14 +469,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: ElioColors.navy.withValues(alpha: 0.06),
+            color: ElioColors.espresso.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             command,
             style: ElioText.bodyMedium.copyWith(
               fontWeight: FontWeight.w600,
-              color: ElioColors.navy,
+              color: ElioColors.espresso,
             ),
           ),
         ),
@@ -569,7 +569,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
               SnackBar(
                 content:
                     Text('Swapped ${ingredient.name} → ${result.substitute}'),
-                backgroundColor: ElioColors.navy,
+                backgroundColor: ElioColors.espresso,
                 behavior: SnackBarBehavior.floating,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -598,7 +598,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("${ingredient.name} — you probably already have this!"),
-          backgroundColor: ElioColors.navy,
+          backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           duration: const Duration(seconds: 2),
@@ -610,7 +610,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Sign in to use the shopping list'),
-          backgroundColor: ElioColors.navy,
+          backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -631,7 +631,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$cleanName added to shopping list'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             duration: const Duration(seconds: 2),
@@ -751,7 +751,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
             duration: const Duration(seconds: 8),
           ),
         );
@@ -812,7 +812,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -853,7 +853,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       color: Colors.white,
                     ),
                   ),
-                  backgroundColor: ElioColors.amber,
+                  backgroundColor: ElioColors.terracotta,
                   deleteIconColor: Colors.white.withValues(alpha: 0.8),
                   onDeleted: () {
                     setDialogState(onRemove);
@@ -875,7 +875,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 'Not finding what you want?',
                 style: ElioTextStyles.sectionHeadingStyle.copyWith(
                   fontSize: 20,
-                  color: ElioColors.navy,
+                  color: ElioColors.espresso,
                 ),
               ),
               content: SingleChildScrollView(
@@ -886,7 +886,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     Text(
                       'Adjust your preferences and try again',
                       style: ElioTextStyles.bodySmallStyle.copyWith(
-                        color: ElioColors.navy.withValues(alpha: 0.7),
+                        color: ElioColors.espresso.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -897,7 +897,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         'Current selections:',
                         style: ElioTextStyles.uiLabelStyle.copyWith(
                           fontSize: 14,
-                          color: ElioColors.navy,
+                          color: ElioColors.espresso,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -928,7 +928,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       'Try something different:',
                       style: ElioTextStyles.uiLabelStyle.copyWith(
                         fontSize: 14,
-                        color: ElioColors.navy,
+                        color: ElioColors.espresso,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -942,7 +942,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             style,
                             style: ElioTextStyles.bodySmallStyle.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: isSelected ? Colors.white : ElioColors.navy,
+                              color: isSelected ? Colors.white : ElioColors.espresso,
                             ),
                           ),
                           selected: isSelected,
@@ -951,14 +951,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
                               selectedStyle = selected ? style : null;
                             });
                           },
-                          selectedColor: ElioColors.amber,
+                          selectedColor: ElioColors.terracotta,
                           backgroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                             side: BorderSide(
                               color: isSelected
-                                  ? ElioColors.amber
-                                  : ElioColors.navy.withValues(alpha: 0.2),
+                                  ? ElioColors.terracotta
+                                  : ElioColors.espresso.withValues(alpha: 0.2),
                             ),
                           ),
                           showCheckmark: false,
@@ -999,7 +999,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           Navigator.of(dialogContext).pop(adjusted);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: ElioColors.amber,
+                          backgroundColor: ElioColors.terracotta,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
@@ -1018,7 +1018,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         child: Text(
                           'Cancel',
                           style: ElioTextStyles.bodyStyle.copyWith(
-                            color: ElioColors.navy.withValues(alpha: 0.6),
+                            color: ElioColors.espresso.withValues(alpha: 0.6),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1098,14 +1098,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: ElioColors.amber.withValues(alpha: 0.08),
+                color: ElioColors.terracotta.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: ElioColors.amber.withValues(alpha: 0.25)),
+                border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.25)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Calories', style: ElioText.headingMedium.copyWith(color: ElioColors.amber)),
+                  Text('Calories', style: ElioText.headingMedium.copyWith(color: ElioColors.terracotta)),
                   RichText(
                     text: TextSpan(
                       children: [
@@ -1114,7 +1114,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            color: ElioColors.navy,
+                            color: ElioColors.espresso,
                           ),
                         ),
                         const TextSpan(
@@ -1204,7 +1204,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
               decoration: BoxDecoration(color: ElioColors.border, borderRadius: BorderRadius.circular(2)),
             ),
             const SizedBox(height: 20),
-            const Icon(Icons.info_outline, color: ElioColors.amber, size: 32),
+            const Icon(Icons.info_outline, color: ElioColors.terracotta, size: 32),
             const SizedBox(height: 12),
             Text('About cost estimates', style: ElioText.headingMedium),
             const SizedBox(height: 8),
@@ -1308,7 +1308,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.navy),
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.espresso),
                 children: [
                   TextSpan(
                     text: '$label: ',
@@ -1336,7 +1336,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(nowBookmarked ? 'Recipe saved' : 'Bookmark removed'),
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               duration: const Duration(seconds: 2),
@@ -1360,7 +1360,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Recipe saved'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             duration: const Duration(seconds: 2),
@@ -1403,7 +1403,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Sign in to use the shopping list'),
-          backgroundColor: ElioColors.navy,
+          backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -1428,7 +1428,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('All ingredients are already in your pantry!'),
-          backgroundColor: ElioColors.navy,
+          backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
@@ -1460,12 +1460,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               action: SnackBarAction(
                 label: 'View',
-                textColor: ElioColors.amber,
+                textColor: ElioColors.terracotta,
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const ShoppingListPage()),
@@ -1485,7 +1485,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: const Text('Could not add to shopping list'),
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
@@ -1615,7 +1615,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           // ── Servings ─────────────────────────────────────────────────
           Row(
             children: [
-              const Icon(Icons.people_outline, color: ElioColors.navy),
+              const Icon(Icons.people_outline, color: ElioColors.espresso),
               const SizedBox(width: 12),
               Expanded(
                 child: Text('Servings', style: ElioTextStyles.heading5),
@@ -1700,15 +1700,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: ElioColors.amber),
+                            strokeWidth: 2, color: ElioColors.terracotta),
                       )
                     : const Icon(Icons.restaurant_menu_rounded, size: 20),
                 label: Text(_isGeneratingSideDish
                     ? 'Finding a side dish...'
                     : 'Suggest a side dish'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: ElioColors.amber,
-                  side: const BorderSide(color: ElioColors.amber, width: 1.5),
+                  foregroundColor: ElioColors.terracotta,
+                  side: const BorderSide(color: ElioColors.terracotta, width: 1.5),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14)),
@@ -1724,8 +1724,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
               icon: const Icon(Icons.visibility_outlined, size: 20),
               label: const Text('Start hands-free mode'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: ElioColors.navy,
-                side: const BorderSide(color: ElioColors.navy, width: 1.5),
+                foregroundColor: ElioColors.espresso,
+                side: const BorderSide(color: ElioColors.espresso, width: 1.5),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
@@ -1815,14 +1815,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
       elevation: 0,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new_rounded,
-            color: ElioColors.navy, size: 20),
+            color: ElioColors.espresso, size: 20),
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
         // Voice / hands-free entry
         IconButton(
           icon: const Icon(Icons.mic_none_outlined,
-              color: ElioColors.navy, size: 22),
+              color: ElioColors.espresso, size: 22),
           tooltip: 'Hands-free cooking',
           onPressed: _startHandsFree,
         ),
@@ -1832,7 +1832,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             _isSaved
                 ? Icons.bookmark_rounded
                 : Icons.bookmark_border_rounded,
-            color: _isSaved ? ElioColors.amber : ElioColors.navy,
+            color: _isSaved ? ElioColors.terracotta : ElioColors.espresso,
             size: 22,
           ),
           tooltip: _isSaved ? 'Saved' : 'Save recipe',
@@ -1845,17 +1845,17 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(
-                      strokeWidth: 2, color: ElioColors.navy),
+                      strokeWidth: 2, color: ElioColors.espresso),
                 )
               : const Icon(Icons.add_shopping_cart_rounded,
-                  color: ElioColors.navy, size: 22),
+                  color: ElioColors.espresso, size: 22),
           tooltip: 'Add to shopping list',
           onPressed: _isAddingToShop ? null : _addToShoppingList,
         ),
         // Share
         IconButton(
           icon: const Icon(Icons.ios_share_rounded,
-              color: ElioColors.navy, size: 22),
+              color: ElioColors.espresso, size: 22),
           tooltip: 'Share recipe',
           onPressed: _shareRecipe,
         ),
@@ -1904,7 +1904,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           'Instead of ${sub.original} → ${sub.substitute}',
                           style: ElioText.bodyMedium.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: ElioColors.navy,
+                            color: ElioColors.espresso,
                           ),
                         ),
                       ),
@@ -2014,20 +2014,20 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: ElioColors.amber.withValues(alpha: 0.12),
+                    color: ElioColors.terracotta.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: ElioColors.amber.withValues(alpha: 0.3)),
+                    border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.hearing_rounded, size: 16, color: ElioColors.amber),
+                      const Icon(Icons.hearing_rounded, size: 16, color: ElioColors.terracotta),
                       const SizedBox(width: 8),
                       Text(
                         _voiceFeedback,
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.navy,
+                          color: ElioColors.espresso,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -2045,7 +2045,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 2),
                       height: 4,
                       decoration: BoxDecoration(
-                        color: i <= _currentStep ? ElioColors.amber : ElioColors.border,
+                        color: i <= _currentStep ? ElioColors.terracotta : ElioColors.border,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -2142,7 +2142,7 @@ class _HandsFreeCircleButton extends StatelessWidget {
         child: Icon(
           icon,
           size: 20,
-          color: disabled ? ElioColors.textMuted : ElioColors.navy,
+          color: disabled ? ElioColors.textMuted : ElioColors.espresso,
         ),
       ),
     );
@@ -2170,12 +2170,12 @@ class _HandsFreeMicButton extends StatelessWidget {
           width: 72,
           height: 72,
           decoration: BoxDecoration(
-            color: enabled ? ElioColors.amber : ElioColors.border,
+            color: enabled ? ElioColors.terracotta : ElioColors.border,
             shape: BoxShape.circle,
             boxShadow: listening
                 ? [
                     BoxShadow(
-                      color: ElioColors.amber.withValues(alpha: 0.35),
+                      color: ElioColors.terracotta.withValues(alpha: 0.35),
                       blurRadius: 18,
                       spreadRadius: 3,
                     ),
@@ -2237,7 +2237,7 @@ class _NutritionTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
-                      color: ElioColors.navy,
+                      color: ElioColors.espresso,
                     ),
                   ),
                   TextSpan(
@@ -2381,7 +2381,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
                 width: 8,
                 height: 8,
                 decoration: const BoxDecoration(
-                  color: ElioColors.amber,
+                  color: ElioColors.terracotta,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -2411,7 +2411,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
             padding: const EdgeInsets.only(bottom: 8),
             child: _buildOptionTile(
               icon: Icons.refresh_rounded,
-              iconColor: ElioColors.amber,
+              iconColor: ElioColors.terracotta,
               title: 'Remove & regenerate',
               subtitle: 'New recipe without this ingredient',
               onTap: () {
@@ -2424,7 +2424,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
         // Option 3: Add to shopping list
         _buildOptionTile(
           icon: Icons.add_shopping_cart_rounded,
-          iconColor: ElioColors.navy,
+          iconColor: ElioColors.espresso,
           title: 'Add to shopping list',
           subtitle: 'Buy it for next time',
           onTap: widget.isGuest
@@ -2508,7 +2508,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
               height: 28,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: ElioColors.amber,
+                color: ElioColors.terracotta,
               ),
             ),
             const SizedBox(height: 16),
@@ -2556,7 +2556,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
             children: [
               Text(
                 r.substitute,
-                style: ElioText.headingMedium.copyWith(color: ElioColors.navy),
+                style: ElioText.headingMedium.copyWith(color: ElioColors.espresso),
               ),
               if (qty.isNotEmpty) ...[
                 const SizedBox(height: 4),
@@ -2578,7 +2578,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
               widget.onSubstituted(r);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -2620,7 +2620,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
           child: ElevatedButton(
             onPressed: _requestSubstitution,
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -2731,7 +2731,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
               Navigator.pop(ctx);
             },
             child: Text('Save', style: ElioText.bodyMedium.copyWith(
-              color: ElioColors.navy,
+              color: ElioColors.espresso,
               fontWeight: FontWeight.w600,
             )),
           ),
@@ -2824,10 +2824,10 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                             width: 22,
                             height: 22,
                             decoration: BoxDecoration(
-                              color: item.included ? ElioColors.navy : Colors.transparent,
+                              color: item.included ? ElioColors.espresso : Colors.transparent,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: item.included ? ElioColors.navy : ElioColors.border,
+                                color: item.included ? ElioColors.espresso : ElioColors.border,
                                 width: 1.5,
                               ),
                             ),
@@ -2892,7 +2892,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                           ? () => Navigator.pop(context, true)
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: ElioColors.amber,
+                        backgroundColor: ElioColors.terracotta,
                         foregroundColor: Colors.white,
                         disabledBackgroundColor: ElioColors.border,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

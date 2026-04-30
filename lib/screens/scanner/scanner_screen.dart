@@ -151,7 +151,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             style: ElioTextStyles.uiLabelStyle.copyWith(
               fontSize: 14,
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              color: isActive ? ElioColors.navy : ElioColors.textSecondary,
+              color: isActive ? ElioColors.espresso : ElioColors.textSecondary,
             ),
           ),
         ),
@@ -258,7 +258,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             width: 32,
             height: 32,
             child: CircularProgressIndicator(
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
               strokeWidth: 3,
             ),
           ),
@@ -391,7 +391,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             padding: const EdgeInsets.all(24),
             child: Column(
               children: [
-                const CircularProgressIndicator(color: ElioColors.amber),
+                const CircularProgressIndicator(color: ElioColors.terracotta),
                 const SizedBox(height: 12),
                 Text('Analysing receipt...', style: ElioText.bodyMedium),
               ],
@@ -409,7 +409,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         icon: Icon(icon, size: 20),
         label: Text(label),
         style: ElevatedButton.styleFrom(
-          backgroundColor: ElioColors.amber,
+          backgroundColor: ElioColors.terracotta,
           foregroundColor: ElioColors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15),
@@ -427,7 +427,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
         icon: Icon(icon, size: 20),
         label: Text(label),
         style: OutlinedButton.styleFrom(
-          foregroundColor: ElioColors.navy,
+          foregroundColor: ElioColors.espresso,
           side: const BorderSide(color: ElioColors.border, width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 14),
@@ -515,7 +515,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   'Edit all',
                   style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 14,
-                    color: ElioColors.amber,
+                    color: ElioColors.terracotta,
                   ),
                 ),
               ),
@@ -593,8 +593,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Widget _buildTierBadge(String tier) {
     final (Color bg, Color fg, String label) = switch (tier) {
       'alwaysHave' => (const Color(0xFFE8F5E9), ElioColors.success, 'Always Have'),
-      'almostAlways' => (const Color(0xFFE3F2FD), ElioColors.sky, 'Almost Always'),
-      'perishable' => (const Color(0xFFFFF3E0), ElioColors.amber, 'Perishable'),
+      'almostAlways' => (const Color(0xFFE3F2FD), ElioColors.mocha, 'Almost Always'),
+      'perishable' => (const Color(0xFFFFF3E0), ElioColors.terracotta, 'Perishable'),
       _ => (ElioColors.offWhite, ElioColors.textSecondary, tier),
     };
 
@@ -657,7 +657,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           child: ElevatedButton(
             onPressed: _isAddingToPantry ? null : () => _addToPantry(foodItems),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.amber,
+              backgroundColor: ElioColors.terracotta,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -785,7 +785,7 @@ class _ScanFramePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = ElioColors.amber
+      ..color = ElioColors.terracotta
       ..strokeWidth = 3.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;

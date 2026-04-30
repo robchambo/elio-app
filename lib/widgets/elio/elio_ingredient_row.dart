@@ -33,10 +33,10 @@ class ElioIngredientRow extends StatelessWidget {
               width: 24, height: 24,
               margin: const EdgeInsets.only(right: 16, top: 2),
               decoration: BoxDecoration(
-                color: checked ? ElioColors.amber : Colors.transparent,
+                color: checked ? ElioColors.terracotta : Colors.transparent,
                 borderRadius: BorderRadius.circular(999),
                 border: Border.all(
-                  color: checked ? ElioColors.amber : ElioColors.border,
+                  color: checked ? ElioColors.terracotta : ElioColors.border,
                   width: 2,
                 ),
               ),

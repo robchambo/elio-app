@@ -119,7 +119,7 @@ class AuthGate extends StatelessWidget {
           return const Scaffold(
             backgroundColor: ElioColors.white,
             body: Center(
-              child: CircularProgressIndicator(color: ElioColors.amber),
+              child: CircularProgressIndicator(color: ElioColors.terracotta),
             ),
           );
         }

@@ -121,7 +121,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: ElioColors.navy,
+        backgroundColor: ElioColors.espresso,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
@@ -244,9 +244,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                       decoration: BoxDecoration(
-                        color: isSelected ? ElioColors.navy : ElioColors.offWhite,
+                        color: isSelected ? ElioColors.espresso : ElioColors.offWhite,
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: isSelected ? ElioColors.navy : ElioColors.border),
+                        border: Border.all(color: isSelected ? ElioColors.espresso : ElioColors.border),
                       ),
                       child: Text(req, style: ElioText.label.copyWith(
                         color: isSelected ? Colors.white : ElioColors.textPrimary,
@@ -290,7 +290,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                         }
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: ElioColors.amber,
+                        backgroundColor: ElioColors.terracotta,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -324,7 +324,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     onTap: () => Navigator.of(context).pop(),
                     child: const Padding(
                       padding: EdgeInsets.all(8),
-                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -337,7 +337,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
             // ── Content ───────────────────────────────────────
             if (_isLoading)
               const Expanded(
-                child: Center(child: CircularProgressIndicator(color: ElioColors.amber)),
+                child: Center(child: CircularProgressIndicator(color: ElioColors.terracotta)),
               )
             else
               Expanded(
@@ -378,9 +378,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.person_add_outlined, size: 18, color: ElioColors.navy),
+                            const Icon(Icons.person_add_outlined, size: 18, color: ElioColors.espresso),
                             const SizedBox(width: 8),
-                            Text('Add household member', style: ElioText.label.copyWith(color: ElioColors.navy)),
+                            Text('Add household member', style: ElioText.label.copyWith(color: ElioColors.espresso)),
                           ],
                         ),
                       ),
@@ -412,7 +412,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
             Container(
               width: 36,
               height: 36,
-              decoration: const BoxDecoration(color: ElioColors.navy, shape: BoxShape.circle),
+              decoration: const BoxDecoration(color: ElioColors.espresso, shape: BoxShape.circle),
               child: Center(
                 child: Text(
                   (member['name'] as String? ?? '?').isNotEmpty
@@ -431,7 +431,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                     children: [
                       Expanded(
                         child: Text(member['name'] as String? ?? 'Member',
-                            style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.navy)),
+                            style: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15, color: ElioColors.espresso)),
                       ),
                       Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted.withValues(alpha: 0.5)),
                     ],
@@ -444,10 +444,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                       children: reqs.map((r) => Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: ElioColors.navy.withValues(alpha: 0.08),
+                          color: ElioColors.espresso.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(r, style: ElioText.label.copyWith(fontSize: 11, color: ElioColors.navy)),
+                        child: Text(r, style: ElioText.label.copyWith(fontSize: 11, color: ElioColors.espresso)),
                       )).toList(),
                     ),
                   ] else

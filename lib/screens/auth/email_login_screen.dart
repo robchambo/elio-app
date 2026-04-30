@@ -147,7 +147,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
         backgroundColor: ElioColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: ElioColors.navy),
+          icon: const Icon(Icons.arrow_back, color: ElioColors.espresso),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -186,7 +186,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -218,7 +218,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -259,7 +259,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                       'Forgot password?',
                       style: ElioTextStyles.uiLabelStyle.copyWith(
                         fontSize: 13,
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                       ),
                     ),
                   ),
@@ -273,10 +273,10 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleSignIn,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: ElioColors.amber,
+                      backgroundColor: ElioColors.terracotta,
                       foregroundColor: ElioColors.white,
                       disabledBackgroundColor:
-                          ElioColors.amber.withValues(alpha: 0.5),
+                          ElioColors.terracotta.withValues(alpha: 0.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -329,7 +329,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                             'Register',
                             style: ElioTextStyles.uiLabelStyle.copyWith(
                               fontSize: 14,
-                              color: ElioColors.amber,
+                              color: ElioColors.terracotta,
                             ),
                           ),
                         ),

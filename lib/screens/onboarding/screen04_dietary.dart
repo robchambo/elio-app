@@ -152,7 +152,7 @@ class Screen04Dietary extends StatelessWidget {
                   child: Row(
                     children: [
                       BackButton(
-                        color: ElioColors.navy,
+                        color: ElioColors.espresso,
                         onPressed: onBack,
                       ),
                       const SizedBox(width: ElioSpacing.sm),
@@ -206,7 +206,7 @@ class Screen04Dietary extends StatelessWidget {
                             contentPadding: EdgeInsets.zero,
                             value: s.householdHasDifferingDiet,
                             onChanged: _toggleHousehold,
-                            activeTrackColor: ElioColors.amber,
+                            activeTrackColor: ElioColors.terracotta,
                             title: Text(
                               'Does anyone else in your household eat differently?',
                               style: ElioTextStyles.body,

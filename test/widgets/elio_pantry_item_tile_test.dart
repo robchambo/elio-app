@@ -187,8 +187,8 @@ void main() {
         .map((c) => c.decoration)
         .whereType<BoxDecoration>()
         .toList();
-    final hasAmberFill = decorations.any((d) => d.color == const Color(0xFFF08C14));
+    final hasAmberFill = decorations.any((d) => d.color == const Color(0xFFE37B53));
     expect(hasAmberFill, isTrue,
-        reason: '"always" tier should paint solid amber fill');
+        reason: '"always" tier should paint solid terracotta fill');
   });
 }

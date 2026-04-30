@@ -57,6 +57,6 @@ void main() {
           .first,
     );
     final decoration = imperialContainer.decoration as BoxDecoration;
-    expect(decoration.color, ElioColors.amber);
+    expect(decoration.color, ElioColors.terracotta);
   });
 }

@@ -169,12 +169,12 @@ class _DietaryScreenState extends State<DietaryScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: ElioColors.amber))
+          ? const Center(child: CircularProgressIndicator(color: ElioColors.terracotta))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(ElioSpacing.xl),
               child: Column(
@@ -230,19 +230,19 @@ class _DietaryScreenState extends State<DietaryScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                               decoration: BoxDecoration(
-                                color: ElioColors.amber.withValues(alpha: 0.12),
+                                color: ElioColors.terracotta.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: ElioColors.amber, width: 1.5),
+                                border: Border.all(color: ElioColors.terracotta, width: 1.5),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
                                     allergen,
-                                    style: ElioTextStyles.body.copyWith(color: ElioColors.navy),
+                                    style: ElioTextStyles.body.copyWith(color: ElioColors.espresso),
                                   ),
                                   const SizedBox(width: 6),
-                                  const Icon(Icons.close, size: 16, color: ElioColors.navy),
+                                  const Icon(Icons.close, size: 16, color: ElioColors.espresso),
                                 ],
                               ),
                             ),

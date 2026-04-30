@@ -43,7 +43,7 @@ class ElioColors {
   // These power the 3-tier tile state on screen 12. Hex values are
   // provisional — confirm with Kate before Phase 4 ships.
   static const Color freshGreen = Color(0xFF3D9970);
-  static const Color perishThisWeek = amber;
+  static const Color perishThisWeek = terracotta;
   static const Color perishToday = Color(0xFFE06C5E);
 
   // ─── Sprint 16 rebrand: new palette tokens ──────────────────────────

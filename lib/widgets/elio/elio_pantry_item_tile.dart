@@ -87,16 +87,16 @@ class ElioPantryItemTile extends StatelessWidget {
       borderColor: ElioColors.border,
     ),
     'usually': PantryTierStyle(
-      background: Color(0x1FF08C14), // amber @ 12%
-      glyphColor: ElioColors.amber,
+      background: Color(0x1FE37B53), // terracotta @ 12%
+      glyphColor: ElioColors.terracotta,
       glyph: Icons.check,
-      borderColor: ElioColors.amber,
+      borderColor: ElioColors.terracotta,
     ),
     'always': PantryTierStyle(
-      background: ElioColors.amber,
+      background: ElioColors.terracotta,
       glyphColor: Colors.white,
       glyph: Icons.star_rounded,
-      borderColor: ElioColors.amber,
+      borderColor: ElioColors.terracotta,
     ),
     'fresh': PantryTierStyle(
       background: Color(0x1F3D9970),
@@ -163,7 +163,7 @@ class ElioPantryItemTile extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: ElioTextStyles.bodySmall.copyWith(
-              color: ElioColors.navy,
+              color: ElioColors.espresso,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -217,7 +217,7 @@ class ElioPantryItemTile extends StatelessWidget {
                     vertical: 1,
                   ),
                   decoration: BoxDecoration(
-                    color: ElioColors.navy.withValues(alpha: 0.08),
+                    color: ElioColors.espresso.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(ElioRadii.sm),
                   ),
                   child: Text(

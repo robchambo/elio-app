@@ -78,7 +78,7 @@ Future<AddItemResult> showAddPantryItemDialog(
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(ElioRadii.md),
               borderSide: const BorderSide(
-                color: ElioColors.amber,
+                color: ElioColors.terracotta,
                 width: 1.5,
               ),
             ),
@@ -103,8 +103,8 @@ Future<AddItemResult> showAddPantryItemDialog(
           ),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: ElioColors.amber, width: 1.5),
-              foregroundColor: ElioColors.amber,
+              side: const BorderSide(color: ElioColors.terracotta, width: 1.5),
+              foregroundColor: ElioColors.terracotta,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(ElioRadii.md),
               ),
@@ -113,7 +113,7 @@ Future<AddItemResult> showAddPantryItemDialog(
             child: Text(
               'Add',
               style: ElioTextStyles.body.copyWith(
-                color: ElioColors.amber,
+                color: ElioColors.terracotta,
                 fontWeight: FontWeight.w600,
               ),
             ),

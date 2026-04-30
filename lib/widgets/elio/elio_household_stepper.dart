@@ -74,7 +74,7 @@ class _StepButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = enabled ? ElioColors.navy : ElioColors.textMuted;
+    final color = enabled ? ElioColors.espresso : ElioColors.textMuted;
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),

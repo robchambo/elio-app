@@ -413,7 +413,7 @@ class _HomeScreenState extends State<HomeScreen> {
       children: [
         Text(
           'recent',
-          style: ElioTextStyles.eyebrow.copyWith(color: ElioColors.amber),
+          style: ElioTextStyles.eyebrow.copyWith(color: ElioColors.terracotta),
         ),
         const SizedBox(height: ElioSpacing.sm),
         SizedBox(
@@ -449,7 +449,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: ElioTextStyles.body.copyWith(
-                  color: ElioColors.navy,
+                  color: ElioColors.espresso,
                   fontWeight: FontWeight.w600,
                 ),
               ),

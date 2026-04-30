@@ -361,7 +361,7 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
               child: Row(
                 children: [
                   BackButton(
-                    color: ElioColors.navy,
+                    color: ElioColors.espresso,
                     onPressed: widget.onBack,
                   ),
                   const SizedBox(width: ElioSpacing.sm),

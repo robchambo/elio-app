@@ -136,7 +136,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                   icon: Icons.link_rounded,
                   kicker: 'URL or text',
                   title: 'Manual entry',
-                  backgroundColor: ElioColors.amber,
+                  backgroundColor: ElioColors.terracotta,
                   onTap: () => _openImport(initialTab: 1),
                 ),
               ),
@@ -225,7 +225,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                         ? Icons.bookmark_rounded
                         : Icons.bookmark_outline_rounded,
                     color: saved.isBookmarked
-                        ? ElioColors.amber
+                        ? ElioColors.terracotta
                         : ElioColors.textMuted,
                   ),
                 ),

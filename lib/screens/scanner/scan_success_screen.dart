@@ -125,7 +125,7 @@ class ScanSuccessScreen extends StatelessWidget {
             ),
             child: const Icon(
               Icons.kitchen_rounded,
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
               size: 22,
             ),
           ),
@@ -146,7 +146,7 @@ class ScanSuccessScreen extends StatelessWidget {
                 Text(
                   'Perishable',
                   style: ElioTextStyles.bodySmallStyle.copyWith(
-                    color: ElioColors.amber,
+                    color: ElioColors.terracotta,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -184,7 +184,7 @@ class ScanSuccessScreen extends StatelessWidget {
             icon: const Icon(Icons.auto_awesome_rounded, size: 20),
             label: const Text('Generate Recipe with These'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.amber,
+              backgroundColor: ElioColors.terracotta,
               foregroundColor: ElioColors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -210,8 +210,8 @@ class ScanSuccessScreen extends StatelessWidget {
             icon: const Icon(Icons.inventory_2_outlined, size: 20),
             label: const Text('Back to Pantry'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: ElioColors.navy,
-              side: const BorderSide(color: ElioColors.navy, width: 1.5),
+              foregroundColor: ElioColors.espresso,
+              side: const BorderSide(color: ElioColors.espresso, width: 1.5),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),

@@ -183,7 +183,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Meal plan took too long. Try fewer days or meal types.'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -195,7 +195,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -231,7 +231,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text('Restart',
                 style: ElioTextStyles.body.copyWith(
-                  color: ElioColors.amber,
+                  color: ElioColors.terracotta,
                   fontWeight: FontWeight.w700,
                 )),
           ),
@@ -283,7 +283,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -380,12 +380,12 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             action: SnackBarAction(
               label: 'View',
-              textColor: ElioColors.amber,
+              textColor: ElioColors.terracotta,
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ShoppingListPage()),
@@ -441,7 +441,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(e.toString().replaceFirst('Exception: ', '')),
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
             ),
           );
         }
@@ -476,7 +476,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       floatingActionButton: _plan != null
           ? FloatingActionButton.extended(
               onPressed: _showAddToShoppingDialog,
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
               label: const Text(
@@ -498,7 +498,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
             onTap: () => Navigator.of(context).pop(),
             child: const Padding(
               padding: EdgeInsets.all(8),
-              child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+              child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
             ),
           ),
           const SizedBox(width: 12),
@@ -566,10 +566,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         controller: _tabController,
         isScrollable: false,
         labelPadding: EdgeInsets.zero,
-        indicatorColor: ElioColors.amber,
+        indicatorColor: ElioColors.terracotta,
         indicatorWeight: 2.5,
         indicatorSize: TabBarIndicatorSize.label,
-        labelColor: ElioColors.navy,
+        labelColor: ElioColors.espresso,
         unselectedLabelColor: ElioColors.textMuted,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
@@ -582,7 +582,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   // ─── Body ─────────────────────────────────────────────────────────────────────
   Widget _buildBody() {
     if (!_dataLoaded) {
-      return const Center(child: CircularProgressIndicator(color: ElioColors.amber));
+      return const Center(child: CircularProgressIndicator(color: ElioColors.terracotta));
     }
 
     if (_plan == null) {
@@ -677,10 +677,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isOn ? ElioColors.navy : ElioColors.offWhite,
+                    color: isOn ? ElioColors.espresso : ElioColors.offWhite,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isOn ? ElioColors.navy : ElioColors.border,
+                      color: isOn ? ElioColors.espresso : ElioColors.border,
                       width: 1.5,
                     ),
                   ),
@@ -749,10 +749,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: _selectedDays.contains(entry.$2) ? ElioColors.amber : ElioColors.offWhite,
+                      color: _selectedDays.contains(entry.$2) ? ElioColors.terracotta : ElioColors.offWhite,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: _selectedDays.contains(entry.$2) ? ElioColors.amber : ElioColors.border,
+                        color: _selectedDays.contains(entry.$2) ? ElioColors.terracotta : ElioColors.border,
                         width: 1.5,
                       ),
                     ),
@@ -828,7 +828,7 @@ class _GenerateButton extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: ElioColors.amber.withValues(alpha: 0.12),
+          color: ElioColors.terracotta.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -837,7 +837,7 @@ class _GenerateButton extends StatelessWidget {
             const SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(color: ElioColors.amber, strokeWidth: 2),
+              child: CircularProgressIndicator(color: ElioColors.terracotta, strokeWidth: 2),
             ),
             if (generatingMessage.isNotEmpty) ...[
               const SizedBox(width: 8),
@@ -848,7 +848,7 @@ class _GenerateButton extends StatelessWidget {
                   child: Text(
                     generatingMessage,
                     key: ValueKey(generatingMessage),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ElioColors.amber),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ElioColors.terracotta),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -864,7 +864,7 @@ class _GenerateButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: hasExistingPlan ? ElioColors.offWhite : ElioColors.amber,
+          color: hasExistingPlan ? ElioColors.offWhite : ElioColors.terracotta,
           borderRadius: BorderRadius.circular(20),
           border: hasExistingPlan ? Border.all(color: ElioColors.border) : null,
         ),
@@ -958,7 +958,7 @@ class _MealCard extends StatelessWidget {
                           ? const Padding(
                               padding: EdgeInsets.all(7),
                               child: CircularProgressIndicator(
-                                color: ElioColors.amber,
+                                color: ElioColors.terracotta,
                                 strokeWidth: 2,
                               ),
                             )
@@ -1058,20 +1058,20 @@ class _TimeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: ElioColors.amber.withValues(alpha: 0.1),
+        color: ElioColors.terracotta.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.timer_outlined, size: 11, color: ElioColors.amber),
+          const Icon(Icons.timer_outlined, size: 11, color: ElioColors.terracotta),
           const SizedBox(width: 3),
           Text(
             '$minutes min',
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
             ),
           ),
         ],
@@ -1089,7 +1089,7 @@ class _DietaryTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: ElioColors.navy.withValues(alpha: 0.07),
+        color: ElioColors.espresso.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -1097,7 +1097,7 @@ class _DietaryTag extends StatelessWidget {
         style: const TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: ElioColors.navy,
+          color: ElioColors.espresso,
         ),
       ),
     );
@@ -1192,7 +1192,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
               Navigator.pop(ctx);
             },
             child: Text('Save', style: ElioText.bodyMedium.copyWith(
-              color: ElioColors.navy,
+              color: ElioColors.espresso,
               fontWeight: FontWeight.w600,
             )),
           ),
@@ -1297,10 +1297,10 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                                   width: 22,
                                   height: 22,
                                   decoration: BoxDecoration(
-                                    color: item.included ? ElioColors.navy : Colors.transparent,
+                                    color: item.included ? ElioColors.espresso : Colors.transparent,
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: item.included ? ElioColors.navy : ElioColors.border,
+                                      color: item.included ? ElioColors.espresso : ElioColors.border,
                                       width: 1.5,
                                     ),
                                   ),
@@ -1345,14 +1345,14 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     margin: const EdgeInsets.only(right: 6),
                                     decoration: BoxDecoration(
-                                      color: ElioColors.amber.withValues(alpha: 0.15),
+                                      color: ElioColors.terracotta.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: ElioColors.amber.withValues(alpha: 0.4)),
+                                      border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.4)),
                                     ),
                                     child: Text(
                                       'Restock',
                                       style: ElioText.label.copyWith(
-                                        color: ElioColors.amber,
+                                        color: ElioColors.terracotta,
                                         fontWeight: FontWeight.w700,
                                         fontSize: 10,
                                       ),
@@ -1387,7 +1387,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                           ? () => Navigator.pop(context, true)
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: ElioColors.amber,
+                        backgroundColor: ElioColors.terracotta,
                         foregroundColor: Colors.white,
                         disabledBackgroundColor: ElioColors.border,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

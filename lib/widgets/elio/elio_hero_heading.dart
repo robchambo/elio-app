@@ -37,7 +37,7 @@ class ElioHeroHeading extends StatelessWidget {
             width: 96,
             height: 4,
             decoration: const BoxDecoration(
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
               borderRadius: BorderRadius.all(Radius.circular(2)),
             ),
           ),

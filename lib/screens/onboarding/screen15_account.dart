@@ -243,7 +243,7 @@ class _Screen15AccountState extends State<Screen15Account> {
         leading: widget.onBack == null
             ? null
             : IconButton(
-                icon: const Icon(Icons.arrow_back, color: ElioColors.navy),
+                icon: const Icon(Icons.arrow_back, color: ElioColors.espresso),
                 onPressed: widget.onBack,
               ),
       ),
