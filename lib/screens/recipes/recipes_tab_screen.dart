@@ -177,7 +177,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: ElioColors.cream,
+            color: ElioColors.creamDeep,
             borderRadius: BorderRadius.circular(ElioRadii.card),
           ),
           child: Row(
@@ -188,14 +188,14 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                   children: [
                     Text(
                       r.title,
-                      style: ElioTextStyles.heading5,
+                      style: ElioTextStyles.uiLabelStyle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: ElioTextStyles.bodySmall,
+                      style: ElioTextStyles.bodySmallStyle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -237,7 +237,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
 
   Widget _emptyText(String text) => Padding(
         padding: const EdgeInsets.symmetric(vertical: ElioSpacing.md),
-        child: Text(text, style: ElioTextStyles.bodySmall),
+        child: Text(text, style: ElioTextStyles.bodySmallStyle),
       );
 }
 
