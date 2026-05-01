@@ -833,9 +833,9 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             _buildDietaryStrip(),
           ],
           const SizedBox(height: ElioSpacing.xl),
-          _buildTopToggles(),
-          const SizedBox(height: ElioSpacing.xl),
           _buildCravingField(),
+          const SizedBox(height: ElioSpacing.xl),
+          _buildTopToggles(),
           const SizedBox(height: ElioSpacing.xl),
           _section(
             eyebrow: 'time',
@@ -871,7 +871,6 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           const SizedBox(height: ElioSpacing.xxl),
           ElioBigButton(
             label: 'Generate',
-            trailingIcon: Icons.auto_awesome,
             onTap: _generate,
           ),
           const SizedBox(height: ElioSpacing.md),
