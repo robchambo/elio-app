@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../controllers/onboarding_controller.dart';
 import '../../models/elio_models.dart';
 import '../../services/analytics_service.dart';
+import '../../services/gemini_service.dart';
 import '../../services/guest_pantry_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
@@ -132,6 +133,10 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
   void initState() {
     super.initState();
     _hydrateFromController();
+    // Pre-warm the Gemini connection so screen 13's first-recipe demo
+    // doesn't pay the cold-start tax on its real call. Fire-and-forget;
+    // errors swallowed inside the service.
+    GeminiService.prewarmConnection();
   }
 
   /// Re-populates [_tiers] + [_customItemsByCategory] from the

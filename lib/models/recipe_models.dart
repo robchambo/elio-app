@@ -393,7 +393,15 @@ class RecipeComplete extends RecipeGenerationStatus {
 
 class RecipeError extends RecipeGenerationStatus {
   final String message;
-  RecipeError({required this.message});
+
+  /// True when the failure is transient and worth retrying without user
+  /// intervention (5xx, network blip, truncated SSE stream, JSON parse
+  /// failure). False for definitive failures the retry can't recover —
+  /// auth (401/403), bad request (400), rate-limit (429), explicit
+  /// MAX_TOKENS finish, or a deliberate user-facing message.
+  final bool retryable;
+
+  RecipeError({required this.message, this.retryable = false});
 }
 
 // ─── Bulk prep info (freezing & storage) ────────────────────────────────────
