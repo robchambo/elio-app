@@ -695,36 +695,24 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   // just a friendly nudge that the user can describe what they want.
   Widget _buildCravingField() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 4, 4, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: ElioColors.cream,
         borderRadius: BorderRadius.circular(ElioRadii.card),
       ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.auto_awesome_outlined,
-            color: ElioColors.terracotta,
-            size: 18,
+      child: TextField(
+        controller: _cravingController,
+        textInputAction: TextInputAction.done,
+        style: ElioTextStyles.body,
+        decoration: InputDecoration(
+          hintText: 'Got a craving? Tell me about it',
+          hintStyle: ElioTextStyles.body.copyWith(
+            color: ElioColors.mocha,
           ),
-          const SizedBox(width: ElioSpacing.sm),
-          Expanded(
-            child: TextField(
-              controller: _cravingController,
-              textInputAction: TextInputAction.done,
-              style: ElioTextStyles.body,
-              decoration: InputDecoration(
-                hintText: 'Got a craving? Tell me about it',
-                hintStyle: ElioTextStyles.body.copyWith(
-                  color: ElioColors.mocha,
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-        ],
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+        ),
       ),
     );
   }
