@@ -92,6 +92,66 @@ class PantryMemoryService {
     }
   }
 
+  /// Persist a typed custom item. Idempotent on the normalisedName key.
+  /// Universal staples are refused (defensive — caller should also
+  /// check, but enforce here to keep the storage clean).
+  Future<void> upsertCustom({
+    required String displayName,
+    required String category,
+    required String tier,
+  }) async {
+    final normalised = displayName.trim().toLowerCase();
+    if (normalised.isEmpty) return;
+    if (PantryStaples.isStaple(normalised)) return;
+    try {
+      await _storage.upsertCustom(
+        normalizedName: normalised,
+        data: {
+          'displayName': displayName.trim(),
+          'category': category,
+          'tier': tier,
+          'firstSeen': FieldValue.serverTimestamp(),
+          'lastSeen': FieldValue.serverTimestamp(),
+        },
+      );
+    } catch (_) {
+      // Fire-and-forget — inventory write still succeeds via the
+      // existing onAddItem callback.
+    }
+  }
+
+  /// Walks current inventory and writes any missing tierMemory rows.
+  /// Idempotent — skips entirely once `pantryMemoryBackfilled` is true
+  /// on the user doc. Universal staples are skipped.
+  Future<void> backfillFromInventoryIfNeeded() async {
+    try {
+      final user = await _storage.fetchUserDoc();
+      if (user['pantryMemoryBackfilled'] == true) return;
+
+      final inventory = await _storage.fetchInventory();
+      final rows = <Map<String, dynamic>>[];
+      for (final entry in inventory.entries) {
+        final data = entry.value;
+        final name = (data['name'] as String?)?.trim() ?? '';
+        if (name.isEmpty) continue;
+        final normalised = name.toLowerCase();
+        if (PantryStaples.isStaple(normalised)) continue;
+        rows.add({
+          'id': normalised,
+          'name': name,
+          'tier': (data['tier'] as String?) ?? 'alwaysHave',
+          'lastSeen': FieldValue.serverTimestamp(),
+        });
+      }
+      if (rows.isNotEmpty) {
+        await _storage.backfillTierMemory(rows);
+      }
+      await _storage.setBackfillFlag(true);
+    } catch (_) {
+      // Best-effort — never block the builder.
+    }
+  }
+
   /// Rough title-case for the displayName fallback when a tierMemory
   /// row has no `name` field.
   static String _titleCase(String s) {

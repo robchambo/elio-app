@@ -86,4 +86,94 @@ void main() {
           ['Gochujang', 'Miso paste']); // newest first
     });
   });
+
+  group('PantryMemoryService.upsertCustom', () {
+    test('writes a custom-item doc with normalised key + supplied fields', () async {
+      final storage = FakePantryMemoryStorage();
+      final service = PantryMemoryService.test(storage: storage);
+
+      await service.upsertCustom(
+        displayName: 'Miso Paste',
+        category: 'Asian Pantry',
+        tier: 'alwaysHave',
+      );
+
+      expect(storage.upsertedCustoms.length, 1);
+      final row = storage.upsertedCustoms.first;
+      expect(row['id'], 'miso paste');
+      expect(row['displayName'], 'Miso Paste');
+      expect(row['category'], 'Asian Pantry');
+      expect(row['tier'], 'alwaysHave');
+      expect(row.containsKey('firstSeen'), isTrue);
+      expect(row.containsKey('lastSeen'), isTrue);
+    });
+
+    test('refuses to write a staple', () async {
+      final storage = FakePantryMemoryStorage();
+      final service = PantryMemoryService.test(storage: storage);
+
+      await service.upsertCustom(
+        displayName: 'Salt',
+        category: 'Spices & Seasonings',
+        tier: 'alwaysHave',
+      );
+
+      expect(storage.upsertedCustoms, isEmpty);
+    });
+
+    test('swallows write errors silently', () async {
+      final storage = FakePantryMemoryStorage()..throwOnWrite = true;
+      final service = PantryMemoryService.test(storage: storage);
+
+      await service.upsertCustom(
+        displayName: 'Miso paste',
+        category: 'Asian Pantry',
+        tier: 'alwaysHave',
+      );
+      // No throw → pass.
+    });
+  });
+
+  group('PantryMemoryService.backfillFromInventoryIfNeeded', () {
+    test('writes one tierMemory row per inventory item, sets the flag', () async {
+      final storage = FakePantryMemoryStorage()
+        ..userDoc = const {} // no flag
+        ..inventoryRows = const {
+          'a': {'name': 'Carrot', 'tier': 'perishable'},
+          'b': {'name': 'Rice', 'tier': 'alwaysHave'},
+          'c': {'name': 'Salt', 'tier': 'alwaysHave'}, // staple — skip
+        };
+      final service = PantryMemoryService.test(storage: storage);
+
+      await service.backfillFromInventoryIfNeeded();
+
+      expect(storage.backfilledTierMemoryRows.length, 2);
+      expect(
+        storage.backfilledTierMemoryRows.map((r) => r['id']).toSet(),
+        {'carrot', 'rice'},
+      );
+      expect(storage.backfillFlagSet, isTrue);
+    });
+
+    test('no-ops when the flag is already set', () async {
+      final storage = FakePantryMemoryStorage()
+        ..userDoc = const {'pantryMemoryBackfilled': true}
+        ..inventoryRows = const {
+          'a': {'name': 'Carrot', 'tier': 'perishable'},
+        };
+      final service = PantryMemoryService.test(storage: storage);
+
+      await service.backfillFromInventoryIfNeeded();
+
+      expect(storage.backfilledTierMemoryRows, isEmpty);
+    });
+
+    test('swallows read errors silently (does not block the builder)', () async {
+      final storage = FakePantryMemoryStorage()..throwOnRead = true;
+      final service = PantryMemoryService.test(storage: storage);
+
+      await service.backfillFromInventoryIfNeeded();
+      // No throw → pass.
+    });
+  });
 }
