@@ -87,7 +87,10 @@ config/{doc}              — readable by any signed-in user, admin-only writes
 users/{uid}/
   (user doc)              — dietary, appliances[], stylePreferences[], region,
                             measurementUnits, subscription{tier, weeklyGenerations,
-                            weekStartedAt, ...} (entitlement keys client-locked)
+                            weekStartedAt, ...} (entitlement keys client-locked),
+                            pantryMemoryBackfilled — boolean flag, set to true after
+                            first builder open post-15.9 has migrated tierMemory from
+                            inventory
   profiles/{id}           — household members; name, dietaryRequirements[], isOwner
   inventory/{id}          — name, tier, category, expiryDate?, price?, runningLow
   recipes/{id}            — saved/bookmarked recipes
@@ -95,6 +98,8 @@ users/{uid}/
   mealPlan/{id}           — singular: weekly meal plan docs
   shoppingItems/{id}      — name, quantity, source, isChecked
   tierMemory/{name}       — normalised name → tier, lastSeen (scanner learning)
+  customItems/{name}      — displayName, category, tier, firstSeen, lastSeen
+                            (typed customs — surface in builder on subsequent opens)
   fcmTokens/{id}          — push notification tokens
 ```
 

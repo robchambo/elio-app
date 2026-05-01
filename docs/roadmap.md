@@ -205,6 +205,26 @@ Work is grouped into three parallel tracks:
 
 ---
 
+## Sprint 15.9 — Personalised Pantry Builder ✅ (April 2026)
+
+**Goal:** Memory-driven pantry builder — surface what users have actually had via tierMemory, custom items, and inventory backfill. Universal staples (salt, pepper, water, sugar, generic oils) excluded; dietary conflicts greyed.
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Extract PantryStaples utility from ShoppingService | ✅ |
+| 2 | PantryMemoryEntry model | ✅ |
+| 3 | PantryMemoryService — read paths (recentUsuals, hadBeforeKeys, customsByCategory) | ✅ |
+| 4 | PantryMemoryService — write paths (upsertCustom, backfillFromInventoryIfNeeded) | ✅ |
+| 5 | showAddPantryItemDialog blocks staples with inline note | ✅ |
+| 6 | Builder sheet — "Your usuals" section + tier-defaulting | ✅ |
+| 7 | Builder sheet — had-before dots + customs-first chips + dietary greying | ✅ |
+| 8 | Pantry-screen wiring of upsertCustom | ✅ |
+| 9 | Docs (CLAUDE.md + roadmap.md) | ✅ |
+
+**Branch:** `sprint/15.9-personalized-pantry`. Spec: `docs/superpowers/specs/2026-04-30-sprint-15.9-personalized-pantry-design.md`. Plan: `docs/superpowers/plans/2026-04-30-sprint-15.9-personalized-pantry.md`.
+
+---
+
 ## Sprint 16 — UI Overhaul — COMPLETE (April 2026, pending minor bug tweaks)
 
 All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens (Shopping, Recipe Book, Account, Recipe Preferences, Paywall, Meal Plan, Hands-Free, Onboarding) shipped with the new Elio design system. 17 widgets in `lib/widgets/elio/`, 3 new token files in `lib/theme/`, 25/25 tests passing.
