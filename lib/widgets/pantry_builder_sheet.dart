@@ -9,6 +9,8 @@ import '../theme/elio_radii.dart';
 import '../theme/elio_spacing.dart';
 import '../theme/elio_text_styles.dart';
 import '../theme/elio_theme.dart';
+import '../utils/dietary_filter.dart';
+import '../utils/pantry_staples.dart';
 
 /// Bottom sheet for browsing and adding pantry items by category.
 ///
@@ -58,13 +60,9 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
 
   // Loaded once on init; rebuilt only when the user adds a custom.
   List<PantryMemoryEntry> _usuals = const [];
-  // ignore: unused_field
   Set<String> _hadBeforeKeys = const {};
-  // ignore: unused_field
   Map<String, List<PantryMemoryEntry>> _customsByCategory = const {};
-  // ignore: unused_field
   List<String> _userDietary = const [];
-  // ignore: unused_field
   List<String> _userAllergies = const [];
   bool _memoryLoaded = false;
 
@@ -462,7 +460,9 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
   }
 
   Widget _buildCategory(PantryCategory cat) {
-    final allItems = cat.allItems;
+    final allItems = cat.allItems
+        .where((item) => !PantryStaples.isStaple(item))
+        .toList();
     final filteredItems = _searchQuery.isEmpty
         ? allItems
         : allItems
@@ -542,15 +542,48 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: filteredItems.map((itemName) {
-                final inPantry = _isInPantry(itemName);
-                return _BuilderChip(
-                  label: itemName,
-                  selected: inPantry,
-                  onTap: () => _toggleItem(itemName, cat.name),
-                  onLongPress: () => _longPressItem(itemName, cat.name),
-                );
-              }).toList(),
+              children: [
+                // 1. User customs land FIRST inside their saved category.
+                ...?(_customsByCategory[cat.name]?.map((entry) {
+                  final blocked = DietaryFilter.blockReasons(
+                    itemName: entry.displayName,
+                    dietary: _userDietary,
+                    allergies: _userAllergies,
+                    categoryName: cat.name,
+                  ).isNotEmpty;
+                  final inPantry = _isInPantry(entry.displayName);
+                  return _BuilderChip(
+                    label: entry.displayName,
+                    selected: inPantry,
+                    hadBefore: true, // customs are by definition had-before
+                    blocked: blocked,
+                    onTap: () => _addUsualToPantry(entry),
+                    onLongPress: () =>
+                        _longPressItem(entry.displayName, cat.name),
+                  );
+                })),
+                // 2. Canonical category items.
+                ...filteredItems.map((itemName) {
+                  final blocked = DietaryFilter.blockReasons(
+                    itemName: itemName,
+                    dietary: _userDietary,
+                    allergies: _userAllergies,
+                    categoryName: cat.name,
+                  ).isNotEmpty;
+                  final inPantry = _isInPantry(itemName);
+                  final hadBefore = _hadBeforeKeys.contains(
+                    itemName.toLowerCase().trim(),
+                  );
+                  return _BuilderChip(
+                    label: itemName,
+                    selected: inPantry,
+                    hadBefore: hadBefore,
+                    blocked: blocked,
+                    onTap: () => _toggleItem(itemName, cat.name),
+                    onLongPress: () => _longPressItem(itemName, cat.name),
+                  );
+                }),
+              ],
             ),
           ),
         ],
@@ -640,6 +673,8 @@ class _SoftField extends StatelessWidget {
 class _BuilderChip extends StatelessWidget {
   final String label;
   final bool selected;
+  final bool hadBefore;
+  final bool blocked;
   final VoidCallback onTap;
   final VoidCallback onLongPress;
 
@@ -648,10 +683,31 @@ class _BuilderChip extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.onLongPress,
+    this.hadBefore = false,
+    this.blocked = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Blocked items render greyed-out and ignore taps.
+    if (blocked) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: ElioColors.creamDeep.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(ElioRadii.chip),
+        ),
+        child: Text(
+          label,
+          style: ElioTextStyles.bodySmallStyle.copyWith(
+            color: ElioColors.mocha.withValues(alpha: 0.6),
+            decoration: TextDecoration.lineThrough,
+            decorationColor: ElioColors.mocha.withValues(alpha: 0.4),
+          ),
+        ),
+      );
+    }
+
     final bg = selected ? ElioColors.terracotta : ElioColors.creamDeep;
     final fg = selected ? Colors.white : ElioColors.espresso;
     return RawGestureDetector(
@@ -678,6 +734,10 @@ class _BuilderChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Show the had-before dot ONLY on idle (non-selected) chips —
+            // on a terracotta-selected chip the dot would clash with the
+            // check icon and the bold fill already announces engagement.
+            if (hadBefore && !selected) const _HadBeforeDot(),
             Text(
               label,
               style: ElioTextStyles.bodySmallStyle.copyWith(
@@ -691,6 +751,22 @@ class _BuilderChip extends StatelessWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _HadBeforeDot extends StatelessWidget {
+  const _HadBeforeDot();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 6,
+      height: 6,
+      margin: const EdgeInsets.only(right: 6),
+      decoration: const BoxDecoration(
+        color: ElioColors.terracotta,
+        shape: BoxShape.circle,
       ),
     );
   }
