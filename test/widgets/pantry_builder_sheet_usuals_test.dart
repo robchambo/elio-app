@@ -7,7 +7,7 @@ import 'package:elio_app/widgets/pantry_builder_sheet.dart';
 import '../fakes/fake_pantry_memory_storage.dart';
 
 void main() {
-  Future<void> _pump(WidgetTester tester, FakePantryMemoryStorage storage) async {
+  Future<void> pump(WidgetTester tester, FakePantryMemoryStorage storage) async {
     PantryMemoryService.debugSetTestInstance(
       PantryMemoryService.test(storage: storage),
     );
@@ -36,7 +36,7 @@ void main() {
         'carrot': {'name': 'Carrot', 'tier': 'perishable'},
         'rice': {'name': 'Rice', 'tier': 'alwaysHave'},
       };
-    await _pump(tester, storage);
+    await pump(tester, storage);
 
     expect(find.text('Your usuals'), findsOneWidget);
     expect(find.text('Carrot'), findsWidgets);
@@ -46,7 +46,7 @@ void main() {
   testWidgets('"Your usuals" section is hidden when tierMemory is empty',
       (tester) async {
     final storage = FakePantryMemoryStorage(); // no rows
-    await _pump(tester, storage);
+    await pump(tester, storage);
 
     expect(find.text('Your usuals'), findsNothing);
   });
