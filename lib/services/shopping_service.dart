@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/meal_plan_models.dart';
+import '../utils/pantry_staples.dart';
 import '../utils/quantity_utils.dart';
 
 // ─────────────────────────────────────────────
@@ -21,52 +22,11 @@ class ShoppingService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ── Staple exclusions ──────────────────────────────────────────────
-  // Each entry is matched as a WHOLE WORD inside the normalised name
-  // (e.g. "salt" matches "sea salt" and "table salt" but NOT "salted butter").
-  // This avoids false positives on compound words while still catching variants.
-  static const _stapleWords = <String>{
-    'water',  // cold water, warm water, tap water, …
-    'salt',   // sea salt, table salt, kosher salt, … but NOT salted butter
-    'pepper', // black pepper, ground pepper, white pepper, …
-    'sugar',  // caster sugar, granulated sugar, brown sugar, …
-  };
-
-  // Generic cooking oils — exact match only so sesame oil / chilli oil / truffle
-  // oil / olive oil are NOT excluded (they are specific, flavour-defining
-  // ingredients).  Only truly neutral / interchangeable oils are excluded.
-  static const _genericOilsExact = <String>{
-    'oil',
-    'cooking oil',
-    'vegetable oil',
-    'sunflower oil',
-    'canola oil',
-    'rapeseed oil',
-    'neutral oil',
-    'generic oil',
-  };
-
   /// Returns true when [normalisedName] is a common household staple that
-  /// should never be added to a shopping list automatically.
-  /// Public accessor for use in UI filtering (e.g. meal plan shopping dialog).
-  bool isStaplePublic(String normalisedName) => _isStaple(normalisedName);
-
-  bool _isStaple(String normalisedName) {
-    // Exact-match generic oils first.
-    if (_genericOilsExact.contains(normalisedName)) return true;
-    // Word-boundary check: the staple term must appear as a complete word so
-    // "salt" matches "sea salt" but not "salted butter".
-    return _stapleWords.any((term) => _containsWord(normalisedName, term));
-  }
-
-  /// True when [word] appears as a whole word inside [text].
-  /// Treats space as the only word separator (consistent with ingredient names).
-  static bool _containsWord(String text, String word) {
-    if (text == word) return true;
-    return text.startsWith('$word ') ||
-        text.endsWith(' $word') ||
-        text.contains(' $word ');
-  }
+  /// should never be added to a shopping list automatically. Public
+  /// accessor for use in UI filtering (e.g. meal plan shopping dialog).
+  bool isStaplePublic(String normalisedName) =>
+      PantryStaples.isStaple(normalisedName);
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
@@ -84,7 +44,7 @@ class ShoppingService {
     for (final doc in snapshot.docs) {
       final name = (doc.data()['nameLower'] as String?) ??
           (doc.data()['name'] as String? ?? '').toLowerCase().trim();
-      if (_isStaple(name)) {
+      if (PantryStaples.isStaple(name)) {
         batch.delete(doc.reference);
         purged++;
       }
@@ -141,7 +101,7 @@ class ShoppingService {
     final matchKey = _singularise(normalised);
 
     // Silently drop universal staples — they're always in the kitchen.
-    if (_isStaple(normalised)) return null;
+    if (PantryStaples.isStaple(normalised)) return null;
 
     // Check for existing item with same singularised key — update instead of
     // duplicating ("Carrot" + "Carrots" should merge into one row). Fall back
@@ -258,7 +218,7 @@ class ShoppingService {
           final lower = cleanName.toLowerCase().trim();
           final key = _singularise(lower);
           if (haveSet.any((h) => key.contains(h) || h.contains(key))) continue;
-          if (_isStaple(lower)) continue;
+          if (PantryStaples.isStaple(lower)) continue;
           displayNames.putIfAbsent(key, () => cleanName);
           lowerNames.putIfAbsent(key, () => lower);
           final parsed = QuantityUtils.parse(ingredient.quantity, ingredient.unit);
