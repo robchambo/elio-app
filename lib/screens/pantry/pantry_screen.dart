@@ -23,6 +23,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/firestore_service.dart';
+import '../../services/pantry_memory_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
@@ -354,6 +355,14 @@ class _PantryScreenState extends State<PantryScreen> {
         if (idx != -1) promotedFromId = _items[idx]['id'] as String?;
       case AddItemAddNew(name: final name):
         chosenName = name;
+        // Persist the typed custom so it surfaces as a first-class chip
+        // on subsequent builder opens. Fire-and-forget — inventory write
+        // happens via the existing path below regardless.
+        PantryMemoryService.instance.upsertCustom(
+          displayName: name,
+          category: categoryName,
+          tier: tier,
+        );
     }
 
     DateTime? expiry;
