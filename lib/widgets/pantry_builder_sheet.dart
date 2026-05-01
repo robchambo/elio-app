@@ -232,6 +232,15 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onAddItem(itemName, 'alwaysHave', categoryName ?? '');
+                  if (clearCustomFieldOnAdd) {
+                    // Inline custom-add path — persist to customItems so the typed
+                    // name surfaces on subsequent builder opens. Fire-and-forget.
+                    PantryMemoryService.instance.upsertCustom(
+                      displayName: itemName,
+                      category: categoryName ?? '',
+                      tier: 'alwaysHave',
+                    );
+                  }
                   setState(() {
                     _existingLower.add(itemName.toLowerCase().trim());
                     if (clearCustomFieldOnAdd) {
@@ -250,6 +259,15 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onAddItem(itemName, 'almostAlwaysHave', categoryName ?? '');
+                  if (clearCustomFieldOnAdd) {
+                    // Inline custom-add path — persist to customItems so the typed
+                    // name surfaces on subsequent builder opens. Fire-and-forget.
+                    PantryMemoryService.instance.upsertCustom(
+                      displayName: itemName,
+                      category: categoryName ?? '',
+                      tier: 'almostAlwaysHave',
+                    );
+                  }
                   setState(() {
                     _existingLower.add(itemName.toLowerCase().trim());
                     if (clearCustomFieldOnAdd) {
@@ -269,6 +287,15 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                 onTap: () {
                   Navigator.pop(ctx);
                   widget.onAddItem(itemName, 'perishable', categoryName ?? '');
+                  if (clearCustomFieldOnAdd) {
+                    // Inline custom-add path — persist to customItems so the typed
+                    // name surfaces on subsequent builder opens. Fire-and-forget.
+                    PantryMemoryService.instance.upsertCustom(
+                      displayName: itemName,
+                      category: categoryName ?? '',
+                      tier: 'perishable',
+                    );
+                  }
                   setState(() {
                     _existingLower.add(itemName.toLowerCase().trim());
                     if (clearCustomFieldOnAdd) {
