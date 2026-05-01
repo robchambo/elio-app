@@ -55,3 +55,4 @@ coverage/
 
 # Java heap dumps
 *.hprof
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
