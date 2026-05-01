@@ -41,6 +41,18 @@ class EntitlementService {
   int get remainingGenerations =>
       isPro ? 999 : (freeWeeklyLimit - _weeklyGenerations).clamp(0, freeWeeklyLimit);
 
+  /// Whole days remaining until the free-tier weekly counter resets.
+  ///
+  /// Returns 7 when the user has never generated (no week start recorded
+  /// yet) and 0 once the 7-day window has elapsed. The auto-reset happens
+  /// on the next [refresh()] call, so a value of 0 here means "the next
+  /// generation will trigger a fresh week".
+  int get daysUntilReset {
+    if (_weekStartedAt == null) return 7;
+    final elapsed = DateTime.now().toUtc().difference(_weekStartedAt!).inDays;
+    return (7 - elapsed).clamp(0, 7);
+  }
+
   int get maxHouseholdMembers => isPro ? proHouseholdLimit : freeHouseholdLimit;
 
   // ── Pro tester list (loaded from Firestore: config/proTesters) ────

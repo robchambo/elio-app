@@ -371,6 +371,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         label: 'Generate a recipe',
                         onTap: canGenerate ? _openPreferencesThenGenerate : null,
                       ),
+                      // Free-tier weekly meter — explains why the CTA is
+                      // disabled when the user hits their 7/week limit, and
+                      // shows the running count under the cap. Hidden on
+                      // Pro and on the guest pre-signin path (the latter
+                      // has its own paywall trigger when the guest cap is
+                      // hit during recipe-prefs flow).
+                      if (!widget.isGuest && _entitlements.isFree) ...[
+                        const SizedBox(height: ElioSpacing.sm),
+                        _FreeTierMeter(
+                          remaining: _entitlements.remainingGenerations,
+                          daysUntilReset: _entitlements.daysUntilReset,
+                          atLimit: !canGenerate,
+                          onUpgrade: _showUpgradeDialog,
+                        ),
+                      ],
                       const SizedBox(height: ElioSpacing.md),
                       if (proUnlocked)
                         ElioSecondaryCard(
@@ -476,6 +491,71 @@ class _HomeScreenState extends State<HomeScreen> {
   void _openMealPlanner() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const MealPlanScreen()),
+    );
+  }
+}
+
+// ─── Free-tier weekly meter ──────────────────────────────────────────
+//
+// Sits directly under the Generate CTA on Home for signed-in free users.
+// Two states:
+//   • Under the cap → quiet "N of 7 free recipes left this week" caption.
+//   • At the cap   → "You've used your 7 free recipes this week. Resets
+//                    in N day(s)." + a small Upgrade-to-Pro text link
+//                    that opens the paywall with `weekly_limit` context.
+//
+// Replaces the old "CTA just greys out with no explanation" UX —
+// previously the disabled button looked like a bug.
+class _FreeTierMeter extends StatelessWidget {
+  final int remaining;
+  final int daysUntilReset;
+  final bool atLimit;
+  final VoidCallback onUpgrade;
+
+  const _FreeTierMeter({
+    required this.remaining,
+    required this.daysUntilReset,
+    required this.atLimit,
+    required this.onUpgrade,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (atLimit) {
+      final daysLabel = daysUntilReset <= 1 ? 'tomorrow' : 'in $daysUntilReset days';
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            "You've used your 7 free recipes this week. Resets $daysLabel.",
+            textAlign: TextAlign.center,
+            style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.mocha),
+          ),
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: onUpgrade,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+              child: Text(
+                'Upgrade to Pro',
+                style: ElioTextStyles.uiLabelStyle.copyWith(
+                  color: ElioColors.terracotta,
+                  decoration: TextDecoration.underline,
+                  decorationColor: ElioColors.terracotta,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return Center(
+      child: Text(
+        '$remaining of 7 free recipes left this week',
+        textAlign: TextAlign.center,
+        style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.mocha),
+      ),
     );
   }
 }
