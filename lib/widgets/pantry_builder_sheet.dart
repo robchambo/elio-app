@@ -2,6 +2,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../data/pantry_categories.dart';
+import '../models/pantry_memory_entry.dart';
+import '../services/firestore_service.dart';
+import '../services/pantry_memory_service.dart';
 import '../theme/elio_radii.dart';
 import '../theme/elio_spacing.dart';
 import '../theme/elio_text_styles.dart';
@@ -27,11 +30,18 @@ class PantryBuilderSheet extends StatefulWidget {
   final Future<void> Function(String name, String tier, String? category) onAddItem;
   final Future<void> Function(String name) onRemoveItem;
 
+  /// Test-only override for the dietary loader. Production passes null
+  /// and the sheet reads from the user doc via FirestoreService.
+  @visibleForTesting
+  final Future<({List<String> dietary, List<String> allergies})>
+      Function()? dietaryLoaderOverride;
+
   const PantryBuilderSheet({
     super.key,
     required this.existingItemNames,
     required this.onAddItem,
     required this.onRemoveItem,
+    this.dietaryLoaderOverride,
   });
 
   @override
@@ -46,12 +56,65 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
   final Set<String> _expandedCategories = {};
   late Set<String> _existingLower;
 
+  // Loaded once on init; rebuilt only when the user adds a custom.
+  List<PantryMemoryEntry> _usuals = const [];
+  // ignore: unused_field
+  Set<String> _hadBeforeKeys = const {};
+  // ignore: unused_field
+  Map<String, List<PantryMemoryEntry>> _customsByCategory = const {};
+  // ignore: unused_field
+  List<String> _userDietary = const [];
+  // ignore: unused_field
+  List<String> _userAllergies = const [];
+  bool _memoryLoaded = false;
+
   @override
   void initState() {
     super.initState();
     _existingLower = widget.existingItemNames
         .map((n) => n.toLowerCase().trim())
         .toSet();
+    _loadMemory();
+  }
+
+  Future<void> _loadMemory() async {
+    final memSvc = PantryMemoryService.instance;
+
+    // Backfill is fire-and-forget; we don't await it before showing
+    // the UI. If it lands during this open, the next open sees usuals
+    // populated.
+    memSvc.backfillFromInventoryIfNeeded();
+
+    final dietaryLoader = widget.dietaryLoaderOverride ?? _loadDietaryFromUser;
+    final results = await Future.wait([
+      memSvc.recentUsuals(),
+      memSvc.hadBeforeKeys(),
+      memSvc.customsByCategory(),
+      dietaryLoader(),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _usuals = results[0] as List<PantryMemoryEntry>;
+      _hadBeforeKeys = results[1] as Set<String>;
+      _customsByCategory =
+          results[2] as Map<String, List<PantryMemoryEntry>>;
+      final diet = results[3] as ({List<String> dietary, List<String> allergies});
+      _userDietary = diet.dietary;
+      _userAllergies = diet.allergies;
+      _memoryLoaded = true;
+    });
+  }
+
+  Future<({List<String> dietary, List<String> allergies})>
+      _loadDietaryFromUser() async {
+    try {
+      final userData = await FirestoreService().getUserData();
+      final dietary = List<String>.from(userData['dietary'] ?? []);
+      final allergies = List<String>.from(userData['allergies'] ?? []);
+      return (dietary: dietary, allergies: allergies);
+    } catch (_) {
+      return (dietary: const <String>[], allergies: const <String>[]);
+    }
   }
 
   @override
@@ -225,7 +288,23 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
     );
   }
 
-  void _longPressItem(String itemName, String categoryName) {
+  void _addUsualToPantry(PantryMemoryEntry entry) {
+    HapticFeedback.selectionClick();
+    final key = entry.displayName.toLowerCase().trim();
+    if (_existingLower.contains(key)) {
+      widget.onRemoveItem(entry.displayName);
+      setState(() => _existingLower.remove(key));
+    } else {
+      // Pass entry.category so a custom item lands in its saved
+      // category bucket on the inventory write. tierMemory rows have
+      // a null category (no preference recorded), which the caller
+      // already handles by inferring from tier.
+      widget.onAddItem(entry.displayName, entry.tier, entry.category);
+      setState(() => _existingLower.add(key));
+    }
+  }
+
+  void _longPressItem(String itemName, String? categoryName) {
     HapticFeedback.mediumImpact();
     _showTierPickerForItem(itemName, categoryName);
   }
@@ -338,6 +417,32 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                 ),
               ),
             const SizedBox(height: ElioSpacing.sm),
+            if (_memoryLoaded && _usuals.isNotEmpty) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, ElioSpacing.sm, 20, ElioSpacing.xs),
+                child: Text(
+                  'Your usuals',
+                  style: ElioTextStyles.eyebrowStyle,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _usuals.map((entry) {
+                    final inPantry = _isInPantry(entry.displayName);
+                    return _BuilderChip(
+                      label: entry.displayName,
+                      selected: inPantry,
+                      onTap: () => _addUsualToPantry(entry),
+                      onLongPress: () => _longPressItem(entry.displayName, null),
+                    );
+                  }).toList(),
+                ),
+              ),
+              const SizedBox(height: ElioSpacing.sm),
+            ],
             // Category list — fills remaining height.
             Expanded(
               child: ListView.builder(

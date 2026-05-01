@@ -28,8 +28,16 @@ class PantryMemoryService {
 
   PantryMemoryService._(this._storage);
 
-  static final PantryMemoryService instance =
+  static PantryMemoryService _instance =
       PantryMemoryService._(_FirestorePantryMemoryStorage());
+
+  static PantryMemoryService get instance => _instance;
+
+  /// Test-only override for [instance]. Pass null to restore the default.
+  @visibleForTesting
+  static void debugSetTestInstance(PantryMemoryService? svc) {
+    _instance = svc ?? PantryMemoryService._(_FirestorePantryMemoryStorage());
+  }
 
   /// Test seam — inject a fake storage.
   @visibleForTesting
