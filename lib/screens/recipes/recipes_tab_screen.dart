@@ -24,6 +24,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/recipe_models.dart';
+import '../../services/firestore_service.dart';
 import '../../services/history_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
@@ -46,6 +47,8 @@ class RecipesTabScreen extends StatefulWidget {
 
 class _RecipesTabScreenState extends State<RecipesTabScreen> {
   List<SavedRecipe> _all = const [];
+  Set<String> _pantryLower = const {};
+  bool _makeableOnly = false;
   bool _loading = true;
 
   @override
@@ -56,10 +59,52 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
 
   Future<void> _load() async {
     final all = await HistoryService.getHistory();
+    final pantry = await _loadPantryNames();
     if (!mounted) return;
     setState(() {
       _all = all;
+      _pantryLower = pantry;
       _loading = false;
+    });
+  }
+
+  /// Build a lowercased set of pantry item names (alwaysHave +
+  /// almostAlwaysHave + perishables in inventory) to compare against
+  /// recipe ingredient names. Exact match only — fuzzy is reserved for
+  /// add-item dedup per CLAUDE.md.
+  Future<Set<String>> _loadPantryNames() async {
+    try {
+      final userData = await FirestoreService().getUserData();
+      final alwaysHave = List<String>.from(userData['alwaysHave'] ?? []);
+      final almostAlwaysHave =
+          List<String>.from(userData['almostAlwaysHave'] ?? []);
+      final inventoryWithIds = List<Map<String, dynamic>>.from(
+        (userData['inventoryWithIds'] as List<dynamic>? ?? [])
+            .map((e) => e as Map<String, dynamic>),
+      );
+      final inventoryNames = inventoryWithIds
+          .map((i) => i['name'] as String? ?? '')
+          .where((n) => n.isNotEmpty);
+      return {
+        ...alwaysHave.map((s) => s.toLowerCase().trim()),
+        ...almostAlwaysHave.map((s) => s.toLowerCase().trim()),
+        ...inventoryNames.map((s) => s.toLowerCase().trim()),
+      }..removeWhere((s) => s.isEmpty);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// Every ingredient must have an exact lowercased match in the pantry
+  /// set. An empty ingredient list is trivially makeable; an empty pantry
+  /// is never.
+  bool _isMakeableNow(SavedRecipe saved) {
+    final ingredients = saved.recipe.ingredients;
+    if (ingredients.isEmpty) return true;
+    if (_pantryLower.isEmpty) return false;
+    return ingredients.every((ing) {
+      final name = ing.name.toLowerCase().trim();
+      return _pantryLower.contains(name);
     });
   }
 
@@ -91,15 +136,18 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // TODO(Bug 6 / Sprint 16.4): Filters removed (search field, makeable-now
-    // pantry switch, category chips). Revisit after launch — likely re-add as
-    // a single unified search + saved/history split, but only once we know
-    // what users actually need from this surface.
+    // The makeable-now toggle was restored 2026-04-30 after a family
+    // tester missed it. Search field + category chip row stay removed
+    // (Sprint 16.4 Bug 6) — they were noise on a tab whose only purpose
+    // is to find a saved or recently generated recipe.
+    bool passes(SavedRecipe r) => !_makeableOnly || _isMakeableNow(r);
+
     final saved = _all
         .where((r) => r.isBookmarked)
+        .where(passes)
         .take(_kMaxPerSection)
         .toList();
-    final history = _all.take(_kMaxPerSection).toList();
+    final history = _all.where(passes).take(_kMaxPerSection).toList();
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
@@ -144,11 +192,20 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
           ),
           const SizedBox(height: ElioSpacing.xl),
 
+          // ── Makeable-now toggle ────────────────────────────────────
+          _MakeableSwitch(
+            value: _makeableOnly,
+            onChanged: (v) => setState(() => _makeableOnly = v),
+          ),
+          const SizedBox(height: ElioSpacing.lg),
+
           // ── Saved ──────────────────────────────────────────────────
           const ElioEyebrow('saved'),
           const SizedBox(height: ElioSpacing.sm),
           if (saved.isEmpty)
-            _emptyText("You haven't bookmarked any recipes yet.")
+            _emptyText(_makeableOnly
+                ? 'No saved recipes you can cook with your pantry right now.'
+                : "You haven't bookmarked any recipes yet.")
           else
             ...saved.map(_buildRecipeCard),
 
@@ -158,7 +215,9 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
           const ElioEyebrow('history'),
           const SizedBox(height: ElioSpacing.sm),
           if (history.isEmpty)
-            _emptyText('Recipes you generate will appear here.')
+            _emptyText(_makeableOnly
+                ? 'No history recipes you can cook with your pantry right now.'
+                : 'Recipes you generate will appear here.')
           else
             ...history.map(_buildRecipeCard),
         ],
@@ -241,5 +300,46 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
         padding: const EdgeInsets.symmetric(vertical: ElioSpacing.md),
         child: Text(text, style: ElioTextStyles.bodySmallStyle),
       );
+}
+
+/// Cream-deep panel + terracotta switch — toggles the makeable-now
+/// filter. Restored 2026-04-30 after a family tester missed it.
+class _MakeableSwitch extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _MakeableSwitch({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: ElioSpacing.md,
+        vertical: ElioSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: ElioColors.creamDeep,
+        borderRadius: BorderRadius.circular(ElioRadii.card),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Show only recipes I can cook now',
+              style: ElioTextStyles.uiLabelStyle,
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: Colors.white,
+            activeTrackColor: ElioColors.terracotta,
+            inactiveThumbColor: Colors.white,
+            inactiveTrackColor: ElioColors.rule,
+          ),
+        ],
+      ),
+    );
+  }
 }
 
