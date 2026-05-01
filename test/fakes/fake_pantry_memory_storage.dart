@@ -7,7 +7,7 @@ class FakePantryMemoryStorage implements PantryMemoryStorage {
   Map<String, Map<String, dynamic>> tierMemoryRows = {};
   Map<String, Map<String, dynamic>> customItemRows = {};
   Map<String, dynamic> userDoc = const {};
-  Map<String, dynamic> inventoryRows = const {};
+  Map<String, Map<String, dynamic>> inventoryRows = const {};
 
   bool throwOnRead = false;
   bool throwOnWrite = false;
@@ -38,7 +38,7 @@ class FakePantryMemoryStorage implements PantryMemoryStorage {
   @override
   Future<Map<String, Map<String, dynamic>>> fetchInventory() async {
     if (throwOnRead) throw StateError('test: read failed');
-    return inventoryRows.map((k, v) => MapEntry(k, Map<String, dynamic>.from(v as Map)));
+    return Map.of(inventoryRows.map((k, v) => MapEntry(k, Map<String, dynamic>.from(v))));
   }
 
   @override

@@ -52,7 +52,7 @@ class PantryMemoryService {
       entries.sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
       return entries.take(limit).toList(growable: false);
     } catch (_) {
-      return const [];
+      return const <PantryMemoryEntry>[];
     }
   }
 
@@ -65,7 +65,7 @@ class PantryMemoryService {
           .where((k) => !PantryStaples.isStaple(k))
           .toSet();
     } catch (_) {
-      return const {};
+      return const <String>{};
     }
   }
 
@@ -83,9 +83,12 @@ class PantryMemoryService {
         if (cat == null) return;
         byCategory.putIfAbsent(cat, () => []).add(entry);
       });
+      byCategory.forEach((cat, list) {
+        list.sort((a, b) => b.lastSeen.compareTo(a.lastSeen));
+      });
       return byCategory;
     } catch (_) {
-      return const {};
+      return const <String, List<PantryMemoryEntry>>{};
     }
   }
 
@@ -109,7 +112,7 @@ class _FirestorePantryMemoryStorage implements PantryMemoryStorage {
   @override
   Future<Map<String, Map<String, dynamic>>> fetchTierMemory() async {
     final uid = _uid;
-    if (uid == null) return const {};
+    if (uid == null) return const <String, Map<String, dynamic>>{};
     final snap = await _db.collection('users').doc(uid).collection('tierMemory').get();
     return {for (final d in snap.docs) d.id: d.data()};
   }
@@ -117,7 +120,7 @@ class _FirestorePantryMemoryStorage implements PantryMemoryStorage {
   @override
   Future<Map<String, Map<String, dynamic>>> fetchCustomItems() async {
     final uid = _uid;
-    if (uid == null) return const {};
+    if (uid == null) return const <String, Map<String, dynamic>>{};
     final snap = await _db.collection('users').doc(uid).collection('customItems').get();
     return {for (final d in snap.docs) d.id: d.data()};
   }
@@ -125,15 +128,15 @@ class _FirestorePantryMemoryStorage implements PantryMemoryStorage {
   @override
   Future<Map<String, dynamic>> fetchUserDoc() async {
     final uid = _uid;
-    if (uid == null) return const {};
+    if (uid == null) return const <String, dynamic>{};
     final doc = await _db.collection('users').doc(uid).get();
-    return doc.data() ?? const {};
+    return doc.data() ?? const <String, dynamic>{};
   }
 
   @override
   Future<Map<String, Map<String, dynamic>>> fetchInventory() async {
     final uid = _uid;
-    if (uid == null) return const {};
+    if (uid == null) return const <String, Map<String, dynamic>>{};
     final snap = await _db.collection('users').doc(uid).collection('inventory').get();
     return {for (final d in snap.docs) d.id: d.data()};
   }

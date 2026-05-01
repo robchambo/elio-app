@@ -63,16 +63,19 @@ void main() {
             'displayName': 'Miso paste',
             'category': 'Asian Pantry',
             'tier': 'alwaysHave',
+            'lastSeen': DateTime.fromMillisecondsSinceEpoch(2000),
           },
           'salt': {
             'displayName': 'Salt',
             'category': 'Spices & Seasonings',
             'tier': 'alwaysHave',
+            'lastSeen': DateTime.fromMillisecondsSinceEpoch(9999),
           },
           'gochujang': {
             'displayName': 'Gochujang',
             'category': 'Asian Pantry',
             'tier': 'alwaysHave',
+            'lastSeen': DateTime.fromMillisecondsSinceEpoch(5000),
           },
         };
       final service = PantryMemoryService.test(storage: storage);
@@ -80,7 +83,7 @@ void main() {
       final byCategory = await service.customsByCategory();
       expect(byCategory.keys, {'Asian Pantry'});
       expect(byCategory['Asian Pantry']!.map((e) => e.displayName).toList(),
-          ['Miso paste', 'Gochujang']);
+          ['Gochujang', 'Miso paste']); // newest first
     });
   });
 }
