@@ -225,6 +225,23 @@ Work is grouped into three parallel tracks:
 
 ---
 
+## Sprint 15.9.1 — Inventory Dedup ✅ (May 2026)
+
+**Goal:** Stop `FirestoreService.addInventoryItem` creating duplicate Firestore docs when a user re-imports an item via any path. Existing rows update; tier sticks (existing wins); perishable expiry refreshes; `lastPurchasedAt` always refreshes.
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Extract PantryStringMatch utility from ShoppingService._singularise | ✅ |
+| 2 | InventoryWriter skeleton + storage interface + fake | ✅ |
+| 3 | InventoryWriter.addItem with dedup + tier-sticky rule book | ✅ |
+| 4 | Lazy migration of legacy rows on first addItem | ✅ |
+| 5 | FirestoreService.addInventoryItem delegates to InventoryWriter | ✅ |
+| 6 | Docs (CLAUDE.md schema + roadmap.md) | ✅ |
+
+**Branch:** `sprint/15.9.1-inventory-dedup`. Spec: `docs/superpowers/specs/2026-05-01-sprint-15.9.1-inventory-dedup-design.md`. Plan: `docs/superpowers/plans/2026-05-01-sprint-15.9.1-inventory-dedup.md`.
+
+---
+
 ## Sprint 16 — UI Overhaul — COMPLETE (April 2026, pending minor bug tweaks)
 
 All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens (Shopping, Recipe Book, Account, Recipe Preferences, Paywall, Meal Plan, Hands-Free, Onboarding) shipped with the new Elio design system. 17 widgets in `lib/widgets/elio/`, 3 new token files in `lib/theme/`, 25/25 tests passing.

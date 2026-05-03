@@ -90,9 +90,14 @@ users/{uid}/
                             weekStartedAt, ...} (entitlement keys client-locked),
                             pantryMemoryBackfilled — boolean flag, set to true after
                             first builder open post-15.9 has migrated tierMemory from
-                            inventory
+                            inventory,
+                            inventoryDedupBackfilled — boolean flag, set true after
+                            first addItem call has migrated legacy inventory rows to
+                            include matchKey + nameLower + timestamps
   profiles/{id}           — household members; name, dietaryRequirements[], isOwner
-  inventory/{id}          — name, tier, category, expiryDate?, price?, runningLow
+  inventory/{id}          — name, tier, category, expiryDate?, price?, runningLow,
+                            nameLower, matchKey, firstAddedAt, lastPurchasedAt
+                            (Sprint 15.9.1: dedup keys + purchase-date timestamps)
   recipes/{id}            — saved/bookmarked recipes
   ratings/{id}            — recipe likes/dislikes for adaptive learning
   mealPlan/{id}           — singular: weekly meal plan docs
