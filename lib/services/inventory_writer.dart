@@ -14,6 +14,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
+import '../utils/pantry_string_match.dart';
+
 /// Storage abstraction so the dedup logic can be tested without
 /// touching Firestore. Production: [_FirestoreInventoryWriteStorage].
 abstract class InventoryWriteStorage {
@@ -45,7 +47,6 @@ abstract class InventoryWriteStorage {
 }
 
 class InventoryWriter {
-  // ignore: unused_field // used by addItem (Task 3) + migrator (Task 4)
   final InventoryWriteStorage _storage;
 
   /// Session-local cache so we only hit the user doc for the migration
@@ -70,6 +71,89 @@ class InventoryWriter {
   @visibleForTesting
   factory InventoryWriter.test({required InventoryWriteStorage storage}) =>
       InventoryWriter._(storage);
+
+  /// Dedup-aware inventory add. Returns the doc id (existing on update,
+  /// new on insert). Universal staples are NOT silently filtered here
+  /// (caller responsibility — different surfaces handle staples
+  /// differently; the builder dialog already blocks them inline, and
+  /// the receipt scanner relies on the staple filter at recipe-time).
+  ///
+  /// Per the spec rule book:
+  ///   - tier        sticky on re-add (existing wins)
+  ///   - expiryDate  refreshes if existing is perishable AND new value supplied
+  ///   - lastPurchasedAt  always refreshed
+  ///   - firstAddedAt     never overwritten on update; set on insert
+  ///   - runningLow       cleared (false) on every re-add
+  ///   - price       replaced if supplied; sticky if not
+  ///   - category    sticky
+  ///   - name        sticky (existing display casing preserved)
+  Future<String> addItem({
+    required String name,
+    required String tier,
+    DateTime? expiryDate,
+    String? category,
+    String? price,
+  }) async {
+    // Lazy migration runs first so the dedup query has the new fields
+    // populated on legacy rows. (Implemented in Task 4.)
+    await _runMigrationIfNeeded();
+
+    final nameLower = PantryStringMatch.nameLower(name);
+    final matchKey = PantryStringMatch.matchKey(name);
+
+    final existing = await _storage.findExistingByKey(
+      matchKey: matchKey,
+      nameLower: nameLower,
+    );
+
+    if (existing != null) {
+      final existingTier = (existing.data['tier'] as String?) ?? tier;
+      final updates = <String, dynamic>{
+        'lastPurchasedAt': FieldValue.serverTimestamp(),
+        'runningLow': false,
+        // Defensive backfill — these may be missing on legacy rows.
+        'matchKey': matchKey,
+        'nameLower': nameLower,
+      };
+      // Refresh expiry only if existing tier is perishable AND a new
+      // value is supplied. Existing non-perishable rows ignore expiry.
+      if (existingTier == 'perishable' && expiryDate != null) {
+        updates['expiryDate'] = Timestamp.fromDate(expiryDate);
+      }
+      // Replace price only if supplied; never clear an existing price.
+      if (price != null && price.isNotEmpty) {
+        updates['price'] = price;
+      }
+      await _storage.updateInventoryDoc(existing.id, updates);
+      return existing.id;
+    }
+
+    // Insert path.
+    final data = <String, dynamic>{
+      'name': name,
+      'tier': tier,
+      'nameLower': nameLower,
+      'matchKey': matchKey,
+      'runningLow': false,
+      'firstAddedAt': FieldValue.serverTimestamp(),
+      'lastPurchasedAt': FieldValue.serverTimestamp(),
+    };
+    if (expiryDate != null) {
+      data['expiryDate'] = Timestamp.fromDate(expiryDate);
+    }
+    if (category != null) {
+      data['category'] = category;
+    }
+    if (price != null && price.isNotEmpty) {
+      data['price'] = price;
+    }
+    return _storage.insertInventoryDoc(data);
+  }
+
+  /// No-op stub until Task 4 wires the actual migrator.
+  Future<void> _runMigrationIfNeeded() async {
+    // Implemented in Task 4.
+  }
 }
 
 // ─── Production storage ──────────────────────────────────────────────
