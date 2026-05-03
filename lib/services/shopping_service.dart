@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/meal_plan_models.dart';
 import '../utils/pantry_staples.dart';
+import '../utils/pantry_string_match.dart';
 import '../utils/quantity_utils.dart';
 
 // ─────────────────────────────────────────────
@@ -71,24 +72,10 @@ class ShoppingService {
 
   // ── Match-key normalisation ─────────────────────────────────────────
   // Storage `nameLower` is the lowercase trimmed name (kept for backwards
-  // compatibility + readability). Lookups go through [_matchKey] which also
-  // strips simple English plurals so "Carrots" and "Carrot" resolve to the
-  // same item. Without this, recipes that use "Carrot" + "Carrots" produce
-  // two separate rows (Sprint 16.3 bug from Rob's screenshot).
-  /// Crude English singulariser — sufficient for produce names. Returns
-  /// the input unchanged when stripping a trailing 's'/'es'/'ies' would
-  /// be wrong (words ending in "ss"/"us"/"is"/short words).
-  static String _singularise(String s) {
-    if (s.length < 4) return s;
-    if (s.endsWith('ss') || s.endsWith('us') || s.endsWith('is')) return s;
-    if (s.endsWith('ies')) return '${s.substring(0, s.length - 3)}y';
-    if (s.endsWith('oes') || s.endsWith('xes') || s.endsWith('ches') ||
-        s.endsWith('shes')) {
-      return s.substring(0, s.length - 2);
-    }
-    if (s.endsWith('s')) return s.substring(0, s.length - 1);
-    return s;
-  }
+  // compatibility + readability). Lookups go through `PantryStringMatch.matchKey`
+  // which also strips simple English plurals so "Carrots" and "Carrot" resolve
+  // to the same item. Without this, recipes that use "Carrot" + "Carrots"
+  // produce two separate rows (Sprint 16.3 bug from Rob's screenshot).
 
   // ── Add a single item ──────────────────────────────────────────────
   // Returns null (silently) when [name] is a common household staple.
@@ -98,7 +85,7 @@ class ShoppingService {
     ShoppingSource source = ShoppingSource.manual,
   }) async {
     final normalised = name.trim().toLowerCase();
-    final matchKey = _singularise(normalised);
+    final matchKey = PantryStringMatch.matchKey(normalised);
 
     // Silently drop universal staples — they're always in the kitchen.
     if (PantryStaples.isStaple(normalised)) return null;
@@ -171,7 +158,7 @@ class ShoppingService {
     await _collection.doc(itemId).update({
       'name': name.trim(),
       'nameLower': lower,
-      'matchKey': _singularise(lower),
+      'matchKey': PantryStringMatch.matchKey(lower),
       'quantity': quantity.trim(),
     });
   }
@@ -216,7 +203,7 @@ class ShoppingService {
         for (final ingredient in meal.ingredients) {
           final cleanName = cleanForShopping(ingredient.name);
           final lower = cleanName.toLowerCase().trim();
-          final key = _singularise(lower);
+          final key = PantryStringMatch.matchKey(lower);
           if (haveSet.any((h) => key.contains(h) || h.contains(key))) continue;
           if (PantryStaples.isStaple(lower)) continue;
           displayNames.putIfAbsent(key, () => cleanName);
@@ -234,7 +221,7 @@ class ShoppingService {
     for (final doc in existing.docs) {
       final data = doc.data();
       final stored = (data['matchKey'] as String?) ??
-          _singularise(((data['nameLower'] as String?) ??
+          PantryStringMatch.matchKey(((data['nameLower'] as String?) ??
                   (data['name'] as String? ?? '').toLowerCase())
               .trim());
       existingByKey[stored] = doc.reference;
