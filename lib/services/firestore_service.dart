@@ -7,6 +7,7 @@ import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
 import '../utils/pantry_utils.dart';
 import 'error_service.dart';
+import 'inventory_writer.dart';
 
 // ─────────────────────────────────────────────
 // FirestoreService
@@ -335,20 +336,23 @@ class FirestoreService {
 
   // ─── Add a new inventory item ────────────────────────────────────
 
-  Future<String> addInventoryItem(String name, String tier, {DateTime? expiryDate, String? category, String? price}) async {
-    final ref = _db.collection('users').doc(_uid).collection('inventory').doc();
-    final data = <String, dynamic>{'name': name, 'tier': tier, 'runningLow': false};
-    if (expiryDate != null) {
-      data['expiryDate'] = Timestamp.fromDate(expiryDate);
-    }
-    if (category != null) {
-      data['category'] = category;
-    }
-    if (price != null && price.isNotEmpty) {
-      data['price'] = price;
-    }
-    await ref.set(data);
-    return ref.id;
+  Future<String> addInventoryItem(
+    String name,
+    String tier, {
+    DateTime? expiryDate,
+    String? category,
+    String? price,
+  }) async {
+    // Sprint 15.9.1: dedup-aware add lives in InventoryWriter. The
+    // signature here is unchanged so callers (pantry tab, scanner,
+    // builder sheet) don't need to update.
+    return InventoryWriter.instance.addItem(
+      name: name,
+      tier: tier,
+      expiryDate: expiryDate,
+      category: category,
+      price: price,
+    );
   }
 
   // ─── Delete an inventory item ────────────────────────────────────
