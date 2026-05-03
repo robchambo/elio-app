@@ -52,7 +52,6 @@ class InventoryWriter {
   /// Session-local cache so we only hit the user doc for the migration
   /// flag once. Stays null until the first call resolves it; once true
   /// the migrator short-circuits forever within this app launch.
-  // ignore: unused_field // wired by migrator in Task 4
   bool? _migrationDoneCache;
 
   InventoryWriter._(this._storage);
@@ -150,9 +149,45 @@ class InventoryWriter {
     return _storage.insertInventoryDoc(data);
   }
 
-  /// No-op stub until Task 4 wires the actual migrator.
+  /// Lazy one-shot migration. Idempotent — guarded by both a session-local
+  /// cache and the `inventoryDedupBackfilled` flag on the user doc. Read
+  /// failures silently no-op (we never block addItem for an optional
+  /// polish migration).
   Future<void> _runMigrationIfNeeded() async {
-    // Implemented in Task 4.
+    if (_migrationDoneCache == true) return;
+    try {
+      final user = await _storage.fetchUserDoc();
+      if (user['inventoryDedupBackfilled'] == true) {
+        _migrationDoneCache = true;
+        return;
+      }
+
+      final inventory = await _storage.fetchAllInventory();
+      final rows = <({String id, Map<String, dynamic> updates})>[];
+      for (final entry in inventory) {
+        if (entry.data.containsKey('matchKey')) continue; // already migrated
+        final name = (entry.data['name'] as String?)?.trim() ?? '';
+        if (name.isEmpty) continue;
+        rows.add((
+          id: entry.id,
+          updates: {
+            'nameLower': PantryStringMatch.nameLower(name),
+            'matchKey': PantryStringMatch.matchKey(name),
+            'firstAddedAt': FieldValue.serverTimestamp(),
+            'lastPurchasedAt': FieldValue.serverTimestamp(),
+          },
+        ));
+      }
+
+      // Always commit (even if rows empty) so the flag lands and we
+      // skip the work on subsequent launches.
+      await _storage.migrateLegacyRows(rows);
+      _migrationDoneCache = true;
+    } catch (_) {
+      // Best-effort — never block addItem. _migrationDoneCache stays null
+      // so the next addItem call retries. That's fine: a transient
+      // failure shouldn't permanently disable the migrator.
+    }
   }
 }
 
