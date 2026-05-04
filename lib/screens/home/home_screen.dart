@@ -19,6 +19,7 @@ import '../paywall/paywall_screen.dart';
 import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/gemini_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_page_title.dart';
@@ -71,6 +72,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    // Sprint 15.9.2: defensive Gemini pre-warm. main.dart already fires this
+    // at app launch, but warm-start scenarios (app backgrounded for 30+ min,
+    // OS killed our HTTP/2 connection) leave the next Generate tap paying
+    // the full cold-start tax. This re-fires whenever the user lands on
+    // Home — fire-and-forget, errors swallowed inside the service.
+    GeminiService.prewarmConnection();
     _loadUserData();
     _loadRecentRecipes();
     // Request notification permission on first HomeScreen load (non-blocking)

@@ -8,6 +8,7 @@ import 'theme/elio_theme.dart';
 import 'screens/onboarding/onboarding_flow.dart';
 import 'screens/shell/app_shell.dart';
 import 'services/analytics_service.dart';
+import 'services/gemini_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/notification_service.dart';
 
@@ -50,6 +51,13 @@ void main() async {
     await NotificationService.instance.init();
 
     // PurchaseService is deferred to first use (lazy init) to reduce cold-start time.
+
+    // Sprint 15.9.2: pre-warm the Gemini Flash connection at app launch so the
+    // first user-facing recipe generation doesn't pay the cold-start tax. Fire-
+    // and-forget; errors swallowed inside the service. Covers EVERY entry path
+    // — onboarding screen 13, returning-user Home Generate, post-background
+    // warm-starts. Onboarding screen 12 still calls this defensively too.
+    GeminiService.prewarmConnection();
   } catch (_) {
     // Firebase init may fail with placeholder credentials — app still
     // functions in guest mode.

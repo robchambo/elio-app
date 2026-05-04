@@ -83,17 +83,23 @@ class GeminiService {
 
   /// Fire-and-forget connection pre-warm. Called from screen 12 on
   /// onboarding so the TLS handshake + Gemini's first-request warmup
-  /// finishes before screen 13's real generation kicks off.
+  /// finishes before the real generation kicks off.
   ///
   /// Per memory note `feedback_gemini_api.md`: "Gemini first-attempt
   /// reliability — Rob reports streaming generation commonly fails on
   /// the first attempt after app launch and succeeds on retry." This
-  /// burns the cold-start on a throwaway 1-token call so the user-
-  /// facing call inherits a warm path.
+  /// burns the cold-start on a throwaway tiny call so the user-facing
+  /// call inherits a warm path.
+  ///
+  /// **Sprint 15.9.2 reliability pass:** previously hit `flash-lite`
+  /// with 8 tokens. Switched to `gemini-2.5-flash` with 32 tokens so the
+  /// warmup targets the same model the production streaming path uses
+  /// — TLS handshake reuse alone wasn't warming Google's per-model pool.
+  /// Cost is negligible (~$0.0001 per app launch).
   ///
   /// Errors are swallowed silently — this is best-effort, never blocks.
   static Future<void> prewarmConnection() async {
-    const prewarmModel = 'gemini-2.5-flash-lite';
+    const prewarmModel = 'gemini-2.5-flash';
     const prewarmEndpoint =
         'https://generativelanguage.googleapis.com/v1beta/models/$prewarmModel:generateContent';
     try {
@@ -110,8 +116,9 @@ class GeminiService {
                 }
               ],
               'generationConfig': {
-                'maxOutputTokens': 8,
+                'maxOutputTokens': 32,
                 'temperature': 0.0,
+                'thinkingConfig': {'thinkingBudget': 0},
               },
             }),
           )
