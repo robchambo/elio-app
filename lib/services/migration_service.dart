@@ -102,8 +102,16 @@ class MigrationService {
         _aliasFn = purchaseAlias ?? _defaultPurchaseAlias,
         _guestPantry = guestPantry ?? GuestPantryService();
 
-  static Map<String, dynamic> buildUserDocPayload(OnboardingState s) =>
-      s.toFirestoreMap();
+  static Map<String, dynamic> buildUserDocPayload(OnboardingState s) => {
+        ...s.toFirestoreMap(),
+        // Sprint 15.9.3: persist the onboarding flag in the user doc
+        // too. AuthGate now falls back to this when SharedPreferences
+        // is wiped (debug-keystore rotation, OS-level clear data,
+        // sideloaded reinstall) — without this, returning users were
+        // forced through onboarding again even though their Firestore
+        // data was intact.
+        'onboardingComplete': true,
+      };
 
   /// Migrates the guest onboarding state to Firestore under [uid].
   ///

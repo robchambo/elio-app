@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:ui';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -113,9 +115,43 @@ class AuthGate extends StatelessWidget {
     this.onboardingBuilder,
   });
 
+  /// Sprint 15.9.3: this used to read SharedPreferences only, which
+  /// meant any data wipe (uninstall + reinstall, debug-keystore
+  /// rotation forcing a re-install, OS-level "clear data") sent the
+  /// user back through onboarding even though their Firebase Auth +
+  /// Firestore data was intact (it's tied to their Google UID).
+  ///
+  /// Now: SharedPreferences is the fast path. If it's false but the
+  /// user is signed in to Firebase, fall back to the user-doc
+  /// `onboardingComplete` flag in Firestore. If Firestore confirms
+  /// onboarding was completed, set the local flag and proceed.
+  /// Network failure → fall back to the local value (false).
   Future<bool> _isOnboardingComplete() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool('onboardingComplete') ?? false;
+    if (prefs.getBool('onboardingComplete') == true) return true;
+
+    // Fast-path miss — try Firestore if signed in.
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return false;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get()
+          .timeout(const Duration(seconds: 4));
+      final remoteComplete = doc.data()?['onboardingComplete'] == true;
+      if (remoteComplete) {
+        // Mirror back to local so the next launch is fast.
+        await prefs.setBool('onboardingComplete', true);
+        return true;
+      }
+    } catch (_) {
+      // Network or auth failure — best-effort. Treat as not complete
+      // and let the user re-onboard or sign in. Their Firestore data
+      // (recipes, dietary, etc.) survives regardless because it's
+      // keyed by their UID.
+    }
+    return false;
   }
 
   @override

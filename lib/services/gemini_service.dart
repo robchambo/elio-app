@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/elio_models.dart';
 import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
+import '../utils/pantry_string_match.dart';
 import '../utils/region_utils.dart';
 import 'error_service.dart';
 import 'remote_config_service.dart';
@@ -576,16 +577,24 @@ class GeminiService {
 
   /// Sprint 15.9.3 SAFETY filter. Returns the first allergen string
   /// that appears anywhere in the recipe's text fields, or null if the
-  /// recipe is clean. Case-insensitive substring match — catches
-  /// derivatives ("peanuts" → "peanut butter", "peanut oil") via the
-  /// `peanut` substring. False positives are possible (e.g. a recipe
-  /// description containing "peanut-free") but they only cost a retry
-  /// — safer than letting a violation through.
+  /// recipe is clean.
   ///
-  /// Substring matching uses the user-typed allergen verbatim. We do
-  /// NOT try to expand to synonyms (groundnuts, arachis oil) — the
-  /// prompt's worked examples handle that ahead of time, and a synonym
-  /// table here would balloon scope without obvious end.
+  /// Match strategy: case-insensitive substring against BOTH the raw
+  /// lowercased allergen AND its singularised form (via
+  /// PantryStringMatch.matchKey). The singularised form is critical:
+  /// users type "peanuts" but recipes write "peanut butter", and a
+  /// raw substring match misses that ("peanut butter" doesn't contain
+  /// "peanuts"). Singularising the needle to "peanut" catches both
+  /// "peanut" and "peanuts" in any haystack.
+  ///
+  /// False positives possible (e.g. a description containing
+  /// "peanut-free"). Cost is a retry — safer than letting a violation
+  /// through.
+  ///
+  /// We do NOT expand to free-form synonyms (groundnuts, arachis oil) —
+  /// the prompt's worked examples push Gemini toward producing
+  /// recognisable variants. If we see consistent miss patterns in the
+  /// wild, a small synonym table is the next lever.
   static String? _findAllergenViolation(
     GeneratedRecipe recipe,
     List<String> allergens,
@@ -601,10 +610,14 @@ class GeminiService {
     ].map((s) => s.toLowerCase()).toList();
 
     for (final allergen in allergens) {
-      final needle = allergen.trim().toLowerCase();
-      if (needle.isEmpty) continue;
+      final raw = allergen.trim().toLowerCase();
+      if (raw.isEmpty) continue;
+      // Singularised form catches plural-vs-singular mismatches —
+      // "peanuts" (user) vs "peanut butter" (recipe) is the canonical
+      // failure case this fix addresses.
+      final singular = PantryStringMatch.matchKey(allergen);
       for (final hay in haystacks) {
-        if (hay.contains(needle)) return allergen;
+        if (hay.contains(raw) || hay.contains(singular)) return allergen;
       }
     }
     return null;

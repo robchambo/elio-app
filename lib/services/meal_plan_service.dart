@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/meal_plan_models.dart';
 import '../models/recipe_models.dart';
+import '../utils/pantry_string_match.dart';
 import 'remote_config_service.dart';
 
 // ─────────────────────────────────────────────
@@ -263,6 +264,9 @@ class MealPlanService {
   /// See gemini_service.dart `_findAllergenViolation` — same idea,
   /// scoped to a [MealSlot]. Duplicated rather than imported because
   /// MealSlot and GeneratedRecipe have different field shapes.
+  ///
+  /// Match is against BOTH the raw allergen and its singularised form
+  /// (PantryStringMatch.matchKey) so "peanuts" catches "peanut butter".
   static String? _findAllergenViolation(
     MealSlot meal,
     List<String> allergens,
@@ -276,10 +280,11 @@ class MealPlanService {
     ].map((s) => s.toLowerCase()).toList();
 
     for (final allergen in allergens) {
-      final needle = allergen.trim().toLowerCase();
-      if (needle.isEmpty) continue;
+      final raw = allergen.trim().toLowerCase();
+      if (raw.isEmpty) continue;
+      final singular = PantryStringMatch.matchKey(allergen);
       for (final hay in haystacks) {
-        if (hay.contains(needle)) return allergen;
+        if (hay.contains(raw) || hay.contains(singular)) return allergen;
       }
     }
     return null;
