@@ -292,17 +292,44 @@ class InventoryWriter {
     ({String id, Map<String, dynamic> data}) a,
     ({String id, Map<String, dynamic> data}) b,
   ) {
-    final aFirst = a.data['firstAddedAt'];
-    final bFirst = b.data['firstAddedAt'];
-    if (aFirst is Timestamp && bFirst is Timestamp) {
+    final aFirst = _readTimestamp(a.data['firstAddedAt']);
+    final bFirst = _readTimestamp(b.data['firstAddedAt']);
+    if (aFirst != null && bFirst != null) {
       final c = aFirst.compareTo(bFirst);
       if (c != 0) return c;
-    } else if (aFirst is Timestamp) {
+    } else if (aFirst != null) {
       return -1;
-    } else if (bFirst is Timestamp) {
+    } else if (bFirst != null) {
       return 1;
     }
     return a.id.compareTo(b.id);
+  }
+
+  /// Defensive read of a timestamp-shaped field from a doc map. Handles
+  /// the four shapes we've seen in legacy data:
+  ///   - [Timestamp] (the post-15.9.1 canonical form)
+  ///   - [String] in ISO 8601 (older write paths used `toIso8601String()`)
+  ///   - [DateTime] (rare, but possible from ad-hoc model code)
+  ///   - null / unparseable → returns null
+  ///
+  /// Sprint 15.9.3: added after the on-device cleanup hit
+  /// `type 'String' is not a subtype of type 'Timestamp?' in type cast`
+  /// because legacy rows had `expiryDate: '2026-05-12'` strings rather
+  /// than Firestore Timestamps. The migration must be tolerant of every
+  /// historical shape — it's the one place that has to read everyone's
+  /// data.
+  static Timestamp? _readTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value;
+    if (value is DateTime) return Timestamp.fromDate(value);
+    if (value is String) {
+      try {
+        return Timestamp.fromDate(DateTime.parse(value));
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 
   /// Compute the field merges to apply to a winner row from its losers.
@@ -316,16 +343,19 @@ class InventoryWriter {
 
     // expiryDate: latest across all rows, but only if the WINNER is
     // perishable. Non-perishable winners never carry an expiry.
+    // Legacy rows can store this as String (ISO 8601) or Timestamp;
+    // [_readTimestamp] coerces both shapes.
     if (winner.data['tier'] == 'perishable') {
-      Timestamp? latestExpiry = winner.data['expiryDate'] as Timestamp?;
+      Timestamp? latestExpiry = _readTimestamp(winner.data['expiryDate']);
       for (final l in losers) {
-        final exp = l.data['expiryDate'] as Timestamp?;
+        final exp = _readTimestamp(l.data['expiryDate']);
         if (exp != null &&
             (latestExpiry == null || exp.compareTo(latestExpiry) > 0)) {
           latestExpiry = exp;
         }
       }
-      if (latestExpiry != null && latestExpiry != winner.data['expiryDate']) {
+      if (latestExpiry != null &&
+          latestExpiry != _readTimestamp(winner.data['expiryDate'])) {
         merged['expiryDate'] = latestExpiry;
       }
     }
@@ -354,17 +384,18 @@ class InventoryWriter {
       }
     }
 
-    // lastPurchasedAt: max across all rows.
-    Timestamp? latestPurchase = winner.data['lastPurchasedAt'] as Timestamp?;
+    // lastPurchasedAt: max across all rows. Same Timestamp/String
+    // tolerance as expiry above.
+    Timestamp? latestPurchase = _readTimestamp(winner.data['lastPurchasedAt']);
     for (final l in losers) {
-      final lp = l.data['lastPurchasedAt'] as Timestamp?;
+      final lp = _readTimestamp(l.data['lastPurchasedAt']);
       if (lp != null &&
           (latestPurchase == null || lp.compareTo(latestPurchase) > 0)) {
         latestPurchase = lp;
       }
     }
     if (latestPurchase != null &&
-        latestPurchase != winner.data['lastPurchasedAt']) {
+        latestPurchase != _readTimestamp(winner.data['lastPurchasedAt'])) {
       merged['lastPurchasedAt'] = latestPurchase;
     }
 

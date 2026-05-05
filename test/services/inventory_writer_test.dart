@@ -408,6 +408,48 @@ void main() {
       expect(storage.docs.containsKey('butter_loser'), isFalse);
     });
 
+    test('tolerates legacy String-typed expiryDate / lastPurchasedAt', () async {
+      // Sprint 15.9.3 regression: some legacy rows stored expiryDate as
+      // an ISO 8601 String rather than a Firestore Timestamp. The
+      // collapse pass used to crash with "type 'String' is not a
+      // subtype of type 'Timestamp?'". _readTimestamp coerces both.
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {'inventoryDedupBackfilled': true}
+        ..docs = {
+          'carrots_winner': {
+            'name': 'Carrots',
+            'nameLower': 'carrots',
+            'matchKey': 'carrot',
+            'tier': 'perishable',
+            'firstAddedAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+            'expiryDate': '2026-05-05', // legacy String shape
+          },
+          'carrots_loser': {
+            'name': 'Carrots',
+            'nameLower': 'carrots',
+            'matchKey': 'carrot',
+            'tier': 'perishable',
+            'firstAddedAt': Timestamp.fromDate(DateTime(2026, 4, 1)),
+            'expiryDate': '2026-05-12', // newer; legacy String shape
+            'lastPurchasedAt': '2026-04-01T10:00:00Z', // legacy String shape
+          },
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      // Should NOT throw despite the String-typed timestamp fields.
+      await writer.addItem(name: 'Pasta', tier: 'alwaysHave');
+
+      expect(storage.collapseFlagSet, isTrue);
+      expect(storage.collapseLoserIds, ['carrots_loser']);
+      // Winner gets the loser's later expiry (now coerced to Timestamp).
+      final winnerExpiry = storage.docs['carrots_winner']!['expiryDate'];
+      expect(winnerExpiry, isA<Timestamp>());
+      expect(
+        (winnerExpiry as Timestamp).toDate(),
+        DateTime(2026, 5, 12),
+      );
+    });
+
     test('does not run when both flags already set', () async {
       final storage = FakeInventoryWriteStorage()
         ..userDoc = const {
