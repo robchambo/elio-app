@@ -86,17 +86,10 @@ class FirestoreService {
     if (existingInventory.docs.isEmpty) {
       for (final item in state.inventory) {
         final itemRef = userRef.collection('inventory').doc();
-        final itemData = item.toFirestore();
-        // Convert ISO string expiryDate to Firestore Timestamp
-        if (itemData['expiryDate'] is String) {
-          final dt = DateTime.tryParse(itemData['expiryDate'] as String);
-          if (dt != null) {
-            itemData['expiryDate'] = Timestamp.fromDate(dt);
-          } else {
-            itemData.remove('expiryDate');
-          }
-        }
-        batch.set(itemRef, itemData);
+        // Sprint 15.9.3: InventoryItem.toFirestore now writes
+        // expiryDate as Timestamp directly, so the previous defensive
+        // String→Timestamp conversion here is redundant.
+        batch.set(itemRef, item.toFirestore());
       }
     }
 
