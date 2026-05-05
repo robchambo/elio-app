@@ -38,7 +38,16 @@ void main() {
       };
     await pump(tester, storage);
 
+    // Sprint 15.9.3: section is collapsed by default — header visible,
+    // chips hidden until the user taps to expand.
     expect(find.text('Your usuals'), findsOneWidget);
+    expect(find.text('Carrot'), findsNothing);
+    expect(find.text('Rice'), findsNothing);
+
+    // Tap the header to expand.
+    await tester.tap(find.text('Your usuals'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Carrot'), findsWidgets);
     expect(find.text('Rice'), findsWidgets);
   });

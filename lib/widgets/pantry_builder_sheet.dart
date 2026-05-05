@@ -56,6 +56,10 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
   final TextEditingController _searchController = TextEditingController();
   final TextEditingController _customItemController = TextEditingController();
   final Set<String> _expandedCategories = {};
+  /// Sprint 15.9.3: "Your usuals" follows the same collapse pattern as
+  /// the 12 categories — collapsed by default so it doesn't dominate
+  /// the sheet, expanded on tap, auto-expanded when the user searches.
+  bool _usualsExpanded = false;
   late Set<String> _existingLower;
 
   // Loaded once on init; rebuilt only when the user adds a custom.
@@ -442,31 +446,7 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
                         ),
                       ),
                     const SizedBox(height: ElioSpacing.sm),
-                    if (_memoryLoaded && _usuals.isNotEmpty) ...[
-                      Padding(
-                        padding: const EdgeInsets.only(
-                            top: ElioSpacing.sm, bottom: ElioSpacing.xs),
-                        child: Text(
-                          'Your usuals',
-                          style: ElioTextStyles.eyebrowStyle,
-                        ),
-                      ),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _usuals.map((entry) {
-                          final inPantry = _isInPantry(entry.displayName);
-                          return _BuilderChip(
-                            label: entry.displayName,
-                            selected: inPantry,
-                            onTap: () => _addUsualToPantry(entry),
-                            onLongPress: () =>
-                                _longPressItem(entry.displayName, null),
-                          );
-                        }).toList(),
-                      ),
-                      const SizedBox(height: ElioSpacing.sm),
-                    ],
+                    if (_memoryLoaded && _usuals.isNotEmpty) _buildUsuals(),
                     const SizedBox(height: 4),
                   ],
                 ),
@@ -487,6 +467,101 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
           ],
         ),
       ),
+    );
+  }
+
+  /// "Your usuals" header + chip wrap. Mirrors the [_buildCategory]
+  /// pattern (peach icon, label, count, chevron, collapsible body) so
+  /// it visually reads as another category. Collapsed by default; an
+  /// active search auto-expands it AND filters the usuals to the query.
+  Widget _buildUsuals() {
+    final filtered = _searchQuery.isEmpty
+        ? _usuals
+        : _usuals
+            .where((e) =>
+                e.displayName.toLowerCase().contains(_searchQuery))
+            .toList();
+
+    if (filtered.isEmpty && _searchQuery.isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isExpanded = _usualsExpanded || _searchQuery.isNotEmpty;
+    final inPantryCount = filtered.where((e) => _isInPantry(e.displayName)).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GestureDetector(
+          onTap: () {
+            if (_searchQuery.isNotEmpty) return;
+            setState(() => _usualsExpanded = !_usualsExpanded);
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: ElioColors.peach,
+                    borderRadius: BorderRadius.circular(ElioRadii.panel),
+                  ),
+                  child: const Icon(
+                    Icons.star_outline_rounded,
+                    color: ElioColors.espresso,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: ElioSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Your usuals', style: ElioTextStyles.uiLabelStyle),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${filtered.length} items'
+                        '${inPantryCount > 0 ? ' · $inPantryCount in pantry' : ''}',
+                        style: ElioTextStyles.bodySmallStyle,
+                      ),
+                    ],
+                  ),
+                ),
+                if (_searchQuery.isEmpty)
+                  Icon(
+                    isExpanded
+                        ? Icons.expand_more_rounded
+                        : Icons.chevron_right_rounded,
+                    size: 22,
+                    color: ElioColors.mocha,
+                  ),
+              ],
+            ),
+          ),
+        ),
+        if (isExpanded) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: filtered.map((entry) {
+                final inPantry = _isInPantry(entry.displayName);
+                return _BuilderChip(
+                  label: entry.displayName,
+                  selected: inPantry,
+                  hadBefore: true, // every usual is by definition had-before
+                  onTap: () => _addUsualToPantry(entry),
+                  onLongPress: () => _longPressItem(entry.displayName, null),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
