@@ -575,6 +575,68 @@ class GeminiService {
     }
   }
 
+  /// Sprint 15.9.3 SAFETY-CRITICAL preamble. When the user has any
+  /// allergens, this block is emitted at position #1 of the prompt
+  /// (before "You are Elio"). LLMs weight earlier text most heavily —
+  /// putting allergens here makes the entire generation task framed
+  /// around the exclusion rather than the craving / canonical recipe
+  /// shape. Used by [_buildPrompt] and [_buildSingleMealPrompt] (via
+  /// the public companion in meal_plan_service.dart).
+  ///
+  /// Worked example for peanuts is included because Rob's pad-thai
+  /// test surfaced that Gemini's prior associations
+  /// ("pad thai" → peanut sauce) override generic "STRICTLY EXCLUDE"
+  /// language. Spelling out the failure modes in the prompt itself
+  /// (peanut butter, satay paste, arachis oil, groundnut) gives the
+  /// model concrete things to refuse rather than a vague "peanut-
+  /// derived" category.
+  /// Public version of [_writeAllergenPreamble] so other prompt
+  /// builders (meal plan single-meal, side dish, etc.) can prepend
+  /// the same safety frame. Returns the rendered string ready to
+  /// concatenate at the very top of the prompt.
+  static String allergenPreambleFor(List<String> allergens) {
+    if (allergens.isEmpty) return '';
+    final buf = StringBuffer();
+    _writeAllergenPreamble(buf, allergens);
+    return buf.toString();
+  }
+
+  static void _writeAllergenPreamble(
+    StringBuffer buffer,
+    List<String> allergens,
+  ) {
+    if (allergens.isEmpty) return;
+    buffer.writeln('═══════════════════════════════════════════════════════');
+    buffer.writeln('SAFETY-CRITICAL ALLERGEN EXCLUSION — READ FIRST');
+    buffer.writeln('═══════════════════════════════════════════════════════');
+    buffer.writeln('The user has the following MEDICAL ALLERGIES:');
+    for (final a in allergens) {
+      buffer.writeln('  • $a');
+    }
+    buffer.writeln();
+    buffer.writeln(
+        'The recipe MUST contain ZERO mention of these allergens or anything derived from them — in title, description, ingredient names, ingredient quantities, steps, substitutions, or tips.');
+    buffer.writeln();
+    buffer.writeln(
+        'For each allergen, exclude obvious AND non-obvious forms. For example:');
+    buffer.writeln(
+        '  • peanuts → also exclude peanut butter, peanut oil, peanut paste, peanut sauce, satay (paste/sauce), groundnut, groundnut oil, arachis oil, Reese\'s, "PB", any nut-based Thai sauce that traditionally uses peanuts.');
+    buffer.writeln(
+        '  • sesame → also exclude tahini, sesame oil, sesame seeds, gomashio, halva.');
+    buffer.writeln(
+        '  • shellfish → also exclude shrimp, prawn, crab, lobster, scallop, langoustine, crayfish, fish sauce/oyster sauce that contain shellfish.');
+    buffer.writeln(
+        'Apply the same logic to other listed allergens — exclude derivatives and ingredients that traditionally contain them.');
+    buffer.writeln();
+    buffer.writeln(
+        'If the user\'s craving, pantry, or your training data implies a recipe that traditionally requires any of these allergens (e.g. "pad thai" with a peanut allergy, "satay" with a peanut allergy, "carbonara" with a dairy allergy), DO NOT FORCE the recipe. Pick a different dish that has ZERO risk of containing the allergen — even if it\'s less canonical to the craving.');
+    buffer.writeln();
+    buffer.writeln(
+        'BEFORE returning your JSON: read every ingredient name, every step, every substitution. If you see ANY mention of any listed allergen or its derivatives, regenerate the recipe with a different dish entirely. Treat this like a final gate, not a suggestion.');
+    buffer.writeln('═══════════════════════════════════════════════════════');
+    buffer.writeln();
+  }
+
   /// Sprint 15.9.3 SAFETY filter. Returns the first allergen string
   /// that appears anywhere in the recipe's text fields, or null if the
   /// recipe is clean.
@@ -770,6 +832,18 @@ class GeminiService {
 
   static String _buildPrompt(RecipeGenerationRequest request) {
     final buffer = StringBuffer();
+
+    // Sprint 15.9.3 SAFETY: when allergens are present, lead the prompt
+    // with a maximum-strength safety preamble BEFORE the friendly Elio
+    // intro. LLMs weight earlier text most heavily — placing allergens
+    // at position #1 (rather than buried inside HARD CONSTRAINTS) makes
+    // them the primary frame the model reasons against, not an
+    // afterthought to the user's craving / training-data priors.
+    //
+    // The block also asks for an explicit verification step so the
+    // model self-checks before responding. The post-gen filter remains
+    // as defense-in-depth.
+    _writeAllergenPreamble(buffer, request.customAllergens);
 
     buffer.writeln('You are Elio, a friendly AI cooking assistant. Generate ONE recipe as valid JSON.');
     buffer.writeln();

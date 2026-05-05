@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/meal_plan_models.dart';
 import '../models/recipe_models.dart';
 import '../utils/pantry_string_match.dart';
+import 'gemini_service.dart';
 import 'remote_config_service.dart';
 
 // ─────────────────────────────────────────────
@@ -449,17 +450,21 @@ class MealPlanService {
   }) {
     final buffer = StringBuffer();
 
+    // Sprint 15.9.3 SAFETY preamble at position #1 — see
+    // gemini_service.dart#_writeAllergenPreamble for rationale.
+    buffer.write(GeminiService.allergenPreambleFor(customAllergens));
+
     buffer.writeln('Generate ONE ${mealType.displayName.toLowerCase()} for $dayName as JSON.');
 
     if (dietaryRequirements.isNotEmpty) {
       buffer.writeln('Dietary: ${dietaryRequirements.join(', ')} — strict.');
     }
-    // Sprint 15.9.3 SAFETY: allergens get a separate, maximally strong
-    // exclusion line. Use ALL CAPS for the action verb so Gemini doesn't
-    // soften it.
+    // Sprint 15.9.3 SAFETY (continued): keep a one-line reinforcement
+    // here too. The preamble above is the primary frame; this line
+    // serves as a repetition cue inside the body of the prompt.
     if (customAllergens.isNotEmpty) {
       buffer.writeln(
-          'ALLERGENS — STRICTLY EXCLUDE these and anything containing them: ${customAllergens.join(', ')}. Treat as medical safety, not preference. No exceptions.');
+          'ALLERGENS (reminder): zero mention of ${customAllergens.join(', ')} or anything derived from them.');
     }
     if (alwaysHave.isNotEmpty) buffer.writeln('Pantry: ${alwaysHave.join(', ')}');
     if (almostAlwaysHave.isNotEmpty) buffer.writeln('Usually have: ${almostAlwaysHave.join(', ')}');
