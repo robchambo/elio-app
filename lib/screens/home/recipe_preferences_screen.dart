@@ -115,6 +115,13 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     'Slow (< 60 min)',
     'Any',
   ];
+  // Style on this screen = descriptive direction the user wants the
+  // dish to feel (Comfort / Healthy / Hearty / Spicy / Fresh).
+  // Deliberately distinct from the cuisine-based pivot list in the
+  // post-regen-failure dialog at recipe_screen.dart:_alternativeStyles
+  // (Italian / Asian / Mexican / etc.) — those are offered AFTER this
+  // choice didn't land, specifically to "mix it up" along a different
+  // axis. Don't unify the two lists; they're complementary.
   static const _styleOptions = <String>[
     'Comfort',
     'Healthy',

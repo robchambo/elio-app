@@ -833,6 +833,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
     String? selectedTime = request.timePreference;
     String? selectedMood = request.moodPreference;
 
+    // Cuisine-based pivot list — deliberately distinct from the
+    // descriptive style options on recipe_preferences_screen.dart
+    // (Comfort / Healthy / Hearty / etc.). This dialog opens AFTER
+    // the user's original style pick didn't land, so we offer a
+    // different axis ("mix it up") rather than re-presenting the
+    // same list. Don't unify the two lists; they're complementary.
     const alternativeStyles = [
       'Italian', 'Asian', 'Mexican', 'Mediterranean',
       'Indian', 'American', 'British', 'One-pot', 'Quick & Easy',
