@@ -246,7 +246,43 @@ class MealPlanService {
 
     final rawText = parts.last['text'] as String? ?? '';
     final mealJson = _extractJson(rawText);
-    return MealSlot.fromJson(mealJson);
+    final meal = MealSlot.fromJson(mealJson);
+
+    // Sprint 15.9.3 SAFETY: post-gen allergen filter. Same logic as
+    // the streaming path — case-insensitive substring match across all
+    // text fields. Throw a retryable exception so the regenerateMeal
+    // caller's 2-attempt loop has another go.
+    final violation = _findAllergenViolation(meal, customAllergens);
+    if (violation != null) {
+      throw Exception(
+          'Meal contained allergen "$violation" — retrying with a safer pick.');
+    }
+    return meal;
+  }
+
+  /// See gemini_service.dart `_findAllergenViolation` — same idea,
+  /// scoped to a [MealSlot]. Duplicated rather than imported because
+  /// MealSlot and GeneratedRecipe have different field shapes.
+  static String? _findAllergenViolation(
+    MealSlot meal,
+    List<String> allergens,
+  ) {
+    if (allergens.isEmpty) return null;
+    final haystacks = <String>[
+      meal.title,
+      meal.description,
+      ...meal.ingredients.map((i) => i.name),
+      ...meal.steps,
+    ].map((s) => s.toLowerCase()).toList();
+
+    for (final allergen in allergens) {
+      final needle = allergen.trim().toLowerCase();
+      if (needle.isEmpty) continue;
+      for (final hay in haystacks) {
+        if (hay.contains(needle)) return allergen;
+      }
+    }
+    return null;
   }
 
   // ── Phase 2: on-demand detail for a single meal ────────────────────────────────

@@ -82,6 +82,13 @@ class GeminiService {
       _buildPrompt(request),
       maxOutputTokens: 3072,
       responseSchema: _recipeResponseSchema,
+      // Sprint 15.9.3 SAFETY: defense-in-depth post-gen filter.
+      // Even with the ALLERGENS prompt block, Gemini sometimes ignores
+      // allergens when the user's craving (e.g. "pad thai") has
+      // canonical peanut content. The filter scans every text field
+      // of the parsed recipe; if any allergen string appears, the
+      // attempt is retried (different sample → likely different recipe).
+      allergenGuard: request.customAllergens,
     );
   }
 
@@ -227,6 +234,9 @@ class GeminiService {
       maxOutputTokens: 3072,
       temperature: 0.5,
       responseSchema: _recipeResponseSchema,
+      // Sprint 15.9.3 SAFETY: post-gen allergen filter. See comment
+      // on generateRecipeStream above for the reasoning.
+      allergenGuard: request.customAllergens,
     );
   }
 
@@ -295,6 +305,11 @@ class GeminiService {
       runningLowItems: runningLow,
       perishableInventoryDescriptions: perishableDescs,
       recentTitles: recentTitles,
+      // Sprint 15.9.3 SAFETY: ephemeral (onboarding screen 13) was
+      // omitting allergens entirely. A peanut-allergy user typing
+      // "pad thai" in onboarding could have been served peanut butter
+      // on their first-ever generation.
+      customAllergens: prefs.allergies,
     );
   }
 
@@ -325,6 +340,12 @@ class GeminiService {
     required int maxOutputTokens,
     double temperature = 0.8,
     Map<String, dynamic>? responseSchema,
+    // Sprint 15.9.3 SAFETY: when set, the parsed recipe is scanned for
+    // any of these allergen strings (case-insensitive substring match
+    // across title, description, ingredient names, steps, tips, and
+    // substitutions). A hit triggers a retryable error so the silent
+    // retry loop has another go. Empty / null → no filter.
+    List<String> allergenGuard = const [],
   }) async* {
     const int maxAttempts = 3;
     RecipeError? lastError;
@@ -337,6 +358,7 @@ class GeminiService {
         maxOutputTokens: maxOutputTokens,
         temperature: temperature,
         responseSchema: responseSchema,
+        allergenGuard: allergenGuard,
       )) {
         if (event is RecipeGenerating) {
           yield event;
@@ -373,6 +395,7 @@ class GeminiService {
     required int maxOutputTokens,
     required double temperature,
     Map<String, dynamic>? responseSchema,
+    List<String> allergenGuard = const [],
   }) async* {
     final client = _httpClient;
 
@@ -503,7 +526,26 @@ class GeminiService {
 
       try {
         final recipeJson = _extractJson(rawText);
-        yield RecipeComplete(recipe: GeneratedRecipe.fromJson(recipeJson));
+        final recipe = GeneratedRecipe.fromJson(recipeJson);
+        // Sprint 15.9.3 SAFETY: post-gen allergen scan. Even with the
+        // ALLERGENS prompt block, Gemini occasionally serves canonical-
+        // dish ingredients (e.g. peanuts in pad thai). The filter
+        // rejects any recipe that mentions an allergen in any text
+        // field, returning a retryable error so the silent retry loop
+        // can roll a different recipe.
+        final violation = _findAllergenViolation(recipe, allergenGuard);
+        if (violation != null) {
+          ErrorService.log(
+              'recipe_allergen_violation',
+              'Recipe contained allergen "$violation"; retrying.');
+          yield RecipeError(
+            message:
+                'That recipe included $violation, which is on your allergen list. Trying a safer alternative…',
+            retryable: true,
+          );
+          return;
+        }
+        yield RecipeComplete(recipe: recipe);
       } catch (parseErr) {
         // Could be truncation (most common — repaired in _extractJson),
         // model-emitted prose, or a malformed payload. Retryable lets
@@ -530,6 +572,42 @@ class GeminiService {
         retryable: true,
       );
     }
+  }
+
+  /// Sprint 15.9.3 SAFETY filter. Returns the first allergen string
+  /// that appears anywhere in the recipe's text fields, or null if the
+  /// recipe is clean. Case-insensitive substring match — catches
+  /// derivatives ("peanuts" → "peanut butter", "peanut oil") via the
+  /// `peanut` substring. False positives are possible (e.g. a recipe
+  /// description containing "peanut-free") but they only cost a retry
+  /// — safer than letting a violation through.
+  ///
+  /// Substring matching uses the user-typed allergen verbatim. We do
+  /// NOT try to expand to synonyms (groundnuts, arachis oil) — the
+  /// prompt's worked examples handle that ahead of time, and a synonym
+  /// table here would balloon scope without obvious end.
+  static String? _findAllergenViolation(
+    GeneratedRecipe recipe,
+    List<String> allergens,
+  ) {
+    if (allergens.isEmpty) return null;
+    final haystacks = <String>[
+      recipe.title,
+      recipe.description,
+      ...recipe.ingredients.map((i) => i.name),
+      ...recipe.steps,
+      ...recipe.substitutions
+          .map((s) => '${s.original} ${s.substitute} ${s.tradeOff}'),
+    ].map((s) => s.toLowerCase()).toList();
+
+    for (final allergen in allergens) {
+      final needle = allergen.trim().toLowerCase();
+      if (needle.isEmpty) continue;
+      for (final hay in haystacks) {
+        if (hay.contains(needle)) return allergen;
+      }
+    }
+    return null;
   }
 
   /// Robustly extract a JSON object from a string that may contain
@@ -768,6 +846,15 @@ class GeminiService {
     if (request.userRequest != null && request.userRequest!.trim().isNotEmpty) {
       buffer.writeln(
           'User request (high priority — try hard to honour this): "${request.userRequest!.trim()}". Make a recipe that clearly satisfies this craving.');
+      // Sprint 15.9.3 SAFETY: the craving line was getting interpreted
+      // as overriding allergens (e.g. "pad thai" → peanut butter for a
+      // peanut-allergy user). Explicit override: allergens beat
+      // craving, full stop. If the craving requires an allergen,
+      // pivot to a related-but-safe dish instead of forcing it.
+      if (request.customAllergens.isNotEmpty) {
+        buffer.writeln(
+            'IMPORTANT: if this craving traditionally requires any listed allergen, do NOT force it. Pick a related allergen-free dish instead (e.g. craving "pad thai" + peanut allergy → make a peanut-free Thai noodle dish, or a different Thai stir-fry; never include peanuts/peanut butter just because the craving normally calls for them). Allergens beat cravings — every time.');
+      }
     }
     if (request.timePreference != null) {
       buffer.writeln('Time available: ${request.timePreference}');
@@ -1095,6 +1182,10 @@ class GeminiService {
         previousMealTitles: previousMealTitles,
       ),
       maxOutputTokens: 2048,
+      // Sprint 15.9.3 SAFETY: bulk prep also runs post-gen allergen
+      // filter. A peanut-allergy user's batch-cook recipe should
+      // never include peanut butter either.
+      allergenGuard: request.customAllergens,
     );
   }
 
