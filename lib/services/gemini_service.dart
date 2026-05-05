@@ -757,7 +757,11 @@ class GeminiService {
       buffer.writeln(
           'User request (high priority — try hard to honour this): "${request.userRequest!.trim()}". Make a recipe that clearly satisfies this craving.');
     }
-    if (request.timePreference != null) buffer.writeln('Time: ${request.timePreference}');
+    if (request.timePreference != null) {
+      buffer.writeln('Time available: ${request.timePreference}');
+      final timeGuidance = _expandTimeGuidance(request.timePreference!);
+      if (timeGuidance.isNotEmpty) buffer.writeln(timeGuidance);
+    }
     if (request.stylePreference == 'Surprise me') {
       buffer.writeln('Style: Be creative — any cuisine.');
     }
@@ -827,8 +831,14 @@ class GeminiService {
     buffer.writeln('- Assume the user always has water, salt, and basic cooking oil (olive / vegetable / sunflower / rapeseed / canola) — do NOT list these in the ingredients array, but you may reference them in the steps (e.g. "season with salt", "splash of oil", "boil 1 cup of water").');
     buffer.writeln('- Recipe title must sound like home cooking, NOT a pre-made product. E.g. "Lemon Herb Chicken with Roasted Vegetables", not "Cooked Mediterranean Chicken".');
     buffer.writeln('- Ingredients must be raw/purchasable items, NOT pre-prepared dishes. Never list a cooked dish as an ingredient.');
-    buffer.writeln('- Keep steps SHORT (1-2 sentences each). Max 8 steps total.');
-    buffer.writeln('- Max 10 ingredients.');
+    // Sprint 15.9.3: scale step/ingredient caps with the time the user
+    // told us they have. Previously these were universal, so even "No
+    // rush" got 8-step weeknight-shaped output. The caps below reward
+    // the user for telling us they have time.
+    final caps = _capsForTimePreference(request.timePreference);
+    buffer.writeln('- ${caps.stepLengthGuidance}');
+    buffer.writeln('- Max ${caps.maxSteps} steps total.');
+    buffer.writeln('- Max ${caps.maxIngredients} ingredients.');
     buffer.writeln('- substitutions array may be empty [].');
     buffer.writeln('- dietaryTags array may be empty [].');
     buffer.writeln('- estimatedCostPerServingUSD and estimatedCostPerServingGBP: estimate the cost per serving in USD and GBP respectively.');
@@ -873,6 +883,83 @@ class GeminiService {
 
   /// Expand a mood chip label into specific, actionable prompt guidance
   /// so Gemini generates recipes that actually match the mood.
+  /// Sprint 15.9.3: time-preference guidance. Was bare text
+  /// (`Time: No rush`) which Gemini largely ignored — combined with the
+  /// universal "Max 8 steps / 10 ingredients" rule, the user got
+  /// weeknight food regardless of what they told us in onboarding.
+  /// This expands the time pref into an active instruction so Gemini
+  /// matches recipe ambition to the time the user has.
+  static String _expandTimeGuidance(String timePref) {
+    switch (timePref) {
+      case 'Quick (under 20 min)':
+        return 'Speedy weeknight cooking. Total time under 20 minutes. '
+            'Simple techniques only — one-pan, sheet-pan, stir-fry, '
+            'no-bake, microwaveable. Few ingredients, short clear steps. '
+            'No long marinades, no slow simmering, no double-cooking.';
+      case 'Around 30 minutes':
+        return 'Standard weeknight cooking. Total time 25–35 minutes. '
+            'Familiar techniques. Balance of effort and ease.';
+      case 'Around 45 minutes':
+        return 'Relaxed midweek cooking. Total time 40–50 minutes. '
+            'Use the extra time for browning meat, reducing sauces, '
+            'and building layered flavours. Steps can include sensory '
+            'cues ("until deeply caramelised", "until just translucent", '
+            '"until the foam subsides"). Aim for genuine depth, not just '
+            'a longer weeknight dinner.';
+      case 'No rush':
+        return 'Weekend or unhurried cooking. 60–90 minutes is fine, '
+            'longer is welcome if the dish rewards it. Use techniques '
+            'that genuinely benefit from time: braising, slow-roasting, '
+            'marinating, multi-stage cooking, layered components. '
+            'Be ambitious — pick something with depth, technique, and '
+            'a sense of occasion. Steps can be 2–3 sentences with '
+            'sensory cues, timing notes, and chef voice. Avoid '
+            'weeknight-shaped recipes (basic stir-fries, simple pastas, '
+            'one-pan throw-togethers) unless the dish is genuinely '
+            'iconic in that form. The user told us they have time — '
+            'use it. Treat this as a meal worth cooking, not just '
+            'feeding.';
+      default:
+        return '';
+    }
+  }
+
+  /// Per-time-preference caps. Looser limits when the user has time,
+  /// tighter limits when they're cooking quick. Returned alongside step
+  /// length guidance so the rules block reads consistently.
+  static ({int maxSteps, int maxIngredients, String stepLengthGuidance})
+      _capsForTimePreference(String? timePref) {
+    switch (timePref) {
+      case 'No rush':
+        return (
+          maxSteps: 12,
+          maxIngredients: 14,
+          stepLengthGuidance:
+              'Steps can be 2–3 sentences each with sensory cues, '
+              'timing, and chef voice (e.g. "until the butter foams '
+              'and starts to smell nutty"). Avoid robotic, mechanical '
+              'phrasing.',
+        );
+      case 'Around 45 minutes':
+        return (
+          maxSteps: 10,
+          maxIngredients: 12,
+          stepLengthGuidance:
+              'Steps should be 1–2 sentences with sensory cues '
+              'where appropriate (e.g. "until the onions are deeply '
+              'caramelised").',
+        );
+      case 'Around 30 minutes':
+      case 'Quick (under 20 min)':
+      default:
+        return (
+          maxSteps: 8,
+          maxIngredients: 10,
+          stepLengthGuidance: 'Keep steps SHORT (1–2 sentences each).',
+        );
+    }
+  }
+
   static String _expandMoodGuidance(String mood) {
     switch (mood) {
       case 'Impress someone':
