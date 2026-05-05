@@ -348,136 +348,140 @@ class _PantryBuilderSheetState extends State<PantryBuilderSheet> {
           color: ElioColors.cream,
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
-        child: Column(
-          children: [
-            // Drag handle.
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 8),
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: ElioColors.rule,
-                  borderRadius: BorderRadius.circular(2),
+        // Sprint 15.9.3 fix: previously a Column with a fixed header above
+        // an Expanded ListView. With ~20 usuals the header ate most of the
+        // visible sheet height and the categories list got squeezed into
+        // a tiny scroll region — users couldn't see anything below the
+        // usuals. CustomScrollView puts everything under one
+        // scrollController so the whole sheet scrolls naturally, AND
+        // DraggableScrollableSheet's drag-to-resize keeps working because
+        // it shares that controller.
+        child: CustomScrollView(
+          controller: scrollController,
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 8),
+                child: Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: ElioColors.rule,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
               ),
             ),
-            // Title + sub.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Pantry Builder',
-                      style: ElioTextStyles.sectionHeadingStyle),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Tap to add, hold to choose tier.',
-                    style: ElioTextStyles.bodySmallStyle,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: ElioSpacing.md),
-            // Search field — creamDeep, no border.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: _SoftField(
-                controller: _searchController,
-                hintText: 'Search items',
-                prefixIcon: Icons.search_rounded,
-                suffixIcon: hasSearch ? Icons.close_rounded : null,
-                onSuffixTap: hasSearch
-                    ? () {
-                        _searchController.clear();
-                        setState(() => _searchQuery = '');
-                      }
-                    : null,
-                onChanged: (v) =>
-                    setState(() => _searchQuery = v.trim().toLowerCase()),
-              ),
-            ),
-            const SizedBox(height: ElioSpacing.sm),
-            // Custom-add row — field + terracotta circular button.
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _SoftField(
-                      controller: _customItemController,
-                      hintText: 'Add custom item',
-                      prefixIcon: Icons.add_rounded,
-                      errorTinted: _customItemError != null,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => _addCustomItem(),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Pantry Builder',
+                        style: ElioTextStyles.sectionHeadingStyle),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Tap to add, hold to choose tier.',
+                      style: ElioTextStyles.bodySmallStyle,
                     ),
-                  ),
-                  const SizedBox(width: ElioSpacing.sm),
-                  Material(
-                    color: ElioColors.terracotta,
-                    shape: const CircleBorder(),
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: _addCustomItem,
-                      child: const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: Icon(Icons.add_rounded,
-                            color: Colors.white, size: 22),
+                    const SizedBox(height: ElioSpacing.md),
+                    _SoftField(
+                      controller: _searchController,
+                      hintText: 'Search items',
+                      prefixIcon: Icons.search_rounded,
+                      suffixIcon: hasSearch ? Icons.close_rounded : null,
+                      onSuffixTap: hasSearch
+                          ? () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = '');
+                            }
+                          : null,
+                      onChanged: (v) => setState(
+                          () => _searchQuery = v.trim().toLowerCase()),
+                    ),
+                    const SizedBox(height: ElioSpacing.sm),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SoftField(
+                            controller: _customItemController,
+                            hintText: 'Add custom item',
+                            prefixIcon: Icons.add_rounded,
+                            errorTinted: _customItemError != null,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _addCustomItem(),
+                          ),
+                        ),
+                        const SizedBox(width: ElioSpacing.sm),
+                        Material(
+                          color: ElioColors.terracotta,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: _addCustomItem,
+                            child: const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Icon(Icons.add_rounded,
+                                  color: Colors.white, size: 22),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_customItemError != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: ElioSpacing.xs),
+                        child: Text(
+                          _customItemError!,
+                          style: ElioTextStyles.eyebrowStyle.copyWith(
+                            color: ElioColors.terracotta,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ],
+                    const SizedBox(height: ElioSpacing.sm),
+                    if (_memoryLoaded && _usuals.isNotEmpty) ...[
+                      Padding(
+                        padding: const EdgeInsets.only(
+                            top: ElioSpacing.sm, bottom: ElioSpacing.xs),
+                        child: Text(
+                          'Your usuals',
+                          style: ElioTextStyles.eyebrowStyle,
+                        ),
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _usuals.map((entry) {
+                          final inPantry = _isInPantry(entry.displayName);
+                          return _BuilderChip(
+                            label: entry.displayName,
+                            selected: inPantry,
+                            onTap: () => _addUsualToPantry(entry),
+                            onLongPress: () =>
+                                _longPressItem(entry.displayName, null),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: ElioSpacing.sm),
+                    ],
+                    const SizedBox(height: 4),
+                  ],
+                ),
               ),
             ),
-            if (_customItemError != null)
-              Padding(
-                padding:
-                    const EdgeInsets.fromLTRB(20, ElioSpacing.xs, 20, 0),
-                child: Text(
-                  _customItemError!,
-                  style: ElioTextStyles.eyebrowStyle.copyWith(
-                    color: ElioColors.terracotta,
-                  ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 60),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final cat = PantryCategories.all[index];
+                    return _buildCategory(cat);
+                  },
+                  childCount: PantryCategories.all.length,
                 ),
-              ),
-            const SizedBox(height: ElioSpacing.sm),
-            if (_memoryLoaded && _usuals.isNotEmpty) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, ElioSpacing.sm, 20, ElioSpacing.xs),
-                child: Text(
-                  'Your usuals',
-                  style: ElioTextStyles.eyebrowStyle,
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _usuals.map((entry) {
-                    final inPantry = _isInPantry(entry.displayName);
-                    return _BuilderChip(
-                      label: entry.displayName,
-                      selected: inPantry,
-                      onTap: () => _addUsualToPantry(entry),
-                      onLongPress: () => _longPressItem(entry.displayName, null),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: ElioSpacing.sm),
-            ],
-            // Category list — fills remaining height.
-            Expanded(
-              child: ListView.builder(
-                controller: scrollController,
-                padding: const EdgeInsets.fromLTRB(20, 4, 20, 60),
-                itemCount: PantryCategories.all.length,
-                itemBuilder: (context, index) {
-                  final cat = PantryCategories.all[index];
-                  return _buildCategory(cat);
-                },
               ),
             ),
           ],
