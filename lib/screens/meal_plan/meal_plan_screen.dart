@@ -65,6 +65,9 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   List<String> _almostAlwaysHave = [];
   List<String> _runningLowItems = [];
   List<String> _stylePreferences = [];
+  // Sprint 15.9.3: appliances now threaded into single-meal regen so
+  // regenerated meals don't ask for equipment the user lacks.
+  List<String> _appliances = [];
   bool _dataLoaded = false;
 
   // ── Day tab controller ─────────────────────────────────────────────
@@ -100,6 +103,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _almostAlwaysHave = List<String>.from(data['almostAlwaysHave'] ?? []);
           _runningLowItems = List<String>.from(data['runningLowItems'] ?? []);
           _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
+          _appliances = List<String>.from(data['appliances'] ?? []);
           _plan = savedPlan;
           _dataLoaded = true;
         });
@@ -273,6 +277,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         alwaysHave: _alwaysHave,
         almostAlwaysHave: _almostAlwaysHave,
         existingTitles: existingTitles,
+        // Sprint 15.9.3: thread user prefs so regenerated meal honours
+        // their setup, not just dietary + pantry.
+        appliances: _appliances,
+        runningLowItems: _runningLowItems,
       );
 
       if (mounted) {

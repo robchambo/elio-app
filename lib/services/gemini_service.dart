@@ -762,8 +762,13 @@ class GeminiService {
       final timeGuidance = _expandTimeGuidance(request.timePreference!);
       if (timeGuidance.isNotEmpty) buffer.writeln(timeGuidance);
     }
-    if (request.stylePreference == 'Surprise me') {
-      buffer.writeln('Style: Be creative — any cuisine.');
+    // Sprint 15.9.3: was 'Surprise me' only. When the user didn't pick a
+    // style at all (null), they got NO creativity push and recipes got
+    // repetitive. Default the unselected case to "be creative" too.
+    if (request.stylePreference == null ||
+        request.stylePreference == 'Surprise me') {
+      buffer.writeln(
+          'Style: No specific cuisine — be creative. Vary cuisine across recent recipes for variety.');
     }
     if (request.moodPreference != null) {
       buffer.writeln('Mood: ${request.moodPreference}');
@@ -773,8 +778,12 @@ class GeminiService {
 
     if (request.runningLowItems.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('## RUNNING LOW (use sparingly or avoid — user is nearly out of these):');
+      // Sprint 15.9.3: strengthened from "use sparingly or avoid" — that
+      // soft language let Gemini still feature these items as the star.
+      buffer.writeln('## RUNNING LOW (user is nearly out — AVOID these):');
       buffer.writeln(request.runningLowItems.join(', '));
+      buffer.writeln(
+          'Do NOT make any of these the main feature. If you must include one, use a minimal quantity and treat it as optional.');
     }
 
     if (request.excludedIngredients.isNotEmpty) {
@@ -785,27 +794,26 @@ class GeminiService {
 
     if (request.appliances.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('## AVAILABLE APPLIANCES:');
-      buffer.writeln('User has: ${request.appliances.join(', ')}. Where appropriate, suggest using these appliances to enhance the recipe.');
+      // Sprint 15.9.3: tighter constraint. Was a passive "where appropriate"
+      // suggestion that Gemini ignored AND it didn't prevent recipes
+      // requiring missing equipment (e.g. oven recipes for users without one).
+      buffer.writeln(
+          'Available appliances: ${request.appliances.join(', ')}. Recipe must work with these — don\'t require anything else.');
     }
 
     if (request.recentTitles.isNotEmpty) {
+      // Sprint 15.9.3: previously listed titles twice (RECENTLY GENERATED
+      // section + VARIETY section). Single combined section saves tokens
+      // and reads more clearly.
       buffer.writeln();
-      buffer.writeln('## RECENTLY GENERATED (do NOT repeat these recipes — generate something different):');
+      buffer.writeln('## RECENTLY GENERATED (do NOT repeat; vary against these):');
       for (final title in request.recentTitles) {
         buffer.writeln('- $title');
       }
-
-      // Variety constraint — use last 5 to steer away from repetitive styles
-      final recentFive = request.recentTitles.length <= 5
-          ? request.recentTitles
-          : request.recentTitles.sublist(request.recentTitles.length - 5);
-      buffer.writeln();
-      buffer.writeln('## VARIETY (important):');
-      buffer.writeln('Look at these recent recipes: ${recentFive.join(', ')}.');
-      buffer.writeln('Generate something with a DIFFERENT base ingredient, cooking method, AND cuisine.');
-      buffer.writeln('If recent recipes are pasta-heavy, avoid pasta. If they are Asian-leaning, try a different region. If they are all oven-baked, try stovetop or no-cook.');
-      buffer.writeln('Variety is key — surprise the user with something fresh.');
+      buffer.writeln(
+          'Generate something with a DIFFERENT base ingredient, cooking method, AND cuisine from the list above. '
+          'If they\'re pasta-heavy, avoid pasta. If Asian-leaning, try a different region. '
+          'If all oven-baked, try stovetop or no-cook. Variety is key.');
     }
 
     // Taste profile is injected by caller via request fields
@@ -960,29 +968,63 @@ class GeminiService {
     }
   }
 
+  /// Sprint 15.9.3 fix: previously this function handled
+  /// 'Impress someone' / 'Something hearty' / 'Light bite' / 'Use everything
+  /// up' — none of which are options the UI actually offers. The
+  /// recipe_preferences_screen mood chips are: Easy, Impressive,
+  /// Kid-friendly, Date night, Meal prep, Any. Result: every mood the
+  /// user picked fell through to bare "Mood: X" text and Gemini ignored
+  /// it. This rewrite matches the actual options.
   static String _expandMoodGuidance(String mood) {
     switch (mood) {
-      case 'Impress someone':
-        return 'This meal is for a special occasion or to impress a guest. '
-            'Choose a dish that looks and tastes restaurant-quality. '
-            'Use at least one elevated technique (e.g. searing, reducing a sauce, '
-            'caramelising, layering flavours, making a dressing or glaze from scratch). '
-            'Avoid anything that looks like a basic weeknight dinner. '
-            'Include a brief plating or presentation tip in the final step. '
-            'The title should sound appealing and sophisticated.';
-      case 'Something hearty':
-        return 'Make this a filling, comforting, warming dish. '
-            'Think stews, braises, bakes, curries, hearty pastas, or one-pot meals. '
-            'Generous portions, rich flavours, the kind of meal that satisfies completely.';
-      case 'Light bite':
-        return 'Keep this light and fresh. Salads, wraps, grain bowls, broth-based soups, '
-            'or small plates. Lower calorie, not heavy or stodgy. '
-            'Prioritise vegetables, lean proteins, and bright flavours.';
-      case 'Use everything up':
-        return 'The goal is to use up as many of the available fresh/perishable ingredients '
-            'as possible in a single recipe. Prioritise ingredients that spoil fastest. '
-            'A stir-fry, frittata, soup, curry, or similar flexible dish works well.';
+      case 'Easy':
+        return 'Low-effort weeknight cooking. Few ingredients, simple '
+            'familiar techniques, minimal prep, low cognitive load. '
+            'Avoid multi-stage prep, exotic ingredients, or unfamiliar '
+            'techniques. The user wants something that comes together '
+            'with minimum fuss.';
+      case 'Impressive':
+        return 'A dish meant to impress — for guests, a special occasion, '
+            'or just to feel proud of cooking. Restaurant-quality look '
+            'and flavour. Use at least one elevated technique (searing, '
+            'reducing a sauce, caramelising, layering flavours, making '
+            'a dressing or glaze from scratch). Avoid anything that '
+            'looks like a basic weeknight dinner. Include a brief plating '
+            'or presentation tip in the final step. The title should '
+            'sound appealing and sophisticated, not utilitarian.';
+      case 'Kid-friendly':
+        return 'Appealing to children. Mild flavours (avoid spicy, '
+            'bitter, very pungent cheeses, strong herbs). Familiar '
+            'shapes and textures, finger-food-friendly where possible. '
+            'Hidden vegetables welcome. Sauces on the side rather than '
+            'smothered. Avoid challenging textures (mushrooms, oily fish, '
+            'anything slimy or strongly-flavoured). The dish should be '
+            'recognisable to kids, not adventurous.';
+      case 'Date night':
+        return 'An at-home date-night dinner — relaxed but special. '
+            'Two-portion focused (or scale appropriately). Pleasant '
+            'aromatics during cooking are a plus. Slightly indulgent '
+            'without being heavy or sleep-inducing. Wine-friendly. '
+            'A glossy sauce or gentle char beats a stew. Should feel '
+            'like an event, not a Tuesday. Include a small finishing '
+            'touch (sprinkle of herbs, drizzle of oil, flaky salt) '
+            'in the final step.';
+      case 'Meal prep':
+        return 'Optimised for batch cooking and storage. The dish must '
+            'hold well in the fridge for 3–5 days OR freeze cleanly. '
+            'Avoid fresh garnishes, raw greens, anything that wilts or '
+            'gets soggy on reheat. Components that can be mixed-and-'
+            'matched across the week are a plus (e.g. a sauce that '
+            'works on multiple bases). Include portioning and reheating '
+            'notes in the steps.';
+      case 'Any':
+        // Treat 'Any' as no mood preference — caller already wraps the
+        // moodPreference field in a null check, so this just suppresses
+        // the bare "Mood: Any" line by returning an empty string.
+        return '';
       default:
+        // Unknown / future mood — let the bare "Mood: X" line stand
+        // rather than silently dropping the user's signal.
         return '';
     }
   }

@@ -147,6 +147,10 @@ class MealPlanService {
     required List<String> almostAlwaysHave,
     required List<String> existingTitles,
     int servings = 2,
+    // Sprint 15.9.3: pass user prefs through so single-meal regen
+    // reflects the user's setup (appliances, what they're running low on).
+    List<String> appliances = const [],
+    List<String> runningLowItems = const [],
   }) async {
     Exception? lastError;
 
@@ -160,6 +164,8 @@ class MealPlanService {
           almostAlwaysHave: almostAlwaysHave,
           existingTitles: existingTitles,
           servings: servings,
+          appliances: appliances,
+          runningLowItems: runningLowItems,
         );
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
@@ -184,6 +190,8 @@ class MealPlanService {
     required List<String> almostAlwaysHave,
     required List<String> existingTitles,
     required int servings,
+    List<String> appliances = const [],
+    List<String> runningLowItems = const [],
   }) async {
     final prompt = _buildSingleMealPrompt(
       dayName: dayName,
@@ -193,6 +201,8 @@ class MealPlanService {
       almostAlwaysHave: almostAlwaysHave,
       existingTitles: existingTitles,
       servings: servings,
+      appliances: appliances,
+      runningLowItems: runningLowItems,
     );
 
     final response = await http.post(
@@ -373,6 +383,11 @@ class MealPlanService {
     return buffer.toString();
   }
 
+  /// Sprint 15.9.3: this prompt was missing user preferences — appliances
+  /// and runningLow especially. When the user taps "regenerate" on a
+  /// single meal, that meal should reflect their setup (no oven recipes
+  /// for users without one, AVOID running-low items as the star, etc.)
+  /// even though the weekly plan generation stays light.
   static String _buildSingleMealPrompt({
     required String dayName,
     required MealType mealType,
@@ -381,6 +396,8 @@ class MealPlanService {
     required List<String> almostAlwaysHave,
     required List<String> existingTitles,
     required int servings,
+    List<String> appliances = const [],
+    List<String> runningLowItems = const [],
   }) {
     final buffer = StringBuffer();
 
@@ -391,6 +408,14 @@ class MealPlanService {
     }
     if (alwaysHave.isNotEmpty) buffer.writeln('Pantry: ${alwaysHave.join(', ')}');
     if (almostAlwaysHave.isNotEmpty) buffer.writeln('Usually have: ${almostAlwaysHave.join(', ')}');
+    if (runningLowItems.isNotEmpty) {
+      buffer.writeln(
+          'Running low (AVOID — do NOT make these the star, treat as optional): ${runningLowItems.join(', ')}.');
+    }
+    if (appliances.isNotEmpty) {
+      buffer.writeln(
+          'Available appliances: ${appliances.join(', ')}. Recipe must work with these — don\'t require anything else.');
+    }
     if (existingTitles.isNotEmpty) {
       buffer.writeln('Avoid repeats: ${existingTitles.join(', ')}');
     }
