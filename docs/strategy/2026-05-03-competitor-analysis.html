@@ -1,0 +1,1587 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elio Competitor Analysis — Recipe Library + Shopping List Apps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream:        #F4ECE0;
+    --cream-deep:   #EFE3D2;
+    --terracotta:   #E37B53;
+    --terracotta-d: #C45F39;
+    --peach:        #F2C9A8;
+    --espresso:     #2A1F1A;
+    --mocha:        #6B5A4F;
+    --rule:         #D7C5B0;
+    --error:        #D94A4A;
+    --success:      #3D9970;
+    --perish-today: #E06C5E;
+    --perish-soon:  #FE9D00;
+    --perish-fresh: #7A876D;
+    --perish-gone:  #A43D09;
+
+    --hero-font:  'Bricolage Grotesque', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --body-font:  'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono-font:  'DM Mono', ui-monospace, 'SF Mono', monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--espresso);
+    font-family: var(--body-font);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 56px 32px 96px;
+  }
+  @media (max-width: 720px) {
+    .wrap { padding: 32px 18px 64px; }
+    body { font-size: 15px; }
+  }
+
+  /* HEADERS ============================================================ */
+  h1, h2, h3, h4 {
+    font-family: var(--hero-font);
+    font-weight: 800;
+    color: var(--espresso);
+    letter-spacing: -0.015em;
+    margin: 0 0 0.4em;
+  }
+  h1 {
+    font-size: clamp(48px, 7vw, 88px);
+    line-height: 0.96;
+    text-transform: lowercase;
+    letter-spacing: -0.035em;
+  }
+  h1 .dot { color: var(--terracotta); }
+  h2 {
+    font-size: clamp(28px, 4vw, 44px);
+    line-height: 1.05;
+    text-transform: lowercase;
+    margin-top: 64px;
+    margin-bottom: 24px;
+    letter-spacing: -0.025em;
+  }
+  h3 {
+    font-size: 22px;
+    line-height: 1.2;
+    font-weight: 700;
+    margin-top: 28px;
+  }
+  h4 {
+    font-size: 16px;
+    font-family: var(--body-font);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--mocha);
+    margin-bottom: 12px;
+  }
+  p { margin: 0 0 1em; color: var(--espresso); }
+  strong { font-weight: 700; color: var(--espresso); }
+  em { color: var(--mocha); }
+  a { color: var(--terracotta-d); text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
+  a:hover { color: var(--terracotta); }
+
+  /* HERO =============================================================== */
+  .hero {
+    border-bottom: 2px solid var(--rule);
+    padding-bottom: 36px;
+    margin-bottom: 24px;
+  }
+  .meta-row {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    font-family: var(--mono-font);
+    font-size: 13px;
+    color: var(--mocha);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 22px;
+  }
+  .meta-row span { display: inline-flex; align-items: center; gap: 8px; }
+  .meta-row .dot-sep { width: 4px; height: 4px; background: var(--terracotta); border-radius: 50%; }
+  .lede {
+    font-size: 20px;
+    line-height: 1.5;
+    color: var(--mocha);
+    max-width: 780px;
+    margin-top: 24px;
+  }
+
+  /* TL;DR STAT BAR ====================================================== */
+  .stat-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin: 36px 0 12px;
+  }
+  .stat-card {
+    background: var(--cream-deep);
+    border: 1.5px solid var(--rule);
+    border-radius: 18px;
+    padding: 26px 22px 22px;
+  }
+  .stat-num {
+    font-family: var(--hero-font);
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--terracotta);
+    letter-spacing: -0.04em;
+  }
+  .stat-label {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--mocha);
+  }
+  @media (max-width: 720px) {
+    .stat-bar { grid-template-columns: 1fr; }
+    .stat-num { font-size: 44px; }
+  }
+
+  /* CALLOUT (yellow / amber) ============================================ */
+  .callout {
+    background: #FBE9CD;
+    border-left: 5px solid var(--perish-soon);
+    border-radius: 10px;
+    padding: 18px 22px;
+    margin: 24px 0;
+  }
+  .callout strong { color: var(--perish-gone); }
+
+  /* COMPETITOR CARDS GRID =============================================== */
+  .competitor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .comp-card {
+    background: var(--cream-deep);
+    border: 1.5px solid var(--rule);
+    border-radius: 16px;
+    padding: 20px 20px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .comp-card.dead {
+    background: #ECE3D5;
+    border-color: var(--rule);
+    opacity: 0.85;
+  }
+  .comp-card.dead::after {
+    content: 'shut down';
+    position: absolute; top: 12px; right: 12px;
+    font-family: var(--mono-font);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    background: var(--perish-gone);
+    color: white;
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+  .comp-card .name {
+    font-family: var(--hero-font);
+    font-weight: 700;
+    font-size: 22px;
+    line-height: 1.1;
+    margin-bottom: 4px;
+  }
+  .comp-card .cat {
+    font-family: var(--mono-font);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--mocha);
+    margin-bottom: 12px;
+  }
+  .comp-card .price {
+    font-size: 14px;
+    color: var(--espresso);
+    margin-bottom: 8px;
+  }
+  .comp-card .price strong {
+    color: var(--terracotta-d);
+    font-weight: 700;
+  }
+  .comp-card .pos {
+    font-size: 13px;
+    color: var(--mocha);
+    line-height: 1.45;
+    border-top: 1px solid var(--rule);
+    padding-top: 10px;
+    margin-top: 10px;
+  }
+
+  /* TIMELINE (Yummly) =================================================== */
+  .timeline {
+    position: relative;
+    background: var(--cream-deep);
+    border-radius: 16px;
+    padding: 32px 24px 28px;
+    margin: 24px 0;
+  }
+  .timeline-row {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 18px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .timeline-row:last-child { border-bottom: none; }
+  .timeline-date {
+    font-family: var(--mono-font);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--terracotta-d);
+    font-weight: 500;
+    padding-top: 2px;
+  }
+  .timeline-event { color: var(--espresso); }
+  .timeline-event strong { color: var(--espresso); }
+  @media (max-width: 600px) {
+    .timeline-row { grid-template-columns: 1fr; gap: 4px; }
+  }
+
+  /* MOATS GRID ========================================================== */
+  .moats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 24px 0;
+  }
+  .moat {
+    background: linear-gradient(160deg, var(--terracotta) 0%, var(--terracotta-d) 100%);
+    color: white;
+    padding: 24px 22px 22px;
+    border-radius: 16px;
+    position: relative;
+  }
+  .moat .star {
+    font-family: var(--hero-font);
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .moat .title {
+    font-family: var(--hero-font);
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 8px 0 10px;
+  }
+  .moat .body {
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.92);
+  }
+  @media (max-width: 720px) { .moats { grid-template-columns: 1fr; } }
+
+  /* GAP RANK LIST ======================================================= */
+  .gap-list { margin: 16px 0 24px; }
+  .gap-item {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 18px;
+    padding: 18px 22px;
+    background: var(--cream-deep);
+    border: 1.5px solid var(--rule);
+    border-radius: 14px;
+    margin-bottom: 10px;
+    align-items: center;
+  }
+  .gap-rank {
+    font-family: var(--hero-font);
+    font-weight: 800;
+    font-size: 36px;
+    line-height: 1;
+    color: var(--terracotta);
+  }
+  .gap-text strong { font-weight: 700; }
+  .gap-text small {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--mocha);
+  }
+  .gap-tag {
+    font-family: var(--mono-font);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--peach);
+    color: var(--perish-gone);
+    white-space: nowrap;
+  }
+  .gap-tag.must { background: var(--perish-today); color: white; }
+  .gap-tag.v11  { background: var(--perish-soon); color: white; }
+  .gap-tag.v12  { background: var(--perish-fresh); color: white; }
+  @media (max-width: 600px) {
+    .gap-item { grid-template-columns: 44px 1fr; }
+    .gap-tag { grid-column: 2; justify-self: start; margin-top: 6px; }
+  }
+
+  /* QUOTE CALLOUT ======================================================= */
+  .quote {
+    background: var(--cream-deep);
+    border-left: 5px solid var(--terracotta);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 12px 0;
+    font-style: italic;
+    color: var(--espresso);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  .quote-attr {
+    display: block;
+    margin-top: 6px;
+    font-style: normal;
+    font-family: var(--mono-font);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--mocha);
+  }
+
+  /* PER-APP TEARDOWN ==================================================== */
+  .teardown {
+    background: var(--cream-deep);
+    border: 1.5px solid var(--rule);
+    border-radius: 16px;
+    padding: 26px 28px 22px;
+    margin: 18px 0;
+  }
+  .teardown-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 4px;
+  }
+  .teardown-head h3 { margin: 0; }
+  .teardown-pricing {
+    font-family: var(--mono-font);
+    font-size: 13px;
+    color: var(--terracotta-d);
+    font-weight: 500;
+  }
+  .teardown-pos {
+    font-size: 15px;
+    color: var(--mocha);
+    margin-top: 2px;
+    margin-bottom: 16px;
+    font-style: italic;
+  }
+  .teardown-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-top: 14px;
+  }
+  .teardown-row h4 { margin-top: 0; }
+  .teardown-row ul {
+    margin: 0; padding-left: 18px;
+    font-size: 14px;
+    color: var(--espresso);
+  }
+  .teardown-row li { margin-bottom: 6px; }
+  @media (max-width: 720px) {
+    .teardown-row { grid-template-columns: 1fr; gap: 16px; }
+  }
+
+  .takeaway {
+    background: var(--peach);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--espresso);
+  }
+  .takeaway strong { color: var(--perish-gone); }
+
+  /* FEATURE MATRIX ====================================================== */
+  .matrix-wrap {
+    overflow-x: auto;
+    margin: 20px -8px;
+    padding: 0 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  table.matrix {
+    border-collapse: separate;
+    border-spacing: 2px;
+    font-size: 12px;
+    font-family: var(--body-font);
+    width: 100%;
+    min-width: 720px;
+  }
+  table.matrix th, table.matrix td {
+    padding: 6px 8px;
+    text-align: center;
+    border-radius: 4px;
+  }
+  table.matrix th {
+    font-family: var(--mono-font);
+    font-weight: 500;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--mocha);
+    background: transparent;
+    vertical-align: bottom;
+    height: 110px;
+    padding: 4px 0;
+  }
+  table.matrix th .vlabel {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    white-space: nowrap;
+    display: inline-block;
+    line-height: 1.2;
+  }
+  table.matrix th.elio-col .vlabel { color: var(--terracotta-d); font-weight: 700; }
+  table.matrix td.feat {
+    text-align: left;
+    font-family: var(--body-font);
+    color: var(--espresso);
+    background: transparent;
+    font-size: 13px;
+    padding-left: 0;
+    width: 220px;
+    white-space: normal;
+  }
+  table.matrix td.feat strong { color: var(--terracotta-d); }
+  table.matrix td.cell {
+    font-family: var(--hero-font);
+    font-weight: 700;
+    font-size: 16px;
+    width: 50px;
+    height: 36px;
+  }
+  table.matrix td.cell.has   { background: #BFD9C5; color: #1F4D2A; }
+  table.matrix td.cell.miss  { background: #ECDED0; color: #B8A38C; }
+  table.matrix td.cell.star  { background: var(--terracotta); color: white; }
+  table.matrix td.cell.aspir { background: var(--peach); color: var(--perish-gone); }
+  table.matrix td.cell.partial { background: #E8DBB8; color: #8C6F2A; }
+  table.matrix td.cell.elio.has  { background: var(--terracotta); color: white; }
+  table.matrix td.cell.elio.star { background: var(--terracotta-d); color: white; box-shadow: inset 0 0 0 2px var(--espresso); }
+
+  .legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--mocha);
+    margin: 8px 0 18px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .swatch {
+    display: inline-block;
+    width: 18px; height: 18px;
+    border-radius: 4px;
+    text-align: center;
+    line-height: 18px;
+    font-family: var(--hero-font);
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .legend .swatch.has   { background: #BFD9C5; color: #1F4D2A; }
+  .legend .swatch.miss  { background: #ECDED0; color: #B8A38C; }
+  .legend .swatch.star  { background: var(--terracotta); color: white; }
+  .legend .swatch.aspir { background: var(--peach); color: var(--perish-gone); }
+  .legend .swatch.partial { background: #E8DBB8; color: #8C6F2A; }
+
+  /* MESSAGING CARDS ===================================================== */
+  .msg-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 14px;
+    margin: 20px 0;
+  }
+  .msg-card {
+    background: var(--cream-deep);
+    border: 1.5px solid var(--rule);
+    border-radius: 14px;
+    padding: 22px 22px 20px;
+  }
+  .msg-card .num {
+    font-family: var(--mono-font);
+    font-size: 11px;
+    color: var(--terracotta-d);
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+  }
+  .msg-card .claim {
+    font-family: var(--hero-font);
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.2;
+    color: var(--espresso);
+    margin-bottom: 10px;
+  }
+  .msg-card .evidence {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--mocha);
+    border-top: 1px solid var(--rule);
+    padding-top: 10px;
+    margin-top: 8px;
+  }
+  .msg-card .evidence em {
+    color: var(--espresso);
+    font-style: italic;
+  }
+
+  /* ROADMAP COLUMNS ===================================================== */
+  .roadmap {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+    margin: 24px 0;
+  }
+  .road-col {
+    background: var(--cream-deep);
+    border-radius: 16px;
+    padding: 22px 20px 18px;
+  }
+  .road-col h4 {
+    margin-top: 0;
+    color: var(--terracotta-d);
+  }
+  .road-col.must { border-top: 5px solid var(--perish-today); }
+  .road-col.v11  { border-top: 5px solid var(--perish-soon); }
+  .road-col.v12  { border-top: 5px solid var(--perish-fresh); }
+  .road-item {
+    background: var(--cream);
+    padding: 12px 14px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .road-item strong { color: var(--espresso); }
+  .road-item small {
+    display: block;
+    margin-top: 3px;
+    font-size: 12px;
+    color: var(--mocha);
+  }
+  @media (max-width: 720px) { .roadmap { grid-template-columns: 1fr; } }
+
+  /* "DON'T BUILD" GRID ================================================= */
+  .nope-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+  }
+  .nope-card {
+    background: var(--cream-deep);
+    border: 1.5px solid var(--rule);
+    border-left: 4px solid var(--error);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .nope-card strong { color: var(--error); display: block; margin-bottom: 4px; }
+  .nope-card span { color: var(--mocha); }
+
+  /* SVG INFOGRAPHICS ==================================================== */
+  .infographic {
+    background: var(--cream-deep);
+    border-radius: 16px;
+    padding: 24px;
+    margin: 20px 0;
+    border: 1.5px solid var(--rule);
+  }
+  .infographic svg { width: 100%; height: auto; display: block; }
+  .info-caption {
+    font-family: var(--mono-font);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--mocha);
+    margin-bottom: 12px;
+    text-align: center;
+  }
+
+  /* SOURCES ============================================================= */
+  .sources {
+    border-top: 2px solid var(--rule);
+    margin-top: 64px;
+    padding-top: 24px;
+    font-size: 13px;
+    color: var(--mocha);
+  }
+  .sources ul { padding-left: 18px; columns: 2; column-gap: 24px; }
+  .sources li { break-inside: avoid; margin-bottom: 6px; }
+  @media (max-width: 600px) { .sources ul { columns: 1; } }
+
+  /* PRINT =============================================================== */
+  @media print {
+    body { background: white; font-size: 11pt; }
+    .wrap { padding: 0; max-width: 100%; }
+    h1, h2, h3 { page-break-after: avoid; }
+    .teardown, .gap-item, .road-col, .infographic, .competitor-grid > * {
+      page-break-inside: avoid;
+    }
+    a { color: var(--espresso); text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ============== HERO ============== -->
+<header class="hero">
+  <div class="meta-row">
+    <span>Strategy memo</span>
+    <span class="dot-sep"></span>
+    <span>03 May 2026</span>
+    <span class="dot-sep"></span>
+    <span>Branch · sprint/15.9-personalized-pantry</span>
+  </div>
+  <h1>elio<span class="dot">.</span> vs. the field<span class="dot">.</span></h1>
+  <p class="lede">
+    What recipe-library and shopping-list apps offer that elio is missing &mdash;
+    grounded in nine current competitors, real user reviews, and verified pricing.
+    The headline: elio's AI-pantry-perishables core is genuinely differentiated;
+    the biggest pre-launch risk is failing at the boring household-shopping job
+    that AnyList and Bring! have spent a decade refining.
+  </p>
+
+  <div class="stat-bar">
+    <div class="stat-card">
+      <div class="stat-num">9</div>
+      <div class="stat-label">competitors deep-scanned across recipes, AI, and shopping lists</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">5</div>
+      <div class="stat-label">must-match gaps to close before app store launch</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">3</div>
+      <div class="stat-label">moats elio already owns that nobody else has</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============== YUMMLY POSTMORTEM ============== -->
+<section>
+<h2>scope adjustment<span style="color:var(--terracotta);">.</span></h2>
+<div class="callout">
+  <strong>Yummly is dead.</strong> Whirlpool acquired it in 2017 for ~$100M, laid off the
+  entire team in April 2024, and shut the app down on 20 December 2024. There was
+  no bulk export &mdash; many users with hundreds of saved recipes lost everything.
+  The original brief named Yummly as a key competitor; we've swapped in
+  <strong>Plan to Eat</strong>, which actively targeted the Yummly migration with
+  recipe-import tooling and a 30%-off promo. The Yummly story itself is a useful
+  data point, captured below.
+</div>
+
+<div class="timeline">
+  <h4 style="margin-top:0;">the yummly timeline (cautionary tale)</h4>
+  <div class="timeline-row">
+    <div class="timeline-date">2017</div>
+    <div class="timeline-event">Whirlpool acquires Yummly for a reported <strong>$100M</strong>. Big bet on AI-personalised cooking + smart-appliance tie-in.</div>
+  </div>
+  <div class="timeline-row">
+    <div class="timeline-date">Apr 2024</div>
+    <div class="timeline-event"><strong>Entire Yummly team laid off</strong> as part of Whirlpool's "operating model adjustment". App enters maintenance mode.</div>
+  </div>
+  <div class="timeline-row">
+    <div class="timeline-date">Nov 2024</div>
+    <div class="timeline-event">Discontinuation notice sent to users. <strong>No bulk recipe export</strong> &mdash; download one at a time before the deadline.</div>
+  </div>
+  <div class="timeline-row">
+    <div class="timeline-date">18 Dec 2024</div>
+    <div class="timeline-event">Yummly Smart Thermometer bricked. Whirlpool offers partial Visa rebates ($30&ndash;$87).</div>
+  </div>
+  <div class="timeline-row">
+    <div class="timeline-date">20 Dec 2024</div>
+    <div class="timeline-event">Yummly app and website <strong>permanently shut down</strong>. ~5M+ users displaced; Plan to Eat, Paprika, Mealime absorb the migration.</div>
+  </div>
+  <div class="timeline-row">
+    <div class="timeline-date">Lessons</div>
+    <div class="timeline-event">
+      (1) <strong>Bulk export must exist</strong> at launch &mdash; trust signal.
+      (2) <strong>Hardware-parented apps carry brand risk</strong> &mdash; if the parent pivots, the app dies.
+      (3) The largest AI-personalised recipe app couldn't sustain itself under a hardware company. <em>Category economics matter.</em>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============== ELIO'S MOATS ============== -->
+<section>
+<h2>what elio already owns<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Three capabilities that no competitor in the set combines. These are the moat &mdash;
+  protect them, lead with them in messaging.
+</p>
+
+<div class="moats">
+  <div class="moat">
+    <div class="star">&#9733;</div>
+    <div class="title">AI generation grounded in your actual pantry</div>
+    <div class="body">DishGen takes ingredient lists. Samsung Food does Vision AI for ordering. Mealime, Paprika, AnyList don't generate at all. <strong>Nobody combines pantry + perishable expiry + dietary union into recipe generation.</strong></div>
+  </div>
+  <div class="moat">
+    <div class="star">&#9733;</div>
+    <div class="title">Receipt OCR plus barcode plus expiry urgency</div>
+    <div class="body">Samsung Food does barcode + Vision AI from photos. No competitor does receipt OCR. Elio's "what expires today gets cooked tonight" loop is a clean run.</div>
+  </div>
+  <div class="moat">
+    <div class="star">&#9733;</div>
+    <div class="title">Household dietary union math</div>
+    <div class="body">Mealime supports a profile. Plan to Eat and AnyList have meal planning. <strong>None combine multiple humans' dietary restrictions and allergies into a single weekly plan.</strong> Best fit for mixed-diet families.</div>
+  </div>
+</div>
+</section>
+
+<!-- ============== TOP 5 GAPS ============== -->
+<section>
+<h2>the five must-match gaps<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Every category competitor has these. Reviews mention them. Launching without them
+  will produce 1- and 2-star "missing basics" reviews on day one.
+</p>
+
+<div class="gap-list">
+  <div class="gap-item">
+    <div class="gap-rank">1</div>
+    <div class="gap-text">
+      <strong>Real household sharing with email/link invite</strong>
+      <small>AnyList household ($14.99/yr), Bring!, OurGroceries, Samsung Food, Plan to Eat all let multiple humans edit the list from their own devices in real time. Elio's "household members under one UID" means only the account holder edits. <strong>Single highest-leverage feature for retention.</strong></small>
+    </div>
+    <div class="gap-tag must">launch blocker</div>
+  </div>
+  <div class="gap-item">
+    <div class="gap-rank">2</div>
+    <div class="gap-text">
+      <strong>In-app cooking timers + cook mode</strong>
+      <small>Paprika and SideChef both ship multi-timer cook mode and reviews repeatedly cite it as the reason to stay. Elio has voice cooking but no timer widget. <strong>2&ndash;3 days of work, big reviewer payoff.</strong></small>
+    </div>
+    <div class="gap-tag must">launch blocker</div>
+  </div>
+  <div class="gap-item">
+    <div class="gap-rank">3</div>
+    <div class="gap-text">
+      <strong>Browseable saved-recipe library + collections</strong>
+      <small>Every recipe app has some form of saved-recipe browse-and-organise. Elio has saved history with collection tags but it isn't merchandised. Mealime users complain "running out of variety"; Yummly migrants asked for this loudly. <strong>Mostly a UI repackaging of existing data.</strong></small>
+    </div>
+    <div class="gap-tag must">launch blocker</div>
+  </div>
+  <div class="gap-item">
+    <div class="gap-rank">4</div>
+    <div class="gap-text">
+      <strong>Apple Watch + voice-assistant add-to-list</strong>
+      <small>Bring!, AnyList, OurGroceries all have "Hey Siri / Hey Alexa, add milk" plus a Watch companion. The literal-most-requested feature for any shopping list. Elio has neither.</small>
+    </div>
+    <div class="gap-tag must">launch blocker</div>
+  </div>
+  <div class="gap-item">
+    <div class="gap-rank">5</div>
+    <div class="gap-text">
+      <strong>User-customisable aisle ordering</strong>
+      <small>Plan to Eat owns this with per-store layouts ("my Trader Joe's"). AnyList and OurGroceries let users edit categories. Elio's auto-classification is ~10 fixed aisles. Reviews tie this directly to long-term stickiness.</small>
+    </div>
+    <div class="gap-tag must">launch blocker</div>
+  </div>
+</div>
+</section>
+
+<!-- ============== COMPETITIVE SET ============== -->
+<section>
+<h2>the competitive set<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Four recipe-library apps, one AI-first peer, three shopping-list apps,
+  one aspirational integrated platform. Yummly retained as a postmortem.
+</p>
+
+<div class="competitor-grid">
+  <div class="comp-card dead">
+    <div class="name">Yummly</div>
+    <div class="cat">Recipe library &middot; deceased</div>
+    <div class="price">Was free + Pro</div>
+    <div class="pos">Whirlpool's $100M experiment in AI-personalised cooking. Killed Dec 2024. ~5M users displaced.</div>
+  </div>
+  <div class="comp-card">
+    <div class="name">Paprika</div>
+    <div class="cat">Recipe organiser &middot; premium</div>
+    <div class="price"><strong>$4.99 mobile / $29.99 desktop</strong> &middot; one-time, per platform</div>
+    <div class="pos">Power-user gold standard. Buy once, own your recipes forever. 4.3&#9733; with an aging UI.</div>
+  </div>
+  <div class="comp-card">
+    <div class="name">Mealime</div>
+    <div class="cat">Meal planner &middot; curated</div>
+    <div class="price"><strong>Free / $5.99 mo / $49.99 yr</strong></div>
+    <div class="pos">1,200+ curated 30-min recipes. Busy professionals. Repetition complaints &mdash; ideal Elio migration target.</div>
+  </div>
+  <div class="comp-card">
+    <div class="name">SideChef</div>
+    <div class="cat">Recipe library + voice cooking</div>
+    <div class="price"><strong>Free / $4.99 mo / $49.99 yr</strong></div>
+    <div class="pos">18,000+ "interactive smart recipes" with voice + step photos. Strong cook screen, weak QA reputation.</div>
+  </div>
+  <div class="comp-card">
+    <div class="name">DishGen</div>
+    <div class="cat">Pure AI generation</div>
+    <div class="price"><strong>Free 15 credits/wk / $7.99 mo / $15.99 mo Pro</strong></div>
+    <div class="pos">Closest AI peer. 60-second generation, chat refinement. Hallucination and quality concerns.</div>
+  </div>
+  <div class="comp-card">
+    <div class="name">Samsung Food</div>
+    <div class="cat">Integrated platform &middot; ex-Whisk</div>
+    <div class="price"><strong>Free / $6.99 mo / $59.99 yr</strong></div>
+    <div class="pos">Smart-fridge tie-in, Vision AI ingredient scan. Buggy reputation since 2023 rebrand.</div>
+  </div>
+  <div class="comp-card">
+    <div class="name">AnyList</div>
+    <div class="cat">Shopping list &middot; premium</div>
+    <div class="price"><strong>Free / $9.99 yr indiv / $14.99 yr household</strong></div>
+    <div class="pos">Power-user shopping. Real household sharing, recipe import, meal-plan calendar. iOS-first.</div>
+  </div>
+  <div class="comp-card">
+    <div class="name">Bring!</div>
+    <div class="cat">Shopping list &middot; icon-based</div>
+    <div class="price"><strong>Free w/ ads / $1.99 mo</strong></div>
+    <div class="pos">Cleanest UX in the category. Per-product visual icons. EU-dominant. Cheapest premium tier.</div>
+  </div>
+  <div class="comp-card">
+    <div class="name">OurGroceries</div>
+    <div class="cat">Shopping list &middot; free baseline</div>
+    <div class="price"><strong>Free w/ ads / $7.99 yr</strong></div>
+    <div class="pos">Floor of the market. Reliable real-time sync, dated UI, ads disguised as household activity.</div>
+  </div>
+  <div class="comp-card">
+    <div class="name">Plan to Eat</div>
+    <div class="cat">Meal planner &middot; Yummly heir</div>
+    <div class="price"><strong>$5.95 mo / $49 yr &middot; 14-day free trial</strong></div>
+    <div class="pos">Calendar-first. Best recipe clipper, best custom store layouts. Won the Yummly migration.</div>
+  </div>
+</div>
+</section>
+
+<!-- ============== POSITIONING MAP ============== -->
+<section>
+<h2>positioning map<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Two axes. <strong>Library breadth</strong> (do you bring a curated/community recipe corpus?) on the
+  vertical and <strong>AI / personalisation depth</strong> (does the app reason about you and your kitchen?)
+  on the horizontal. Elio sits in the upper-right whitespace alongside no other live app.
+</p>
+
+<div class="infographic">
+  <div class="info-caption">Library breadth (vertical) &times; AI personalisation (horizontal)</div>
+  <svg viewBox="0 0 800 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Positioning map">
+    <!-- Background quadrants -->
+    <rect x="50" y="40"  width="350" height="200" fill="#F4ECE0" />
+    <rect x="400" y="40" width="350" height="200" fill="#FBE9CD" />
+    <rect x="50" y="240" width="350" height="200" fill="#ECE3D5" />
+    <rect x="400" y="240" width="350" height="200" fill="#F4ECE0" />
+
+    <!-- Quadrant labels -->
+    <text x="225" y="65" text-anchor="middle" font-family="DM Mono, monospace" font-size="10" letter-spacing="2" fill="#6B5A4F">BIG LIBRARY &middot; LOW AI</text>
+    <text x="575" y="65" text-anchor="middle" font-family="DM Mono, monospace" font-size="10" letter-spacing="2" fill="#A43D09" font-weight="600">BIG LIBRARY &middot; HIGH AI</text>
+    <text x="225" y="265" text-anchor="middle" font-family="DM Mono, monospace" font-size="10" letter-spacing="2" fill="#6B5A4F">SMALL LIBRARY &middot; LOW AI</text>
+    <text x="575" y="265" text-anchor="middle" font-family="DM Mono, monospace" font-size="10" letter-spacing="2" fill="#6B5A4F">SMALL LIBRARY &middot; HIGH AI</text>
+
+    <!-- Axes -->
+    <line x1="50" y1="240" x2="750" y2="240" stroke="#D7C5B0" stroke-width="2"/>
+    <line x1="400" y1="40"  x2="400" y2="440" stroke="#D7C5B0" stroke-width="2"/>
+
+    <!-- Axis labels -->
+    <text x="400" y="465" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="14" font-weight="700" fill="#2A1F1A">AI / personalisation depth &rarr;</text>
+    <text x="20" y="240" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="14" font-weight="700" fill="#2A1F1A" transform="rotate(-90 20 240)">&larr; library breadth</text>
+
+    <!-- COMPETITORS -->
+    <!-- Paprika: big personal library, low AI -->
+    <circle cx="180" cy="120" r="10" fill="#6B5A4F"/>
+    <text x="195" y="125" font-family="DM Sans" font-size="13" fill="#2A1F1A">Paprika</text>
+
+    <!-- Mealime: medium library, medium AI -->
+    <circle cx="320" cy="170" r="10" fill="#6B5A4F"/>
+    <text x="335" y="175" font-family="DM Sans" font-size="13" fill="#2A1F1A">Mealime</text>
+
+    <!-- SideChef: huge library, low AI -->
+    <circle cx="150" cy="80" r="10" fill="#6B5A4F"/>
+    <text x="165" y="85" font-family="DM Sans" font-size="13" fill="#2A1F1A">SideChef</text>
+
+    <!-- Plan to Eat: medium library, low-medium AI -->
+    <circle cx="280" cy="140" r="10" fill="#6B5A4F"/>
+    <text x="295" y="145" font-family="DM Sans" font-size="13" fill="#2A1F1A">Plan to Eat</text>
+
+    <!-- Samsung Food: big library, medium AI -->
+    <circle cx="350" cy="100" r="10" fill="#6B5A4F"/>
+    <text x="365" y="105" font-family="DM Sans" font-size="13" fill="#2A1F1A">Samsung Food</text>
+
+    <!-- DishGen: tiny library, high AI -->
+    <circle cx="650" cy="300" r="10" fill="#6B5A4F"/>
+    <text x="600" y="325" font-family="DM Sans" font-size="13" fill="#2A1F1A">DishGen</text>
+
+    <!-- Yummly: dead, ghost it -->
+    <circle cx="550" cy="160" r="10" fill="#A43D09" fill-opacity="0.25" stroke="#A43D09" stroke-width="1.5" stroke-dasharray="3 3"/>
+    <text x="565" y="165" font-family="DM Sans" font-size="13" fill="#A43D09" font-style="italic">Yummly &dagger;</text>
+
+    <!-- Shopping list apps: small recipe libraries, low AI -->
+    <circle cx="120" cy="350" r="10" fill="#6B5A4F"/>
+    <text x="135" y="355" font-family="DM Sans" font-size="13" fill="#2A1F1A">AnyList</text>
+
+    <circle cx="100" cy="395" r="10" fill="#6B5A4F"/>
+    <text x="115" y="400" font-family="DM Sans" font-size="13" fill="#2A1F1A">Bring!</text>
+
+    <circle cx="80" cy="420" r="10" fill="#6B5A4F"/>
+    <text x="95" y="425" font-family="DM Sans" font-size="13" fill="#2A1F1A">OurGroceries</text>
+
+    <!-- ELIO -->
+    <circle cx="610" cy="140" r="16" fill="#E37B53" stroke="#2A1F1A" stroke-width="2.5"/>
+    <text x="635" y="148" font-family="Bricolage Grotesque, sans-serif" font-size="20" font-weight="800" fill="#2A1F1A">elio.</text>
+
+    <!-- whitespace marker -->
+    <circle cx="610" cy="140" r="42" fill="none" stroke="#E37B53" stroke-width="1" stroke-dasharray="4 4" opacity="0.5"/>
+  </svg>
+</div>
+<p style="font-size:13px; color:var(--mocha); margin-top:-4px;">
+  The dashed circle around <strong>elio</strong> is open whitespace &mdash; "personal pantry-grounded AI"
+  is uncontested by any actively-developed app. DishGen is in the high-AI quadrant but
+  with no library and no household; the rest of the field clusters around library-first/low-AI.
+</p>
+</section>
+
+<!-- ============== FEATURE MATRIX ============== -->
+<section>
+<h2>feature matrix heatmap<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Twenty-five features across ten apps. Read the elio column &mdash; <strong>terracotta cells are
+  category-leading</strong>, faded cells are gaps to address.
+</p>
+
+<div class="legend">
+  <span><span class="swatch star">&#9733;</span> category leader</span>
+  <span><span class="swatch has">&#10003;</span> ships</span>
+  <span><span class="swatch partial">~</span> partial</span>
+  <span><span class="swatch aspir">&#9671;</span> aspirational</span>
+  <span><span class="swatch miss">&#10007;</span> missing</span>
+</div>
+
+<div class="matrix-wrap">
+<table class="matrix">
+  <thead>
+    <tr>
+      <th class="feat"></th>
+      <th class="elio-col"><span class="vlabel">elio.</span></th>
+      <th><span class="vlabel">Paprika</span></th>
+      <th><span class="vlabel">Mealime</span></th>
+      <th><span class="vlabel">SideChef</span></th>
+      <th><span class="vlabel">DishGen</span></th>
+      <th><span class="vlabel">Samsung Food</span></th>
+      <th><span class="vlabel">AnyList</span></th>
+      <th><span class="vlabel">Bring!</span></th>
+      <th><span class="vlabel">OurGroceries</span></th>
+      <th><span class="vlabel">Plan to Eat</span></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td class="feat"><strong>AI recipe generation</strong></td><td class="cell elio star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell star">&#9733;</td><td class="cell partial">~</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat"><strong>Pantry tracking + expiry</strong></td><td class="cell elio star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell partial">~</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell partial">~</td></tr>
+    <tr><td class="feat"><strong>Receipt OCR &rarr; pantry</strong></td><td class="cell elio star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat">Barcode scan</td><td class="cell elio has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell partial">~</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat">Browseable recipe library</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell star">&#9733;</td><td class="cell partial">~</td><td class="cell has">&#10003;</td><td class="cell partial">~</td><td class="cell partial">~</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td></tr>
+    <tr><td class="feat">Recipe import URL</td><td class="cell elio has">&#10003;</td><td class="cell star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell partial">~</td><td class="cell partial">~</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell partial">~</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td></tr>
+    <tr><td class="feat">Recipe import photo / OCR</td><td class="cell elio has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat">Meal planning calendar</td><td class="cell elio has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell star">&#9733;</td></tr>
+    <tr><td class="feat">Shopping list (auto-built)</td><td class="cell elio has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell star">&#9733;</td><td class="cell star">&#9733;</td><td class="cell star">&#9733;</td><td class="cell star">&#9733;</td></tr>
+    <tr><td class="feat">Aisle grouping (auto)</td><td class="cell elio has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td></tr>
+    <tr><td class="feat"><strong>User-customisable aisles</strong></td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell star">&#9733;</td></tr>
+    <tr><td class="feat">Quantity consolidation</td><td class="cell elio has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell partial">~</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td></tr>
+    <tr><td class="feat"><strong>Real household invites + sync</strong></td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell star">&#9733;</td><td class="cell star">&#9733;</td><td class="cell star">&#9733;</td><td class="cell has">&#10003;</td></tr>
+    <tr><td class="feat"><strong>Household dietary union</strong></td><td class="cell elio star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell partial">~</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat"><strong>Cooking timers in-app</strong></td><td class="cell miss">&#10007;</td><td class="cell star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat">Cook mode / screen-on</td><td class="cell elio partial">~</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat">Step-by-step photos / video</td><td class="cell miss">&#10007;</td><td class="cell partial">~</td><td class="cell has">&#10003;</td><td class="cell star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat">Voice-guided cooking</td><td class="cell elio star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat"><strong>Voice-assistant add-to-list</strong></td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell star">&#9733;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat"><strong>Apple Watch / wearOS</strong></td><td class="cell miss">&#10007;</td><td class="cell partial">~</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat">Geofence "at the store" reminder</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell partial">~</td><td class="cell star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat">Multiple lists (groceries, hardware)</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat">Per-serving nutrition + cost</td><td class="cell elio has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell partial">~</td><td class="cell has">&#10003;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell partial">~</td></tr>
+    <tr><td class="feat">Side-dish generation</td><td class="cell elio star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+    <tr><td class="feat"><strong>Dark mode</strong></td><td class="cell miss">&#10007;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td><td class="cell has">&#10003;</td></tr>
+    <tr><td class="feat">Smart-fridge integration</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell aspir">&#9671;</td><td class="cell miss">&#10007;</td><td class="cell star">&#9733;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td><td class="cell miss">&#10007;</td></tr>
+  </tbody>
+</table>
+</div>
+</section>
+
+<!-- ============== PRICING LANDSCAPE ============== -->
+<section>
+<h2>pricing landscape<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Effective annual cost in USD. <strong>Elio's $29.99/yr is fine</strong> in the cluster, but
+  AnyList household at $14.99/yr anchors the family-shopping use case below it &mdash;
+  defend with AI-generation messaging at the paywall.
+</p>
+
+<div class="infographic">
+  <div class="info-caption">Annual cost (USD) &middot; lower bars = cheaper</div>
+  <svg viewBox="0 0 800 540" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pricing comparison">
+    <!-- Bars -->
+    <!-- OurGroceries 7.99 -->
+    <rect x="200" y="30"  width="35" height="28" fill="#7A876D"/>
+    <text x="190" y="50" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">OurGroceries</text>
+    <text x="240" y="50" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$7.99</text>
+
+    <!-- Paprika 4.99 mobile (one-time, cost in yr 1 only) -->
+    <rect x="200" y="68"  width="22" height="28" fill="#7A876D"/>
+    <text x="190" y="88" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">Paprika mobile</text>
+    <text x="227" y="88" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$4.99 once</text>
+
+    <!-- AnyList household 14.99 -->
+    <rect x="200" y="106" width="65" height="28" fill="#FE9D00"/>
+    <text x="190" y="126" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">AnyList household</text>
+    <text x="270" y="126" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$14.99</text>
+
+    <!-- Bring! 23.88 -->
+    <rect x="200" y="144" width="105" height="28" fill="#FE9D00"/>
+    <text x="190" y="164" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">Bring! Premium</text>
+    <text x="310" y="164" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$23.88</text>
+
+    <!-- ELIO 29.99 -->
+    <rect x="200" y="182" width="130" height="36" fill="#E37B53" stroke="#2A1F1A" stroke-width="2"/>
+    <text x="190" y="207" text-anchor="end" font-family="Bricolage Grotesque, sans-serif" font-weight="800" font-size="15" fill="#2A1F1A">elio.</text>
+    <text x="335" y="207" font-family="DM Mono, monospace" font-weight="500" font-size="13" fill="#C45F39">$29.99</text>
+
+    <!-- Paprika desktop 29.99 (one-time) -->
+    <rect x="200" y="228" width="130" height="28" fill="#7A876D"/>
+    <text x="190" y="248" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">Paprika desktop</text>
+    <text x="335" y="248" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$29.99 once</text>
+
+    <!-- Plan to Eat 49 -->
+    <rect x="200" y="266" width="216" height="28" fill="#E06C5E"/>
+    <text x="190" y="286" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">Plan to Eat</text>
+    <text x="421" y="286" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$49 + 14d trial</text>
+
+    <!-- Mealime Pro 49.99 -->
+    <rect x="200" y="304" width="220" height="28" fill="#E06C5E"/>
+    <text x="190" y="324" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">Mealime Pro</text>
+    <text x="425" y="324" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$49.99</text>
+
+    <!-- SideChef Premium 49.99 -->
+    <rect x="200" y="342" width="220" height="28" fill="#E06C5E"/>
+    <text x="190" y="362" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">SideChef Premium</text>
+    <text x="425" y="362" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$49.99</text>
+
+    <!-- Samsung Food+ 59.99 -->
+    <rect x="200" y="380" width="265" height="28" fill="#E06C5E"/>
+    <text x="190" y="400" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">Samsung Food+</text>
+    <text x="470" y="400" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$59.99</text>
+
+    <!-- DishGen Premium 95.88 -->
+    <rect x="200" y="418" width="423" height="28" fill="#A43D09"/>
+    <text x="190" y="438" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">DishGen Premium</text>
+    <text x="628" y="438" font-family="DM Mono, monospace" font-size="12" fill="#6B5A4F">$95.88</text>
+
+    <!-- DishGen Pro 191.88 -->
+    <rect x="200" y="456" width="585" height="28" fill="#A43D09"/>
+    <text x="190" y="476" text-anchor="end" font-family="DM Sans" font-size="13" fill="#2A1F1A">DishGen Pro</text>
+    <text x="790" y="476" text-anchor="end" font-family="DM Mono, monospace" font-size="12" fill="#FFFFFF">$191.88</text>
+
+    <!-- Scale -->
+    <line x1="200" y1="500" x2="780" y2="500" stroke="#D7C5B0" stroke-width="1.5"/>
+    <line x1="200" y1="495" x2="200" y2="505" stroke="#D7C5B0" stroke-width="1.5"/>
+    <line x1="316" y1="495" x2="316" y2="505" stroke="#D7C5B0" stroke-width="1.5"/>
+    <line x1="432" y1="495" x2="432" y2="505" stroke="#D7C5B0" stroke-width="1.5"/>
+    <line x1="548" y1="495" x2="548" y2="505" stroke="#D7C5B0" stroke-width="1.5"/>
+    <line x1="664" y1="495" x2="664" y2="505" stroke="#D7C5B0" stroke-width="1.5"/>
+    <line x1="780" y1="495" x2="780" y2="505" stroke="#D7C5B0" stroke-width="1.5"/>
+    <text x="200" y="520" text-anchor="middle" font-family="DM Mono, monospace" font-size="11" fill="#6B5A4F">$0</text>
+    <text x="316" y="520" text-anchor="middle" font-family="DM Mono, monospace" font-size="11" fill="#6B5A4F">$40</text>
+    <text x="432" y="520" text-anchor="middle" font-family="DM Mono, monospace" font-size="11" fill="#6B5A4F">$80</text>
+    <text x="548" y="520" text-anchor="middle" font-family="DM Mono, monospace" font-size="11" fill="#6B5A4F">$120</text>
+    <text x="664" y="520" text-anchor="middle" font-family="DM Mono, monospace" font-size="11" fill="#6B5A4F">$160</text>
+    <text x="780" y="520" text-anchor="middle" font-family="DM Mono, monospace" font-size="11" fill="#6B5A4F">$200</text>
+  </svg>
+</div>
+
+<p style="font-size:13px; color:var(--mocha);">
+  <strong>Trial-length note:</strong> Plan to Eat ships a <strong>14-day no-credit-card trial</strong>;
+  Elio's 7-day is fine but worth A/B testing 7 vs 14 once analytics are wired post-launch.
+</p>
+</section>
+
+<!-- ============== GAP PRIORITY QUADRANT ============== -->
+<section>
+<h2>gap priority quadrant<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  <strong>Demand signal</strong> (how loud the gap shows up in competitor reviews) on the
+  vertical, <strong>cost-to-build</strong> on the horizontal. Top-left is the quick-win zone &mdash;
+  high demand, low cost. Build these first.
+</p>
+
+<div class="infographic">
+  <div class="info-caption">Demand signal &times; cost-to-build &middot; bigger circle = bigger reviewer impact</div>
+  <svg viewBox="0 0 800 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Gap priority quadrant">
+    <!-- background quadrants -->
+    <rect x="60" y="40" width="345" height="200" fill="#BFD9C5" fill-opacity="0.45"/>
+    <rect x="405" y="40" width="345" height="200" fill="#FBE9CD"/>
+    <rect x="60" y="240" width="345" height="200" fill="#F4ECE0"/>
+    <rect x="405" y="240" width="345" height="200" fill="#ECE3D5"/>
+
+    <!-- quadrant labels -->
+    <text x="232" y="62" text-anchor="middle" font-family="DM Mono, monospace" font-size="10" letter-spacing="2" font-weight="600" fill="#1F4D2A">QUICK WINS</text>
+    <text x="577" y="62" text-anchor="middle" font-family="DM Mono, monospace" font-size="10" letter-spacing="2" fill="#A43D09">BIG BETS</text>
+    <text x="232" y="262" text-anchor="middle" font-family="DM Mono, monospace" font-size="10" letter-spacing="2" fill="#6B5A4F">FILLERS</text>
+    <text x="577" y="262" text-anchor="middle" font-family="DM Mono, monospace" font-size="10" letter-spacing="2" fill="#6B5A4F">DEFER</text>
+
+    <!-- axes -->
+    <line x1="60" y1="240" x2="750" y2="240" stroke="#D7C5B0" stroke-width="2"/>
+    <line x1="405" y1="40"  x2="405" y2="440" stroke="#D7C5B0" stroke-width="2"/>
+
+    <text x="405" y="465" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="14" font-weight="700" fill="#2A1F1A">cost to build &rarr;</text>
+    <text x="32" y="240" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-size="14" font-weight="700" fill="#2A1F1A" transform="rotate(-90 32 240)">&larr; demand signal</text>
+
+    <!-- gap circles -->
+    <!-- QUICK WINS -->
+    <circle cx="120" cy="100" r="22" fill="#E37B53" fill-opacity="0.85" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="155" y="103" font-family="DM Sans" font-size="13" font-weight="600" fill="#2A1F1A">cooking timers</text>
+
+    <circle cx="180" cy="155" r="20" fill="#E37B53" fill-opacity="0.85" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="215" y="158" font-family="DM Sans" font-size="13" font-weight="600" fill="#2A1F1A">dark mode</text>
+
+    <circle cx="300" cy="125" r="20" fill="#E37B53" fill-opacity="0.85" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="335" y="128" font-family="DM Sans" font-size="13" font-weight="600" fill="#2A1F1A">custom aisle order</text>
+
+    <circle cx="240" cy="200" r="18" fill="#E37B53" fill-opacity="0.85" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="263" y="203" font-family="DM Sans" font-size="12" font-weight="600" fill="#2A1F1A">bulk-prep UI</text>
+
+    <circle cx="120" cy="195" r="18" fill="#E37B53" fill-opacity="0.85" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="148" y="198" font-family="DM Sans" font-size="12" font-weight="600" fill="#2A1F1A">browseable library</text>
+
+    <!-- BIG BETS -->
+    <circle cx="540" cy="80" r="28" fill="#D94A4A" fill-opacity="0.85" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="578" y="84" font-family="DM Sans" font-size="13" font-weight="600" fill="#2A1F1A">household sharing + invites</text>
+
+    <circle cx="610" cy="155" r="20" fill="#D94A4A" fill-opacity="0.85" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="645" y="158" font-family="DM Sans" font-size="13" font-weight="600" fill="#2A1F1A">Apple Watch app</text>
+
+    <circle cx="475" cy="195" r="18" fill="#D94A4A" fill-opacity="0.85" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="498" y="198" font-family="DM Sans" font-size="12" font-weight="600" fill="#2A1F1A">voice add-to-list</text>
+
+    <!-- FILLERS -->
+    <circle cx="180" cy="320" r="14" fill="#7A876D" fill-opacity="0.7" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="200" y="323" font-family="DM Sans" font-size="12" fill="#2A1F1A">recurring lists</text>
+
+    <circle cx="280" cy="365" r="14" fill="#7A876D" fill-opacity="0.7" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="300" y="368" font-family="DM Sans" font-size="12" fill="#2A1F1A">multiple lists</text>
+
+    <circle cx="120" cy="370" r="13" fill="#7A876D" fill-opacity="0.7" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="138" y="373" font-family="DM Sans" font-size="12" fill="#2A1F1A">free-tier list</text>
+
+    <!-- DEFER -->
+    <circle cx="600" cy="340" r="14" fill="#6B5A4F" fill-opacity="0.6" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="620" y="343" font-family="DM Sans" font-size="12" fill="#2A1F1A">geofence reminders</text>
+
+    <circle cx="680" cy="395" r="18" fill="#6B5A4F" fill-opacity="0.6" stroke="#2A1F1A" stroke-width="1.5"/>
+    <text x="540" y="420" font-family="DM Sans" font-size="12" fill="#2A1F1A">step photos for AI recipes</text>
+  </svg>
+</div>
+</section>
+
+<!-- ============== PER-APP TEARDOWNS ============== -->
+<section>
+<h2>per-app teardowns<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Verbatim quotes are real, sourced from the App Store, Play Store, JustUseApp,
+  Plan to Eat's review blog, and 2026 review aggregators (see Sources). Italics indicate direct user language.
+</p>
+
+<!-- Paprika -->
+<div class="teardown">
+  <div class="teardown-head"><h3>Paprika</h3><div class="teardown-pricing">$4.99 mobile / $29.99 desktop &middot; one-time</div></div>
+  <div class="teardown-pos">"The dependable, no-subscription, power-user recipe library. Buy once, own forever."</div>
+  <div class="teardown-row">
+    <div>
+      <h4>Standout features</h4>
+      <ul>
+        <li>Web clipper from any URL (champion)</li>
+        <li>Drag-drop weekly/monthly meal planner</li>
+        <li>Smart shopping list with auto-deduplication</li>
+        <li>Multiple cooking timers</li>
+        <li>"Cook mode" (screen-on)</li>
+        <li>Serving-size scaling</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What users complain about</h4>
+      <div class="quote">Per-app, per-device pricing &mdash; phone, tablet, desktop = three separate purchases.<span class="quote-attr">App Store / 2026</span></div>
+      <div class="quote">The calendar is just a calendar &mdash; adding a recipe to the meal plan doesn't add the ingredients to the shopping list.<span class="quote-attr">Plan to Eat review / 2023</span></div>
+      <div class="quote">Lose all changes (crossed-off items, highlighted steps) if you navigate to a different section.<span class="quote-attr">App Store</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><strong>For elio:</strong> Paprika's UI is dated and the meal-plan/shopping-list disconnect is a clear opportunity &mdash; elio's auto-merge is already better. Don't compete on "buy once" pricing &mdash; AI APIs make it unsustainable. Lift Paprika's cooking-timer pattern.</div>
+</div>
+
+<!-- Mealime -->
+<div class="teardown">
+  <div class="teardown-head"><h3>Mealime</h3><div class="teardown-pricing">Free / $5.99 mo / $49.99 yr</div></div>
+  <div class="teardown-pos">"30-minute weeknight dinners, automatic shopping list. For busy professionals."</div>
+  <div class="teardown-row">
+    <div>
+      <h4>Standout features</h4>
+      <ul>
+        <li>~1,200 curated recipes, all 30-min</li>
+        <li>Step-by-step photo guidance</li>
+        <li>Dietary filter (vegan/keto/etc.)</li>
+        <li>Aisle-sorted grocery list</li>
+        <li>Weekly meal plan</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What users complain about</h4>
+      <div class="quote">When you filter for dietary restrictions, remove ingredients you dislike, and exclude what you've already made &mdash; the pool shrinks fast. Same meals every few weeks.<span class="quote-attr">App Store / 2025-2026</span></div>
+      <div class="quote">The app doesn't know what's in my kitchen, doesn't remember what I cooked last week, and can't generate anything new.<span class="quote-attr">Mealime community forum</span></div>
+      <div class="quote">Most-requested change in the community forum: generate new recipes based on what I want.<span class="quote-attr">Mealime community forum</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><strong>For elio:</strong> The Mealime user base is <strong>the</strong> ideal Elio audience. Their dominant complaint ("can't generate, repeats forever") is precisely Elio's positioning. Highest-fidelity messaging target.</div>
+</div>
+
+<!-- SideChef -->
+<div class="teardown">
+  <div class="teardown-head"><h3>SideChef</h3><div class="teardown-pricing">Free / $4.99 mo / $49.99 yr</div></div>
+  <div class="teardown-pos">"Step-by-step interactive cooking with voice. Closest thing to a video cookbook + smart timer."</div>
+  <div class="teardown-row">
+    <div>
+      <h4>Standout features</h4>
+      <ul>
+        <li>18,000+ "interactive smart recipes"</li>
+        <li>Voice-guided step navigation</li>
+        <li>Step photos and videos</li>
+        <li>Multiple cooking timers in-line</li>
+        <li>Partner-chef classes (Premium)</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What users complain about</h4>
+      <div class="quote">iPad version doesn't rotate &mdash; clearly a blown-up iPhone app.<span class="quote-attr">App Store</span></div>
+      <div class="quote">Step image from previous instruction shows for the current step.<span class="quote-attr">App Store</span></div>
+      <div class="quote">Recipes no longer save into the grocery list. Reinstall didn't fix it.<span class="quote-attr">App Store</span></div>
+      <div class="quote">Account deletion request ignored.<span class="quote-attr">JustUseApp / 2025</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><strong>For elio:</strong> SideChef's voice + step-photo cook mode is the bar Elio's voice cooking is being measured against. The QA reputation is so bad that <strong>"works reliably"</strong> is itself an opportunity. Don't chase the 18k recipe corpus &mdash; own the polished cook screen instead.</div>
+</div>
+
+<!-- DishGen -->
+<div class="teardown">
+  <div class="teardown-head"><h3>DishGen</h3><div class="teardown-pricing">Free 15 credits/wk / $7.99 mo / $15.99 mo Pro</div></div>
+  <div class="teardown-pos">"Generate a recipe from ingredients in 60 seconds, refine in chat."</div>
+  <div class="teardown-row">
+    <div>
+      <h4>Standout features</h4>
+      <ul>
+        <li>Free-text or ingredient-list input</li>
+        <li>Dietary filtering</li>
+        <li>Chat-based refinement</li>
+        <li>Recipe book creation</li>
+        <li>Adaptive personal AI model (Premium)</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What users complain about</h4>
+      <div class="quote">Recipes vary significantly in quality &mdash; some clearly raw output that nobody has cooked.<span class="quote-attr">2026 review aggregator</span></div>
+      <div class="quote">Hallucinations: ingredients that didn't exist. Some recipes appear stolen directly from existing sources like Minimalist Baker.<span class="quote-attr">NPR / 2024</span></div>
+      <div class="quote">Cottage cheese breadstick recipe resulted in "an eggy sheet with herbs" instead of twisted breadsticks.<span class="quote-attr">Futurism / 2024</span></div>
+      <div class="quote">The company has not verified it for accuracy or safety.<span class="quote-attr">DishGen own disclaimer</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><strong>For elio:</strong> DishGen's failure mode is exactly Elio's existential risk. Defence: pantry/expiry grounding makes recipes more concrete; Gemini 2.5 Flash quality > generic LLM. <strong>Add a private "did this work?" feedback loop to flush bad recipe templates fast.</strong> Never publish a community library of Elio outputs without verification &mdash; that's the line DishGen crossed.</div>
+</div>
+
+<!-- Samsung Food -->
+<div class="teardown">
+  <div class="teardown-head"><h3>Samsung Food (formerly Whisk)</h3><div class="teardown-pricing">Free / $6.99 mo / $59.99 yr</div></div>
+  <div class="teardown-pos">"Free recipe + meal-plan + shopping-list with smart-fridge integration if you own a Bespoke."</div>
+  <div class="teardown-row">
+    <div>
+      <h4>Standout features</h4>
+      <ul>
+        <li>Vision AI ingredient recognition from photos</li>
+        <li>Web recipe save (Chrome extension)</li>
+        <li>Meal planner + shopping list</li>
+        <li>Bespoke fridge integration (preheat oven, Instacart from fridge)</li>
+        <li>Free Food+ bundled with Samsung devices</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What users complain about</h4>
+      <div class="quote">Lost recipes when syncing between Samsung Galaxy phone and tablet.<span class="quote-attr">Samsung Food Help</span></div>
+      <div class="quote">Edited recipe instructions don't save. Serving-size changes don't carry to shopping lists.<span class="quote-attr">App Store / 2025-2026</span></div>
+      <div class="quote">Chrome extension has been broken since the 2023 rebrand.<span class="quote-attr">Samsung community</span></div>
+      <div class="quote">Support acknowledges bugs but never fixes them. Recurring complaints for months.<span class="quote-attr">JustUseApp / 2025</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><strong>For elio:</strong> Samsung Food is trying to be Elio + Yummly + AnyList in one app, and the rebrand has destabilised quality. Skip the smart-fridge integration entirely &mdash; not Elio's market. <strong>"Your recipes don't disappear when we update"</strong> is a low bar Samsung Food keeps tripping on; Elio should own it.</div>
+</div>
+
+<!-- AnyList -->
+<div class="teardown">
+  <div class="teardown-head"><h3>AnyList</h3><div class="teardown-pricing">Free / $9.99 yr indiv / $14.99 yr household</div></div>
+  <div class="teardown-pos">"The shared family grocery list, with recipe import and meal planning bolted on."</div>
+  <div class="teardown-row">
+    <div>
+      <h4>Standout features</h4>
+      <ul>
+        <li>Real-time household sharing (paid)</li>
+        <li>Recipe import from any URL (Allrecipes, Food Network, Martha Stewart)</li>
+        <li>Meal-planning calendar (Complete tier)</li>
+        <li>Apple Watch + Siri</li>
+        <li>Item photos, budget tracking, web/desktop access</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What users say</h4>
+      <div class="quote">I love having all my recipes in one place, ready to add to the meal plan. Very easy to import recipes and add ingredients directly from recipes to your shopping list. Makes meal planning far more managable.<span class="quote-attr">App Store / 5&#9733;</span></div>
+      <div class="quote">I recently upgraded the app and have been using the meal planning and recipe function and I can't believe I didn't spend the $10 to upgrade sooner!<span class="quote-attr">App Store / 5&#9733;</span></div>
+      <div class="quote">The widget doesn't sync until you open the app &mdash; defeats the point. Tap-to-cross-off now deletes the item entirely.<span class="quote-attr">App Store / 2026</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><strong>For elio:</strong> AnyList's <strong>$14.99/yr household tier</strong> is the reference Elio's household sharing must match before launch. AnyList is also <strong>cheaper than Elio annually</strong> ($14.99 vs Elio's $29.99) &mdash; the household premium is part of the value, not a separate tier. Pricing pressure from below.</div>
+</div>
+
+<!-- Bring! -->
+<div class="teardown">
+  <div class="teardown-head"><h3>Bring!</h3><div class="teardown-pricing">Free w/ ads / $1.99 mo</div></div>
+  <div class="teardown-pos">"Shared grocery list with friendly icons. Cheapest premium in the category."</div>
+  <div class="teardown-row">
+    <div>
+      <h4>Standout features</h4>
+      <ul>
+        <li>Per-product visual icons (distinctive UX)</li>
+        <li>Real-time household sharing</li>
+        <li>Alexa integration + smartwatch</li>
+        <li>Geofence reminders ("at the store")</li>
+        <li>"Inspiration" tab (recipes &rarr; list one tap)</li>
+        <li>Loyalty card storage</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What users say</h4>
+      <div class="quote">The whole household just gets it. The icons are charming and the list adds itself.<span class="quote-attr">App Store</span></div>
+      <div class="quote">Zero budget awareness &mdash; no prices, no running total, no spending limit.<span class="quote-attr">Grocery Budget review / 2026</span></div>
+      <div class="quote">The database tries to assume what you mean &mdash; hard to override when you want something specific.<span class="quote-attr">App Store</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><strong>For elio:</strong> Bring!'s icon UX is a moat &mdash; don't try to copy. But the geofence pattern and Alexa add-to-list are small, high-leverage wins. Elio is positioned above Bring! on capability but should match its <strong>"everyone in the family just uses it" simplicity</strong>.</div>
+</div>
+
+<!-- OurGroceries -->
+<div class="teardown">
+  <div class="teardown-head"><h3>OurGroceries</h3><div class="teardown-pricing">Free w/ ads / $7.99 yr</div></div>
+  <div class="teardown-pos">"Free, ad-supported, just-works household grocery list. Floor of the market."</div>
+  <div class="teardown-row">
+    <div>
+      <h4>Standout features</h4>
+      <ul>
+        <li>Real-time household sync (claims fastest)</li>
+        <li>Photo + barcode add (AI item recognition)</li>
+        <li>Alexa out-of-box</li>
+        <li>Recurring lists, multiple lists</li>
+        <li>$7.99/yr ad-removal &mdash; cheapest premium tier</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What users complain about</h4>
+      <div class="quote">UI looks like 2018. Sluggish vs newer apps.<span class="quote-attr">App Store / 2025</span></div>
+      <div class="quote">Sneaky ads disguised as "someone in your household added this!" &mdash; actually a product ad.<span class="quote-attr">App Store</span></div>
+      <div class="quote">Basic autocomplete only, no smart suggestions.<span class="quote-attr">2026 review aggregator</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><strong>For elio:</strong> OurGroceries shows the floor &mdash; what users get for free without giving up household sharing or sync. Elio's "no list at all on the free tier" looks <strong>harsh by comparison</strong> and may cap conversion. Consider letting free users have a basic list (no source-tracking, no household).</div>
+</div>
+
+<!-- Plan to Eat -->
+<div class="teardown">
+  <div class="teardown-head"><h3>Plan to Eat</h3><div class="teardown-pricing">$5.95 mo / $49 yr &middot; 14-day free trial</div></div>
+  <div class="teardown-pos">"Calendar-first meal planner with the best recipe clipper and custom store layouts. Yummly's official heir."</div>
+  <div class="teardown-row">
+    <div>
+      <h4>Standout features</h4>
+      <ul>
+        <li>Drag-drop weekly calendar</li>
+        <li>Recipe clipper (works on most cooking sites)</li>
+        <li>Custom grocery categories per-store</li>
+        <li>Freezer / batch-cook tracking</li>
+        <li>14-day no-credit-card trial</li>
+        <li>Yummly migration import + 30% off</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What users complain about</h4>
+      <div class="quote">Interface is less slick than Paprika or Mealime.<span class="quote-attr">Plan to Eat blog / 2023</span></div>
+      <div class="quote">Some features only on web (freezer feature, queue) &mdash; would love them on mobile.<span class="quote-attr">App Store</span></div>
+      <div class="quote">Setup unclear initially &mdash; couldn't figure out how to input recipes without typing them from scratch.<span class="quote-attr">App Store</span></div>
+    </div>
+  </div>
+  <div class="takeaway"><strong>For elio:</strong> Plan to Eat is winning on import + custom-store-layout. Don't chase the calendar planner &mdash; Elio has its own meal-plan model. <strong>Per-store-layout aisle ordering is a clean lift.</strong> Their 14-day no-credit-card trial &gt; Elio's 7-day &mdash; worth A/B testing.</div>
+</div>
+</section>
+
+<!-- ============== MESSAGING ANGLES ============== -->
+<section>
+<h2>five messaging angles<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Five claims Elio can defend with verbatim competitor-review evidence.
+  Specific and competitive &mdash; not "great recipes" (which everyone claims).
+</p>
+
+<div class="msg-grid">
+  <div class="msg-card">
+    <div class="num">CLAIM 01</div>
+    <div class="claim">Recipes that use what's actually in your kitchen &mdash; including what's about to go off.</div>
+    <div class="evidence">Mealime users: <em>"the app doesn't know what's in my kitchen, doesn't remember what I cooked last week, and can't generate anything new."</em> No competitor pulls expiring perishables into recipe generation as a hard constraint.</div>
+  </div>
+  <div class="msg-card">
+    <div class="num">CLAIM 02</div>
+    <div class="claim">Different every week. No more cycling through the same five dinners.</div>
+    <div class="evidence">Mealime users: <em>"same meals every few weeks."</em> Mealime's most-requested community feature ("generate new recipes based on what I want") is exactly elio's core flow.</div>
+  </div>
+  <div class="msg-card">
+    <div class="num">CLAIM 03</div>
+    <div class="claim">Your recipes don't disappear when we update.</div>
+    <div class="evidence">Yummly users (post-shutdown): <em>"lost years of saved recipes overnight."</em> Samsung Food: <em>"lost recipes when syncing between devices."</em> Paprika: <em>"some go missing during updates."</em> Low bar &mdash; elio's Firestore + bulk export lets us own it.</div>
+  </div>
+  <div class="msg-card">
+    <div class="num">CLAIM 04</div>
+    <div class="claim">One plan, the whole household &mdash; allergies and diets included.</div>
+    <div class="evidence">No competitor in the set does household dietary union math. Mealime supports a single profile but won't combine multiple humans' restrictions. Best fit for mixed-diet families.</div>
+  </div>
+  <div class="msg-card">
+    <div class="num">CLAIM 05</div>
+    <div class="claim">Hands-free cooking that actually works.</div>
+    <div class="evidence">SideChef has voice but reviewers flag QA: <em>"step image from previous instruction shows for the current step."</em> Elio's voice mode is on par feature-wise; reliability is the differentiator. Verify on-device before claiming.</div>
+  </div>
+</div>
+</section>
+
+<!-- ============== ROADMAP ============== -->
+<section>
+<h2>recommended roadmap<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Ranked by (review-evidence demand &times; fit-with-Elio's-positioning &times; cost-to-build).
+  Three columns &mdash; pre-launch, v1.1 (first 90 days post-launch), v1.2+ (data-driven).
+</p>
+
+<div class="roadmap">
+  <div class="road-col must">
+    <h4>Pre-launch &middot; must ship</h4>
+    <div class="road-item"><strong>Sprint 17</strong><small>GDPR + account deletion + data export. Already planned. Do not delay.</small></div>
+    <div class="road-item"><strong>Cooking timers + cook mode</strong><small>Multi-timer overlay on RecipeScreen + screen-on. ~2-3 days.</small></div>
+    <div class="road-item"><strong>Dark mode</strong><small>Theme tokens already exist post-rebrand. Days, not weeks.</small></div>
+    <div class="road-item"><strong>Apple Sign-In</strong><small>Sprint 19. Keep on schedule before iOS launch.</small></div>
+    <div class="road-item"><strong>Yummly-migration landing page</strong><small>"Coming from Yummly? We import your saved recipes." Capture residual displaced audience.</small></div>
+  </div>
+
+  <div class="road-col v11">
+    <h4>v1.1 &middot; first 90 days post-launch</h4>
+    <div class="road-item"><strong>Real household sharing</strong><small>households/{id} subtree, email invite, multi-edit. Match AnyList household feature parity. <em>Highest-leverage retention feature.</em></small></div>
+    <div class="road-item"><strong>User-customisable aisle ordering</strong><small>Per-user aisleOrder list in Firestore. Lift the Plan to Eat pattern.</small></div>
+    <div class="road-item"><strong>Voice-assistant add-to-list</strong><small>Siri Shortcuts (iOS), Google Assistant action (Android). Alexa skill deferred.</small></div>
+    <div class="road-item"><strong>Apple Watch app</strong><small>Read-only shopping list with check-off. Drive-by feature, big in reviews.</small></div>
+    <div class="road-item"><strong>Free-tier shopping list</strong><small>Single list, no household, no recipe link. Widens conversion funnel top.</small></div>
+    <div class="road-item"><strong>Bulk-prep UI</strong><small>Wire existing BulkPrepInfo Gemini data through to the recipe screen. Quick win.</small></div>
+    <div class="road-item"><strong>Wider recipe-import sites</strong><small>Validated parsers for top-50 cooking domains as fallback to Vision OCR.</small></div>
+  </div>
+
+  <div class="road-col v12">
+    <h4>v1.2+ &middot; data-driven</h4>
+    <div class="road-item"><strong>Multiple lists, recurring lists</strong><small>Generalize the shopping-list model. After household sharing lands.</small></div>
+    <div class="road-item"><strong>Family pricing tier</strong><small>$X/yr household after household sharing proves out. Match AnyList structure.</small></div>
+    <div class="road-item"><strong>Per-store layouts</strong><small>After basic aisle ordering proves out. "My Trader Joe's, my Whole Foods."</small></div>
+    <div class="road-item"><strong>Step photos / videos</strong><small>Only if a trustworthy generation method emerges. Otherwise skip permanently.</small></div>
+    <div class="road-item"><strong>Geofence reminders</strong><small>Bring!-style "you're at Whole Foods" notification. Battery cost + permission ask is friction.</small></div>
+  </div>
+</div>
+</section>
+
+<!-- ============== DON'T BUILD ============== -->
+<section>
+<h2>features elio should not build<span style="color:var(--terracotta);">.</span></h2>
+<p style="max-width:780px;">
+  Several features show up in competitors but fight Elio's positioning. Decide once,
+  document, and move on.
+</p>
+
+<div class="nope-grid">
+  <div class="nope-card"><strong>Public recipe library / community feed</strong><span>Yummly tried. DishGen does it badly (stolen recipes). Moderation cost is huge. Dilutes the "AI generates for your pantry" value.</span></div>
+  <div class="nope-card"><strong>Smart-fridge integration</strong><span>Samsung Food's moat. Irrelevant for US-priority launch. Defer indefinitely.</span></div>
+  <div class="nope-card"><strong>18,000-recipe browseable corpus</strong><span>SideChef's moat. Elio is generation-first; a library distracts from the differentiation. Personal saved library is fine.</span></div>
+  <div class="nope-card"><strong>One-time pricing per platform</strong><span>Paprika model. Firestore + Gemini API recurring costs make it unsustainable for AI.</span></div>
+  <div class="nope-card"><strong>Step photos for generated recipes</strong><span>Generated recipes can't have authentic cooking photos. Stock or AI-generated images would erode trust.</span></div>
+  <div class="nope-card"><strong>Calorie/macro tracking with daily targets</strong><span>MyFitnessPal territory. Different audience, harder to win. Per-recipe nutrition only.</span></div>
+  <div class="nope-card"><strong>Coupons / store flyers / price tracking</strong><span>Adjacent category (Flipp, Ibotta). Mood-killer for "what should I cook tonight."</span></div>
+</div>
+</section>
+
+<!-- ============== FOOTER ============== -->
+<section class="sources">
+  <h4>Sources</h4>
+  <ul>
+    <li><a href="https://thespoon.tech/whirlpool-lays-off-entire-team-for-cooking-and-recipe-app-yummly/">Whirlpool Lays Off Entire Team for Cooking and Recipe App Yummly &mdash; The Spoon</a></li>
+    <li><a href="https://www.plantoeat.com/blog/2024/12/yummly-is-closing-discover-the-best-meal-planning-alternative/">Yummly Closed: Plan to Eat as alternative</a></li>
+    <li><a href="https://expandedramblings.com/index.php/yummly-facts-statistics/">Yummly Statistics 2026 &mdash; Expanded Ramblings</a></li>
+    <li><a href="https://flavor365.com/paprika-3-recipe-manager-our-honest-2026-review/">Paprika Recipe Manager Review (2026) &mdash; Flavor365</a></li>
+    <li><a href="https://www.plantoeat.com/blog/2023/07/paprika-app-review-pros-and-cons/">Paprika App Review: Pros and Cons &mdash; Plan to Eat</a></li>
+    <li><a href="https://play.google.com/store/apps/details?id=com.hindsightlabs.paprika.android.v3&hl=en_US">Paprika Recipe Manager 3 &mdash; Apps on Google Play</a></li>
+    <li><a href="https://mealthinker.com/blog/mealime-alternative">Mealime Free Tier Changes 2026 &mdash; MealThinker</a></li>
+    <li><a href="https://apps.apple.com/us/app/mealime-meal-plans-recipes/id1079999103">Mealime Meal Plans &amp; Recipes &mdash; App Store</a></li>
+    <li><a href="https://thespoon.tech/sidechef-launches-paid-app-with-sidechef-premium/">SideChef Launches Paid App With SideChef Premium &mdash; The Spoon</a></li>
+    <li><a href="https://justuseapp.com/en/app/905229928/sidechef-recipes/reviews">SideChef Reviews &mdash; JustUseApp</a></li>
+    <li><a href="https://appgrooves.com/app/sidechef-step-by-step-cooking-by-sidechef-holdings-limited-1/negative">SideChef Negative Reviews &mdash; AppGrooves</a></li>
+    <li><a href="https://topai.tools/t/dishgen">DishGen Review 2026 &mdash; Top AI Tools</a></li>
+    <li><a href="https://macaron.im/blog/dishgen-review">DishGen Review: AI Recipes, Features &amp; Alternatives &mdash; Macaron</a></li>
+    <li><a href="https://www.npr.org/2024/09/23/g-s1-23843/artificial-intelligence-recipes-food-cooking-apple">AI can generate recipes that can be deadly &mdash; NPR</a></li>
+    <li><a href="https://www.plantoeat.com/blog/2026/01/samsung-food-review-pros-and-cons/">Samsung Food Review: Pros and Cons &mdash; Plan to Eat</a></li>
+    <li><a href="https://mealthinker.com/blog/samsung-food-alternative">Samsung Food App 2026: Vision AI Features, Limits &mdash; MealThinker</a></li>
+    <li><a href="https://justuseapp.com/en/app/1133637674/whisk-recipes-grocery-list/reviews">Samsung Food Reviews &mdash; JustUseApp</a></li>
+    <li><a href="https://www.anylist.com/features">AnyList &mdash; Compare Features</a></li>
+    <li><a href="https://www.trustpilot.com/review/www.anylist.com">AnyList Reviews &mdash; Trustpilot</a></li>
+    <li><a href="https://apps.apple.com/us/app/anylist-grocery-shopping-list/id522167641">AnyList App &mdash; App Store</a></li>
+    <li><a href="https://apps.apple.com/us/app/bring-grocery-shopping-list/id580669177">Bring! Shopping List &mdash; App Store</a></li>
+    <li><a href="https://appmus.com/software/bring-shopping-list">Bring!: Features, Alternatives &amp; Analysis &mdash; Appmus</a></li>
+    <li><a href="https://www.makeuseof.com/organize-family-shopping-with-bring-grocery-app/">My family's grocery chaos is finally over &mdash; MakeUseOf</a></li>
+    <li><a href="https://www.nerdwallet.com/finance/learn/best-grocery-list-apps">Best Grocery List App: Top Choices in 2026 &mdash; NerdWallet</a></li>
+    <li><a href="https://www.ourgroceries.com/user-guide">OurGroceries &mdash; User Guide</a></li>
+    <li><a href="https://justuseapp.com/en/app/325851015/our-groceries-shopping-list/reviews">OurGroceries Reviews &mdash; JustUseApp</a></li>
+    <li><a href="https://lystbot.com/blog/best-grocery-list-apps/">Best Grocery List Apps 2026 &mdash; LystBot</a></li>
+    <li><a href="https://apps.apple.com/us/app/plan-to-eat/id1215348056">Plan to Eat &mdash; App Store</a></li>
+    <li><a href="https://justuseapp.com/en/app/1215348056/plan-to-eat-meal-planner/reviews">Plan to Eat Reviews &mdash; JustUseApp</a></li>
+    <li><a href="https://www.foodieprep.ai/blog/meal-planning-apps-in-2026-which-tools-actually-simplify-your-kitchen">10 Best Meal Planning Apps in 2026 &mdash; FoodiePrep</a></li>
+  </ul>
+  <p style="margin-top:24px; font-family: var(--mono-font); font-size: 11px; color:var(--mocha); letter-spacing:0.08em; text-transform:uppercase;">
+    Elio competitor analysis &middot; 03 may 2026 &middot; based on branch sprint/15.9-personalized-pantry &middot; brand palette: cream / terracotta / espresso
+  </p>
+</section>
+
+</div>
+</body>
+</html>

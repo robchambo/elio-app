@@ -201,6 +201,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return union.toList();
   }
 
+  // Sprint 15.9.3 SAFETY FIX: union of custom allergens across all
+  // ACTIVE profiles. Threaded into RecipeGenerationRequest so the prompt
+  // can emit a strong "Allergens — strictly excluded" line. Without
+  // this, a peanut-allergy user could be served peanut butter.
+  List<String> get _activeAllergens {
+    final union = <String>{};
+    for (final profile in _householdProfiles) {
+      final id = profile['id'] as String;
+      if (_deactivatedProfileIds.contains(id)) continue;
+      final raw = (profile['allergens'] as List?) ??
+          (profile['customAllergens'] as List?) ??
+          const <dynamic>[];
+      union.addAll(raw.map((e) => e.toString().trim()).where((s) => s.isNotEmpty));
+    }
+    return union.toList();
+  }
+
   // ── Launch preferences screen — prefs now owns the generation phase ──
   // Sprint 16.3: gate the entitlement check here (before pushing prefs) so
   // the user never sees the prefs picker if they're already capped. The
@@ -293,6 +310,11 @@ class _HomeScreenState extends State<HomeScreen> {
       isSaverMode: prefs.isSaverMode,
       perishableInventoryDescriptions: _perishableDescriptions,
       userRequest: prefs.userRequest,
+      // Sprint 15.9.3 SAFETY FIX: thread allergens through so the
+      // prompt's Allergens line gets populated. Without this the user's
+      // custom allergens (e.g. "peanuts") are completely invisible to
+      // Gemini.
+      customAllergens: _activeAllergens,
     );
   }
 

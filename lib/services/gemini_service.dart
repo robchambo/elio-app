@@ -706,6 +706,18 @@ class GeminiService {
       buffer.writeln('No dietary restrictions.');
     }
 
+    // Sprint 15.9.3 SAFETY FIX: allergens get their own line with
+    // maximum-strength language. Kept distinct from dietary because
+    // these are concrete ingredients tied to medical safety (peanuts,
+    // sesame, shellfish), not high-level patterns. ALL CAPS on the
+    // action verb so Gemini doesn't soften "exclude" into "minimise".
+    if (request.customAllergens.isNotEmpty) {
+      buffer.writeln(
+          'ALLERGENS — STRICTLY EXCLUDE these ingredients and ANYTHING containing them: ${request.customAllergens.join(', ')}.');
+      buffer.writeln(
+          'Treat as medical safety, not preference. No exceptions. Do NOT include these in the recipe under any name (e.g. if "peanuts" is listed, never use peanuts, peanut butter, peanut oil, satay sauce, groundnuts, or anything else peanut-derived). If a recipe would normally call for one of these, choose a different recipe entirely.');
+    }
+
     // Style as a hard constraint (unless "Surprise me")
     if (request.stylePreference != null && request.stylePreference != 'Surprise me') {
       buffer.writeln('You MUST make a ${request.stylePreference} recipe. This is a hard requirement — the recipe\'s cuisine/style must clearly be ${request.stylePreference}.');

@@ -68,6 +68,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   // Sprint 15.9.3: appliances now threaded into single-meal regen so
   // regenerated meals don't ask for equipment the user lacks.
   List<String> _appliances = [];
+  // Sprint 15.9.3 SAFETY FIX: allergens MUST be threaded into the meal-
+  // plan single-meal regen prompt or a peanut-allergy user could be
+  // served peanut butter on regen.
+  List<String> _customAllergens = [];
   bool _dataLoaded = false;
 
   // ── Day tab controller ─────────────────────────────────────────────
@@ -104,6 +108,19 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _runningLowItems = List<String>.from(data['runningLowItems'] ?? []);
           _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
           _appliances = List<String>.from(data['appliances'] ?? []);
+          // Sprint 15.9.3 SAFETY: union allergens across active profiles.
+          // getUserData populates `allergens` on each profile (with the
+          // legacy `customAllergens` key as a fallback).
+          final profiles = (data['householdProfiles'] as List?) ?? const [];
+          final allergenSet = <String>{};
+          for (final p in profiles) {
+            final profile = Map<String, dynamic>.from(p as Map);
+            final raw = (profile['allergens'] as List?) ??
+                (profile['customAllergens'] as List?) ??
+                const <dynamic>[];
+            allergenSet.addAll(raw.map((e) => e.toString().trim()).where((s) => s.isNotEmpty));
+          }
+          _customAllergens = allergenSet.toList();
           _plan = savedPlan;
           _dataLoaded = true;
         });
@@ -281,6 +298,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         // their setup, not just dietary + pantry.
         appliances: _appliances,
         runningLowItems: _runningLowItems,
+        customAllergens: _customAllergens,
       );
 
       if (mounted) {

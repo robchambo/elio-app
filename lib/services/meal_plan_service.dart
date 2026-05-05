@@ -151,6 +151,9 @@ class MealPlanService {
     // reflects the user's setup (appliances, what they're running low on).
     List<String> appliances = const [],
     List<String> runningLowItems = const [],
+    // Sprint 15.9.3 SAFETY: allergens must reach the prompt or a
+    // peanut-allergy user could be served peanut butter on regen.
+    List<String> customAllergens = const [],
   }) async {
     Exception? lastError;
 
@@ -166,6 +169,7 @@ class MealPlanService {
           servings: servings,
           appliances: appliances,
           runningLowItems: runningLowItems,
+          customAllergens: customAllergens,
         );
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
@@ -192,6 +196,7 @@ class MealPlanService {
     required int servings,
     List<String> appliances = const [],
     List<String> runningLowItems = const [],
+    List<String> customAllergens = const [],
   }) async {
     final prompt = _buildSingleMealPrompt(
       dayName: dayName,
@@ -203,6 +208,7 @@ class MealPlanService {
       servings: servings,
       appliances: appliances,
       runningLowItems: runningLowItems,
+      customAllergens: customAllergens,
     );
 
     final response = await http.post(
@@ -398,6 +404,7 @@ class MealPlanService {
     required int servings,
     List<String> appliances = const [],
     List<String> runningLowItems = const [],
+    List<String> customAllergens = const [],
   }) {
     final buffer = StringBuffer();
 
@@ -405,6 +412,13 @@ class MealPlanService {
 
     if (dietaryRequirements.isNotEmpty) {
       buffer.writeln('Dietary: ${dietaryRequirements.join(', ')} — strict.');
+    }
+    // Sprint 15.9.3 SAFETY: allergens get a separate, maximally strong
+    // exclusion line. Use ALL CAPS for the action verb so Gemini doesn't
+    // soften it.
+    if (customAllergens.isNotEmpty) {
+      buffer.writeln(
+          'ALLERGENS — STRICTLY EXCLUDE these and anything containing them: ${customAllergens.join(', ')}. Treat as medical safety, not preference. No exceptions.');
     }
     if (alwaysHave.isNotEmpty) buffer.writeln('Pantry: ${alwaysHave.join(', ')}');
     if (almostAlwaysHave.isNotEmpty) buffer.writeln('Usually have: ${almostAlwaysHave.join(', ')}');

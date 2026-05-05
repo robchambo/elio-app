@@ -31,4 +31,16 @@ class FakeFirestoreWriter implements MigrationFirestoreWriter {
     inventoryUid = uid;
     inventoryItems = items;
   }
+
+  // Sprint 15.9.3: owner profile capture for the new allergens write.
+  String? ownerProfileUid;
+  Map<String, dynamic>? ownerProfileData;
+  int setOwnerProfileCalls = 0;
+
+  @override
+  Future<void> setOwnerProfile(String uid, Map<String, dynamic> data) async {
+    setOwnerProfileCalls++;
+    ownerProfileUid = uid;
+    ownerProfileData = data;
+  }
 }

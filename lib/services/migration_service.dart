@@ -28,7 +28,7 @@ import 'purchase_service.dart';
 // the injected [FirebaseFirestore] (defaults to `FirebaseFirestore.instance`).
 // ─────────────────────────────────────────────
 
-/// Abstracts the two Firestore writes MigrationService performs. Allows
+/// Abstracts the Firestore writes MigrationService performs. Allows
 /// tests to inject a fake without `fake_cloud_firestore`.
 abstract class MigrationFirestoreWriter {
   Future<void> setUserDoc(String uid, Map<String, dynamic> data);
@@ -36,6 +36,11 @@ abstract class MigrationFirestoreWriter {
     String uid,
     List<Map<String, dynamic>> items,
   );
+
+  /// Sprint 15.9.3: writes the owner profile so onboarding-set
+  /// dietary requirements + allergies are visible to the in-app
+  /// dietary screen AND to the recipe-generation prompt.
+  Future<void> setOwnerProfile(String uid, Map<String, dynamic> data);
 }
 
 class _RealFirestoreWriter implements MigrationFirestoreWriter {
@@ -62,6 +67,16 @@ class _RealFirestoreWriter implements MigrationFirestoreWriter {
       batch.set(inventory.doc(), item);
     }
     await batch.commit();
+  }
+
+  @override
+  Future<void> setOwnerProfile(String uid, Map<String, dynamic> data) async {
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('profiles')
+        .doc('owner')
+        .set(data, SetOptions(merge: true));
   }
 }
 
@@ -103,6 +118,19 @@ class MigrationService {
     OnboardingState state,
   ) async {
     await _writer.setUserDoc(uid, buildUserDocPayload(state));
+
+    // Sprint 15.9.3 SAFETY FIX: persist dietary + allergies on the owner
+    // profile. The in-app dietary screen reads/writes profiles/{owner},
+    // and recipe generation now reads allergies from there too. Without
+    // this write, an onboarding allergy ("peanuts") would land on the
+    // user doc but be invisible to both the dietary screen AND the
+    // prompt — and Gemini could suggest peanut butter.
+    await _writer.setOwnerProfile(uid, {
+      'name': '', // populated on first edit if user fills the household screen
+      'isOwner': true,
+      'dietaryRequirements': state.dietary,
+      'allergies': state.allergies,
+    });
 
     final items = state.inventory.map((i) => i.toFirestore()).toList();
     await _writer.writeInventory(uid, items);

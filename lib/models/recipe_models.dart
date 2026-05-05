@@ -68,6 +68,14 @@ class RecipeGenerationRequest {
   /// where possible but never break dietary or required-perishable rules.
   final String? userRequest;
 
+  /// Sprint 15.9.3 SAFETY FIX: user-typed custom allergens or specific
+  /// ingredients to exclude on safety grounds. Distinct from
+  /// [dietaryRequirements] (high-level patterns like 'Vegetarian'):
+  /// these are concrete things like 'peanuts', 'sesame', 'shellfish'.
+  /// Surfaced as a SEPARATE prompt section with maximum-strength
+  /// language so Gemini doesn't conflate them with soft preferences.
+  final List<String> customAllergens;
+
   const RecipeGenerationRequest({
     required this.perishables,
     required this.alwaysHave,
@@ -88,6 +96,7 @@ class RecipeGenerationRequest {
     this.isSaverMode = false,
     this.perishableInventoryDescriptions = const [],
     this.userRequest,
+    this.customAllergens = const [],
   });
 }
 

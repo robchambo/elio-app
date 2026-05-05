@@ -78,6 +78,12 @@ class FirestoreService {
     ).toFirestore();
     // Overwrite the enum-encoded list with the new string-based dietary list.
     ownerProfileData['dietaryRequirements'] = state.dietary;
+    // Sprint 15.9.3: also persist onboarding-set allergies onto the owner
+    // profile so the in-app dietary screen can read them AND so recipe
+    // generation can include them in the prompt. Previously only the user
+    // doc held allergies; the owner profile was the source of truth for
+    // the in-app screen, so allergies were effectively orphaned.
+    ownerProfileData['allergies'] = state.allergies;
     batch.set(ownerProfileRef, ownerProfileData);
 
     // 3. Write inventory items — only if inventory is empty (guards against
@@ -140,17 +146,34 @@ class FirestoreService {
     final userData = userDoc.data() as Map<String, dynamic>? ?? {};
 
     // Build list of all household profiles with their dietary requirements
-    // Each entry: { 'id': String, 'name': String, 'dietaryRequirements': List<String>, 'isOwner': bool }
+    // and allergens. Each entry shape: { id, name, dietaryRequirements,
+    // allergens, isOwner }.
+    //
+    // Sprint 15.9.3 SAFETY FIX: this used to read `customAllergens` from
+    // profile docs, but the dietary_screen writes to `allergies`. Field
+    // name mismatch meant a user typing "peanuts" in the dietary screen
+    // saved the value but it was never read back — recipe generation
+    // ignored it and could suggest peanut butter to a peanut-allergy user.
+    // Now reads `allergies` (canonical field) with a `customAllergens`
+    // fallback for any docs written by the buggy old read path's mirror.
     final householdProfiles = <Map<String, dynamic>>[];
     for (final doc in profilesSnapshot.docs) {
       final data = doc.data() as Map<String, dynamic>;
+      final allergens = List<String>.from(
+        (data['allergies'] as List<dynamic>? ??
+                data['customAllergens'] as List<dynamic>? ??
+                const <dynamic>[]),
+      );
       householdProfiles.add({
         'id': doc.id,
         'name': data['name'] as String? ?? 'Member',
         'dietaryRequirements': (data['dietaryRequirements'] as List<dynamic>? ?? [])
             .map((d) => _decodeDietary(d.toString()))
             .toList(),
-        'customAllergens': List<String>.from(data['customAllergens'] ?? []),
+        'allergens': allergens,
+        // Keep the legacy key in the returned map too so any older
+        // caller still finds something — both point at the same list.
+        'customAllergens': allergens,
         'isOwner': data['isOwner'] as bool? ?? false,
       });
     }

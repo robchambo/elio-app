@@ -716,6 +716,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
         appliances: request.appliances,
         isSaverMode: request.isSaverMode,
         perishableInventoryDescriptions: request.perishableInventoryDescriptions,
+        // Sprint 15.9.3 SAFETY FIX: must propagate on regenerate too —
+        // otherwise the second/third recipe could lose the allergen
+        // constraint and serve peanut butter to a peanut-allergy user.
+        customAllergens: request.customAllergens,
       );
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);
@@ -1003,6 +1007,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             appliances: request.appliances,
                             isSaverMode: request.isSaverMode,
                             perishableInventoryDescriptions: request.perishableInventoryDescriptions,
+                            customAllergens: request.customAllergens,
                           );
                           Navigator.of(dialogContext).pop(adjusted);
                         },
