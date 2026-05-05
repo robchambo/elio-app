@@ -263,4 +263,170 @@ void main() {
       expect(storage.migrationFlagSet, isFalse);
     });
   });
+
+  // ─── Sprint 15.9.3 — collapse duplicates ──────────────────────────────
+
+  group('InventoryWriter migration (collapse duplicates)', () {
+    test('collapses N rows with same matchKey into one', () async {
+      final storage = FakeInventoryWriteStorage()
+        // Backfill already done; only collapse remains.
+        ..userDoc = const {'inventoryDedupBackfilled': true}
+        ..docs = {
+          'butter_a': {
+            'name': 'Butter',
+            'nameLower': 'butter',
+            'matchKey': 'butter',
+            'tier': 'alwaysHave',
+            'firstAddedAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+          },
+          'butter_b': {
+            'name': 'Butter',
+            'nameLower': 'butter',
+            'matchKey': 'butter',
+            'tier': 'alwaysHave',
+            'firstAddedAt': Timestamp.fromDate(DateTime(2026, 2, 1)),
+          },
+          'butter_c': {
+            'name': 'Butter',
+            'nameLower': 'butter',
+            'matchKey': 'butter',
+            'tier': 'alwaysHave',
+            'firstAddedAt': Timestamp.fromDate(DateTime(2026, 3, 1)),
+          },
+          // Singleton — should not be touched.
+          'rice_solo': {
+            'name': 'Rice',
+            'nameLower': 'rice',
+            'matchKey': 'rice',
+            'tier': 'alwaysHave',
+          },
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      await writer.addItem(name: 'Pasta', tier: 'alwaysHave');
+
+      expect(storage.collapseFlagSet, isTrue);
+      // Oldest (butter_a, Jan 1) wins; the other two are losers.
+      expect(storage.collapseLoserIds.toSet(), {'butter_b', 'butter_c'});
+      // After collapse: butter_a survives, butter_b/c removed, rice_solo
+      // untouched, and the addItem just inserted a Pasta row.
+      expect(storage.docs.containsKey('butter_a'), isTrue);
+      expect(storage.docs.containsKey('butter_b'), isFalse);
+      expect(storage.docs.containsKey('butter_c'), isFalse);
+      expect(storage.docs.containsKey('rice_solo'), isTrue);
+    });
+
+    test('merges latest expiry from losers when winner is perishable', () async {
+      final winnerExpiry = Timestamp.fromDate(DateTime(2026, 5, 5));
+      final loserExpiry = Timestamp.fromDate(DateTime(2026, 5, 12));
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {'inventoryDedupBackfilled': true}
+        ..docs = {
+          'carrots_winner': {
+            'name': 'Carrots',
+            'nameLower': 'carrots',
+            'matchKey': 'carrot',
+            'tier': 'perishable',
+            'expiryDate': winnerExpiry,
+            'firstAddedAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+          },
+          'carrots_loser': {
+            'name': 'Carrots',
+            'nameLower': 'carrots',
+            'matchKey': 'carrot',
+            'tier': 'perishable',
+            'expiryDate': loserExpiry, // newer
+            'firstAddedAt': Timestamp.fromDate(DateTime(2026, 4, 1)),
+          },
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      await writer.addItem(name: 'Pasta', tier: 'alwaysHave');
+
+      expect(storage.collapseLoserIds, ['carrots_loser']);
+      // Winner gets the loser's later expiry merged in.
+      expect(storage.docs['carrots_winner']!['expiryDate'], loserExpiry);
+    });
+
+    test('skips expiry merge when winner is non-perishable', () async {
+      final loserExpiry = Timestamp.fromDate(DateTime(2026, 5, 12));
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {'inventoryDedupBackfilled': true}
+        ..docs = {
+          'salt_winner': {
+            'name': 'Salt',
+            'nameLower': 'salt',
+            'matchKey': 'salt',
+            'tier': 'alwaysHave',
+            'firstAddedAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+          },
+          'salt_loser': {
+            'name': 'Salt',
+            'nameLower': 'salt',
+            'matchKey': 'salt',
+            // Bogus loser data — somehow has an expiry on a non-perishable.
+            'tier': 'perishable',
+            'expiryDate': loserExpiry,
+          },
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      await writer.addItem(name: 'Pasta', tier: 'alwaysHave');
+
+      // Salt winner kept its alwaysHave tier and got NO expiry.
+      expect(storage.docs['salt_winner']!.containsKey('expiryDate'), isFalse);
+      expect(storage.docs.containsKey('salt_loser'), isFalse);
+    });
+
+    test('fills missing winner price/category from losers', () async {
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {'inventoryDedupBackfilled': true}
+        ..docs = {
+          'butter_winner': {
+            'name': 'Butter',
+            'nameLower': 'butter',
+            'matchKey': 'butter',
+            'tier': 'alwaysHave',
+            'firstAddedAt': Timestamp.fromDate(DateTime(2026, 1, 1)),
+            // No price, no category.
+          },
+          'butter_loser': {
+            'name': 'Butter',
+            'nameLower': 'butter',
+            'matchKey': 'butter',
+            'tier': 'alwaysHave',
+            'price': '£2.50',
+            'category': 'Dairy',
+          },
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      await writer.addItem(name: 'Pasta', tier: 'alwaysHave');
+
+      expect(storage.docs['butter_winner']!['price'], '£2.50');
+      expect(storage.docs['butter_winner']!['category'], 'Dairy');
+      expect(storage.docs.containsKey('butter_loser'), isFalse);
+    });
+
+    test('does not run when both flags already set', () async {
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {
+          'inventoryDedupBackfilled': true,
+          'inventoryDuplicatesCollapsed': true,
+        }
+        ..docs = {
+          'a': {'name': 'Butter', 'nameLower': 'butter', 'matchKey': 'butter'},
+          'b': {'name': 'Butter', 'nameLower': 'butter', 'matchKey': 'butter'},
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      await writer.addItem(name: 'Pasta', tier: 'alwaysHave');
+
+      expect(storage.collapseFlagSet, isFalse);
+      expect(storage.collapseLoserIds, isEmpty);
+      // Both 'a' and 'b' survive — collapse never ran.
+      expect(storage.docs.containsKey('a'), isTrue);
+      expect(storage.docs.containsKey('b'), isTrue);
+    });
+  });
 }

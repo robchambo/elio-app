@@ -44,6 +44,17 @@ abstract class InventoryWriteStorage {
   /// fields and set the [inventoryDedupBackfilled] flag on the user doc
   /// in a single Firestore batch. [rows] is a list of (docId, fields).
   Future<void> migrateLegacyRows(List<({String id, Map<String, dynamic> updates})> rows);
+
+  /// Sprint 15.9.3 second migration step: collapse duplicate inventory
+  /// rows that pre-date the dedup logic. Updates each winner with merged
+  /// fields, deletes each loser, and sets the `inventoryDuplicatesCollapsed`
+  /// flag — all in one atomic batch so a partial failure leaves nothing
+  /// half-collapsed. [winnerUpdates] keys are doc ids; [loserIds] are docs
+  /// to delete outright.
+  Future<void> collapseDuplicates({
+    required Map<String, Map<String, dynamic>> winnerUpdates,
+    required List<String> loserIds,
+  });
 }
 
 class InventoryWriter {
@@ -149,45 +160,193 @@ class InventoryWriter {
     return _storage.insertInventoryDoc(data);
   }
 
-  /// Lazy one-shot migration. Idempotent — guarded by both a session-local
-  /// cache and the `inventoryDedupBackfilled` flag on the user doc. Read
-  /// failures silently no-op (we never block addItem for an optional
-  /// polish migration).
+  /// Lazy one-shot migration. Two steps, each gated by its own user-doc
+  /// flag so they run exactly once per user across all devices:
+  ///
+  ///   1. **Backfill** missing `matchKey` / `nameLower` / timestamps on
+  ///      legacy rows. Sets `inventoryDedupBackfilled: true`.
+  ///   2. **Collapse** duplicate rows that share a `matchKey`. Picks the
+  ///      oldest as the winner, merges any non-null fields from losers
+  ///      (latest expiry for perishables, fallback price/category, max
+  ///      lastPurchasedAt), deletes the losers. Sets
+  ///      `inventoryDuplicatesCollapsed: true`.
+  ///
+  /// Step 2 was added in Sprint 15.9.3 after Rob found his dev pantry
+  /// littered with 5–7 copies of common items from many onboarding
+  /// runs — Step 1 alone backfills the keys but doesn't consolidate.
+  ///
+  /// Idempotent: short-circuits via the session cache and per-step flags.
+  /// Read failures silently no-op — we never block addItem for an
+  /// optional polish migration.
   Future<void> _runMigrationIfNeeded() async {
     if (_migrationDoneCache == true) return;
     try {
       final user = await _storage.fetchUserDoc();
-      if (user['inventoryDedupBackfilled'] == true) {
+      final backfilled = user['inventoryDedupBackfilled'] == true;
+      final collapsed = user['inventoryDuplicatesCollapsed'] == true;
+
+      if (backfilled && collapsed) {
         _migrationDoneCache = true;
         return;
       }
 
-      final inventory = await _storage.fetchAllInventory();
-      final rows = <({String id, Map<String, dynamic> updates})>[];
-      for (final entry in inventory) {
-        if (entry.data.containsKey('matchKey')) continue; // already migrated
-        final name = (entry.data['name'] as String?)?.trim() ?? '';
-        if (name.isEmpty) continue;
-        rows.add((
-          id: entry.id,
-          updates: {
-            'nameLower': PantryStringMatch.nameLower(name),
-            'matchKey': PantryStringMatch.matchKey(name),
-            'firstAddedAt': FieldValue.serverTimestamp(),
-            'lastPurchasedAt': FieldValue.serverTimestamp(),
-          },
-        ));
+      // ── Step 1: backfill ─────────────────────────────────────────────
+      if (!backfilled) {
+        final inventory = await _storage.fetchAllInventory();
+        final rows = <({String id, Map<String, dynamic> updates})>[];
+        for (final entry in inventory) {
+          if (entry.data.containsKey('matchKey')) continue;
+          final name = (entry.data['name'] as String?)?.trim() ?? '';
+          if (name.isEmpty) continue;
+          rows.add((
+            id: entry.id,
+            updates: {
+              'nameLower': PantryStringMatch.nameLower(name),
+              'matchKey': PantryStringMatch.matchKey(name),
+              'firstAddedAt': FieldValue.serverTimestamp(),
+              'lastPurchasedAt': FieldValue.serverTimestamp(),
+            },
+          ));
+        }
+        // Always commit (even if rows empty) so the flag lands.
+        await _storage.migrateLegacyRows(rows);
       }
 
-      // Always commit (even if rows empty) so the flag lands and we
-      // skip the work on subsequent launches.
-      await _storage.migrateLegacyRows(rows);
+      // ── Step 2: collapse duplicates ──────────────────────────────────
+      if (!collapsed) {
+        // Re-fetch so any backfill that just landed is visible to the
+        // grouping pass. The fake's migrateLegacyRows updates docs in
+        // place, and Firestore reads are strongly consistent within a
+        // single client, so this sees the latest state.
+        final inventory = await _storage.fetchAllInventory();
+        final groups = <String, List<({String id, Map<String, dynamic> data})>>{};
+        for (final entry in inventory) {
+          final mk = entry.data['matchKey'] as String?;
+          if (mk == null || mk.isEmpty) continue;
+          groups.putIfAbsent(mk, () => []).add(entry);
+        }
+
+        final winnerUpdates = <String, Map<String, dynamic>>{};
+        final loserIds = <String>[];
+
+        for (final entries in groups.values) {
+          if (entries.length < 2) continue;
+          // Pick winner: oldest firstAddedAt wins; doc id is the
+          // tiebreaker so the choice is deterministic.
+          entries.sort(_compareWinner);
+          final winner = entries.first;
+          final losers = entries.skip(1).toList();
+          final merged = _mergeLoserFields(winner: winner, losers: losers);
+          if (merged.isNotEmpty) {
+            winnerUpdates[winner.id] = merged;
+          }
+          loserIds.addAll(losers.map((e) => e.id));
+        }
+
+        // Always commit (even if both maps empty) so the flag lands.
+        await _storage.collapseDuplicates(
+          winnerUpdates: winnerUpdates,
+          loserIds: loserIds,
+        );
+      }
+
       _migrationDoneCache = true;
     } catch (_) {
       // Best-effort — never block addItem. _migrationDoneCache stays null
-      // so the next addItem call retries. That's fine: a transient
-      // failure shouldn't permanently disable the migrator.
+      // so the next addItem call retries. A transient failure shouldn't
+      // permanently disable the migrator.
     }
+  }
+
+  /// Sort comparator that puts the migration winner first. Oldest
+  /// `firstAddedAt` wins; rows missing the field rank after rows that
+  /// have it; doc id is the deterministic tiebreaker.
+  static int _compareWinner(
+    ({String id, Map<String, dynamic> data}) a,
+    ({String id, Map<String, dynamic> data}) b,
+  ) {
+    final aFirst = a.data['firstAddedAt'];
+    final bFirst = b.data['firstAddedAt'];
+    if (aFirst is Timestamp && bFirst is Timestamp) {
+      final c = aFirst.compareTo(bFirst);
+      if (c != 0) return c;
+    } else if (aFirst is Timestamp) {
+      return -1;
+    } else if (bFirst is Timestamp) {
+      return 1;
+    }
+    return a.id.compareTo(b.id);
+  }
+
+  /// Compute the field merges to apply to a winner row from its losers.
+  /// Returns only fields that need to change so the storage update is
+  /// minimal. See spec §5 rule book for the per-field rules.
+  static Map<String, dynamic> _mergeLoserFields({
+    required ({String id, Map<String, dynamic> data}) winner,
+    required List<({String id, Map<String, dynamic> data})> losers,
+  }) {
+    final merged = <String, dynamic>{};
+
+    // expiryDate: latest across all rows, but only if the WINNER is
+    // perishable. Non-perishable winners never carry an expiry.
+    if (winner.data['tier'] == 'perishable') {
+      Timestamp? latestExpiry = winner.data['expiryDate'] as Timestamp?;
+      for (final l in losers) {
+        final exp = l.data['expiryDate'] as Timestamp?;
+        if (exp != null &&
+            (latestExpiry == null || exp.compareTo(latestExpiry) > 0)) {
+          latestExpiry = exp;
+        }
+      }
+      if (latestExpiry != null && latestExpiry != winner.data['expiryDate']) {
+        merged['expiryDate'] = latestExpiry;
+      }
+    }
+
+    // price: if winner missing, take the first non-empty loser price.
+    final winnerPrice = winner.data['price'] as String?;
+    if (winnerPrice == null || winnerPrice.isEmpty) {
+      for (final l in losers) {
+        final p = l.data['price'] as String?;
+        if (p != null && p.isNotEmpty) {
+          merged['price'] = p;
+          break;
+        }
+      }
+    }
+
+    // category: if winner missing, take the first non-empty loser category.
+    final winnerCat = winner.data['category'] as String?;
+    if (winnerCat == null || winnerCat.isEmpty) {
+      for (final l in losers) {
+        final c = l.data['category'] as String?;
+        if (c != null && c.isNotEmpty) {
+          merged['category'] = c;
+          break;
+        }
+      }
+    }
+
+    // lastPurchasedAt: max across all rows.
+    Timestamp? latestPurchase = winner.data['lastPurchasedAt'] as Timestamp?;
+    for (final l in losers) {
+      final lp = l.data['lastPurchasedAt'] as Timestamp?;
+      if (lp != null &&
+          (latestPurchase == null || lp.compareTo(latestPurchase) > 0)) {
+        latestPurchase = lp;
+      }
+    }
+    if (latestPurchase != null &&
+        latestPurchase != winner.data['lastPurchasedAt']) {
+      merged['lastPurchasedAt'] = latestPurchase;
+    }
+
+    // runningLow: clear it. Any merged item is "active" by definition.
+    if (winner.data['runningLow'] == true) {
+      merged['runningLow'] = false;
+    }
+
+    return merged;
   }
 }
 
@@ -265,6 +424,51 @@ class _FirestoreInventoryWriteStorage implements InventoryWriteStorage {
     batch.set(
       _db.collection('users').doc(uid),
       {'inventoryDedupBackfilled': true},
+      SetOptions(merge: true),
+    );
+    await batch.commit();
+  }
+
+  @override
+  Future<void> collapseDuplicates({
+    required Map<String, Map<String, dynamic>> winnerUpdates,
+    required List<String> loserIds,
+  }) async {
+    final uid = _uid;
+    if (uid == null) return;
+    final coll = _inventory(uid);
+    // Firestore caps batches at 500 writes. The flag-set is +1 write.
+    // Pathological pantries (500+ duplicates) are unrealistic but the
+    // chunk loop keeps us safe. Each chunk commits independently; if a
+    // later chunk fails the flag never lands and the migrator retries.
+    const chunkSize = 450;
+    final winners = winnerUpdates.entries.toList();
+    final losers = List<String>.from(loserIds);
+
+    int writeBudget = 0;
+    WriteBatch batch = _db.batch();
+    Future<void> flush() async {
+      if (writeBudget == 0) return;
+      await batch.commit();
+      batch = _db.batch();
+      writeBudget = 0;
+    }
+
+    for (final w in winners) {
+      if (writeBudget >= chunkSize) await flush();
+      batch.update(coll.doc(w.key), w.value);
+      writeBudget++;
+    }
+    for (final id in losers) {
+      if (writeBudget >= chunkSize) await flush();
+      batch.delete(coll.doc(id));
+      writeBudget++;
+    }
+    // Final chunk gets the flag-set so it only lands if everything else
+    // committed cleanly.
+    batch.set(
+      _db.collection('users').doc(uid),
+      {'inventoryDuplicatesCollapsed': true},
       SetOptions(merge: true),
     );
     await batch.commit();

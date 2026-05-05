@@ -24,6 +24,11 @@ class FakeInventoryWriteStorage implements InventoryWriteStorage {
   final List<({String id, Map<String, dynamic> updates})> migratedRows = [];
   bool migrationFlagSet = false;
 
+  // Sprint 15.9.3 collapse-duplicates capture.
+  final Map<String, Map<String, dynamic>> collapseWinnerUpdates = {};
+  final List<String> collapseLoserIds = [];
+  bool collapseFlagSet = false;
+
   @override
   Future<({String id, Map<String, dynamic> data})?> findExistingByKey({
     required String matchKey,
@@ -98,5 +103,26 @@ class FakeInventoryWriteStorage implements InventoryWriteStorage {
     }
     migrationFlagSet = true;
     userDoc = {...userDoc, 'inventoryDedupBackfilled': true};
+  }
+
+  @override
+  Future<void> collapseDuplicates({
+    required Map<String, Map<String, dynamic>> winnerUpdates,
+    required List<String> loserIds,
+  }) async {
+    if (throwOnWrite) throw StateError('test: collapse failed');
+    collapseWinnerUpdates.addAll(winnerUpdates);
+    collapseLoserIds.addAll(loserIds);
+    for (final entry in winnerUpdates.entries) {
+      final existing = docs[entry.key];
+      if (existing != null) {
+        docs[entry.key] = {...existing, ...entry.value};
+      }
+    }
+    for (final id in loserIds) {
+      docs.remove(id);
+    }
+    collapseFlagSet = true;
+    userDoc = {...userDoc, 'inventoryDuplicatesCollapsed': true};
   }
 }
