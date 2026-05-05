@@ -69,14 +69,18 @@ class GeminiService {
   /// Streaming recipe generation — yields status updates as chunks arrive.
   /// Subscribe to this from the home screen for skeleton/shimmer UI.
   ///
-  /// Token cap was bumped 1024 → 2048 on 2026-04-30 because elaborate
-  /// recipes (10+ ingredients, 8-step method, substitutions, tips) were
-  /// truncating mid-JSON at 1024 and producing "Unexpected end of input"
-  /// errors on screen 13. 2048 fits typical full recipes with headroom.
+  /// Token cap history:
+  ///   1024 → 2048 (2026-04-30) — elaborate recipes truncating at 1024.
+  ///   2048 → 3072 (Sprint 15.9.3) — Rob hit MAX_TOKENS at 2048 on the
+  ///   first post-onboarding generation when the prompt was rich
+  ///   (full pantry, household profile, taste profile, recent titles).
+  ///   3072 matches the onboarding screen 13 cap that's been stable.
+  ///   Belt-and-braces: MAX_TOKENS now also routes through the
+  ///   truncation-repair path in `_extractJson` and is retryable.
   static Stream<RecipeGenerationStatus> generateRecipeStream(RecipeGenerationRequest request) async* {
     yield* _streamFromPrompt(
       _buildPrompt(request),
-      maxOutputTokens: 2048,
+      maxOutputTokens: 3072,
       responseSchema: _recipeResponseSchema,
     );
   }
@@ -472,12 +476,19 @@ class GeminiService {
         }
       }
 
-      // Stream complete — check finish reason and parse
-      if (finishReason == 'MAX_TOKENS') {
-        // Hard cap hit; retrying with the same cap won't help.
-        yield RecipeError(message: 'Response was too long and got cut off. Please try again.');
-        return;
-      }
+      // Stream complete — check finish reason and parse.
+      //
+      // Sprint 15.9.3 fix: MAX_TOKENS used to early-return here, which
+      // bypassed `_extractJson`'s truncation-repair branch and left the
+      // user staring at an error even though we had usable JSON in the
+      // buffer. Fall through to the same parse path the success branch
+      // uses; the repair walker closes any unfinished string/array/object
+      // and produces a syntactically valid (partial) recipe. Recipe model
+      // fields are nullable / list-defaulting so the partial renders.
+      // If repair still fails, the retryable flag below lets the silent
+      // retry loop have another go — Gemini at temp 0.8 often produces
+      // a shorter recipe on the second try.
+      final maxTokensHit = finishReason == 'MAX_TOKENS';
 
       final rawText = buffer.toString().trim();
       if (rawText.isEmpty) {
@@ -495,13 +506,17 @@ class GeminiService {
         yield RecipeComplete(recipe: GeneratedRecipe.fromJson(recipeJson));
       } catch (parseErr) {
         // Could be truncation (most common — repaired in _extractJson),
-        // model-emitted prose, or a malformed payload. Retrying lets
-        // Gemini re-roll a (likely shorter) recipe.
+        // model-emitted prose, or a malformed payload. Retryable lets
+        // Gemini re-roll a (likely shorter) recipe. MAX_TOKENS where the
+        // repair couldn't produce a renderable recipe surfaces a more
+        // specific message; everything else uses the parse error.
         ErrorService.log('recipe_generation_parse', parseErr);
         yield RecipeError(
-          message: parseErr is Exception
-              ? parseErr.toString().replaceFirst('Exception: ', '')
-              : 'Recipe generation failed. Please try again.',
+          message: maxTokensHit
+              ? 'Recipe got a bit long. Trying again with a tighter version…'
+              : parseErr is Exception
+                  ? parseErr.toString().replaceFirst('Exception: ', '')
+                  : 'Recipe generation failed. Please try again.',
           retryable: true,
         );
       }
