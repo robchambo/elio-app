@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -34,8 +36,18 @@ class _DietaryScreenState extends State<DietaryScreen> {
   bool _isLoading = true;
   List<String> _dietaryRequirements = [];
   List<String> _allergens = [];
-  String? _ownerProfileId;
+  // Sprint 15.9.3 fix: defaults to 'owner' (the canonical doc id used by
+  // the rest of the app) so writes never get silently skipped on
+  // accounts that don't yet have a profiles subcollection. Combined
+  // with set(merge:true) below, the doc is created on first toggle.
+  String _ownerProfileId = 'owner';
   final TextEditingController _allergenController = TextEditingController();
+
+  // Brief visual confirmation that an auto-save succeeded. Auto-save
+  // is invisible by design (no Save button), so without this the user
+  // has to navigate away and back to verify the write landed.
+  bool _showSaveBadge = false;
+  Timer? _saveBadgeTimer;
 
   // id is used as the Firestore value (kept identical to the pre-Sprint-16
   // string set so existing user docs continue to work without migration).
@@ -65,6 +77,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
 
   @override
   void dispose() {
+    _saveBadgeTimer?.cancel();
     _allergenController.dispose();
     super.dispose();
   }
@@ -72,24 +85,72 @@ class _DietaryScreenState extends State<DietaryScreen> {
   Future<void> _loadData() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
-      if (uid == null) return;
+      if (uid == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
       final profilesSnap = await FirebaseFirestore.instance
           .collection('users').doc(uid).collection('profiles').get();
-      final owner = profilesSnap.docs.firstWhere(
-        (d) => d.data()['isOwner'] == true,
-        orElse: () => profilesSnap.docs.first,
-      );
+      // Sprint 15.9.3 fix: previously this used firstWhere(...orElse:
+      // () => profilesSnap.docs.first), which throws on an empty
+      // collection (the .first call). The throw was caught silently
+      // and _ownerProfileId stayed null, which made every subsequent
+      // toggle skip the write — the bug Rob hit.
+      QueryDocumentSnapshot<Map<String, dynamic>>? owner;
+      for (final d in profilesSnap.docs) {
+        if (d.data()['isOwner'] == true) {
+          owner = d;
+          break;
+        }
+      }
+      // Fallback: any profile we can find (legacy accounts without the
+      // explicit isOwner flag). Final fallback: stay at the default
+      // 'owner' id so the next save creates the doc cleanly.
+      owner ??= profilesSnap.docs.isNotEmpty ? profilesSnap.docs.first : null;
       if (mounted) {
         setState(() {
-          _ownerProfileId = owner.id;
-          _dietaryRequirements = List<String>.from(owner.data()['dietaryRequirements'] ?? []);
-          _allergens = List<String>.from(owner.data()['allergies'] ?? []);
+          if (owner != null) {
+            _ownerProfileId = owner.id;
+            _dietaryRequirements = List<String>.from(owner.data()['dietaryRequirements'] ?? []);
+            _allergens = List<String>.from(owner.data()['allergies'] ?? []);
+          }
           _isLoading = false;
         });
       }
     } catch (_) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  /// Auto-save indicator — flashes "Saved" briefly so the user has
+  /// observable feedback that a chip toggle actually persisted. Without
+  /// this, auto-save is invisible until the user navigates away and back.
+  void _flashSavedBadge() {
+    _saveBadgeTimer?.cancel();
+    if (mounted) setState(() => _showSaveBadge = true);
+    _saveBadgeTimer = Timer(const Duration(milliseconds: 1400), () {
+      if (mounted) setState(() => _showSaveBadge = false);
+    });
+  }
+
+  /// Single Firestore write helper used by every toggle/add/remove
+  /// action. Uses `set(merge: true)` so the doc is created on first
+  /// write and partial-field updates work whether or not the doc
+  /// exists. Was `update()` previously, which throws on missing docs
+  /// and silently swallowed the error.
+  Future<void> _persistOwnerProfile(Map<String, dynamic> patch) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('profiles')
+        .doc(_ownerProfileId)
+        .set({
+          ...patch,
+          // Defensive: if the doc didn't exist, mark it owner.
+          'isOwner': true,
+        }, SetOptions(merge: true));
   }
 
   Future<void> _toggleDietary(String req) async {
@@ -101,18 +162,12 @@ class _DietaryScreenState extends State<DietaryScreen> {
       updated.add(req);
     }
     setState(() => _dietaryRequirements = updated);
-    if (_ownerProfileId != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(FirebaseAuth.instance.currentUser!.uid)
-            .collection('profiles')
-            .doc(_ownerProfileId)
-            .update({'dietaryRequirements': updated});
-      } catch (_) {
-        if (mounted) setState(() => _dietaryRequirements = previous);
-        _showSnack('Could not save. Please try again.');
-      }
+    try {
+      await _persistOwnerProfile({'dietaryRequirements': updated});
+      _flashSavedBadge();
+    } catch (_) {
+      if (mounted) setState(() => _dietaryRequirements = previous);
+      _showSnack('Could not save. Please try again.');
     }
   }
 
@@ -122,18 +177,12 @@ class _DietaryScreenState extends State<DietaryScreen> {
     final updated = List<String>.from(_allergens)..add(trimmed);
     setState(() => _allergens = updated);
     _allergenController.clear();
-    if (_ownerProfileId != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(FirebaseAuth.instance.currentUser!.uid)
-            .collection('profiles')
-            .doc(_ownerProfileId)
-            .update({'allergies': updated});
-      } catch (_) {
-        if (mounted) setState(() => _allergens = List<String>.from(_allergens)..remove(trimmed));
-        _showSnack('Could not save. Please try again.');
-      }
+    try {
+      await _persistOwnerProfile({'allergies': updated});
+      _flashSavedBadge();
+    } catch (_) {
+      if (mounted) setState(() => _allergens = List<String>.from(_allergens)..remove(trimmed));
+      _showSnack('Could not save. Please try again.');
     }
   }
 
@@ -141,18 +190,12 @@ class _DietaryScreenState extends State<DietaryScreen> {
     final previous = List<String>.from(_allergens);
     final updated = List<String>.from(_allergens)..remove(allergen);
     setState(() => _allergens = updated);
-    if (_ownerProfileId != null) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(FirebaseAuth.instance.currentUser!.uid)
-            .collection('profiles')
-            .doc(_ownerProfileId)
-            .update({'allergies': updated});
-      } catch (_) {
-        if (mounted) setState(() => _allergens = previous);
-        _showSnack('Could not remove. Please try again.');
-      }
+    try {
+      await _persistOwnerProfile({'allergies': updated});
+      _flashSavedBadge();
+    } catch (_) {
+      if (mounted) setState(() => _allergens = previous);
+      _showSnack('Could not remove. Please try again.');
     }
   }
 
@@ -173,6 +216,35 @@ class _DietaryScreenState extends State<DietaryScreen> {
           icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        // Sprint 15.9.3: visible "Saved" indicator for the auto-save
+        // pattern. Flashes briefly after each successful chip toggle
+        // or allergen add/remove so the user has feedback the write
+        // landed (no Save button in this UX).
+        actions: [
+          AnimatedOpacity(
+            duration: const Duration(milliseconds: 180),
+            opacity: _showSaveBadge ? 1.0 : 0.0,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.check_circle_rounded,
+                    size: 18,
+                    color: ElioColors.terracotta,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Saved',
+                    style: ElioTextStyles.uiLabelStyle.copyWith(
+                      color: ElioColors.terracotta,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: ElioColors.terracotta))
