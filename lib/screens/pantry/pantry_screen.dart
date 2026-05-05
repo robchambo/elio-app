@@ -23,6 +23,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/firestore_service.dart';
+import '../../services/inventory_writer.dart';
 import '../../services/pantry_memory_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
@@ -425,6 +426,42 @@ class _PantryScreenState extends State<PantryScreen> {
   }
 
   // ─── Actions ────────────────────────────────────────────────────────
+
+  /// Sprint 15.9.3: force-runs InventoryWriter's collapse step, ignoring
+  /// the `inventoryDuplicatesCollapsed` flag. Triggered by long-press on
+  /// the page title. Recovery affordance for dev devices where the
+  /// initial migration silently failed but the flag was set anyway.
+  /// Shows a snackbar with the deleted count so the user gets feedback.
+  Future<void> _forceCollapseDuplicates() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        duration: Duration(seconds: 1),
+        content: Text('Cleaning up duplicates…'),
+      ),
+    );
+    try {
+      final deleted = await InventoryWriter.instance.forceCollapseDuplicates();
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            deleted == 0
+                ? 'No duplicates found.'
+                : 'Cleaned up $deleted duplicate row${deleted == 1 ? '' : 's'}.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Cleanup failed: $e')),
+      );
+    }
+  }
+
   void _openReceiptScanner() {
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const ScannerScreen(initialTab: 1)),
@@ -506,7 +543,18 @@ class _PantryScreenState extends State<PantryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ElioPageTitle('what did you pick up?'),
+          // Sprint 15.9.3: long-press the page title to force-collapse
+          // duplicate inventory rows. Diagnostic affordance — exposes
+          // InventoryWriter.forceCollapseDuplicates() so dev devices
+          // that already had `inventoryDuplicatesCollapsed: true` set
+          // can still clean up. Hidden from normal users; long-press
+          // is unobtrusive enough that no one will discover it
+          // accidentally.
+          GestureDetector(
+            onLongPress: _forceCollapseDuplicates,
+            behavior: HitTestBehavior.opaque,
+            child: const ElioPageTitle('what did you pick up?'),
+          ),
           const SizedBox(height: ElioSpacing.xl),
           Row(
             children: [
@@ -643,12 +691,14 @@ class _TierItemsList extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
+        // Sprint 15.9.3: + Add pill leads each tier so users don't have
+        // to scroll past every existing item to find the affordance.
+        _AddSomethingChip(onTap: onAdd),
         for (final item in items)
           _TierItemChip(
             item: item,
             onLongPress: () => onItemLongPress(item),
           ),
-        _AddSomethingChip(onTap: onAdd),
       ],
     );
   }

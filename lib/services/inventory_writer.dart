@@ -15,6 +15,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../utils/pantry_string_match.dart';
+import 'error_service.dart';
 
 /// Storage abstraction so the dedup logic can be tested without
 /// touching Firestore. Production: [_FirestoreInventoryWriteStorage].
@@ -214,48 +215,74 @@ class InventoryWriter {
 
       // ── Step 2: collapse duplicates ──────────────────────────────────
       if (!collapsed) {
-        // Re-fetch so any backfill that just landed is visible to the
-        // grouping pass. The fake's migrateLegacyRows updates docs in
-        // place, and Firestore reads are strongly consistent within a
-        // single client, so this sees the latest state.
-        final inventory = await _storage.fetchAllInventory();
-        final groups = <String, List<({String id, Map<String, dynamic> data})>>{};
-        for (final entry in inventory) {
-          final mk = entry.data['matchKey'] as String?;
-          if (mk == null || mk.isEmpty) continue;
-          groups.putIfAbsent(mk, () => []).add(entry);
-        }
-
-        final winnerUpdates = <String, Map<String, dynamic>>{};
-        final loserIds = <String>[];
-
-        for (final entries in groups.values) {
-          if (entries.length < 2) continue;
-          // Pick winner: oldest firstAddedAt wins; doc id is the
-          // tiebreaker so the choice is deterministic.
-          entries.sort(_compareWinner);
-          final winner = entries.first;
-          final losers = entries.skip(1).toList();
-          final merged = _mergeLoserFields(winner: winner, losers: losers);
-          if (merged.isNotEmpty) {
-            winnerUpdates[winner.id] = merged;
-          }
-          loserIds.addAll(losers.map((e) => e.id));
-        }
-
-        // Always commit (even if both maps empty) so the flag lands.
-        await _storage.collapseDuplicates(
-          winnerUpdates: winnerUpdates,
-          loserIds: loserIds,
-        );
+        await _collapseDuplicates();
       }
 
       _migrationDoneCache = true;
-    } catch (_) {
+    } catch (e, st) {
       // Best-effort — never block addItem. _migrationDoneCache stays null
       // so the next addItem call retries. A transient failure shouldn't
       // permanently disable the migrator.
+      // Sprint 15.9.3: log to ErrorService so silent failures surface in
+      // Crashlytics — the prior `catch (_)` swallowed everything and
+      // made it impossible to diagnose why a user kept seeing duplicates.
+      ErrorService.log('inventory_migration', e, st);
     }
+  }
+
+  /// Public force-cleanup entry point. Bypasses the
+  /// `inventoryDuplicatesCollapsed` flag and runs the collapse step
+  /// regardless. Returns the number of duplicate rows that were
+  /// deleted, so callers can show "Cleaned up N duplicates" feedback.
+  ///
+  /// Sprint 15.9.3: added so dev devices that already had the flag set
+  /// from a partial migration can still clean up. Wire to a long-press
+  /// on the Pantry page title or a debug menu — not for general use.
+  Future<int> forceCollapseDuplicates() async {
+    try {
+      return await _collapseDuplicates();
+    } catch (e, st) {
+      ErrorService.log('inventory_force_collapse', e, st);
+      rethrow;
+    }
+  }
+
+  /// Compute and apply the duplicate-collapse step. Returns the number
+  /// of loser docs deleted. Used by both [_runMigrationIfNeeded] (gated
+  /// by the user-doc flag) and [forceCollapseDuplicates] (manual
+  /// cleanup, ungated).
+  Future<int> _collapseDuplicates() async {
+    final inventory = await _storage.fetchAllInventory();
+    final groups = <String, List<({String id, Map<String, dynamic> data})>>{};
+    for (final entry in inventory) {
+      final mk = entry.data['matchKey'] as String?;
+      if (mk == null || mk.isEmpty) continue;
+      groups.putIfAbsent(mk, () => []).add(entry);
+    }
+
+    final winnerUpdates = <String, Map<String, dynamic>>{};
+    final loserIds = <String>[];
+
+    for (final entries in groups.values) {
+      if (entries.length < 2) continue;
+      // Pick winner: oldest firstAddedAt wins; doc id is the
+      // deterministic tiebreaker.
+      entries.sort(_compareWinner);
+      final winner = entries.first;
+      final losers = entries.skip(1).toList();
+      final merged = _mergeLoserFields(winner: winner, losers: losers);
+      if (merged.isNotEmpty) {
+        winnerUpdates[winner.id] = merged;
+      }
+      loserIds.addAll(losers.map((e) => e.id));
+    }
+
+    // Always commit (even if both maps empty) so the flag lands.
+    await _storage.collapseDuplicates(
+      winnerUpdates: winnerUpdates,
+      loserIds: loserIds,
+    );
+    return loserIds.length;
   }
 
   /// Sort comparator that puts the migration winner first. Oldest
