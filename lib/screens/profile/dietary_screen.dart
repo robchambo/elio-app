@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../services/error_service.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
@@ -138,19 +139,80 @@ class _DietaryScreenState extends State<DietaryScreen> {
   /// write and partial-field updates work whether or not the doc
   /// exists. Was `update()` previously, which throws on missing docs
   /// and silently swallowed the error.
+  ///
+  /// Sprint 16.1 diagnostic: Rob hit a case where `set` returned
+  /// successfully (badge flashed) but a navigate-away/return showed
+  /// stale data. Most likely cause: silent server-side rule denial —
+  /// Firestore queues the write locally and the await completes
+  /// against the local cache even when the server rejects. Once it
+  /// rejects, subsequent reads from the server see the old data.
+  ///
+  /// To surface this we now do a verify read-back AFTER the write
+  /// (forced from server). If the field we just wrote isn't there,
+  /// throw — which surfaces a visible "Could not save" snackbar
+  /// instead of the silent flash.
   Future<void> _persistOwnerProfile(Map<String, dynamic> patch) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    await FirebaseFirestore.instance
+    if (uid == null) {
+      throw StateError('Not signed in.');
+    }
+    final docRef = FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .collection('profiles')
-        .doc(_ownerProfileId)
-        .set({
-          ...patch,
-          // Defensive: if the doc didn't exist, mark it owner.
-          'isOwner': true,
-        }, SetOptions(merge: true));
+        .doc(_ownerProfileId);
+
+    try {
+      await docRef.set({
+        ...patch,
+        // Defensive: if the doc didn't exist, mark it owner.
+        'isOwner': true,
+      }, SetOptions(merge: true));
+    } catch (e, st) {
+      ErrorService.log('dietary_save_write', e, st);
+      rethrow;
+    }
+
+    // Verify the write actually landed on the server (not just the
+    // local cache). The Source.server flag bypasses cache for this
+    // single read so a denied write surfaces here rather than silently
+    // returning stale data on next navigation.
+    try {
+      final snap = await docRef.get(const GetOptions(source: Source.server));
+      final data = snap.data() ?? const <String, dynamic>{};
+      for (final entry in patch.entries) {
+        final got = data[entry.key];
+        final want = entry.value;
+        if (!_listEquals(got, want)) {
+          ErrorService.log(
+            'dietary_save_verify_mismatch',
+            'patch ${entry.key}=$want; server returned $got. '
+                'docPath=${docRef.path}',
+          );
+          throw StateError(
+            'Save did not persist (server returned ${got ?? 'null'} for '
+            '${entry.key}).',
+          );
+        }
+      }
+    } catch (e, st) {
+      ErrorService.log('dietary_save_verify', e, st);
+      rethrow;
+    }
+  }
+
+  /// Shallow list/value equality — compares two values that came from
+  /// a Firestore `set` patch and a `get` round-trip. List comparison
+  /// is order-sensitive (matches what the user sees).
+  bool _listEquals(dynamic a, dynamic b) {
+    if (a is List && b is List) {
+      if (a.length != b.length) return false;
+      for (var i = 0; i < a.length; i++) {
+        if (a[i].toString() != b[i].toString()) return false;
+      }
+      return true;
+    }
+    return a == b;
   }
 
   Future<void> _toggleDietary(String req) async {
@@ -165,9 +227,9 @@ class _DietaryScreenState extends State<DietaryScreen> {
     try {
       await _persistOwnerProfile({'dietaryRequirements': updated});
       _flashSavedBadge();
-    } catch (_) {
+    } catch (e) {
       if (mounted) setState(() => _dietaryRequirements = previous);
-      _showSnack('Could not save. Please try again.');
+      _showSnack('Save failed: $e');
     }
   }
 
@@ -180,9 +242,9 @@ class _DietaryScreenState extends State<DietaryScreen> {
     try {
       await _persistOwnerProfile({'allergies': updated});
       _flashSavedBadge();
-    } catch (_) {
+    } catch (e) {
       if (mounted) setState(() => _allergens = List<String>.from(_allergens)..remove(trimmed));
-      _showSnack('Could not save. Please try again.');
+      _showSnack('Save failed: $e');
     }
   }
 
@@ -193,9 +255,9 @@ class _DietaryScreenState extends State<DietaryScreen> {
     try {
       await _persistOwnerProfile({'allergies': updated});
       _flashSavedBadge();
-    } catch (_) {
+    } catch (e) {
       if (mounted) setState(() => _allergens = previous);
-      _showSnack('Could not remove. Please try again.');
+      _showSnack('Remove failed: $e');
     }
   }
 
