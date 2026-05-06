@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import '../../models/recipe_models.dart';
 import '../../models/recipe_preferences.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
 import '../../theme/elio_spacing.dart';
@@ -178,6 +179,25 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   Timer? _messageTimer;
   StreamSubscription<RecipeGenerationStatus>? _generationSub;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    // Sprint 16.1: read the user's global Saver-Mode default from
+    // user-doc settings. Falls back to false on any failure (network,
+    // not signed in). Per-recipe override still works after this load.
+    _loadSaverModeDefault();
+  }
+
+  Future<void> _loadSaverModeDefault() async {
+    try {
+      final settings = await FirestoreService().getSettings();
+      final defaultOn = (settings['saverModeDefault'] as bool?) ?? false;
+      if (mounted && defaultOn) setState(() => _isSaverMode = true);
+    } catch (_) {
+      // Best-effort. Default stays false.
+    }
+  }
 
   @override
   void dispose() {

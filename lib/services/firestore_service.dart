@@ -247,20 +247,35 @@ class FirestoreService {
 
   // ─── Settings: get and update measurement units + region ─────────
 
-  Future<Map<String, String>> getSettings() async {
+  Future<Map<String, dynamic>> getSettings() async {
     final doc = await _db.collection('users').doc(_uid).get();
-    if (!doc.exists) return {'measurementUnits': 'metric', 'region': 'US'};
+    if (!doc.exists) {
+      return {
+        'measurementUnits': 'metric',
+        'region': 'US',
+        'saverModeDefault': false,
+      };
+    }
     final data = doc.data() as Map<String, dynamic>;
     return {
       'measurementUnits': data['measurementUnits'] as String? ?? 'metric',
       'region': data['region'] as String? ?? 'US',
+      // Sprint 16.1: global saver-mode default. Read by
+      // RecipePreferencesScreen on init so the toggle starts in the
+      // user's preferred state; per-recipe overrides still work.
+      'saverModeDefault': data['saverModeDefault'] as bool? ?? false,
     };
   }
 
-  Future<void> updateSettings({String? measurementUnits, String? region}) async {
+  Future<void> updateSettings({
+    String? measurementUnits,
+    String? region,
+    bool? saverModeDefault,
+  }) async {
     final updates = <String, dynamic>{};
     if (measurementUnits != null) updates['measurementUnits'] = measurementUnits;
     if (region != null) updates['region'] = region;
+    if (saverModeDefault != null) updates['saverModeDefault'] = saverModeDefault;
     if (updates.isEmpty) return;
     await _db.collection('users').doc(_uid).update(updates);
   }

@@ -1,30 +1,122 @@
 // lib/screens/account/account_screen.dart
 //
-// Sprint 16 Phase 6 — Account screen replaces the legacy multi-tab
-// ProfileScreen as the destination of the top-bar person-icon tap. It is a
-// simple list of tiles, one per sub-screen, matching the V1 user flow.
+// Sprint 16.1 — Settings redesign per Rob's docx
+// (`docs/strategy/Elio settings.docx`).
+//
+// Replaces the legacy single-list "Account" screen with a four-section
+// Settings tree: Household / Preferences / Account / About. Some rows
+// inline their control (Measurement Units, Region, Saver Mode) — the
+// rest push to existing sub-screens.
+//
+// File name kept as `account_screen.dart` so the AppShell top-bar
+// person-icon route doesn't change. The class is still `AccountScreen`
+// but the rendered title is "settings." per the new structure.
+//
+// What's new vs the old screen:
+//   - Sectioned iOS-style layout (cream-deep grouped tiles)
+//   - Inline segmented controls for Units + Region (no sub-screen)
+//   - Inline switch for Saver Mode default (writes to user doc)
+//   - Account section now includes Restore Purchases + Delete Account
+//   - About section (Privacy / ToS / Export / Feedback / Version)
+//   - GDPR services (AccountService.deleteAccount,
+//     DataExportService.exportData) wired
+//   - Privacy / ToS render via in-app LegalDocScreen from bundled
+//     markdown (no url_launcher dep needed for this phase)
+//   - Send Feedback shows a dialog with the support email + tap-to-copy
+//
+// What's removed:
+//   - "Food Style" tile — dropped per Rob's review of the docx
+//   - Pre-Sprint 16.1 settings_screen.dart — its content is now inline
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../main.dart';
+import '../../services/account_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/data_export_service.dart';
+import '../../services/firestore_service.dart';
+import '../../services/legal_links.dart';
+import '../../services/purchase_service.dart';
+import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
-import '../../widgets/elio/elio_secondary_card.dart';
-import '../../main.dart';
+import '../../utils/region_utils.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../profile/dietary_screen.dart';
 import '../profile/household_screen.dart';
 import '../profile/kitchen_screen.dart';
-import '../profile/settings_screen.dart';
+import '../profile/notification_prefs_screen.dart';
+import 'legal_doc_screen.dart';
 
-class AccountScreen extends StatelessWidget {
+class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
 
-  Future<void> _openSubscriptionManagement(BuildContext context) async {
-    // url_launcher is not in pubspec yet — surface guidance instead of
-    // fake UI. Play Store / App Store management still works via the
-    // system's own subscription center.
-    if (!context.mounted) return;
+  @override
+  State<AccountScreen> createState() => _AccountScreenState();
+}
+
+class _AccountScreenState extends State<AccountScreen> {
+  final FirestoreService _firestore = FirestoreService();
+
+  bool _loading = true;
+  String _measurementUnits = 'metric';
+  String _region = 'US';
+  bool _saverModeDefault = false;
+  String _appVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEverything();
+  }
+
+  Future<void> _loadEverything() async {
+    try {
+      final settings = await _firestore.getSettings();
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _measurementUnits =
+            (settings['measurementUnits'] as String?) ?? 'metric';
+        _region = (settings['region'] as String?) ?? 'US';
+        _saverModeDefault =
+            (settings['saverModeDefault'] as bool?) ?? false;
+        _appVersion = '${info.version}+${info.buildNumber}';
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // ─── Setting writers ──────────────────────────────────────────────
+
+  Future<void> _setUnits(String units) async {
+    setState(() => _measurementUnits = units);
+    await _firestore.updateSettings(measurementUnits: units);
+  }
+
+  Future<void> _setRegion(String region) async {
+    setState(() => _region = region);
+    RegionUtils.setRegion(region == 'UK' ? AppRegion.uk : AppRegion.us);
+    await _firestore.updateSettings(region: region);
+  }
+
+  Future<void> _setSaverMode(bool value) async {
+    setState(() => _saverModeDefault = value);
+    await _firestore.updateSettings(saverModeDefault: value);
+  }
+
+  // ─── Account actions ──────────────────────────────────────────────
+
+  Future<void> _openManageSubscription() async {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text(
@@ -36,10 +128,35 @@ class AccountScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _signOut(BuildContext context) async {
+  Future<void> _restorePurchases() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        duration: Duration(seconds: 1),
+        content: Text('Restoring purchases…'),
+      ),
+    );
+    try {
+      await PurchaseService.instance.restorePurchases();
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Purchases restored.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Restore failed: $e')),
+      );
+    }
+  }
+
+  Future<void> _signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.cream,
         title: const Text('Sign out?'),
         content: const Text(
           'You will need to sign in again to access your recipes and meal plans.',
@@ -61,21 +178,203 @@ class AccountScreen extends StatelessWidget {
     );
     if (confirmed != true) return;
     await AuthService().signOut();
-    if (!context.mounted) return;
-    // Also clear the onboardingComplete flag so AuthGate sends the user
-    // back through the onboarding flow.
+    if (!mounted) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboardingComplete', false);
-    if (!context.mounted) return;
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const AuthGate()),
       (_) => false,
     );
   }
 
-  void _push(BuildContext context, Widget screen) {
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.cream,
+        title: const Text('Delete your account?'),
+        content: const Text(
+          'This permanently deletes your account, recipes, and pantry. '
+          'This cannot be undone. You may need to sign in again to confirm.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Delete forever',
+              style: TextStyle(color: ElioColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        duration: Duration(seconds: 2),
+        content: Text('Deleting your account…'),
+      ),
+    );
+    final result = await AccountService.instance.deleteAccount(
+      reauth: _reauthForDelete,
+    );
+    if (!mounted) return;
+    messenger.hideCurrentSnackBar();
+    switch (result) {
+      case DeleteAccountSuccess():
+        // Clear local onboarding flag and route to AuthGate.
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('onboardingComplete', false);
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const AuthGate()),
+          (_) => false,
+        );
+      case DeleteAccountCancelled():
+        // User backed out — silent.
+        break;
+      case DeleteAccountFailed(:final stage, :final message):
+        messenger.showSnackBar(
+          SnackBar(content: Text('Delete failed at $stage: $message')),
+        );
+    }
   }
+
+  /// Sprint 16.1 V1 re-auth callback. Supports Google sign-in (Rob's
+  /// primary flow). Email/password and Apple are deferred — they show
+  /// a snackbar pointing the user at Google for now.
+  ///
+  /// Returns `null` to signal user-cancelled or unsupported provider →
+  /// AccountService aborts the delete cleanly.
+  Future<AuthCredential?> _reauthForDelete(String providerId) async {
+    if (providerId == GoogleAuthProvider.PROVIDER_ID) {
+      try {
+        // Re-trigger Google's account picker. We grab the credential
+        // BEFORE signing in so we can hand it to AccountService for
+        // reauthenticateWithCredential.
+        final googleSignIn = GoogleSignIn();
+        final account = await googleSignIn.signIn();
+        if (account == null) return null;
+        final auth = await account.authentication;
+        return GoogleAuthProvider.credential(
+          accessToken: auth.accessToken,
+          idToken: auth.idToken,
+        );
+      } catch (_) {
+        return null;
+      }
+    }
+    // Email/password and Apple flows pending — show guidance.
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Account deletion currently requires Google sign-in. '
+            'Email us at ${LegalLinks.supportEmail} for help.',
+          ),
+        ),
+      );
+    }
+    return null;
+  }
+
+  // ─── About actions ────────────────────────────────────────────────
+
+  Future<void> _exportData() async {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(
+        duration: Duration(seconds: 1),
+        content: Text('Building your data export…'),
+      ),
+    );
+    try {
+      final result = await DataExportService.instance.exportAndShare();
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      switch (result) {
+        case DataExportSuccess():
+          // share_plus already showed the system share sheet; nothing
+          // more to do here.
+          break;
+        case DataExportNotSignedIn():
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Sign in to export your data.')),
+          );
+        case DataExportFailed(:final message):
+          messenger.showSnackBar(
+            SnackBar(content: Text('Export failed: $message')),
+          );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Export failed: $e')),
+      );
+    }
+  }
+
+  Future<void> _sendFeedback() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.cream,
+        title: const Text('Send feedback'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Email us at:',
+              style: ElioTextStyles.bodyStyle,
+            ),
+            const SizedBox(height: 8),
+            SelectableText(
+              LegalLinks.supportEmail,
+              style: ElioTextStyles.uiLabelStyle.copyWith(
+                color: ElioColors.terracotta,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Tap "Copy" to put the address on your clipboard, then '
+              'paste into your mail app.',
+              style: ElioTextStyles.bodySmallStyle,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await Clipboard.setData(
+                  const ClipboardData(text: LegalLinks.supportEmail));
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx);
+              if (!mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Email copied to clipboard.')),
+              );
+            },
+            child: const Text('Copy'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Build ────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -84,71 +383,381 @@ class AccountScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: ElioColors.espresso),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(ElioSpacing.xl),
-        children: [
-          const ElioHeroHeading(
-            lines: ['your', 'account'],
-            amberLastLine: true,
-            showUnderline: true,
-          ),
-          const SizedBox(height: ElioSpacing.xl),
-          ElioSecondaryCard(
-            title: 'Subscription',
-            subtitle: 'Manage your Elio Pro plan',
-            actionLabel: 'Open',
-            onAction: () => _openSubscriptionManagement(context),
-          ),
-          const SizedBox(height: ElioSpacing.md),
-          ElioSecondaryCard(
-            title: 'Household',
-            subtitle: 'Add or edit household members',
-            actionLabel: 'Open',
-            onAction: () => _push(context, const HouseholdScreen()),
-          ),
-          const SizedBox(height: ElioSpacing.md),
-          ElioSecondaryCard(
-            title: 'Dietary & Allergens',
-            subtitle: "What you can and can't eat",
-            actionLabel: 'Open',
-            onAction: () => _push(context, const DietaryScreen()),
-          ),
-          const SizedBox(height: ElioSpacing.md),
-          ElioSecondaryCard(
-            title: 'Food Style',
-            subtitle: 'Comfort food, healthy, spicy...',
-            actionLabel: 'Open',
-            onAction: () => _push(context, const SettingsScreen()),
-          ),
-          const SizedBox(height: ElioSpacing.md),
-          ElioSecondaryCard(
-            title: 'Kitchen Appliances',
-            subtitle: 'Help Elio suggest dishes you can make',
-            actionLabel: 'Open',
-            onAction: () => _push(context, const KitchenScreen()),
-          ),
-          const SizedBox(height: ElioSpacing.md),
-          ElioSecondaryCard(
-            title: 'Metrics',
-            subtitle: 'Metric or Imperial units',
-            actionLabel: 'Open',
-            onAction: () => _push(context, const SettingsScreen()),
-          ),
-          const SizedBox(height: ElioSpacing.xxl),
-          Center(
-            child: TextButton(
-              onPressed: () => _signOut(context),
-              child: Text(
-                'Sign out',
-                style: ElioTextStyles.uiLabelStyle.copyWith(
-                  color: ElioColors.espresso.withValues(alpha: 0.7),
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: ElioColors.terracotta),
+            )
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(
+                ElioSpacing.xl,
+                0,
+                ElioSpacing.xl,
+                ElioSpacing.xxxl,
+              ),
+              children: [
+                const ElioPageTitle('settings.'),
+                const SizedBox(height: ElioSpacing.xl),
+
+                // ── Household ───────────────────────────────────────
+                _Section(
+                  title: 'Household',
+                  rows: [
+                    _PushRow(
+                      label: 'Manage household members',
+                      onTap: () => _push(const HouseholdScreen()),
+                    ),
+                    _PushRow(
+                      label: 'Dietary & Allergens',
+                      onTap: () => _push(const DietaryScreen()),
+                    ),
+                    _PushRow(
+                      label: 'Kitchen Appliances',
+                      onTap: () => _push(const KitchenScreen()),
+                    ),
+                  ],
                 ),
+
+                // ── Preferences ─────────────────────────────────────
+                _Section(
+                  title: 'Preferences',
+                  rows: [
+                    _SegmentedRow(
+                      label: 'Measurement Units',
+                      options: const [('metric', 'Metric'), ('imperial', 'Imperial')],
+                      value: _measurementUnits,
+                      onChanged: _setUnits,
+                    ),
+                    _SegmentedRow(
+                      label: 'Region',
+                      options: const [('US', 'US'), ('UK', 'UK')],
+                      value: _region,
+                      onChanged: _setRegion,
+                    ),
+                    _PushRow(
+                      label: 'Notifications',
+                      onTap: () => _push(const NotificationPrefsScreen()),
+                    ),
+                    _SwitchRow(
+                      label: 'Saver Mode default',
+                      subtitle: 'Start each recipe in budget-friendly mode',
+                      value: _saverModeDefault,
+                      onChanged: _setSaverMode,
+                    ),
+                  ],
+                ),
+
+                // ── Account ─────────────────────────────────────────
+                _Section(
+                  title: 'Account',
+                  rows: [
+                    _PushRow(
+                      label: 'Manage Subscription',
+                      onTap: _openManageSubscription,
+                    ),
+                    _ActionRow(
+                      label: 'Restore Purchases',
+                      onTap: _restorePurchases,
+                    ),
+                    _ActionRow(
+                      label: 'Sign Out',
+                      onTap: _signOut,
+                    ),
+                    _ActionRow(
+                      label: 'Delete Account',
+                      destructive: true,
+                      onTap: _deleteAccount,
+                    ),
+                  ],
+                ),
+
+                // ── About ───────────────────────────────────────────
+                _Section(
+                  title: 'About',
+                  rows: [
+                    _PushRow(
+                      label: 'Privacy Policy',
+                      onTap: () => _push(const LegalDocScreen(
+                        assetPath: 'privacy-policy.md',
+                        title: 'Privacy Policy',
+                      )),
+                    ),
+                    _PushRow(
+                      label: 'Terms of Service',
+                      onTap: () => _push(const LegalDocScreen(
+                        assetPath: 'terms-of-service.md',
+                        title: 'Terms of Service',
+                      )),
+                    ),
+                    _ActionRow(
+                      label: 'Export My Data',
+                      onTap: _exportData,
+                    ),
+                    _ActionRow(
+                      label: 'Send Feedback',
+                      onTap: _sendFeedback,
+                    ),
+                    _StaticRow(
+                      label: 'App Version',
+                      value: _appVersion.isEmpty ? '—' : _appVersion,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+    );
+  }
+
+  void _push(Widget screen) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Layout primitives
+// ═══════════════════════════════════════════════════════════════════
+
+/// A labelled section of the Settings list. Renders an eyebrow header
+/// then a single rounded cream-deep panel containing the [rows], with
+/// thin rule dividers between them.
+class _Section extends StatelessWidget {
+  final String title;
+  final List<Widget> rows;
+  const _Section({required this.title, required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: ElioSpacing.xl),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 0, ElioSpacing.sm),
+            child: Text(
+              title.toUpperCase(),
+              style: ElioTextStyles.eyebrowStyle.copyWith(
+                color: ElioColors.mocha,
               ),
             ),
           ),
-          const SizedBox(height: ElioSpacing.xl),
+          Container(
+            decoration: BoxDecoration(
+              color: ElioColors.creamDeep,
+              borderRadius: BorderRadius.circular(ElioRadii.card),
+              border: Border.all(color: ElioColors.rule, width: 1),
+            ),
+            child: Column(
+              children: [
+                for (var i = 0; i < rows.length; i++) ...[
+                  rows[i],
+                  if (i < rows.length - 1)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Container(height: 1, color: ElioColors.rule),
+                    ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Push-style row — title + chevron, full-width tap.
+class _PushRow extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _PushRow({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(label, style: ElioTextStyles.uiLabelStyle),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 22,
+              color: ElioColors.mocha,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Action row — title only, no chevron. Optional [destructive] flag
+/// renders the label in the error colour for the Delete Account case.
+class _ActionRow extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  final bool destructive;
+  const _ActionRow({
+    required this.label,
+    required this.onTap,
+    this.destructive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Text(
+          label,
+          style: ElioTextStyles.uiLabelStyle.copyWith(
+            color: destructive ? ElioColors.error : ElioColors.espresso,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Inline segmented control row — label on the left, segments on the
+/// right. Used for Measurement Units + Region.
+class _SegmentedRow extends StatelessWidget {
+  final String label;
+  final List<(String, String)> options; // (value, displayLabel)
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _SegmentedRow({
+    required this.label,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: ElioTextStyles.uiLabelStyle)),
+          Container(
+            decoration: BoxDecoration(
+              color: ElioColors.cream,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: ElioColors.rule, width: 1),
+            ),
+            padding: const EdgeInsets.all(2),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (val, display) in options)
+                  GestureDetector(
+                    onTap: () {
+                      if (val != value) onChanged(val);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 140),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: val == value
+                            ? ElioColors.terracotta
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        display,
+                        style: ElioTextStyles.uiLabelStyle.copyWith(
+                          color: val == value
+                              ? Colors.white
+                              : ElioColors.espresso,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Inline switch row — title + optional subtitle on the left, Switch
+/// on the right.
+class _SwitchRow extends StatelessWidget {
+  final String label;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _SwitchRow({
+    required this.label,
+    this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: ElioTextStyles.uiLabelStyle),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(subtitle!, style: ElioTextStyles.bodySmallStyle),
+                ],
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: ElioColors.terracotta,
+            activeThumbColor: Colors.white,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Static info row — label + read-only value. Used for App Version.
+class _StaticRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _StaticRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(child: Text(label, style: ElioTextStyles.uiLabelStyle)),
+          Text(
+            value,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
+              color: ElioColors.mocha,
+              fontFamily: 'DM Mono',
+            ),
+          ),
         ],
       ),
     );
