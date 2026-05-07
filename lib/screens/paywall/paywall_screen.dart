@@ -4,7 +4,7 @@ import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_text_styles.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../services/analytics_service.dart';
@@ -153,52 +153,46 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   /// Headline for [PaywallTrigger.first_recipe] — varies by the user's
   /// onboarding goal. Falls back to a neutral trial CTA when the goal
-  /// is unset. Returned as a single-entry list so it composes with
-  /// [ElioHeroHeading] (the underline + amber-last-line treatment still
-  /// renders cleanly on one line).
-  List<String> get _firstRecipeHeadline {
+  /// is unset.
+  String get _firstRecipeHeadline {
     // Per-goal headlines for the onboarding first-recipe paywall entry.
     // Copy signed off Sprint 16.2 (docs/onboarding/14-paywall.md §Copy).
     switch (widget.onboarding?.userGoal) {
       case 'pantryFirst':
-        // Two-line editorial treatment — Rob's call for extra weight on
-        // the dominant pantry-first goal.
-        return ['Cook from your pantry.', 'Every night.'];
+        return 'cook from your pantry. every night.';
       case 'wasteReduction':
-        return ['Cut your food waste from week one.'];
+        return 'cut your food waste from week one.';
       case 'decisionFatigue':
-        return ['No more 6pm panic.'];
+        return 'no more 6pm panic.';
       case 'household':
-        return ['One plan for the whole house.'];
+        return 'one plan for the whole house.';
       case 'takeawayEscape':
         // Region-aware: US → "takeout", UK (or default) → "takeaway".
         // Region comes from screen 09 (device locale + user override).
         // US is the primary launch market.
-        return [
-          widget.onboarding?.region == 'us'
-              ? 'Skip the takeout.'
-              : 'Skip the takeaway.',
-        ];
+        return widget.onboarding?.region == 'us'
+            ? 'skip the takeout.'
+            : 'skip the takeaway.';
       default:
-        return ['Unlimited Elio. Start with 7 days free.'];
+        return 'unlimited elio. start with 7 days free.';
     }
   }
 
-  /// Context-specific hero lines. Returns up to 3 lines for ElioHeroHeading.
-  List<String> get _heroLines {
+  /// Context-specific hero text.
+  String get _heroLines {
     switch (_resolvedContext) {
       case 'first_recipe':
         return _firstRecipeHeadline;
       case 'weekly_limit':
-        return ["you've used", 'your free', 'recipes'];
+        return "you've used your free recipes.";
       case 'meal_planner':
-        return ['plan your', 'week with', 'pro'];
+        return 'plan your week with pro.';
       case 'shopping_list':
-        return ['unlock', 'smart', 'shopping'];
+        return 'unlock smart shopping.';
       case 'household':
-        return ['cook for', 'everyone'];
+        return 'cook for everyone.';
       default:
-        return ['go pro', 'with elio'];
+        return 'go pro with elio.';
     }
   }
 
@@ -338,11 +332,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
               const SizedBox(height: 12),
 
               // ── Hero heading ─────────────────────────────────
-              ElioHeroHeading(
-                lines: _heroLines,
-                amberLastLine: true,
-                showUnderline: true,
-              ),
+              ElioPageTitle(_heroLines),
               const SizedBox(height: 20),
 
               if (trial) ...[
