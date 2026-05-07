@@ -118,11 +118,18 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
 
   void _showSnack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    // Sprint 16.1: explicit duration + hide-current. Floating snackbars
+    // show via the root MaterialApp ScaffoldMessenger and follow the
+    // user across navigation; without an explicit duration they linger
+    // long after the action they were reporting on.
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
       SnackBar(
         content: Text(msg),
         backgroundColor: ElioColors.espresso,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );

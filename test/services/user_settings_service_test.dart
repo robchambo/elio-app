@@ -63,4 +63,56 @@ void main() {
           isEmpty);
     });
   });
+
+  group('UserSettingsService.canonicaliseApplianceToken', () {
+    test('maps onboarding short IDs to Settings display labels', () {
+      expect(UserSettingsService.canonicaliseApplianceToken('airfryer'),
+          'Air fryer');
+      expect(UserSettingsService.canonicaliseApplianceToken('slowcooker'),
+          'Slow cooker');
+      expect(UserSettingsService.canonicaliseApplianceToken('pressure'),
+          'Instant Pot / Pressure cooker');
+      expect(UserSettingsService.canonicaliseApplianceToken('blender'),
+          'Blender');
+      expect(UserSettingsService.canonicaliseApplianceToken('processor'),
+          'Food processor');
+      expect(UserSettingsService.canonicaliseApplianceToken('mixer'),
+          'Stand mixer');
+      expect(UserSettingsService.canonicaliseApplianceToken('ricecooker'),
+          'Rice cooker');
+      // Note: onboarding's label is "BBQ / grill" but Settings displays
+      // "Grill / BBQ" — canonicalise to the Settings form so the chip
+      // pre-selects.
+      expect(UserSettingsService.canonicaliseApplianceToken('bbq'),
+          'Grill / BBQ');
+    });
+
+    test('preserves base appliances not surfaced as chips in Settings', () {
+      // Oven / Hob / Microwave aren't in the Kitchen Settings chip
+      // list but Gemini still uses them — pass through cleanly.
+      expect(UserSettingsService.canonicaliseApplianceToken('oven'), 'Oven');
+      expect(UserSettingsService.canonicaliseApplianceToken('hob'),
+          'Hob / stove');
+      expect(UserSettingsService.canonicaliseApplianceToken('microwave'),
+          'Microwave');
+    });
+
+    test('passes through Settings-form labels unchanged', () {
+      expect(UserSettingsService.canonicaliseApplianceToken('Sous vide'),
+          'Sous vide');
+      expect(UserSettingsService.canonicaliseApplianceToken('Air fryer'),
+          'Air fryer');
+    });
+  });
+
+  group('UserSettingsService.canonicaliseApplianceList', () {
+    test('canonicalises and de-dupes mixed-form lists', () {
+      // Real-world Firestore state after re-toggling: onboarding form
+      // alongside Settings form. Should collapse to a single
+      // canonical entry.
+      final out = UserSettingsService.canonicaliseApplianceList(
+          ['airfryer', 'Air fryer', 'pressure']);
+      expect(out, ['Air fryer', 'Instant Pot / Pressure cooker']);
+    });
+  });
 }

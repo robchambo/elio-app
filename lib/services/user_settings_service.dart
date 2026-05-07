@@ -86,6 +86,67 @@ class UserSettingsService extends ChangeNotifier {
     return out;
   }
 
+  // ── Appliance canonicalisation ───────────────────────────────────
+  //
+  // Sprint 16.1 same-shape-as-dietary fix.
+  //
+  // Onboarding screen 08 (`screen08_appliances.dart`) writes opaque
+  // short IDs ('airfryer', 'pressure', 'bbq' etc.). The Settings →
+  // Kitchen screen (`kitchen_screen.dart`) renders chips against full
+  // display labels ('Air fryer', 'Instant Pot / Pressure cooker',
+  // 'Grill / BBQ') and uses case-sensitive `.contains()` for selection
+  // state. Result: an onboarding-set air fryer never appears selected
+  // in Settings, so the user can't deselect it; if they later toggle
+  // Air fryer in Settings, Firestore ends up with a polluted union of
+  // both forms ('airfryer' AND 'Air fryer'), and the Gemini prompt
+  // sees both.
+  //
+  // Map onboarding short IDs onto the Settings display-label form on
+  // read. Items unique to onboarding (Oven, Hob/stove, Microwave —
+  // not displayed as chips in Settings) survive untouched and are
+  // still honoured by Gemini. Items already in Settings-label form
+  // pass through unchanged.
+  //
+  // Long-term this should converge on a single ID scheme, but a
+  // back-compat normaliser unblocks the immediate UX bug without
+  // forcing a Firestore migration.
+  static const Map<String, String> _applianceCanonicalLabel = {
+    'oven': 'Oven',
+    'hob': 'Hob / stove',
+    'microwave': 'Microwave',
+    'airfryer': 'Air fryer',
+    'slowcooker': 'Slow cooker',
+    'pressure': 'Instant Pot / Pressure cooker',
+    'blender': 'Blender',
+    'processor': 'Food processor',
+    'mixer': 'Stand mixer',
+    'ricecooker': 'Rice cooker',
+    // Onboarding writes 'bbq' (whose label there reads 'BBQ / grill').
+    // Kitchen Settings shows 'Grill / BBQ'. Map to the Settings form
+    // so the chip pre-selects.
+    'bbq': 'Grill / BBQ',
+  };
+
+  /// Map a single appliance token to its canonical display-label form.
+  /// Pass-through for unknown tokens (e.g. user-added customs, or
+  /// items already in display form like 'Sous vide').
+  static String canonicaliseApplianceToken(String raw) {
+    final mapped = _applianceCanonicalLabel[raw.toLowerCase().trim()];
+    return mapped ?? raw;
+  }
+
+  /// Canonicalise + de-dupe a list of appliance tokens. Preserves
+  /// order of first occurrence after canonicalisation.
+  static List<String> canonicaliseApplianceList(Iterable<String> raws) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final raw in raws) {
+      final c = canonicaliseApplianceToken(raw);
+      if (seen.add(c)) out.add(c);
+    }
+    return out;
+  }
+
   UserSettingsService._() {
     // Auto-refresh on every auth-state transition. New sign-in or
     // sign-out triggers a clean re-read or a clear.

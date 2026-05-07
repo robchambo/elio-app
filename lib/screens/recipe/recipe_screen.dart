@@ -610,11 +610,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
       return;
     }
     if (widget.isGuest) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.1: explicit duration + hide-current so the toast
+      // doesn't follow the user across navigation.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Sign in to use the shopping list'),
           backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -1434,11 +1439,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
   // ─── Add ingredients to shopping list (via confirmation dialog) ─────────────
   Future<void> _addToShoppingList() async {
     if (widget.isGuest) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.1: explicit duration + hide-current.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Sign in to use the shopping list'),
           backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -1459,11 +1468,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
 
     if (items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.1: explicit duration + hide-current.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('All ingredients are already in your pantry!'),
           backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -1527,11 +1540,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
       } catch (_) {
         if (mounted) {
           setState(() => _isAddingToShop = false);
-          ScaffoldMessenger.of(context).showSnackBar(
+          // Sprint 16.1: explicit duration + hide-current.
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
             SnackBar(
               content: const Text('Could not add to shopping list'),
               backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
