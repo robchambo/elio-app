@@ -113,7 +113,16 @@ class _DietaryScreenState extends State<DietaryScreen> {
         setState(() {
           if (owner != null) {
             _ownerProfileId = owner.id;
-            _dietaryRequirements = List<String>.from(owner.data()['dietaryRequirements'] ?? []);
+            // Sprint 16.1 case fix: legacy onboarding wrote lowercase
+            // dietary tokens ('vegetarian'). The chip IDs on this
+            // screen are TitleCase ('Vegetarian'), and `.contains` is
+            // case-sensitive — without normalising the chips would
+            // appear unselected even though the value is saved. Use
+            // the singleton's helper so the canonical form is shared
+            // across consumers.
+            _dietaryRequirements = UserSettingsService.canonicaliseDietaryList(
+              List<String>.from(owner.data()['dietaryRequirements'] ?? const <String>[]),
+            );
             _allergens = List<String>.from(owner.data()['allergies'] ?? []);
           }
           _isLoading = false;

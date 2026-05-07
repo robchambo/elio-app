@@ -37,6 +37,55 @@ import 'package:flutter/foundation.dart';
 import 'error_service.dart';
 
 class UserSettingsService extends ChangeNotifier {
+  // ── Canonical-case normalisation ─────────────────────────────────
+  //
+  // Sprint 16.1 case-mismatch fix.
+  //
+  // Onboarding screen 04 (`screen04_dietary.dart`) writes dietary
+  // tokens in lowercase: 'vegetarian', 'vegan', 'pescatarian', 'halal',
+  // 'kosher', 'none'. The Settings → Dietary screen
+  // (`dietary_screen.dart`) — which is the canonical UI — uses
+  // TitleCase IDs: 'Vegetarian', 'Vegan', 'Pescatarian', 'Halal',
+  // 'Kosher'. Without normalisation, an onboarding-set Vegetarian
+  // doesn't appear pre-selected in Settings (case-sensitive
+  // `.contains()`), so the user can't deselect it.
+  //
+  // We canonicalise to the Settings-screen TitleCase form on read.
+  // Already-TitleCase values (e.g. 'Nut-free') and the 'none'
+  // sentinel pass through unchanged. The `'none'` sentinel is then
+  // stripped separately inside refresh().
+  //
+  // When users next save via the Settings dietary screen, the doc
+  // gets rewritten in TitleCase, organically migrating any legacy
+  // lowercase data forward.
+  static const Map<String, String> _dietaryCanonicalCase = {
+    'vegetarian': 'Vegetarian',
+    'vegan': 'Vegan',
+    'pescatarian': 'Pescatarian',
+    'halal': 'Halal',
+    'kosher': 'Kosher',
+  };
+
+  /// Map a single dietary token to its canonical case. Pass-through
+  /// for unknown keys (e.g. 'Nut-free', 'Gluten-free') and the
+  /// 'none' sentinel.
+  static String canonicaliseDietaryToken(String raw) {
+    final mapped = _dietaryCanonicalCase[raw.toLowerCase().trim()];
+    return mapped ?? raw;
+  }
+
+  /// Canonicalise + de-dupe a list of dietary tokens. Preserves order
+  /// of first occurrence after canonicalisation.
+  static List<String> canonicaliseDietaryList(Iterable<String> raws) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final raw in raws) {
+      final c = canonicaliseDietaryToken(raw);
+      if (seen.add(c)) out.add(c);
+    }
+    return out;
+  }
+
   UserSettingsService._() {
     // Auto-refresh on every auth-state transition. New sign-in or
     // sign-out triggers a clean re-read or a clear.
@@ -142,9 +191,16 @@ class UserSettingsService extends ChangeNotifier {
         // "none" pill on the prefs screen and pollute the Gemini
         // prompt with "Dietary: none — strictly enforced." Drop it
         // here so every consumer sees a clean empty list instead.
-        final dietary = List<String>.from(
-          (data['dietaryRequirements'] as List?) ?? const <dynamic>[],
-        ).where((s) => s.toLowerCase() != 'none').toList();
+        //
+        // Sprint 16.1 case fix: also canonicalise lowercase dietary
+        // tokens written by onboarding ('vegetarian' → 'Vegetarian')
+        // so the Settings → Dietary screen's case-sensitive .contains
+        // check pre-selects them and they can be deselected.
+        final dietary = canonicaliseDietaryList(
+          List<String>.from(
+            (data['dietaryRequirements'] as List?) ?? const <dynamic>[],
+          ).where((s) => s.toLowerCase() != 'none'),
+        );
 
         profiles.add({
           'id': doc.id,
