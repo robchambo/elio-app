@@ -9,7 +9,7 @@ import '../../services/auth_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_secondary_card.dart';
 import '../../main.dart';
 import '../profile/dietary_screen.dart';
@@ -89,11 +89,7 @@ class AccountScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(ElioSpacing.xl),
         children: [
-          const ElioHeroHeading(
-            lines: ['your', 'account'],
-            amberLastLine: true,
-            showUnderline: true,
-          ),
+          const ElioPageTitle('your account.'),
           const SizedBox(height: ElioSpacing.xl),
           ElioSecondaryCard(
             title: 'Subscription',
