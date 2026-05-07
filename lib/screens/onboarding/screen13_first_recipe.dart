@@ -13,7 +13,7 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
 import '../../widgets/elio/elio_pantry_tag_pill.dart';
 
@@ -323,10 +323,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ElioHeroHeading(
-          lines: ["Tonight's dinner, coming up…"],
-          amberLastLine: false,
-        ),
+        const ElioPageTitle("tonight's dinner, coming up…"),
         const SizedBox(height: ElioSpacing.md),
         Text(
           _subheads[_subheadIndex],
@@ -432,10 +429,7 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const ElioHeroHeading(
-          lines: ["Hmm, let's try that again."],
-          amberLastLine: false,
-        ),
+        const ElioPageTitle("hmm, let's try that again."),
         const SizedBox(height: ElioSpacing.md),
         Text(
           "Couldn't reach Elio right now. Your pantry's saved — tap retry.",

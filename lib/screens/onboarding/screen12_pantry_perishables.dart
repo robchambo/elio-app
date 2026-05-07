@@ -12,7 +12,7 @@ import '../../utils/dietary_filter.dart';
 import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
 import '../../widgets/elio/elio_add_something_tile.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
 import '../../widgets/elio/elio_pantry_item_tile.dart';
 import '../../widgets/elio/elio_pantry_tier_legend.dart';
@@ -426,10 +426,7 @@ class _Screen12PantryPerishablesState extends State<Screen12PantryPerishables> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const ElioHeroHeading(
-                lines: ['And what\'s', 'fresh right now?'],
-                amberLastLine: true,
-              ),
+              const ElioPageTitle("and what's fresh right now."),
               const SizedBox(height: ElioSpacing.sm),
               Text(
                 "Tap what you've got in. Tap again if it needs using sooner.",
