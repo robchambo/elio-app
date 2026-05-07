@@ -6,7 +6,7 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_onboarding_option_card.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
 import '../../widgets/elio/elio_segmented_toggle.dart';
@@ -151,10 +151,7 @@ class _Screen09RegionState extends State<Screen09Region> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const ElioHeroHeading(
-                          lines: ['Where are you', 'cooking?'],
-                          amberLastLine: true,
-                        ),
+                        const ElioPageTitle('where are you cooking.'),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
                           'So we get the names and measurements right.',
