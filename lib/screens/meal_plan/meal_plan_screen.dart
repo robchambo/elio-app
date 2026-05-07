@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_text_styles.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../models/meal_plan_models.dart';
@@ -691,11 +691,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           // ── Editorial hero ──────────────────────────────────────────
           const ElioEyebrow('plan ahead'),
           const SizedBox(height: 12),
-          const ElioHeroHeading(
-            lines: ['your week', 'ahead'],
-            amberLastLine: true,
-            showUnderline: true,
-          ),
+          const ElioPageTitle('your week ahead.'),
           const SizedBox(height: 24),
           Text(
             'Pick your days and meal types — Elio will plan the week around your pantry.',

@@ -6,7 +6,7 @@
 // Recipe Book tab that previously lived inside ProfileScreen. Structure
 // follows the V1 user flow + Sprint 16.3 polish (mirror the Pantry tab's
 // two-tile lead-in):
-//   • ElioHeroHeading — "your / recipes" with amber last line + underline
+//   • ElioPageTitle — "your recipes."
 //   • Two ElioBentoCards — Take photo / Paste a URL — mirroring the Pantry
 //     tab's Scan receipt / Scan barcode pair.
 //   • Search Everything field (filters title / description / ingredient / tag)
@@ -32,7 +32,7 @@ import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_bento_card.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../profile/recipe_import_screen.dart';
 import '../recipe/recipe_screen.dart';
 
@@ -159,11 +159,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ElioHeroHeading(
-            lines: ['your', 'recipes'],
-            amberLastLine: true,
-            showUnderline: true,
-          ),
+          const ElioPageTitle('your recipes.'),
           const SizedBox(height: ElioSpacing.xl),
 
           // ── Import tiles (mirrors Pantry tab) ──────────────────────
