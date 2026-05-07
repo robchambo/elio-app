@@ -1491,16 +1491,27 @@ class _RecipeScreenState extends State<RecipeScreen> {
         }
         if (mounted) {
           setState(() => _isAddingToShop = false);
-          ScaffoldMessenger.of(context).showSnackBar(
+          // Sprint 16.1: explicit short duration + hide-current-first.
+          // Default SnackBar duration is 4s but with floating + the
+          // root ScaffoldMessenger, the snackbar follows you across
+          // navigation; without an explicit duration Rob saw it stuck
+          // on the Shopping List tab long after the original action.
+          // The View tap also dismisses so we don't have it lingering
+          // behind the destination route.
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
             SnackBar(
               content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
               backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               action: SnackBarAction(
                 label: 'View',
                 textColor: ElioColors.terracotta,
                 onPressed: () {
+                  messenger.hideCurrentSnackBar();
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                   );

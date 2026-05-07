@@ -436,16 +436,23 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         'total_available': items.length,
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Sprint 16.1: see recipe_screen.dart for the same fix —
+        // explicit duration + hide-current so the snackbar doesn't
+        // follow the user across navigation indefinitely.
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           SnackBar(
             content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
             backgroundColor: ElioColors.espresso,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             action: SnackBarAction(
               label: 'View',
               textColor: ElioColors.terracotta,
               onPressed: () {
+                messenger.hideCurrentSnackBar();
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                 );
