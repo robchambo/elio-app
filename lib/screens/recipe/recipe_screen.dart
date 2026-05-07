@@ -20,6 +20,7 @@ import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
 import '../../services/shopping_service.dart';
+import '../../services/user_settings_service.dart';
 import '../../utils/quantity_utils.dart';
 import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_section_heading.dart';
@@ -690,12 +691,23 @@ class _RecipeScreenState extends State<RecipeScreen> {
     setState(() => _isRegenerating = true);
 
     try {
-      // Build updated request — carry forward ALL fields, add exclusions + title
+      // Build updated request — carry forward ALL fields, add exclusions + title.
+      //
+      // Sprint 16.1: dietaryRequirements + customAllergens are the
+      // EXCEPTION to "carry forward". They're re-read from
+      // UserSettingsService at regen time so a Settings → Dietary edit
+      // made between the original Generate and a Generate Another tap
+      // is honoured. Every other field is legitimately frozen at first-
+      // generation time (perishables, taste profile, time/style/mood
+      // selections, recent titles, exclusions accumulated this session).
+      final settings = UserSettingsService.instance;
       final newRequest = RecipeGenerationRequest(
         perishables: request.perishables,
         alwaysHave: request.alwaysHave,
         almostAlwaysHave: request.almostAlwaysHave,
-        dietaryRequirements: request.dietaryRequirements,
+        dietaryRequirements: settings.hydrated
+            ? settings.dietaryRequirements
+            : request.dietaryRequirements,
         timePreference: request.timePreference,
         stylePreference: request.stylePreference,
         moodPreference: request.moodPreference,
@@ -719,7 +731,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
         // Sprint 15.9.3 SAFETY FIX: must propagate on regenerate too —
         // otherwise the second/third recipe could lose the allergen
         // constraint and serve peanut butter to a peanut-allergy user.
-        customAllergens: request.customAllergens,
+        // Sprint 16.1: read fresh from singleton (see comment above).
+        customAllergens:
+            settings.hydrated ? settings.allergies : request.customAllergens,
       );
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);

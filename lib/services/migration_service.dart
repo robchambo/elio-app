@@ -102,16 +102,26 @@ class MigrationService {
         _aliasFn = purchaseAlias ?? _defaultPurchaseAlias,
         _guestPantry = guestPantry ?? GuestPantryService();
 
-  static Map<String, dynamic> buildUserDocPayload(OnboardingState s) => {
-        ...s.toFirestoreMap(),
-        // Sprint 15.9.3: persist the onboarding flag in the user doc
-        // too. AuthGate now falls back to this when SharedPreferences
-        // is wiped (debug-keystore rotation, OS-level clear data,
-        // sideloaded reinstall) — without this, returning users were
-        // forced through onboarding again even though their Firestore
-        // data was intact.
-        'onboardingComplete': true,
-      };
+  static Map<String, dynamic> buildUserDocPayload(OnboardingState s) {
+    final payload = <String, dynamic>{
+      ...s.toFirestoreMap(),
+      // Sprint 15.9.3: persist the onboarding flag in the user doc
+      // too. AuthGate now falls back to this when SharedPreferences
+      // is wiped (debug-keystore rotation, OS-level clear data,
+      // sideloaded reinstall) — without this, returning users were
+      // forced through onboarding again even though their Firestore
+      // data was intact.
+      'onboardingComplete': true,
+    };
+    // Sprint 16.1: dietary + allergens have ONE home now —
+    // `users/{uid}/profiles/{ownerId}.dietaryRequirements` and
+    // `.allergies`. Strip the user-doc duplicates that
+    // toFirestoreMap() emits so the user doc and owner profile can't
+    // drift the moment the user edits their settings.
+    payload.remove('dietary');
+    payload.remove('allergies');
+    return payload;
+  }
 
   /// Migrates the guest onboarding state to Firestore under [uid].
   ///
@@ -129,16 +139,28 @@ class MigrationService {
 
     // Sprint 15.9.3 SAFETY FIX: persist dietary + allergies on the owner
     // profile. The in-app dietary screen reads/writes profiles/{owner},
-    // and recipe generation now reads allergies from there too. Without
-    // this write, an onboarding allergy ("peanuts") would land on the
-    // user doc but be invisible to both the dietary screen AND the
-    // prompt — and Gemini could suggest peanut butter.
-    await _writer.setOwnerProfile(uid, {
+    // and recipe generation reads allergies from there too. Without
+    // this write, an onboarding allergy ("peanuts") would be invisible
+    // to both the dietary screen AND the prompt — and Gemini could
+    // suggest peanut butter.
+    //
+    // Sprint 16.1 EMPTY-STATE GUARD: only write each field when the
+    // onboarding state has a non-empty value for it. Re-onboarding
+    // (after a data wipe / sign-out) typically has an empty
+    // OnboardingState — which previously CLOBBERED the user's
+    // previously-saved dietary + allergies. The guard preserves
+    // existing in-app edits in that scenario.
+    final ownerPatch = <String, dynamic>{
       'name': '', // populated on first edit if user fills the household screen
       'isOwner': true,
-      'dietaryRequirements': state.dietary,
-      'allergies': state.allergies,
-    });
+    };
+    if (state.dietary.isNotEmpty) {
+      ownerPatch['dietaryRequirements'] = state.dietary;
+    }
+    if (state.allergies.isNotEmpty) {
+      ownerPatch['allergies'] = state.allergies;
+    }
+    await _writer.setOwnerProfile(uid, ownerPatch);
 
     final items = state.inventory.map((i) => i.toFirestore()).toList();
     await _writer.writeInventory(uid, items);

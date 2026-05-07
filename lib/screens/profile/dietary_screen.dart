@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/error_service.dart';
+import '../../services/user_settings_service.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
@@ -226,6 +227,10 @@ class _DietaryScreenState extends State<DietaryScreen> {
     setState(() => _dietaryRequirements = updated);
     try {
       await _persistOwnerProfile({'dietaryRequirements': updated});
+      // Sprint 16.1: push the new state into UserSettingsService so
+      // HomeScreen / RecipeScreen rebuild and the next recipe sees
+      // the change without an app restart.
+      await UserSettingsService.instance.refresh();
       _flashSavedBadge();
     } catch (e) {
       if (mounted) setState(() => _dietaryRequirements = previous);
@@ -241,6 +246,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
     _allergenController.clear();
     try {
       await _persistOwnerProfile({'allergies': updated});
+      await UserSettingsService.instance.refresh();
       _flashSavedBadge();
     } catch (e) {
       if (mounted) setState(() => _allergens = List<String>.from(_allergens)..remove(trimmed));
@@ -254,6 +260,7 @@ class _DietaryScreenState extends State<DietaryScreen> {
     setState(() => _allergens = updated);
     try {
       await _persistOwnerProfile({'allergies': updated});
+      await UserSettingsService.instance.refresh();
       _flashSavedBadge();
     } catch (e) {
       if (mounted) setState(() => _allergens = previous);
