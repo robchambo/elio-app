@@ -235,6 +235,7 @@ class GeneratedRecipe {
     List<RecipeSubstitution>? substitutions,
     BulkPrepInfo? bulkPrepInfo,
     String? category,
+    List<String>? dietaryTags,
   }) {
     return GeneratedRecipe(
       title: title,
@@ -245,7 +246,7 @@ class GeneratedRecipe {
       ingredients: ingredients ?? this.ingredients,
       steps: steps,
       substitutions: substitutions ?? this.substitutions,
-      dietaryTags: dietaryTags,
+      dietaryTags: dietaryTags ?? this.dietaryTags,
       nutrition: nutrition,
       estimatedCostPerServingUSD: estimatedCostPerServingUSD,
       estimatedCostPerServingGBP: estimatedCostPerServingGBP,

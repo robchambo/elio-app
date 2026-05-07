@@ -79,7 +79,7 @@ class GeminiService {
   ///   Belt-and-braces: MAX_TOKENS now also routes through the
   ///   truncation-repair path in `_extractJson` and is retryable.
   static Stream<RecipeGenerationStatus> generateRecipeStream(RecipeGenerationRequest request) async* {
-    yield* _streamFromPrompt(
+    await for (final event in _streamFromPrompt(
       _buildPrompt(request),
       maxOutputTokens: 3072,
       responseSchema: _recipeResponseSchema,
@@ -90,7 +90,34 @@ class GeminiService {
       // of the parsed recipe; if any allergen string appears, the
       // attempt is retried (different sample → likely different recipe).
       allergenGuard: request.customAllergens,
-    );
+    )) {
+      // Sprint 16.1: make the recipe-screen "Vegetarian" pill an honest
+      // reflection of the binding constraint. The pill renders from
+      // `recipe.dietaryTags.first`, which Gemini sometimes leaves as
+      // `[]` even when the prompt specified Vegetarian — leaving the
+      // user (Rob) unable to tell whether dietary plumbing is working
+      // or whether the recipe just happened to be safe by luck.
+      //
+      // Merge the request's dietary requirements in front of whatever
+      // Gemini emitted: request constraints first (so the pill is
+      // deterministic), Gemini-volunteered tags appended de-duped.
+      // Custom allergens are NOT included — those are negative
+      // constraints ("avoid peanut") and shouldn't render as positive
+      // pills.
+      if (event is RecipeComplete &&
+          request.dietaryRequirements.isNotEmpty) {
+        final merged = <String>[
+          ...request.dietaryRequirements,
+          ...event.recipe.dietaryTags
+              .where((t) => !request.dietaryRequirements.contains(t)),
+        ];
+        yield RecipeComplete(
+          recipe: event.recipe.copyWith(dietaryTags: merged),
+        );
+      } else {
+        yield event;
+      }
+    }
   }
 
   /// Fire-and-forget connection pre-warm. Called from screen 12 on
