@@ -17,7 +17,10 @@ import 'package:elio_app/models/recipe_models.dart';
 import 'package:elio_app/models/recipe_preferences.dart';
 import 'package:elio_app/screens/home/recipe_preferences_screen.dart';
 
-RecipeGenerationRequest _stubRequest(RecipePreferences _) =>
+// Sprint 16.1: BuildRequestFn became async to allow HomeScreen's
+// _buildRequest to refresh UserSettingsService before returning. The
+// stub awaits Future.value to match the typedef.
+Future<RecipeGenerationRequest> _stubRequest(RecipePreferences _) async =>
     const RecipeGenerationRequest(
       perishables: [],
       alwaysHave: [],

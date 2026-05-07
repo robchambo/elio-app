@@ -23,6 +23,7 @@ import '../../services/entitlement_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
+import '../../services/user_settings_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
@@ -38,8 +39,13 @@ import 'perishables_picker_screen.dart';
 
 /// Builds a generation request from the prefs the user picked. Lives on
 /// Home so it can fold in pantry, dietary, appliance, recent-titles state.
+/// Sprint 16.1: changed to async so HomeScreen can force a
+/// UserSettingsService.refresh() before reading dietaryRequirements
+/// + customAllergens. Prevents the prefs screen from seeing stale
+/// dietary state if the user edited Settings → Dietary in this
+/// session and the singleton's listener hasn't propagated yet.
 typedef BuildRequestFn =
-    RecipeGenerationRequest Function(RecipePreferences prefs);
+    Future<RecipeGenerationRequest> Function(RecipePreferences prefs);
 
 /// Called when the stream emits [RecipeComplete]. Home uses it to update
 /// recent titles, fire analytics, and kick off background Firestore saves.
@@ -187,6 +193,28 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     // user-doc settings. Falls back to false on any failure (network,
     // not signed in). Per-recipe override still works after this load.
     _loadSaverModeDefault();
+    // Sprint 16.1: subscribe to UserSettingsService so the dietary
+    // strip stays in sync if the user edits Settings → Dietary while
+    // the prefs screen is in the navigation stack (or in any other
+    // refresh-fires-while-mounted scenario). Also kick a fresh
+    // refresh up front so the strip has the latest data even if
+    // HomeScreen's listener missed a propagation.
+    UserSettingsService.instance.addListener(_onSettingsChanged);
+    UserSettingsService.instance.refresh();
+  }
+
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Sprint 16.1: prefer the singleton's live state for the dietary
+  /// strip. Falls back to the constructor param (the snapshot
+  /// HomeScreen passed at push time) only when the singleton hasn't
+  /// hydrated yet — happens briefly on cold start and never on
+  /// in-session navigation back to prefs.
+  List<String> get _liveDietary {
+    final svc = UserSettingsService.instance;
+    return svc.hydrated ? svc.dietaryRequirements : widget.activeDietary;
   }
 
   Future<void> _loadSaverModeDefault() async {
@@ -201,6 +229,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
 
   @override
   void dispose() {
+    UserSettingsService.instance.removeListener(_onSettingsChanged);
     _messageTimer?.cancel();
     _generationSub?.cancel();
     _cravingController.dispose();
@@ -208,7 +237,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   }
 
   // ── Generate ─────────────────────────────────────────────────────
-  void _generate() {
+  Future<void> _generate() async {
     final craving = _cravingController.text.trim();
     final prefs = RecipePreferences(
       time: _time == 'Any' ? null : _time,
@@ -223,7 +252,8 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       useUpItems: List.unmodifiable(_useUpItems),
     );
 
-    final request = widget.buildRequest(prefs);
+    final request = await widget.buildRequest(prefs);
+    if (!mounted) return;
 
     // Bulk cook routes through a separate multi-meal generation flow
     // (GeminiService.generateBulkRecipeStream) and pushes BulkPrepResultsScreen
@@ -472,7 +502,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             spacing: ElioSpacing.sm,
             runSpacing: ElioSpacing.sm,
             children: [
-              for (final req in widget.activeDietary)
+              for (final req in _liveDietary)
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: ElioSpacing.md,
@@ -843,7 +873,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             amberLastLine: true,
             showUnderline: true,
           ),
-          if (widget.activeDietary.isNotEmpty) ...[
+          if (_liveDietary.isNotEmpty) ...[
             const SizedBox(height: ElioSpacing.lg),
             _buildDietaryStrip(),
           ],

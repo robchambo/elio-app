@@ -690,6 +690,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Future<void> _executeGeneration(RecipeGenerationRequest request) async {
     setState(() => _isRegenerating = true);
 
+    // Sprint 16.1: force-refresh dietary/allergens fresh-from-server
+    // BEFORE building the regen request. Belt-and-braces against any
+    // missed listener propagation since the original generation —
+    // mid-recipe-screen settings edits MUST be honoured by the next
+    // Generate Another.
+    await UserSettingsService.instance.refresh();
+
     try {
       // Build updated request — carry forward ALL fields, add exclusions + title.
       //

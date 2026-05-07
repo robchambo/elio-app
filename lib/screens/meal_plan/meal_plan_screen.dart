@@ -8,6 +8,7 @@ import '../../widgets/elio/elio_big_button.dart';
 import '../../models/meal_plan_models.dart';
 import '../../services/meal_plan_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/user_settings_service.dart';
 import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
@@ -173,6 +174,12 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     });
 
     try {
+      // Sprint 16.1: refresh dietary/allergens before building a new
+      // weekly plan so it honours any Settings → Dietary edit made
+      // since this screen was opened.
+      await UserSettingsService.instance.refresh();
+      final settings = UserSettingsService.instance;
+
       final orderedDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
           .where((d) => _selectedDays.contains(d))
           .toList();
@@ -180,7 +187,9 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           .where((t) => _selectedMealTypes.contains(t))
           .toList();
       final plan = await MealPlanService.generateWeeklyPlan(
-        dietaryRequirements: _dietaryRequirements,
+        dietaryRequirements: settings.hydrated
+            ? settings.dietaryRequirements
+            : _dietaryRequirements,
         alwaysHave: _alwaysHave,
         almostAlwaysHave: _almostAlwaysHave,
         stylePreferences: _stylePreferences,
@@ -287,10 +296,20 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         }
       }
 
+      // Sprint 16.1: force-refresh dietary/allergens from server before
+      // regen so a Settings → Dietary edit since the meal plan was
+      // generated is honoured. Reads from UserSettingsService rather
+      // than the locally-cached _dietaryRequirements / _customAllergens
+      // — those are populated on screen load and would be stale.
+      await UserSettingsService.instance.refresh();
+      final settings = UserSettingsService.instance;
+
       final newMeal = await MealPlanService.regenerateMeal(
         dayName: dayName,
         mealType: mealType,
-        dietaryRequirements: _dietaryRequirements,
+        dietaryRequirements: settings.hydrated
+            ? settings.dietaryRequirements
+            : _dietaryRequirements,
         alwaysHave: _alwaysHave,
         almostAlwaysHave: _almostAlwaysHave,
         existingTitles: existingTitles,
@@ -298,7 +317,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         // their setup, not just dietary + pantry.
         appliances: _appliances,
         runningLowItems: _runningLowItems,
-        customAllergens: _customAllergens,
+        customAllergens: settings.hydrated ? settings.allergies : _customAllergens,
       );
 
       if (mounted) {

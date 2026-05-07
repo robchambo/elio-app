@@ -40,15 +40,25 @@ class UserSettingsService extends ChangeNotifier {
   UserSettingsService._() {
     // Auto-refresh on every auth-state transition. New sign-in or
     // sign-out triggers a clean re-read or a clear.
-    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (user == null) {
-        _clearInPlace();
-      } else {
-        // Fire-and-forget; consumers will be notified when refresh
-        // completes. Errors are swallowed inside refresh().
-        refresh();
-      }
-    });
+    //
+    // Guarded against widget-test environments where Firebase isn't
+    // initialised — accessing FirebaseAuth.instance throws at
+    // platform-channel time. The catch ensures the singleton is
+    // usable in tests; refresh() is also resilient.
+    try {
+      _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+        if (user == null) {
+          _clearInPlace();
+        } else {
+          // Fire-and-forget; consumers will be notified when refresh
+          // completes. Errors are swallowed inside refresh().
+          refresh();
+        }
+      });
+    } catch (_) {
+      // Firebase not initialised (typically widget tests). Singleton
+      // stays in its empty default state; no auto-refresh.
+    }
   }
 
   static final UserSettingsService instance = UserSettingsService._();
@@ -92,7 +102,13 @@ class UserSettingsService extends ChangeNotifier {
   /// should treat unhydrated state (empty lists) as "no signal" rather
   /// than "user has no preferences".
   Future<void> refresh() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
+    String? uid;
+    try {
+      uid = FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      // Firebase not initialised (widget tests). Skip silently.
+      return;
+    }
     if (uid == null) {
       _clearInPlace();
       return;
@@ -119,9 +135,16 @@ class UserSettingsService extends ChangeNotifier {
               (data['customAllergens'] as List?) ??
               const <dynamic>[],
         );
+        // Sprint 16.1: filter the `none` sentinel that onboarding
+        // screen 4 ("Happy with anything") writes to mean
+        // "no dietary restrictions". It's a UX flag, not an actual
+        // restriction — leaving it in the list would render a literal
+        // "none" pill on the prefs screen and pollute the Gemini
+        // prompt with "Dietary: none — strictly enforced." Drop it
+        // here so every consumer sees a clean empty list instead.
         final dietary = List<String>.from(
           (data['dietaryRequirements'] as List?) ?? const <dynamic>[],
-        );
+        ).where((s) => s.toLowerCase() != 'none').toList();
 
         profiles.add({
           'id': doc.id,

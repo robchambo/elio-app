@@ -300,11 +300,17 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Build the full RecipeGenerationRequest from chip prefs + Home state ──
   // Called synchronously by RecipePreferencesScreen when the user taps
   // Generate. Taste profile is fetched best-effort (signed-in only).
-  RecipeGenerationRequest _buildRequest(RecipePreferences prefs) {
-    // Note: taste profile is loaded eagerly in [_loadUserData] in a future
-    // pass; for now we keep the prior best-effort behaviour but make the
-    // request-build sync. If the eager load lands later this stays correct
-    // (just reads the cached value).
+  /// Sprint 16.1: async + forces a UserSettingsService.refresh() before
+  /// reading dietary/allergens. Belt-and-braces against any missed
+  /// notifyListeners propagation between the dietary save and the
+  /// Generate tap. The await adds ~150ms server-read latency which is
+  /// invisible against the multi-second Gemini stream that follows.
+  Future<RecipeGenerationRequest> _buildRequest(RecipePreferences prefs) async {
+    // Force-refresh the singleton so dietary/allergens are guaranteed
+    // fresh-from-server. Errors swallowed inside refresh() — the
+    // request still uses whatever the singleton has cached.
+    await UserSettingsService.instance.refresh();
+
     // Prefer perishables explicitly chosen on the prefs picker; fall back to
     // any auto-selected from the post-scan flow.
     final perishablesForRequest = prefs.useUpItems.isNotEmpty
