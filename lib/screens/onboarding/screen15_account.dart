@@ -8,7 +8,7 @@ import '../../services/migration_service.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
 import '../../widgets/elio/elio_provider_signin_button.dart';
 import '../shell/app_shell.dart';
@@ -124,19 +124,19 @@ class _Screen15AccountState extends State<Screen15Account> {
   String get _headline {
     switch (widget.controller.state.userGoal) {
       case 'pantryFirst':
-        return 'Save your pantry.';
+        return 'save your pantry.';
       case 'wasteReduction':
-        return 'Save what you\'ve got.';
+        return "save what you've got.";
       case 'decisionFatigue':
-        return 'Save your setup.';
+        return 'save your setup.';
       case 'household':
-        return 'Save your household.';
+        return 'save your household.';
       case 'takeawayEscape':
         return widget.controller.state.entitlement == 'pro'
-            ? 'Lock in your trial.'
-            : 'Save your setup.';
+            ? 'lock in your trial.'
+            : 'save your setup.';
       default:
-        return 'Save your Elio setup.';
+        return 'save your elio setup.';
     }
   }
 
@@ -256,10 +256,7 @@ class _Screen15AccountState extends State<Screen15Account> {
             children: [
               const ElioOnboardingProgressBar(value: 1.0),
               const SizedBox(height: ElioSpacing.lg),
-              ElioHeroHeading(
-                lines: [_headline],
-                amberLastLine: true,
-              ),
+              ElioPageTitle(_headline),
               const SizedBox(height: ElioSpacing.md),
               Text(
                 'Sign in to keep your pantry, recipes, and preferences '

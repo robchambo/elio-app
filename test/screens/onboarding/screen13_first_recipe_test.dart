@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:elio_app/controllers/onboarding_controller.dart';
 import 'package:elio_app/models/elio_models.dart';
 import 'package:elio_app/screens/onboarding/screen13_first_recipe.dart';
+import 'package:elio_app/widgets/elio/elio_page_title.dart';
 import 'package:elio_app/widgets/elio/elio_pantry_tag_pill.dart';
 
 import '../../fakes/fake_gemini_service.dart';
@@ -152,7 +153,12 @@ void main() {
     await t.pumpWidget(wrap(controller: controller, fake: fake));
     await t.pump();
 
-    expect(find.text("Tonight's dinner, coming up…"), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is ElioPageTitle && w.text == "tonight's dinner, coming up…",
+      ),
+      findsOneWidget,
+    );
     expect(find.textContaining('Working out what to cook'), findsOneWidget);
 
     await fake.closeAll();
@@ -393,7 +399,12 @@ void main() {
     await t.pump();
     await t.pump();
 
-    expect(find.text("Hmm, let's try that again."), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is ElioPageTitle && w.text == "hmm, let's try that again.",
+      ),
+      findsOneWidget,
+    );
     expect(find.text('Skip for now'), findsOneWidget);
 
     await t.tap(find.text('Skip for now'));

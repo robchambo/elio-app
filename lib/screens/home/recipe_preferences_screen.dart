@@ -29,7 +29,7 @@ import '../../theme/elio_radii.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_chip.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../paywall/paywall_screen.dart';
 import '../recipe/recipe_screen.dart';
 import 'bulk_prep_results_screen.dart';
@@ -818,11 +818,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ElioHeroHeading(
-            lines: ['set the', 'mood'],
-            amberLastLine: true,
-            showUnderline: true,
-          ),
+          const ElioPageTitle('set the mood.'),
           if (widget.activeDietary.isNotEmpty) ...[
             const SizedBox(height: ElioSpacing.lg),
             _buildDietaryStrip(),

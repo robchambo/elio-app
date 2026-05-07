@@ -5,7 +5,7 @@
 // Body-only (hosted inside ElioAppScaffold via AppShell). Replaces the legacy
 // Shopping tab that previously lived inside ProfileScreen. Structure follows
 // the V1 user flow supplied by Rob:
-//   • ElioHeroHeading — "your / shopping list" with amber last line + underline
+//   • ElioPageTitle — "your shopping list."
 //   • Share icon (top-right of body)
 //   • ElioCustomField — "Add an item" with trailing amber add IconButton
 //   • Firestore stream on users/{uid}/shoppingItems, grouped by grocery aisle
@@ -42,7 +42,7 @@ import '../../theme/elio_theme.dart';
 import '../../utils/aisle_utils.dart';
 import '../../widgets/elio/elio_app_scaffold.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 
 class ShoppingListScreen extends StatefulWidget {
   const ShoppingListScreen({super.key});
@@ -240,11 +240,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Expanded(
-                child: ElioHeroHeading(
-                  lines: ['your', 'shopping list'],
-                  amberLastLine: true,
-                  showUnderline: true,
-                ),
+                child: ElioPageTitle('your shopping list.'),
               ),
               IconButton(
                 onPressed: _share,

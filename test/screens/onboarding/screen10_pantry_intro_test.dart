@@ -4,6 +4,7 @@ import 'package:elio_app/controllers/onboarding_controller.dart';
 import 'package:elio_app/screens/onboarding/screen10_pantry_intro.dart';
 import 'package:elio_app/widgets/elio/elio_big_button.dart';
 import 'package:elio_app/widgets/elio/elio_onboarding_progress_bar.dart';
+import 'package:elio_app/widgets/elio/elio_page_title.dart';
 
 void main() {
   Widget wrap(Widget child) => MaterialApp(home: child);
@@ -36,8 +37,12 @@ void main() {
       onBack: () {},
     )));
     await t.pump();
-    expect(find.text("Now, what's already"), findsOneWidget);
-    expect(find.text('in your kitchen?'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (w) => w is ElioPageTitle && w.text == "now, what's already in your kitchen.",
+      ),
+      findsOneWidget,
+    );
     expect(find.text("Let's have a look"), findsOneWidget);
     expect(find.byType(ElioOnboardingProgressBar), findsOneWidget);
   });

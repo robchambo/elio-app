@@ -26,7 +26,7 @@ import '../../widgets/elio/elio_app_scaffold.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_chip.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 
 class PerishablesPickerScreen extends StatefulWidget {
   /// Names of perishable inventory items pulled from Firestore — shown as
@@ -162,11 +162,7 @@ class _PerishablesPickerScreenState extends State<PerishablesPickerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const ElioHeroHeading(
-                    lines: ['use up', 'what you have?'],
-                    amberLastLine: true,
-                    showUnderline: true,
-                  ),
+                  const ElioPageTitle('use up what you have.'),
                   const SizedBox(height: ElioSpacing.md),
                   Text(
                     'Tap anything you want me to centre the recipe around. '

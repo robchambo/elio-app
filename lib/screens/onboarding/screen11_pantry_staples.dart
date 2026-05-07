@@ -13,7 +13,7 @@ import '../../utils/dietary_filter.dart';
 import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
 import '../../widgets/elio/elio_add_something_tile.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
 import '../../widgets/elio/elio_pantry_item_tile.dart';
 import '../../widgets/elio/elio_pantry_tier_legend.dart';
@@ -418,10 +418,7 @@ class _Screen11PantryStaplesState extends State<Screen11PantryStaples> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const ElioHeroHeading(
-                lines: ['What do you', 'always have in?'],
-                amberLastLine: true,
-              ),
+              const ElioPageTitle('what do you always have in.'),
               const SizedBox(height: ElioSpacing.sm),
               Text(
                 "Tap what you've usually got. Long-press anything you always have — we'll lean on those heavier.",

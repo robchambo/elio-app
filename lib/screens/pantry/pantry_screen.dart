@@ -4,7 +4,7 @@
 //
 // Body-only (hosted inside ElioAppScaffold via AppShell). Subscribes to the
 // `users/{uid}/inventory` subcollection and renders:
-//   • ElioHeroHeading — "what did you / pick up?"
+//   • ElioPageTitle — "what did you pick up?"
 //   • Two ElioBentoCards (Scan receipt / Scan barcode) opening ScannerScreen
 //   • A full-width "Pantry Builder" row that opens PantryBuilderSheet via
 //     showDialog (CLAUDE.md rule: never nest a modal bottom sheet inside

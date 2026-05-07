@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:elio_app/models/onboarding_state.dart';
 import 'package:elio_app/screens/paywall/paywall_screen.dart';
+import 'package:elio_app/widgets/elio/elio_page_title.dart';
 
 // ─────────────────────────────────────────────
 // Paywall first_recipe trigger — goal-keyed headline coverage.
@@ -32,15 +33,13 @@ void main() {
       );
 
   group('first_recipe headline per goal', () {
-    // pantryFirst renders as two lines ("Cook from your pantry." / "Every
-    // night.") — assert on the distinctive second line to prove both show.
     final cases = <(String?, String)>[
-      ('pantryFirst', 'Cook from your pantry.'),
-      ('wasteReduction', 'Cut your food waste from week one.'),
-      ('decisionFatigue', 'No more 6pm panic.'),
-      ('household', 'One plan for the whole house.'),
+      ('pantryFirst', 'cook from your pantry. every night.'),
+      ('wasteReduction', 'cut your food waste from week one.'),
+      ('decisionFatigue', 'no more 6pm panic.'),
+      ('household', 'one plan for the whole house.'),
       // takeawayEscape headline is region-aware — asserted separately below.
-      (null, 'Unlimited Elio. Start with 7 days free.'),
+      (null, 'unlimited elio. start with 7 days free.'),
     ];
 
     for (final c in cases) {
@@ -53,7 +52,10 @@ void main() {
         // AnimatedBuilder etc — pump once for layout.
         await t.pump();
         expect(
-          find.text(expected, skipOffstage: false),
+          find.byWidgetPredicate(
+            (w) => w is ElioPageTitle && w.text == expected,
+            skipOffstage: false,
+          ),
           findsOneWidget,
           reason: 'Headline for goal "$goal" should be "$expected"',
         );
@@ -62,44 +64,48 @@ void main() {
   });
 
   group('takeawayEscape headline is region-aware', () {
-    testWidgets('region=us → "Skip the takeout."', (t) async {
+    testWidgets('region=us → "skip the takeout."', (t) async {
       useTallViewport(t);
       await t.pumpWidget(wrap(
         onboarding: OnboardingState(userGoal: 'takeawayEscape', region: 'us'),
       ));
       await t.pump();
       expect(
-        find.text('Skip the takeout.', skipOffstage: false),
+        find.byWidgetPredicate(
+          (w) => w is ElioPageTitle && w.text == 'skip the takeout.',
+          skipOffstage: false,
+        ),
         findsOneWidget,
       );
     });
 
-    testWidgets('region=uk → "Skip the takeaway."', (t) async {
+    testWidgets('region=uk → "skip the takeaway."', (t) async {
       useTallViewport(t);
       await t.pumpWidget(wrap(
         onboarding: OnboardingState(userGoal: 'takeawayEscape', region: 'uk'),
       ));
       await t.pump();
       expect(
-        find.text('Skip the takeaway.', skipOffstage: false),
+        find.byWidgetPredicate(
+          (w) => w is ElioPageTitle && w.text == 'skip the takeaway.',
+          skipOffstage: false,
+        ),
         findsOneWidget,
       );
     });
   });
 
-  testWidgets('pantryFirst headline renders on two lines', (t) async {
+  testWidgets('pantryFirst headline renders as single joined string', (t) async {
     useTallViewport(t);
     await t.pumpWidget(wrap(
       onboarding: OnboardingState(userGoal: 'pantryFirst'),
     ));
     await t.pump();
-    // Two-line editorial treatment — both lines must be present.
     expect(
-      find.text('Cook from your pantry.', skipOffstage: false),
-      findsOneWidget,
-    );
-    expect(
-      find.text('Every night.', skipOffstage: false),
+      find.byWidgetPredicate(
+        (w) => w is ElioPageTitle && w.text == 'cook from your pantry. every night.',
+        skipOffstage: false,
+      ),
       findsOneWidget,
     );
   });

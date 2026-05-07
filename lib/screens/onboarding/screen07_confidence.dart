@@ -6,7 +6,7 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_onboarding_option_card.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
 
@@ -101,10 +101,7 @@ class Screen07Confidence extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const ElioHeroHeading(
-                          lines: ['How do you feel', 'about cooking?'],
-                          amberLastLine: true,
-                        ),
+                        const ElioPageTitle('how do you feel about cooking.'),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
                           subhead,

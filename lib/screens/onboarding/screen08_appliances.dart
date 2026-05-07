@@ -7,7 +7,7 @@ import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_appliance_tile.dart';
 import '../../widgets/elio/elio_big_button.dart';
-import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
 
 // ─────────────────────────────────────────────
@@ -131,10 +131,7 @@ class _Screen08AppliancesState extends State<Screen08Appliances> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const ElioHeroHeading(
-                          lines: ["What's in", 'your kitchen?'],
-                          amberLastLine: true,
-                        ),
+                        const ElioPageTitle("what's in your kitchen."),
                         const SizedBox(height: ElioSpacing.md),
                         Text(
                           "Tick what you've got. We'll only suggest recipes that fit.",
