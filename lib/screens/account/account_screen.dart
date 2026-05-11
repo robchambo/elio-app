@@ -40,6 +40,7 @@ import '../../services/account_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/data_export_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/guest_pantry_service.dart';
 import '../../services/legal_links.dart';
 import '../../services/purchase_service.dart';
 import '../../theme/elio_radii.dart';
@@ -48,10 +49,12 @@ import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../utils/region_utils.dart';
 import '../../widgets/elio/elio_page_title.dart';
+import '../auth/email_login_screen.dart';
 import '../profile/dietary_screen.dart';
 import '../profile/household_screen.dart';
 import '../profile/kitchen_screen.dart';
 import '../profile/notification_prefs_screen.dart';
+import 'account_actions.dart';
 import 'legal_doc_screen.dart';
 
 class AccountScreen extends StatefulWidget {
@@ -69,6 +72,15 @@ class _AccountScreenState extends State<AccountScreen> {
   String _region = 'US';
   bool _saverModeDefault = false;
   String _appVersion = '';
+
+  // Sprint 16.1.x — Auth UX fix. Captures the signed-in/out state at
+  // build time so the Account + About sections can show the right
+  // tiles. Re-read fresh each time the screen is opened: sign-in
+  // pushes AppShell as new root (EmailLoginScreen.handleSignIn does
+  // pushAndRemoveUntil), and our _signOut routes via AuthGate, so a
+  // new AccountScreen instance picks up the new auth state on the
+  // next visit. No need to listen to authStateChanges here.
+  bool get _isSignedIn => FirebaseAuth.instance.currentUser != null;
 
   @override
   void initState() {
@@ -177,10 +189,73 @@ class _AccountScreenState extends State<AccountScreen> {
       ),
     );
     if (confirmed != true) return;
-    await AuthService().signOut();
+    // Sprint 16.1.x: delegate to the unit-tested helper. Crucially this
+    // does NOT wipe `onboardingComplete` — pre-fix, sign-out threw the
+    // user back into the 15-screen onboarding flow on the next pump.
+    // Now they land on AppShell as a guest with the Sign In tile
+    // visible right here on AccountScreen for a single-tap return.
+    await performSignOut(firebaseSignOut: AuthService().signOut);
     if (!mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboardingComplete', false);
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const AuthGate()),
+      (_) => false,
+    );
+  }
+
+  /// Sprint 16.1.x — Auth UX fix. Guest-user single-tap path to sign
+  /// in without forcing the user to redo the entire 15-screen
+  /// onboarding flow. Pushes EmailLoginScreen which already routes
+  /// to AppShell on success via `pushAndRemoveUntil`, so we don't
+  /// need to pop back here — the whole AccountScreen instance is
+  /// disposed and a fresh one will be built next visit.
+  Future<void> _signIn() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const EmailLoginScreen()),
+    );
+    // If the user cancelled out of the login screen, we're back here.
+    // Refresh so the Account section re-evaluates `_isSignedIn` in case
+    // they did sign in but somehow returned (defensive — not expected).
+    if (mounted) setState(() {});
+  }
+
+  /// Sprint 16.1.x — Auth UX fix. Deliberate "I want to walk the
+  /// onboarding flow again" action. Distinct from Sign Out: this
+  /// clears the guest-pantry state, wipes the onboardingComplete
+  /// flag, and routes through AuthGate which will land on
+  /// OnboardingFlow. Useful for QA (Rob testing onboarding changes)
+  /// and for real users who want a clean reset.
+  Future<void> _restartOnboarding() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.cream,
+        title: const Text('Restart onboarding?'),
+        content: const Text(
+          'This signs you out and walks you through the setup flow again. '
+          'Your Firestore data (recipes, dietary, household) is kept — '
+          'only the local guest selections and onboarding progress are '
+          'cleared.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Restart',
+              style: TextStyle(color: ElioColors.terracotta),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await performRestartOnboarding(
+      firebaseSignOut: AuthService().signOut,
+      clearGuestPantry: GuestPantryService().clear,
+    );
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const AuthGate()),
@@ -450,9 +525,20 @@ class _AccountScreenState extends State<AccountScreen> {
                 ),
 
                 // ── Account ─────────────────────────────────────────
+                // Sprint 16.1.x — Auth UX fix. Sign In is shown to
+                // guests only; Sign Out + Delete Account hidden for
+                // guests (you can't sign out of nothing). Manage
+                // Subscription + Restore Purchases stay always visible
+                // — they go through the store directly, no Firebase
+                // auth needed.
                 _Section(
                   title: 'Account',
                   rows: [
+                    if (!_isSignedIn)
+                      _ActionRow(
+                        label: 'Sign In',
+                        onTap: _signIn,
+                      ),
                     _PushRow(
                       label: 'Manage Subscription',
                       onTap: _openManageSubscription,
@@ -461,15 +547,17 @@ class _AccountScreenState extends State<AccountScreen> {
                       label: 'Restore Purchases',
                       onTap: _restorePurchases,
                     ),
-                    _ActionRow(
-                      label: 'Sign Out',
-                      onTap: _signOut,
-                    ),
-                    _ActionRow(
-                      label: 'Delete Account',
-                      destructive: true,
-                      onTap: _deleteAccount,
-                    ),
+                    if (_isSignedIn)
+                      _ActionRow(
+                        label: 'Sign Out',
+                        onTap: _signOut,
+                      ),
+                    if (_isSignedIn)
+                      _ActionRow(
+                        label: 'Delete Account',
+                        destructive: true,
+                        onTap: _deleteAccount,
+                      ),
                   ],
                 ),
 
@@ -498,6 +586,15 @@ class _AccountScreenState extends State<AccountScreen> {
                     _ActionRow(
                       label: 'Send Feedback',
                       onTap: _sendFeedback,
+                    ),
+                    // Sprint 16.1.x — deliberate opt-in path to redo
+                    // the onboarding flow. Distinct from Sign Out:
+                    // wipes guest pantry + onboardingComplete and
+                    // routes to OnboardingFlow via AuthGate. Useful
+                    // for QA and for real users who want a reset.
+                    _ActionRow(
+                      label: 'Restart Onboarding',
+                      onTap: _restartOnboarding,
                     ),
                     _StaticRow(
                       label: 'App Version',
