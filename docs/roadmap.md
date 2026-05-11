@@ -1,6 +1,15 @@
 # Elio Roadmap
 
-**Last updated:** 25 April 2026 (Sprint 16.4 polish on `sprint/16` at `b44a617`, pushed. On-device smoke test passed — all 6 reported bugs + photo import wire-up confirmed working. APK built: `releases/elio-sprint-16.4-polish.apk`, local tag `build/sprint-16.4-polish`. Ready to tag `v0.16.0-ui-overhaul`.)
+**Last updated:** 11 May 2026 (Sprint 16.1.x auth UX fix committed locally on `sprint/16.1-settings-redesign` at `8fbc553`. APK building. Awaiting on-device verification.)
+
+**Active branch:** `sprint/16.1-settings-redesign` — Sprint 16.1 Settings Redesign + auth UX fix on top.
+**Pushed to origin:** through `55a144f` (appliances case-mismatch fix). `8fbc553` (auth UX fix) is local-only pending on-device test.
+
+**Recent (1–11 May 2026):**
+- Sprint 15.9.2 — Gemini warmup (cold-start reliability)
+- Dietary/allergen safety audit (8+ commits on `sprint/16`) — major pre-launch risk closed
+- Sprint 16.1 — Settings Redesign (4-section tree, unified dietary plumbing)
+- Sprint 16.1.x — Auth UX fix (Sign In tile, Restart Onboarding, sign-out preserves onboardingComplete)
 
 **Sprint 16.4 polish (this session):**
 - Bug 4 — Pantry single-tap removed (long-press only); Remove lives in the long-press picker.
@@ -291,6 +300,87 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 | 5 | Onboarding — visual refresh | 1–2 | Done |
 | 6 | Paywall — visual refresh | 1 | Done |
 | 7 | Cross-app consistency pass + cleanup | 1–2 | Done |
+
+---
+
+## Sprint 15.9.2 — Gemini Cold-Start Warmup ✅ (May 2026)
+
+**Goal:** Address the known "Gemini first-attempt fails after app launch" reliability issue. Pre-warm the Flash connection at app launch + on Home so the first user-facing recipe generation doesn't pay the cold-start tax.
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | `GeminiService.prewarmConnection()` — fire-and-forget at app launch | ✅ |
+| 2 | Home initState pre-warms on top of app-launch warmup (idempotent) | ✅ |
+| 3 | Onboarding screen 12 calls warmup defensively before screen 13 transition | ✅ |
+| 4 | Fix `MAX_TOKENS` no longer breaking recipe generation (related, batched together) | ✅ |
+
+**Branch:** `sprint/15.9.2-gemini-warmup` (pushed). Covers every entry path — onboarding screen 13, returning-user Home Generate, post-background warm-starts.
+
+---
+
+## Sprint 16 — Dietary/Allergen Safety Audit ✅ (May 2026)
+
+**Goal:** Close the highest-priority pre-launch risk — silent allergen/dietary failures. Pre-fix: peanuts could land in recipes for nut-allergic users, dietary constraints could be silently dropped, auto-save failures could surface as ghost settings, and AuthGate's Firestore fallback didn't cover the no-network case. Eight commits on `sprint/16` after the 16.4 polish that hardened the food-safety stack end-to-end.
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Allergens silently dropped — root cause + hard fix in prompt assembly | ✅ |
+| 2 | Auto-save was silently failing — three failure modes closed (verify-after-save, force-refresh, canonicalisation) | ✅ |
+| 3 | Post-gen allergen filter + craving-override prompt | ✅ |
+| 4 | Allergen filter singular/plural — "peanuts" and "peanut" both match | ✅ |
+| 5 | AuthGate Firestore fallback for the no-local-flag case | ✅ |
+| 6 | Allergen exclusion hoisted to a position-1 safety preamble in the Gemini prompt | ✅ |
+| 7 | Time preference now drives recipe ambition | ✅ |
+| 8 | Prompt audit fixes — appliances, mood, runningLow, default creative, dedup | ✅ |
+| 9 | Verify-after-save read-back surfaces silent server denial | ✅ |
+| 10 | Stamp request constraints onto `recipe.dietaryTags` (pill honesty) | ✅ |
+
+**Branch:** `sprint/16` (pushed). Testing protocol: `docs/strategy/2026-05-06-allergen-testing-procedure.html` + `docs/strategy/2026-05-07-weekend-test-protocol.html`. Weekend on-device verification scheduled.
+
+**Why this matters:** Competitor analysis (`docs/strategy/2026-05-03-competitor-analysis.html`) flagged DishGen's hallucination failure mode — "peanuts in recipes for allergic users" — as Elio's existential risk. This audit closes it before launch.
+
+---
+
+## Sprint 16.1 — Settings Redesign ✅ (May 2026)
+
+**Goal:** Replace the legacy single-list "Account" screen with a four-section iOS-style Settings tree (Household / Preferences / Account / About). Unify dietary plumbing as a single source of truth with reactive sync so changes propagate from Settings → generation without manual refresh.
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | 4-section Settings tree (Household / Preferences / Account / About) | ✅ |
+| 2 | Inline segmented controls for Measurement Units + Region (no sub-screen) | ✅ |
+| 3 | Inline switch for Saver Mode default (writes to user doc) | ✅ |
+| 4 | Account section: Manage Subscription + Restore Purchases + Sign Out + Delete Account | ✅ |
+| 5 | About section: Privacy Policy + Terms of Service (in-app `LegalDocScreen`) + Export My Data + Send Feedback + App Version | ✅ |
+| 6 | Drop the "Food Style" tile (per Rob's review of the spec) | ✅ |
+| 7 | GDPR services (`AccountService.deleteAccount`, `DataExportService.exportData`) wired | ✅ |
+| 8 | Send Feedback dialog with support email + tap-to-copy | ✅ |
+| 9 | Unified dietary plumbing — single source of truth + reactive sync from Settings → generation | ✅ |
+| 10 | Canonicalise lowercase onboarding tokens on read (drift between onboarding capture and Settings) | ✅ |
+| 11 | Shopping list snackbar lifecycle (dismiss on time + on View tap) | ✅ |
+| 12 | Appliances case-mismatch fix in Settings → Kitchen Appliances flow | ✅ |
+
+**Branch:** `sprint/16.1-settings-redesign` (pushed through `55a144f`). Spec: `docs/strategy/Elio settings.docx`. File: `lib/screens/account/account_screen.dart` (rendered title is "settings.", file name kept for AppShell top-bar routing stability).
+
+**Pending:** on-device weekend test pass per `docs/strategy/2026-05-07-weekend-test-protocol.html` → tag → merge to `sprint/16`.
+
+---
+
+## Sprint 16.1.x — Auth UX Fix ✅ (11 May 2026)
+
+**Goal:** Fix the three-way trap blocking signed-out testing and confusing real users: (a) no Sign In path outside the 15-screen onboarding flow, (b) Sign Out wiped `onboardingComplete` forcing re-onboarding, (c) no deliberate "I want to walk onboarding again" action distinct from Sign Out.
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Extract `performSignOut` + `performRestartOnboarding` to `lib/screens/account/account_actions.dart` — pure top-level helpers with injected callbacks for unit testability | ✅ |
+| 2 | `performSignOut` no longer wipes `onboardingComplete` — user lands on AppShell as guest after sign-out | ✅ |
+| 3 | AccountScreen Account section: conditional "Sign In" tile (guest only, pushes `EmailLoginScreen`); Sign Out + Delete hidden for guests | ✅ |
+| 4 | AccountScreen About section: new "Restart Onboarding" action with confirm dialog — wipes guest pantry + flag, routes via AuthGate | ✅ |
+| 5 | 7 unit tests in `test/screens/account/account_actions_test.dart`; full suite 448/448 passing, `flutter analyze` clean | ✅ |
+
+**Commit:** `8fbc553` on `sprint/16.1-settings-redesign` (local only). **Not pushed** until on-device verification passes.
+
+**Verification flow:** open the build → land on AppShell as guest → profile icon → AccountScreen → tap "Sign In" → email login → returns to AppShell signed-in. Then: AccountScreen → Sign Out → still on AppShell, still post-onboarding (no 15-screen replay). Then: AccountScreen → About → Restart Onboarding → walks the flow from screen 1.
 
 ---
 
