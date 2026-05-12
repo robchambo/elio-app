@@ -93,7 +93,7 @@ Most of these were originally failing on the pre-merge APK. Four merged commits 
 - [ ] **"N items added" snackbar dismisses cleanly.** Add ingredients from a recipe → toast appears → it should dismiss when its duration elapses AND on tapping View AND when you navigate to a different screen. (Originally persisted across screens on the pre-merge APK — fixed by commit `c24ae94`.)
 - [ ] **Aisle grouping** of items still works.
 - [ ] **Share** button still works.
-- [ ] **Restock** button still works.
+- [ ] **Pantry → Shopping list "Restock" bridge** (Sprint 16.6.x). Open Pantry tab → expand a tier → long-press a chip → pick **Mark running low**. Snackbar confirms. Chip now shows a small terracotta **Low** badge. Open Shopping tab → the item is there with a **Restock** pill (no quantity text). Long-press the same chip again → **Unmark running low** removes the chip's Low badge AND clears the matching Restock entry from the shopping list.
 
 ### I. Scanner
 

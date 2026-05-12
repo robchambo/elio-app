@@ -342,8 +342,12 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
       onDismissed: (_) => _remove(item),
       child: _ShoppingRow(
         name: _capitalise(item.name),
-        quantity: item.quantity,
+        // Restock items are added via the pantry "Mark running low"
+        // action with quantity == 'Restock'. The badge already
+        // communicates that, so the qty text would be redundant.
+        quantity: item.isRestock ? '' : item.quantity,
         checked: item.isChecked,
+        isRestock: item.isRestock,
         onTap: () => _toggle(item),
       ),
     );
@@ -391,6 +395,7 @@ class _ShoppingRow extends StatelessWidget {
   final String name;
   final String quantity;
   final bool checked;
+  final bool isRestock;
   final VoidCallback onTap;
 
   const _ShoppingRow({
@@ -398,6 +403,7 @@ class _ShoppingRow extends StatelessWidget {
     required this.quantity,
     required this.checked,
     required this.onTap,
+    this.isRestock = false,
   });
 
   @override
@@ -445,11 +451,50 @@ class _ShoppingRow extends StatelessWidget {
             Expanded(
               child: Text(name, style: nameStyle, overflow: TextOverflow.ellipsis),
             ),
+            if (isRestock) ...[
+              const SizedBox(width: ElioSpacing.sm),
+              _RestockBadge(faded: checked),
+            ],
             if (quantity.isNotEmpty) ...[
               const SizedBox(width: ElioSpacing.sm),
               Text(quantity, style: qtyStyle),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Restock badge ─────────────────────────────────────────────────────
+//
+// Sprint 16.6.x — distinguishes items added via the pantry "Mark running
+// low" action from manual / meal-plan / recipe entries. Mirrors the
+// terracotta "Low" badge on the pantry chip so the two screens speak the
+// same visual language.
+class _RestockBadge extends StatelessWidget {
+  final bool faded;
+  const _RestockBadge({required this.faded});
+
+  @override
+  Widget build(BuildContext context) {
+    final alpha = faded ? 0.4 : 1.0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: ElioColors.terracotta.withValues(alpha: 0.15 * alpha),
+        borderRadius: BorderRadius.circular(ElioRadii.chip),
+        border: Border.all(
+          color: ElioColors.terracotta.withValues(alpha: 0.55 * alpha),
+        ),
+      ),
+      child: Text(
+        'Restock',
+        style: ElioTextStyles.bodySmall.copyWith(
+          color: ElioColors.terracotta.withValues(alpha: alpha),
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
         ),
       ),
     );

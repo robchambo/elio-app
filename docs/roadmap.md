@@ -454,6 +454,7 @@ Capture here so they don't keep resurfacing in planning.
 | 5 | Mood / style chip UI re-add on `RecipePreferencesScreen` — chips were removed in 16.4; prompts already wired in `59f39c5` | Sprint 16.4 deferred item | Not started |
 | 6 | Widget test asserting dietary filter actually greys a chip (plumbing tested, render path not) | Sprint 15.9 pre-merge nit | Not started |
 | 7 | `PantryMemoryEntry.isCustom` cleanup (drop or wire through) | Sprint 15.9 pre-merge nit | Not started |
+| 8 | **Pantry ↔ Shopping List "Restock" bridge** (Sprint 16.6.x). Pantry chip long-press exposes **Mark / Unmark running low** — sets `inventory.runningLow` AND adds/removes a `source: restock` shopping-list entry. Pantry chip shows a small terracotta **Low** badge; shopping row shows a **Restock** pill. Wires up `ShoppingService.addRestockItem` / `removeRestockItem`, which were defined but unreachable. | Test backlog item H4 unblocked — Rob asked "what is the restock button?" and the answer was "dead code" | ✅ Done (11 May 2026) — 6 new widget tests, 527/527 passing |
 
 **Estimate:** ~1 week.
 

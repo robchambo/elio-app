@@ -203,6 +203,161 @@ void main() {
     expect(find.text('Olive oil'), findsOneWidget);
   });
 
+  // Sprint 16.6.x (Restock wiring): long-press picker exposes a
+  // "Mark running low" toggle. Picking it dispatches a
+  // `toggleRunningLow` mutation and (in production) also adds the
+  // item to the shopping list with source: restock. The chip then
+  // shows a small "Low" badge so the state is visible from the
+  // pantry without having to long-press again.
+  testWidgets('Long-pressing a not-low staple shows "Mark running low"',
+      (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'milk-1',
+        'name': 'Milk',
+        'tier': 'almostAlwaysHave',
+        'runningLow': false,
+      },
+    ];
+    debugPantryMutationOverride = (_, __) {};
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Almost Always Have (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Milk'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mark running low'), findsOneWidget);
+    expect(find.text('Unmark running low'), findsNothing);
+  });
+
+  testWidgets(
+      'Long-pressing an already-low staple shows "Unmark running low"',
+      (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'milk-1',
+        'name': 'Milk',
+        'tier': 'almostAlwaysHave',
+        'runningLow': true,
+      },
+    ];
+    debugPantryMutationOverride = (_, __) {};
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Almost Always Have (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Milk'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unmark running low'), findsOneWidget);
+    expect(find.text('Mark running low'), findsNothing);
+  });
+
+  testWidgets(
+      'Picking "Mark running low" dispatches toggleRunningLow mutation',
+      (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'milk-1',
+        'name': 'Milk',
+        'tier': 'almostAlwaysHave',
+        'runningLow': false,
+      },
+    ];
+    final calls = <Map<String, dynamic>>[];
+    debugPantryMutationOverride = (id, action) {
+      calls.add({'id': id, ...action});
+    };
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Almost Always Have (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Milk'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Mark running low'));
+    await tester.pumpAndSettle();
+
+    expect(calls, hasLength(1));
+    expect(calls.first['id'], 'milk-1');
+    expect(calls.first['type'], 'toggleRunningLow');
+    expect(calls.first['runningLow'], isTrue);
+    expect(calls.first['name'], 'Milk');
+  });
+
+  testWidgets(
+      'Picking "Unmark running low" dispatches toggleRunningLow=false',
+      (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'milk-1',
+        'name': 'Milk',
+        'tier': 'almostAlwaysHave',
+        'runningLow': true,
+      },
+    ];
+    final calls = <Map<String, dynamic>>[];
+    debugPantryMutationOverride = (id, action) {
+      calls.add({'id': id, ...action});
+    };
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Almost Always Have (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.text('Milk'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Unmark running low'));
+    await tester.pumpAndSettle();
+
+    expect(calls, hasLength(1));
+    expect(calls.first['type'], 'toggleRunningLow');
+    expect(calls.first['runningLow'], isFalse);
+  });
+
+  testWidgets('Running-low staple chip renders a "Low" badge', (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'milk-1',
+        'name': 'Milk',
+        'tier': 'almostAlwaysHave',
+        'runningLow': true,
+      },
+    ];
+    await pumpPantry(tester);
+    await tester.tap(find.text('Almost Always Have (1)'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Low'), findsOneWidget);
+  });
+
+  testWidgets('Long-pressing a perishable also offers running-low toggle',
+      (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'spinach-1',
+        'name': 'Spinach',
+        'tier': 'perishable',
+        'runningLow': false,
+        'expiryDate':
+            DateTime.now().add(const Duration(days: 7)).toIso8601String(),
+      },
+    ];
+    debugPantryMutationOverride = (_, __) {};
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Perishables (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.longPress(find.textContaining('Spinach'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Mark running low'), findsOneWidget);
+  });
+
   testWidgets('Add chip in Perishables prompts a freshness bucket',
       (tester) async {
     debugPantryInitialItems = const <Map<String, dynamic>>[];

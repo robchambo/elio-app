@@ -25,6 +25,7 @@ import 'package:flutter/material.dart';
 import '../../services/firestore_service.dart';
 import '../../services/inventory_writer.dart';
 import '../../services/pantry_memory_service.dart';
+import '../../services/shopping_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
@@ -231,6 +232,15 @@ class _PantryScreenState extends State<PantryScreen> {
               };
             }
             break;
+          case 'toggleRunningLow':
+            final i = _items.indexWhere((it) => it['id'] == itemId);
+            if (i != -1) {
+              _items[i] = {
+                ..._items[i],
+                'runningLow': action['runningLow'] as bool,
+              };
+            }
+            break;
           case 'delete':
             _items = _items.where((it) => it['id'] != itemId).toList();
             break;
@@ -246,6 +256,22 @@ class _PantryScreenState extends State<PantryScreen> {
       case 'updateExpiry':
         await _firestore.updateInventoryItem(itemId,
             expiryDate: action['expiryDate'] as DateTime);
+        break;
+      case 'toggleRunningLow':
+        // Sprint 16.6.x: pantry ↔ shopping list bridge. Marking an
+        // item running low flips the inventory flag AND adds (or
+        // removes) the matching restock entry from the user's
+        // shopping list so they see what to pick up next shop.
+        final runningLow = action['runningLow'] as bool;
+        final name = action['name'] as String? ?? '';
+        await _firestore.updateInventoryItem(itemId, runningLow: runningLow);
+        if (name.isNotEmpty) {
+          if (runningLow) {
+            await ShoppingService.instance.addRestockItem(name);
+          } else {
+            await ShoppingService.instance.removeRestockItem(name);
+          }
+        }
         break;
       case 'delete':
         await _firestore.deleteInventoryItem(itemId);
@@ -279,6 +305,12 @@ class _PantryScreenState extends State<PantryScreen> {
     if (id == null) return;
     final tier = item['tier'] as String?;
     final name = item['name'] as String? ?? '';
+    // Sprint 16.6.x: running-low toggle appears on every long-press dialog
+    // (staple + perishable). The wording flips so the user can both mark
+    // and unmark without leaving the picker.
+    final wasLow = item['runningLow'] == true;
+    final runningLowLabel =
+        wasLow ? 'Unmark running low' : 'Mark running low';
     if (tier == _tierPerishable) {
       final choice = await showDialog<String>(
         context: context,
@@ -298,6 +330,10 @@ class _PantryScreenState extends State<PantryScreen> {
               child: const Text('Mark today'),
             ),
             SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '__runningLow__'),
+              child: Text(runningLowLabel),
+            ),
+            SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, '__remove__'),
               child: const Text('Remove'),
             ),
@@ -307,6 +343,13 @@ class _PantryScreenState extends State<PantryScreen> {
       if (choice == null) return;
       if (choice == '__remove__') {
         await _applyMutation(id, const {'type': 'delete'});
+      } else if (choice == '__runningLow__') {
+        await _applyMutation(id, {
+          'type': 'toggleRunningLow',
+          'runningLow': !wasLow,
+          'name': name,
+        });
+        _showRunningLowSnackbar(name, !wasLow);
       } else {
         await _applyMutation(id, {
           'type': 'updateExpiry',
@@ -329,6 +372,10 @@ class _PantryScreenState extends State<PantryScreen> {
               child: const Text('Almost always have'),
             ),
             SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, '__runningLow__'),
+              child: Text(runningLowLabel),
+            ),
+            SimpleDialogOption(
               onPressed: () => Navigator.pop(ctx, '__remove__'),
               child: const Text('Remove'),
             ),
@@ -338,10 +385,36 @@ class _PantryScreenState extends State<PantryScreen> {
       if (choice == null) return;
       if (choice == '__remove__') {
         await _applyMutation(id, const {'type': 'delete'});
+      } else if (choice == '__runningLow__') {
+        await _applyMutation(id, {
+          'type': 'toggleRunningLow',
+          'runningLow': !wasLow,
+          'name': name,
+        });
+        _showRunningLowSnackbar(name, !wasLow);
       } else {
         await _applyMutation(id, {'type': 'updateTier', 'tier': choice});
       }
     }
+  }
+
+  /// Confirmation snackbar after toggling running-low. The shopping-list
+  /// side-effect is silent otherwise — this is the user's cue to check
+  /// the Shopping tab.
+  void _showRunningLowSnackbar(String name, bool runningLow) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 3),
+        content: Text(
+          runningLow
+              ? '$name added to shopping list — restock soon.'
+              : '$name removed from restock list.',
+        ),
+      ),
+    );
   }
 
   // ─── Add-to-tier (Bug 3 — Sprint 16.4) ─────────────────────────────
@@ -787,6 +860,7 @@ class _TierItemChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = item['name'] as String? ?? '';
+    final isRunningLow = item['runningLow'] == true;
     // Sprint 16.6: urgency colours now drive background + border + dot
     // via PantryChipUrgency.forItem. Matches the onboarding pantry-tile
     // palette (ElioPantryItemTile._defaultStyles) — same colour language
@@ -850,6 +924,28 @@ class _TierItemChip extends StatelessWidget {
               name,
               style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso),
             ),
+            if (isRunningLow) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: ElioColors.terracotta.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(ElioRadii.chip),
+                  border: Border.all(
+                    color: ElioColors.terracotta.withValues(alpha: 0.55),
+                  ),
+                ),
+                child: Text(
+                  'Low',
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
+                    color: ElioColors.terracotta,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
