@@ -550,8 +550,10 @@ Capture here so they don't keep resurfacing in planning.
 | 6 | Crashlytics → Slack/Discord webhook (real-time error alerts via Cloud Function) | 1–2 | Not started |
 | 7 | Wire `REVENUECAT_API_KEY` through build.ps1 / `.env.local` + configure live Play Store + App Store SKUs with 7-day free trial | 2–3 | Partially done (build.ps1 wired, key not yet in .env.local) |
 | 8 | Expand `ErrorService` coverage to GeminiService, FirestoreService, VoiceControlService, PurchaseService (currently only 4 call sites) | 1–2 | ✅ Done (Sprint 15.5 — ~15 call sites across 6 services) |
+| 9 | **Email re-auth path for Delete Account.** `AccountScreen._reauthForDelete` currently only supports the Google provider — Email/password users get a snackbar pointing them at the support email. **Launch blocker** per Play Store + GDPR requirement for in-app account deletion across all auth methods. Wire `EmailAuthProvider.credential(...)` into the existing reauth callback, mirroring the Google branch. Added 11 May 2026 after discovering it during the Sprint 16.6 device-test pass. | 1–2 | Not started |
+| 10 | **Forgot Password flow on-device verification.** `AuthService.sendPasswordReset` + `EmailLoginScreen` "Forgot password?" link are already wired. Verify end-to-end: enter email → tap link → email arrives → reset flow works → can sign in with the new password. Added 11 May 2026 — code in place since Sprint 15.x, never on-device confirmed. | 0.25 | Not started |
 
-**Estimate:** 13–21 hours
+**Estimate:** 14.25–24.25 hours
 
 **Sprint 17 progress note (16 April 2026):** Firestore rules + entitlement hardening were committed on the `sprint-17` branch (currently unmerged). The old hard-coded dev-email allowlist and `proOverride` flag have been removed entirely; dev/tester Pro now comes from the Firestore doc `config/proTesters` (emails array). RevenueCat is the single source of truth for paying users. Branch needs `flutter analyze` + a PR to `main`.
 
