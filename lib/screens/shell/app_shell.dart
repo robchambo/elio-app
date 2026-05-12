@@ -17,6 +17,8 @@
 // Tap on the bottom-nav and swipe both feed through `_selectTab` which
 // keeps `_tab`, the controller, and the back-history in sync.
 import 'package:flutter/material.dart';
+import '../../services/firestore_service.dart';
+import '../../utils/region_utils.dart';
 import '../../widgets/elio/elio_app_scaffold.dart';
 import '../../widgets/elio/elio_bottom_nav.dart';
 import '../account/account_screen.dart';
@@ -49,6 +51,31 @@ class _AppShellState extends State<AppShell> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _tabOrder.indexOf(_tab));
+    _hydrateRegionUtils();
+  }
+
+  /// Sprint 16.6.x — pull the user's measurement-units + region prefs
+  /// out of Firestore and push them into the in-memory [RegionUtils]
+  /// cache so the very first generation reads the right values. The
+  /// AccountScreen used to be the only writer to RegionUtils, which
+  /// meant a cold-started app stayed on the metric/US defaults until
+  /// the user happened to visit Settings. Fire-and-forget.
+  Future<void> _hydrateRegionUtils() async {
+    try {
+      final settings = await FirestoreService().getSettings();
+      final units = settings['measurementUnits'] as String?;
+      final region = settings['region'] as String?;
+      if (units == 'metric' || units == 'imperial') {
+        RegionUtils.setMeasurementUnits(units!);
+      }
+      if (region == 'UK') {
+        RegionUtils.setRegion(AppRegion.uk);
+      } else if (region == 'US') {
+        RegionUtils.setRegion(AppRegion.us);
+      }
+    } catch (_) {
+      // Best-effort. RegionUtils retains its defaults on failure.
+    }
   }
 
   @override

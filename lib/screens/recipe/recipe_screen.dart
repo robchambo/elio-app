@@ -1653,7 +1653,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
     // Build editable item list from recipe ingredients
     final items = <_RecipeShoppingItem>[];
     for (final ing in _currentRecipe.ingredients) {
+      // Gemini's fromInventory flag is a hint based on the pantry
+      // snapshot at generation time. Cross-check against the LIVE
+      // pantry too — the user may have added the ingredient between
+      // generating and adding to shopping list, or Gemini may have
+      // missed a match. Either way, we shouldn't add what they
+      // already own. (Sprint 16.6.x — Rob reported items already in
+      // pantry were being re-added.)
       if (ing.fromInventory) continue;
+      if (_isInPantry(ing)) continue;
       if (_isShoppingExclusion(ing.name)) continue;
       final cleanName = ShoppingService.cleanForShopping(ing.name);
       if (ShoppingService.instance.isStaplePublic(cleanName.toLowerCase().trim())) continue;
@@ -1959,33 +1967,40 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ],
 
           // ── Secondary actions: side dish + hands-free ───────────────
-          if (!_sideDishGenerated) ...[
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _isGeneratingSideDish ? null : _generateSideDish,
-                icon: _isGeneratingSideDish
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: ElioColors.terracotta),
-                      )
-                    : const Icon(Icons.restaurant_menu_rounded, size: 20),
-                label: Text(_isGeneratingSideDish
-                    ? 'Finding a side dish...'
-                    : 'Suggest a side dish'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: ElioColors.terracotta,
-                  side: const BorderSide(color: ElioColors.terracotta, width: 1.5),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
-                ),
+          // Sprint 16.6.x: dropped the `!_sideDishGenerated` gate that
+          // hid this button after a successful generation. Rob reported
+          // that after popping back from a generated side dish, only
+          // hands-free remained — the button was gone with no way to
+          // suggest a different side. Keeping it always tappable lets
+          // the user iterate (label flips to "another"). Re-entrancy
+          // protection is already covered by `_isGeneratingSideDish`.
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isGeneratingSideDish ? null : _generateSideDish,
+              icon: _isGeneratingSideDish
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: ElioColors.terracotta),
+                    )
+                  : const Icon(Icons.restaurant_menu_rounded, size: 20),
+              label: Text(_isGeneratingSideDish
+                  ? 'Finding a side dish...'
+                  : (_sideDishGenerated
+                      ? 'Suggest another side dish'
+                      : 'Suggest a side dish')),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ElioColors.terracotta,
+                side: const BorderSide(color: ElioColors.terracotta, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
             ),
-            const SizedBox(height: ElioSpacing.sm),
-          ],
+          ),
+          const SizedBox(height: ElioSpacing.sm),
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(

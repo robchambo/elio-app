@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -22,6 +24,14 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _members = [];
 
+  // Sprint 16.6.x: live Firestore stream replaces the previous one-shot
+  // get(). Mutations now write to Firestore and the stream re-renders;
+  // we no longer optimistic-add in setState then false-error in the
+  // catch block when something benign threw after a successful write
+  // (Rob reported add/remove/edit all showed "Could not …" toasts while
+  // the change actually persisted).
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _profilesSub;
+
   static const List<String> _allDietaryOptions = [
     'Vegetarian', 'Vegan', 'Pescatarian', 'Gluten-free', 'Dairy-free',
     'Egg-free', 'Nut-free', 'Soy-free', 'Shellfish-free',
@@ -32,23 +42,34 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMembers();
+    _subscribeMembers();
   }
 
-  Future<void> _loadMembers() async {
-    try {
-      final uid = FirebaseAuth.instance.currentUser!.uid;
-      final snap = await FirebaseFirestore.instance
-          .collection('users').doc(uid)
-          .collection('profiles')
-          .get();
+  @override
+  void dispose() {
+    _profilesSub?.cancel();
+    super.dispose();
+  }
+
+  void _subscribeMembers() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    final query = FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('profiles');
+    _profilesSub = query.snapshots().listen((snap) {
       if (!mounted) return;
       final profiles = snap.docs.map((d) {
         final data = d.data();
         return {
           'id': d.id,
           'name': data['name'] as String? ?? '',
-          'dietaryRequirements': List<String>.from(data['dietaryRequirements'] ?? []),
+          'dietaryRequirements':
+              List<String>.from(data['dietaryRequirements'] ?? []),
           'isOwner': data['isOwner'] as bool? ?? false,
         };
       }).toList();
@@ -56,14 +77,13 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         _members = profiles.where((p) => p['isOwner'] != true).toList();
         _isLoading = false;
       });
-    } catch (_) {
+    }, onError: (e) {
+      debugPrint('Household stream error: $e');
       if (mounted) setState(() => _isLoading = false);
-    }
+    });
   }
 
   Future<void> _deleteMember(String profileId) async {
-    final removed = _members.firstWhere((p) => p['id'] == profileId, orElse: () => {});
-    setState(() => _members.removeWhere((p) => p['id'] == profileId));
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid == null) throw Exception('Not signed in');
@@ -73,12 +93,10 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
           .collection('profiles')
           .doc(profileId)
           .delete();
+      // Stream picks up the delete; no manual setState.
     } catch (e) {
       debugPrint('Household delete error: $e');
-      if (mounted && removed.isNotEmpty) {
-        setState(() => _members.add(removed));
-        _showSnack('Could not remove member. Please try again.');
-      }
+      _showSnack('Could not remove member. Please try again.');
     }
   }
 
@@ -103,15 +121,9 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         'dietaryRequirements': dietary,
         'isOwner': false,
       });
-      if (mounted) {
-        setState(() => _members.add({
-          'id': ref.id,
-          'name': name.trim(),
-          'dietaryRequirements': dietary,
-          'isOwner': false,
-        }));
-      }
-    } catch (_) {
+      // Stream picks up the insert; no manual setState.
+    } catch (e) {
+      debugPrint('Household add error: $e');
       _showSnack('Could not add member. Please try again.');
     }
   }
@@ -152,18 +164,7 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
         'dietaryRequirements': dietary,
         'isOwner': false,
       }, SetOptions(merge: true));
-      if (mounted) {
-        setState(() {
-          final idx = _members.indexWhere((m) => m['id'] == profileId);
-          if (idx != -1) {
-            _members[idx] = {
-              ..._members[idx],
-              'name': name.trim(),
-              'dietaryRequirements': dietary,
-            };
-          }
-        });
-      }
+      // Stream picks up the change; no manual setState.
     } catch (e) {
       debugPrint('Household update error: $e');
       _showSnack('Could not update member. Please try again.');

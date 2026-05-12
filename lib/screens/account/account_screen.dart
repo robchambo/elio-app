@@ -95,13 +95,24 @@ class _AccountScreenState extends State<AccountScreen> {
       final settings = await _firestore.getSettings();
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
+      // Sprint 16.6.x — every APK is stamped by build.ps1 with a
+      // BUILD_LABEL like "0.16.6-restock+a85e273" so testers can read
+      // off the exact commit they're on instead of inferring from the
+      // pubspec semver (which sits at 1.0.0 until launch). Falls back
+      // to pubspec version + buildNumber for flutter run/IDE builds
+      // that don't set BUILD_LABEL.
+      const buildLabel =
+          String.fromEnvironment('BUILD_LABEL', defaultValue: '');
+      final version = buildLabel.isNotEmpty
+          ? buildLabel
+          : '${info.version}+${info.buildNumber}';
       setState(() {
         _measurementUnits =
             (settings['measurementUnits'] as String?) ?? 'metric';
         _region = (settings['region'] as String?) ?? 'US';
         _saverModeDefault =
             (settings['saverModeDefault'] as bool?) ?? false;
-        _appVersion = '${info.version}+${info.buildNumber}';
+        _appVersion = version;
         _loading = false;
       });
     } catch (_) {
@@ -113,6 +124,11 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Future<void> _setUnits(String units) async {
     setState(() => _measurementUnits = units);
+    // Sprint 16.6.x: push to RegionUtils in-memory cache too, so the
+    // NEXT generation reads the new value instead of waiting until
+    // the next app cold-start to pick it up from Firestore. Mirrors
+    // what `_setRegion` already does for the region toggle.
+    RegionUtils.setMeasurementUnits(units);
     await _firestore.updateSettings(measurementUnits: units);
   }
 
