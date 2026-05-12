@@ -11,7 +11,7 @@
 
 ## Currently pending (newest first)
 
-### Sprint 16.6 wakelock + dietary-tile regression tests — `sprint/16.6-quick-wins` (commit hash TBD)
+### Sprint 16.6 wakelock + dietary-tile regression tests — `sprint/16.6-quick-wins` at `57b6cbb`
 
 Layered on top of cooking timers v1:
 
