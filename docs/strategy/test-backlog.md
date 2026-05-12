@@ -11,7 +11,7 @@
 
 ## Currently pending (newest first)
 
-### Sprint 16.6 cooking timers — `sprint/16.6-quick-wins` (commit hash TBD)
+### Sprint 16.6 cooking timers — `sprint/16.6-quick-wins` at `26f7dcb`
 
 Paprika-style inline tappable times in step text + sticky timer bar at top of RecipeScreen. Mockup: `docs/strategy/2026-05-11-cooking-timer-mockup.html`. Android-only for v1 (in-foreground delivery); backgrounded local notifications + wakelock deferred to follow-ups.
 
