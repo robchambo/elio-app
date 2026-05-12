@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elio — Cooking Timer UI Mock</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream:        #F4ECE0;
+    --cream-deep:   #EFE3D2;
+    --terracotta:   #E37B53;
+    --terracotta-d: #C45F39;
+    --peach:        #F2C9A8;
+    --espresso:     #2A1F1A;
+    --mocha:        #6B5A4F;
+    --rule:         #D7C5B0;
+    --perish-today: #E06C5E;
+    --perish-soon:  #FE9D00;
+    --fresh-green:  #3D9970;
+    --hero-font:    'Bricolage Grotesque', system-ui, sans-serif;
+    --body-font:    'DM Sans', system-ui, sans-serif;
+    --mono-font:    'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #2A1F1A;
+    font-family: var(--body-font);
+    color: var(--espresso);
+    padding: 32px 16px 64px;
+    min-height: 100vh;
+  }
+
+  /* Top-of-page intro */
+  .intro {
+    max-width: 900px;
+    margin: 0 auto 32px;
+    color: var(--cream);
+    text-align: center;
+    font-family: var(--body-font);
+  }
+  .intro h1 {
+    font-family: var(--hero-font);
+    font-weight: 800;
+    font-size: 36px;
+    text-transform: lowercase;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+  .intro h1 .dot { color: var(--terracotta); }
+  .intro p {
+    color: rgba(244, 236, 224, 0.75);
+    font-size: 14px;
+    max-width: 620px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+
+  /* Stage with phone frames side-by-side */
+  .stage {
+    display: flex;
+    gap: 32px;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .frame {
+    width: 360px;
+    background: #1a1310;
+    border: 8px solid #1a1310;
+    border-radius: 36px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    position: relative;
+  }
+  .frame-label {
+    position: absolute;
+    bottom: -28px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: rgba(244, 236, 224, 0.7);
+    font-family: var(--mono-font);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .screen {
+    background: var(--cream);
+    height: 720px;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  /* Status bar (faux) */
+  .status-bar {
+    height: 24px;
+    background: var(--cream);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    font-family: var(--mono-font);
+    font-size: 11px;
+    color: var(--espresso);
+  }
+
+  /* App bar */
+  .app-bar {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    background: var(--cream);
+  }
+  .app-bar .back {
+    width: 24px; height: 24px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--espresso);
+  }
+  .app-bar .wordmark {
+    flex: 1;
+    text-align: center;
+    font-family: var(--hero-font);
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--espresso);
+  }
+  .app-bar .icon {
+    width: 24px; height: 24px;
+    color: var(--espresso);
+  }
+
+  /* Sticky timer bar */
+  .timer-bar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: rgba(244, 236, 224, 0.95);
+    backdrop-filter: blur(8px);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--rule);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  .timer-bar:empty { display: none; }
+  .timer-bar .label {
+    font-family: var(--mono-font);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mocha);
+    margin-right: 4px;
+  }
+  .timer-chip {
+    background: var(--terracotta);
+    color: white;
+    border-radius: 999px;
+    padding: 6px 12px 6px 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--body-font);
+    font-weight: 500;
+    font-size: 13px;
+    box-shadow: 0 2px 6px rgba(196, 95, 57, 0.3);
+  }
+  .timer-chip .dot {
+    width: 6px; height: 6px;
+    background: white;
+    border-radius: 50%;
+    animation: blink 1s infinite;
+  }
+  .timer-chip.paused { background: var(--mocha); }
+  .timer-chip.paused .dot { display: none; }
+  .timer-chip .time {
+    font-family: var(--mono-font);
+    font-weight: 500;
+    font-size: 13px;
+    min-width: 36px;
+    text-align: right;
+  }
+  .timer-chip .name {
+    font-size: 12px;
+    opacity: 0.92;
+  }
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+  }
+
+  /* Body */
+  .body {
+    padding: 16px 18px 32px;
+  }
+  .recipe-title {
+    font-family: var(--hero-font);
+    font-weight: 800;
+    font-size: 26px;
+    line-height: 1.1;
+    color: var(--espresso);
+    letter-spacing: -0.02em;
+    text-transform: lowercase;
+    margin-bottom: 4px;
+  }
+  .recipe-title .dot { color: var(--terracotta); }
+  .meta {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 18px;
+    color: var(--mocha);
+    font-size: 12px;
+    font-family: var(--mono-font);
+  }
+  .meta span { display: inline-flex; align-items: center; gap: 4px; }
+
+  .section-title {
+    font-family: var(--body-font);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--mocha);
+    margin: 24px 0 10px;
+  }
+
+  /* Ingredients */
+  .ingredient {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--rule);
+    font-size: 14px;
+  }
+  .ingredient .check {
+    width: 18px; height: 18px;
+    border: 1.5px solid var(--terracotta);
+    border-radius: 50%;
+  }
+  .ingredient .qty {
+    color: var(--mocha);
+    font-family: var(--mono-font);
+    font-size: 12px;
+  }
+
+  /* Method steps */
+  .step {
+    display: flex;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .step .num {
+    font-family: var(--hero-font);
+    font-weight: 800;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--terracotta);
+    flex-shrink: 0;
+    width: 32px;
+  }
+  .step .text {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--espresso);
+    flex: 1;
+  }
+  .step .text .time-link {
+    background: var(--terracotta);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-family: var(--mono-font);
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-block;
+    line-height: 1.3;
+    box-shadow: 0 1px 3px rgba(196, 95, 57, 0.2);
+  }
+  .step .text .time-link::before {
+    content: "▶ ";
+    font-size: 9px;
+    margin-right: 2px;
+  }
+  .step .text .time-link.active {
+    background: var(--mocha);
+  }
+  .step .text .time-link.active::before {
+    content: "⏸ ";
+  }
+
+  /* The "more" subtle clock icon on the right of a step without parsed time */
+  .step .clock-fallback {
+    margin-left: auto;
+    width: 22px; height: 22px;
+    color: var(--mocha);
+    opacity: 0.4;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 2px;
+  }
+
+  /* CTAs */
+  .cta-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .cta-pill {
+    flex: 1;
+    background: var(--peach);
+    color: var(--espresso);
+    padding: 10px;
+    border-radius: 20px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .cta-pill.primary {
+    background: var(--terracotta);
+    color: white;
+  }
+
+  /* Bottom sheet (duration picker) */
+  .sheet {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: var(--cream);
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    padding: 18px 20px 28px;
+    box-shadow: 0 -8px 24px rgba(42, 31, 26, 0.18);
+    z-index: 20;
+  }
+  .sheet .handle {
+    width: 40px; height: 4px;
+    background: var(--rule);
+    border-radius: 2px;
+    margin: 0 auto 12px;
+  }
+  .sheet h3 {
+    font-family: var(--hero-font);
+    font-weight: 700;
+    font-size: 20px;
+    margin-bottom: 4px;
+    text-transform: lowercase;
+    letter-spacing: -0.01em;
+  }
+  .sheet .sub {
+    color: var(--mocha);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .duration-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .duration-chips .chip {
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: var(--cream-deep);
+    border: 1px solid var(--rule);
+    font-size: 13px;
+    color: var(--espresso);
+    font-family: var(--mono-font);
+  }
+  .duration-chips .chip.selected {
+    background: var(--terracotta);
+    color: white;
+    border-color: var(--terracotta);
+  }
+  .sheet .start-btn {
+    width: 100%;
+    background: var(--terracotta);
+    color: white;
+    padding: 14px;
+    border-radius: 999px;
+    text-align: center;
+    font-weight: 500;
+    font-size: 15px;
+    margin-top: 4px;
+  }
+
+  /* Dim under sheet */
+  .scrim {
+    position: absolute;
+    inset: 0;
+    background: rgba(42, 31, 26, 0.35);
+    z-index: 19;
+  }
+
+  /* Cook-mode toggle badge (right of app-bar in the second frame) */
+  .cookmode-pill {
+    background: var(--fresh-green);
+    color: white;
+    font-size: 10px;
+    font-family: var(--mono-font);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    margin-right: 8px;
+  }
+
+  /* Annotations between frames */
+  .callouts {
+    max-width: 900px;
+    margin: 80px auto 0;
+    color: var(--cream);
+    font-family: var(--body-font);
+  }
+  .callouts h2 {
+    font-family: var(--hero-font);
+    font-weight: 800;
+    font-size: 22px;
+    margin-bottom: 14px;
+    text-transform: lowercase;
+    letter-spacing: -0.015em;
+  }
+  .callouts h2 .dot { color: var(--terracotta); }
+  .callouts .row {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+    align-items: flex-start;
+  }
+  .callouts .row .num {
+    font-family: var(--hero-font);
+    font-weight: 800;
+    font-size: 24px;
+    color: var(--terracotta);
+    flex-shrink: 0;
+    min-width: 32px;
+  }
+  .callouts .row .text {
+    font-size: 14px;
+    line-height: 1.55;
+    color: rgba(244, 236, 224, 0.88);
+  }
+  .callouts .row .text strong { color: var(--cream); }
+
+  @media (max-width: 900px) {
+    .stage { flex-direction: column; align-items: center; }
+    .frame { width: 340px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="intro">
+  <h1>cooking timer<span class="dot">.</span></h1>
+  <p>Paprika-style inline tappable times in the method, plus a sticky timer bar that only appears when something's running. Zero added UI when no timer is active.</p>
+</div>
+
+<div class="stage">
+
+  <!-- ============== FRAME 1: NORMAL RECIPE VIEW (timer running) ============== -->
+  <div class="frame">
+    <div class="frame-label">running — timers visible at top, times in method are tappable</div>
+    <div class="screen">
+
+      <!-- Status bar -->
+      <div class="status-bar"><span>9:41</span><span>● ● ●</span></div>
+
+      <!-- App bar -->
+      <div class="app-bar">
+        <div class="back">◀</div>
+        <div class="wordmark">elio.</div>
+        <div class="icon">♡</div>
+      </div>
+
+      <!-- Sticky timer bar (because there's an active timer) -->
+      <div class="timer-bar">
+        <span class="label">timers</span>
+        <span class="timer-chip">
+          <span class="dot"></span>
+          <span class="name">Bake</span>
+          <span class="time">23:14</span>
+        </span>
+        <span class="timer-chip paused">
+          <span class="name">Rest</span>
+          <span class="time">04:30</span>
+        </span>
+      </div>
+
+      <!-- Body -->
+      <div class="body">
+        <div class="recipe-title">spinach &amp; ricotta cannelloni<span class="dot">.</span></div>
+        <div class="meta">
+          <span>⏱ 25 min prep</span>
+          <span>🔥 35 min cook</span>
+          <span>🍽 4 servings</span>
+        </div>
+
+        <div class="section-title">Ingredients</div>
+        <div class="ingredient"><span class="check"></span><span>spinach</span><span class="qty" style="margin-left:auto;">300 g</span></div>
+        <div class="ingredient"><span class="check"></span><span>ricotta</span><span class="qty" style="margin-left:auto;">250 g</span></div>
+        <div class="ingredient"><span class="check"></span><span>cannelloni tubes</span><span class="qty" style="margin-left:auto;">12</span></div>
+        <div class="ingredient"><span class="check"></span><span>parmesan</span><span class="qty" style="margin-left:auto;">50 g</span></div>
+
+        <div class="section-title">Method</div>
+
+        <div class="step">
+          <div class="num">1</div>
+          <div class="text">
+            Preheat oven to 180°C (fan).
+            Wilt spinach in a pan with a splash of water for
+            <span class="time-link">3 min</span>
+            then squeeze dry.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">2</div>
+          <div class="text">
+            Mix ricotta, spinach, salt, pepper, and a pinch of nutmeg. Stuff the cannelloni tubes and lay them in a baking dish.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">3</div>
+          <div class="text">
+            Cover with tomato sauce, top with parmesan, and bake for
+            <span class="time-link active">25 min</span>
+            until golden and bubbling. <em style="color:var(--mocha); font-size:12px;">(currently running)</em>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">4</div>
+          <div class="text">
+            Rest for
+            <span class="time-link active">5 min</span>
+            before serving. <em style="color:var(--mocha); font-size:12px;">(paused)</em>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ============== FRAME 2: DURATION PICKER OPEN ============== -->
+  <div class="frame">
+    <div class="frame-label">tapping a time → picker sheet — pre-filled to detected duration</div>
+    <div class="screen">
+
+      <div class="status-bar"><span>9:41</span><span>● ● ●</span></div>
+      <div class="app-bar">
+        <div class="back">◀</div>
+        <div class="wordmark">elio.</div>
+        <div class="icon">♡</div>
+      </div>
+
+      <!-- No timer bar yet — user is about to start the first one -->
+      <div class="body">
+        <div class="recipe-title">spinach &amp; ricotta cannelloni<span class="dot">.</span></div>
+        <div class="meta">
+          <span>⏱ 25 min prep</span>
+          <span>🔥 35 min cook</span>
+          <span>🍽 4 servings</span>
+        </div>
+
+        <div class="section-title">Method</div>
+
+        <div class="step">
+          <div class="num">1</div>
+          <div class="text">
+            Preheat oven to 180°C (fan). Wilt spinach in a pan with a splash of water for
+            <span class="time-link">3 min</span>
+            then squeeze dry.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="num">2</div>
+          <div class="text">
+            Mix ricotta, spinach, salt, pepper, and a pinch of nutmeg. Stuff the cannelloni tubes and lay them in a baking dish.
+            <!-- this step has no parseable time → small clock fallback icon on the right -->
+          </div>
+          <div class="clock-fallback">🕐</div>
+        </div>
+
+        <div class="step">
+          <div class="num">3</div>
+          <div class="text">
+            Cover with tomato sauce, top with parmesan, and bake for
+            <span class="time-link">25 min</span>
+            until golden and bubbling.
+          </div>
+        </div>
+      </div>
+
+      <!-- Scrim + bottom sheet -->
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="handle"></div>
+        <h3>start a timer<span style="color:var(--terracotta);">.</span></h3>
+        <div class="sub">step 3 · we detected <strong style="color:var(--espresso);">25 minutes</strong> in the instruction</div>
+        <div class="duration-chips">
+          <span class="chip">5 min</span>
+          <span class="chip">10 min</span>
+          <span class="chip">15 min</span>
+          <span class="chip">20 min</span>
+          <span class="chip selected">25 min</span>
+          <span class="chip">30 min</span>
+          <span class="chip">45 min</span>
+          <span class="chip">1 h</span>
+          <span class="chip">custom…</span>
+        </div>
+        <div class="start-btn">Start 25-minute timer</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ============== ANNOTATIONS ============== -->
+<div class="callouts">
+  <h2>screen-real-estate notes<span class="dot">.</span></h2>
+
+  <div class="row">
+    <div class="num">1</div>
+    <div class="text"><strong>Inline tappable time spans cost zero extra space.</strong> The "25 min" text was already in step 3 — we just render it as a terracotta pill instead of plain prose. Same character count. Same line height. The pill background does the work of saying "I'm interactive."</div>
+  </div>
+
+  <div class="row">
+    <div class="num">2</div>
+    <div class="text"><strong>The sticky timer bar only appears when something is running.</strong> Zero timers = zero added UI. Frame 2 (timer about to start) has no timer bar — the body content starts right under the app bar. Frame 1 (two timers active) shows the bar takes about 44 px including padding. About one screen-line's worth, easy to dismiss visually if you don't care, easy to read at a glance if you do.</div>
+  </div>
+
+  <div class="row">
+    <div class="num">3</div>
+    <div class="text"><strong>Active vs paused state is visual on both surfaces.</strong> The inline pill in step 3 turns mocha-grey with a pause glyph when the timer is paused (step 4 in Frame 1). The chip in the top bar follows the same convention. Tap either to toggle pause / resume. Long-press cancels.</div>
+  </div>
+
+  <div class="row">
+    <div class="num">4</div>
+    <div class="text"><strong>Steps with no parseable time get a subtle clock icon at the right edge</strong> (40% opacity grey — see step 2 in Frame 2). Tappable, opens the same duration picker but with no pre-fill. Almost invisible until you look for it, but always there.</div>
+  </div>
+
+  <div class="row">
+    <div class="num">5</div>
+    <div class="text"><strong>The picker is a bottom sheet, not a full screen.</strong> Quick chips for common durations + "custom…" for manual entry. The detected duration ("25 min") is pre-selected. One tap → start. Two taps if they want to change it. The recipe stays visible behind a dim scrim so they don't lose context.</div>
+  </div>
+
+  <div class="row">
+    <div class="num">6</div>
+    <div class="text"><strong>When a timer fires, it fires regardless of mode.</strong> Sound + vibrate via <code style="background:rgba(244,236,224,0.1); padding:2px 6px; border-radius:3px; font-family:var(--mono-font); font-size:12px;">flutter_local_notifications</code> — works when the app is backgrounded, when the screen is off, when the user is in another app. The chip in the top bar turns terracotta-flash and shows "DONE — tap to dismiss." Hands-free voice mode integration is a v1.1 follow-up; the in-mode firing experience is identical because it's the same notification.</div>
+  </div>
+</div>
+
+</body>
+</html>
