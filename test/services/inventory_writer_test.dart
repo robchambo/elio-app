@@ -471,4 +471,60 @@ void main() {
       expect(storage.docs.containsKey('b'), isTrue);
     });
   });
+
+  group('InventoryWriter.forceCollapseDuplicates', () {
+    test(
+        'Sprint 16.6.x: backfills missing matchKey BEFORE collapsing, '
+        'so legacy rows pre-15.9.1 actually get deduped',
+        () async {
+      // Reproduces the on-device bug: pantry has 3 "Baking powder" rows from
+      // a pre-15.9.1 install. None have matchKey. The user-doc flags are
+      // already set (a previous partial migration), so the gated migration
+      // short-circuits. Long-press on the Pantry page title fires
+      // forceCollapseDuplicates which — pre-fix — only ran the collapse
+      // step. Collapse groups by matchKey; legacy rows had no matchKey;
+      // collapse silently reported zero. This test pins the fix:
+      // force-collapse must backfill first.
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {
+          'inventoryDedupBackfilled': true,
+          'inventoryDuplicatesCollapsed': true,
+        }
+        ..docs = {
+          'leg1': {'name': 'Baking powder', 'tier': 'alwaysHave'},
+          'leg2': {'name': 'Baking powder', 'tier': 'alwaysHave'},
+          'leg3': {'name': 'Baking powder', 'tier': 'alwaysHave'},
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      final deleted = await writer.forceCollapseDuplicates();
+
+      // Two of the three legacy rows should be collapsed away (one wins).
+      expect(deleted, 2,
+          reason: 'force-collapse must dedup legacy rows that lacked matchKey');
+      // The remaining row must now carry a matchKey (backfill happened).
+      final survivors = storage.docs.values.toList();
+      expect(survivors, hasLength(1));
+      expect(survivors.first['matchKey'], 'baking powder');
+      expect(survivors.first['nameLower'], 'baking powder');
+    });
+
+    test('idempotent on a clean pantry (no duplicates, no missing matchKey)',
+        () async {
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {
+          'inventoryDedupBackfilled': true,
+          'inventoryDuplicatesCollapsed': true,
+        }
+        ..docs = {
+          'a': {'name': 'Salt', 'nameLower': 'salt', 'matchKey': 'salt'},
+          'b': {'name': 'Pepper', 'nameLower': 'pepper', 'matchKey': 'pepper'},
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      final deleted = await writer.forceCollapseDuplicates();
+      expect(deleted, 0);
+      expect(storage.docs.keys, containsAll(['a', 'b']));
+    });
+  });
 }

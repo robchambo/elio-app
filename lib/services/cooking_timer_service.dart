@@ -219,9 +219,18 @@ class CookingTimerService extends ChangeNotifier {
   /// just-expired timer to `done` and fires `onExpire` exactly once
   /// per timer. Called manually by tests; called by the 1-second
   /// periodic ticker in production.
+  ///
+  /// Sprint 16.6.x: always notifies listeners while at least one
+  /// running timer exists, even when no status flips happened in this
+  /// tick. The chip's mm:ss display reads `remaining(now)` at build
+  /// time — without a rebuild every second, the countdown freezes
+  /// visually (the internal state still advances; cancel/dismiss
+  /// reveals the up-to-date remaining). Pre-fix the listener only
+  /// fired on expiry, so users saw "5:00" pinned until the alert.
   void tick() {
     final now = _clock();
-    var changed = false;
+    var stateChanged = false;
+    var hasRunning = false;
     for (var i = 0; i < _timers.length; i++) {
       final t = _timers[i];
       if (t.status != TimerStatus.running) continue;
@@ -229,14 +238,18 @@ class CookingTimerService extends ChangeNotifier {
       if (!now.isBefore(t.endsAt!)) {
         final done = t._done();
         _timers[i] = done;
-        changed = true;
+        stateChanged = true;
         if (!_alreadyFiredExpired.contains(t.id)) {
           _alreadyFiredExpired.add(t.id);
           onExpire?.call(done);
         }
+      } else {
+        // Still running this tick; mark so we notify listeners for
+        // the countdown rebuild.
+        hasRunning = true;
       }
     }
-    if (changed) notifyListeners();
+    if (stateChanged || hasRunning) notifyListeners();
   }
 
   /// Start the 1-second periodic ticker. Production callers (a

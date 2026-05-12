@@ -119,6 +119,38 @@ void main() {
       expect(service.timers.first.remaining(now), Duration.zero);
     });
 
+    test(
+        'Sprint 16.6.x: tick() notifies listeners on every running-timer tick '
+        'even when no status flip happens (so chip mm:ss visibly counts down)',
+        () {
+      service.start(label: 'Bake', duration: const Duration(minutes: 5));
+      var notifies = 0;
+      service.addListener(() => notifies++);
+
+      advance(const Duration(seconds: 1));
+      expect(notifies, 1,
+          reason: 'first tick of a running timer must notify so the chip rebuilds');
+      advance(const Duration(seconds: 1));
+      expect(notifies, 2,
+          reason: 'every subsequent tick of a running timer must notify');
+    });
+
+    test(
+        'Sprint 16.6.x: tick() does NOT notify when there are no running timers '
+        '(idle service is silent so listeners don\'t rebuild for nothing)', () {
+      final t = service.start(
+        label: 'A',
+        duration: const Duration(minutes: 5),
+      );
+      service.pause(t.id);
+      var notifies = 0;
+      service.addListener(() => notifies++);
+
+      advance(const Duration(seconds: 5));
+      expect(notifies, 0,
+          reason: 'paused-only timers should not produce tick notifications');
+    });
+
     test('fires onExpire exactly once when a timer hits zero', () {
       service.start(label: 'A', duration: const Duration(seconds: 10));
       advance(const Duration(seconds: 10));

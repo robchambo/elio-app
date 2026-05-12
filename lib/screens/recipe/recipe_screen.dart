@@ -236,12 +236,21 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
   }
 
-  /// Fires when any timer hits zero. Plays haptic + system sound for
-  /// in-foreground delivery. Backgrounded delivery via local
-  /// notifications is a follow-up (flutter_local_notifications).
+  /// Fires when any timer hits zero. Audible signal via TTS (Android's
+  /// SystemSound.alert is a no-op), haptic buzz, plus a contextual
+  /// snackbar. Backgrounded delivery via local notifications is a
+  /// follow-up (flutter_local_notifications).
+  ///
+  /// Sprint 16.6.x: swapped SystemSound.play(SystemSoundType.alert)
+  /// for `_speakText(...)`. SystemSound.alert is documented as iOS/
+  /// macOS-only and is silent on Android, so the timer was firing
+  /// only haptic with no audio cue. TTS reuses the existing flutter_tts
+  /// dep wired up for voice cooking — no new packages. flutter_tts
+  /// queues internally, so a timer expiring mid-step during hands-free
+  /// mode is read after the current utterance.
   void _onTimerExpired(CookingTimer timer) {
     HapticFeedback.heavyImpact();
-    SystemSound.play(SystemSoundType.alert);
+    _speakText('${timer.label} timer done');
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

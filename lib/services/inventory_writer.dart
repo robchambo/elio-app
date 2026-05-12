@@ -193,24 +193,7 @@ class InventoryWriter {
 
       // ── Step 1: backfill ─────────────────────────────────────────────
       if (!backfilled) {
-        final inventory = await _storage.fetchAllInventory();
-        final rows = <({String id, Map<String, dynamic> updates})>[];
-        for (final entry in inventory) {
-          if (entry.data.containsKey('matchKey')) continue;
-          final name = (entry.data['name'] as String?)?.trim() ?? '';
-          if (name.isEmpty) continue;
-          rows.add((
-            id: entry.id,
-            updates: {
-              'nameLower': PantryStringMatch.nameLower(name),
-              'matchKey': PantryStringMatch.matchKey(name),
-              'firstAddedAt': FieldValue.serverTimestamp(),
-              'lastPurchasedAt': FieldValue.serverTimestamp(),
-            },
-          ));
-        }
-        // Always commit (even if rows empty) so the flag lands.
-        await _storage.migrateLegacyRows(rows);
+        await _backfillLegacyRows();
       }
 
       // ── Step 2: collapse duplicates ──────────────────────────────────
@@ -230,21 +213,60 @@ class InventoryWriter {
     }
   }
 
-  /// Public force-cleanup entry point. Bypasses the
-  /// `inventoryDuplicatesCollapsed` flag and runs the collapse step
-  /// regardless. Returns the number of duplicate rows that were
-  /// deleted, so callers can show "Cleaned up N duplicates" feedback.
+  /// Public force-cleanup entry point. Bypasses both
+  /// `inventoryDedupBackfilled` AND `inventoryDuplicatesCollapsed` flags
+  /// and runs the full two-step migration regardless. Returns the
+  /// number of duplicate rows that were deleted.
   ///
-  /// Sprint 15.9.3: added so dev devices that already had the flag set
-  /// from a partial migration can still clean up. Wire to a long-press
-  /// on the Pantry page title or a debug menu — not for general use.
+  /// Sprint 15.9.3: added so dev devices that already had the
+  /// `inventoryDuplicatesCollapsed` flag set from a partial migration
+  /// could still clean up.
+  ///
+  /// Sprint 16.6.x: also runs the backfill step. Previously the force
+  /// path only called [_collapseDuplicates], which groups rows by
+  /// `matchKey`. Legacy rows from before Sprint 15.9.1 have no
+  /// `matchKey` (the field was introduced then), so the collapser
+  /// silently skipped every legacy row and reported "0 duplicates" on
+  /// pantries that visibly had 12+ copies of the same item. The
+  /// backfill step adds `matchKey` to those rows first; collapse then
+  /// finds the duplicates correctly. Backfill is idempotent — rows
+  /// that already have `matchKey` are skipped.
   Future<int> forceCollapseDuplicates() async {
     try {
+      await _backfillLegacyRows();
       return await _collapseDuplicates();
     } catch (e, st) {
       ErrorService.log('inventory_force_collapse', e, st);
       rethrow;
     }
+  }
+
+  /// Sprint 16.6.x: extracted from [_runMigrationIfNeeded] so the
+  /// public [forceCollapseDuplicates] path can call it before the
+  /// collapse step. Backfills missing dedup keys + purchase
+  /// timestamps on legacy rows. Idempotent: rows that already have
+  /// `matchKey` are skipped. Always issues a write (even with zero
+  /// rows) so the `inventoryDedupBackfilled` flag lands and the
+  /// gated migration short-circuits on subsequent runs.
+  Future<void> _backfillLegacyRows() async {
+    final inventory = await _storage.fetchAllInventory();
+    final rows = <({String id, Map<String, dynamic> updates})>[];
+    for (final entry in inventory) {
+      if (entry.data.containsKey('matchKey')) continue;
+      final name = (entry.data['name'] as String?)?.trim() ?? '';
+      if (name.isEmpty) continue;
+      rows.add((
+        id: entry.id,
+        updates: {
+          'nameLower': PantryStringMatch.nameLower(name),
+          'matchKey': PantryStringMatch.matchKey(name),
+          'firstAddedAt': FieldValue.serverTimestamp(),
+          'lastPurchasedAt': FieldValue.serverTimestamp(),
+        },
+      ));
+    }
+    // Always commit (even if rows empty) so the flag lands.
+    await _storage.migrateLegacyRows(rows);
   }
 
   /// Compute and apply the duplicate-collapse step. Returns the number
