@@ -19,8 +19,11 @@ import '../../utils/region_utils.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
+import '../../services/cooking_timer_service.dart';
 import '../../services/shopping_service.dart';
 import '../../utils/quantity_utils.dart';
+import '../../utils/time_parser.dart';
+import '../../widgets/elio/elio_duration_picker_sheet.dart';
 import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_section_heading.dart';
 import '../../widgets/elio/elio_stat_badge.dart';
@@ -30,6 +33,7 @@ import '../../widgets/elio/elio_pantry_icon.dart';
 import '../../widgets/elio/elio_method_step.dart';
 import '../../widgets/elio/elio_feedback_bar.dart';
 import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_timer_chip.dart';
 import '../paywall/paywall_screen.dart';
 import '../shopping/shopping_list_screen.dart';
 
@@ -132,6 +136,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Timer? _restartTimer;
   String _recognisedWords = '';
 
+  // ── Cooking timer state (Sprint 16.6) ─────────────────────────────────────
+  /// Multi-timer service driving the sticky timer bar + inline pill taps.
+  /// Wall-clock end-times so backgrounding the app doesn't lose accuracy.
+  /// The ticker is started in initState and stopped in dispose. Expiry
+  /// fires HapticFeedback + SystemSound via [_onTimerExpired].
+  late final CookingTimerService _timerService;
+
   // ── Cost estimate label ────────────────────────────────────────────────────────────────────────────────────────────────
   /// Returns a formatted cost-per-serving string based on device locale.
   /// Delegates to RegionUtils.formatCost() for locale-aware currency selection.
@@ -148,6 +159,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _currentRecipe = widget.recipe;
     _savedAt = widget.savedAt;
     _regenCount = widget.regenCount;
+    // Sprint 16.6: cooking timer. Start the 1-second ticker so chips
+    // visibly count down. Backgrounded delivery (sound when app is in
+    // the background) is a follow-up via flutter_local_notifications;
+    // v1 fires HapticFeedback + SystemSound while app is foreground.
+    _timerService = CookingTimerService(onExpire: _onTimerExpired)
+      ..startTicker()
+      ..addListener(_onTimerStateChange);
     _initTts();
     _subscribeInventory();
     if (widget.autoSave) {
@@ -177,7 +195,147 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _tts.stop();
     // Always restore audio in case voice was active
     try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
+    // Sprint 16.6: cooking timer teardown.
+    _timerService.removeListener(_onTimerStateChange);
+    _timerService.dispose();
     super.dispose();
+  }
+
+  // ── Cooking timer handlers (Sprint 16.6) ─────────────────────────────────
+  void _onTimerStateChange() {
+    if (mounted) setState(() {});
+  }
+
+  /// Fires when any timer hits zero. Plays haptic + system sound for
+  /// in-foreground delivery. Backgrounded delivery via local
+  /// notifications is a follow-up (flutter_local_notifications).
+  void _onTimerExpired(CookingTimer timer) {
+    HapticFeedback.heavyImpact();
+    SystemSound.play(SystemSoundType.alert);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${timer.label} timer done'),
+        backgroundColor: ElioColors.terracotta,
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () => _timerService.dismiss(timer.id),
+        ),
+      ),
+    );
+  }
+
+  /// Tap on an inline time pill in a method step. Opens the duration
+  /// picker pre-filled with the detected duration; starts a timer
+  /// labelled by step number.
+  Future<void> _onMethodTimeTap(int stepIndex, TimeMatch match) async {
+    final picked = await ElioDurationPickerSheet.show(
+      context,
+      initialDuration: match.duration,
+      contextLabel:
+          'Step ${stepIndex + 1} · we detected ${match.matchedText} '
+          'in the instruction',
+    );
+    if (picked == null || !mounted) return;
+    try {
+      _timerService.start(
+        label: 'Step ${stepIndex + 1}',
+        duration: picked,
+      );
+    } on StateError catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You have the maximum number of timers running. Cancel one to start another.',
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Tap on a timer chip → toggle pause / resume / dismiss (done).
+  void _onTimerChipTap(CookingTimer t) {
+    switch (t.status) {
+      case TimerStatus.running:
+        _timerService.pause(t.id);
+        break;
+      case TimerStatus.paused:
+        _timerService.resume(t.id);
+        break;
+      case TimerStatus.done:
+        _timerService.dismiss(t.id);
+        break;
+    }
+  }
+
+  /// Long-press → cancel with confirm.
+  Future<void> _onTimerChipLongPress(CookingTimer t) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.cream,
+        title: const Text('Cancel timer?'),
+        content: Text('Stop the "${t.label}" timer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Cancel timer',
+              style: TextStyle(color: ElioColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) _timerService.cancel(t.id);
+  }
+
+  /// Sticky timer bar rendered just under the AppBar. Only visible
+  /// when at least one timer exists.
+  Widget _buildTimerBar() {
+    final timers = _timerService.timers;
+    if (timers.isEmpty) return const SizedBox.shrink();
+    final now = DateTime.now();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: ElioColors.cream.withValues(alpha: 0.95),
+        border: const Border(
+          bottom: BorderSide(color: ElioColors.rule),
+        ),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 2, top: 4),
+            child: Text(
+              'TIMERS',
+              style: ElioTextStyles.eyebrowStyle.copyWith(
+                color: ElioColors.mocha,
+              ),
+            ),
+          ),
+          for (final t in timers)
+            ElioTimerChip(
+              key: ValueKey(t.id),
+              timer: t,
+              now: now,
+              onTap: () => _onTimerChipTap(t),
+              onLongPress: () => _onTimerChipLongPress(t),
+            ),
+        ],
+      ),
+    );
   }
 
   // ── Inventory subscription ───────────────────────────────────────────────
@@ -1565,12 +1723,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
     return Scaffold(
       backgroundColor: ElioColors.cream,
       appBar: _buildTopBar(),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: ElioSpacing.screenEdge,
-          vertical: ElioSpacing.lg,
-        ),
+      body: Column(
         children: [
+          // Sprint 16.6: sticky timer bar — only renders when a timer
+          // exists. The ListView below scrolls underneath; the bar
+          // stays pinned just under the AppBar.
+          _buildTimerBar(),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: ElioSpacing.screenEdge,
+                vertical: ElioSpacing.lg,
+              ),
+              children: [
           // ── Title / description (streaming-aware) ─────────────────────
           if (isStreaming) ...[
             _shimmerBlock(height: 48, width: double.infinity),
@@ -1657,6 +1822,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
               stepNumber: i + 1,
               title: '',
               body: r.steps[i],
+              // Sprint 16.6: inline tappable time pills. The handler
+              // opens the duration picker pre-filled with the detected
+              // duration and starts a step-labelled timer.
+              onTimeTap: (match) => _onMethodTimeTap(i, match),
             ),
 
           // ── Substitution tips (preserved) ───────────────────────────
@@ -1746,6 +1915,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
             ),
           ),
           const SizedBox(height: ElioSpacing.xl),
+              ],
+            ),
+          ),
         ],
       ),
     );

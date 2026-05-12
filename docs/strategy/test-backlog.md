@@ -11,6 +11,24 @@
 
 ## Currently pending (newest first)
 
+### Sprint 16.6 cooking timers — `sprint/16.6-quick-wins` (commit hash TBD)
+
+Paprika-style inline tappable times in step text + sticky timer bar at top of RecipeScreen. Mockup: `docs/strategy/2026-05-11-cooking-timer-mockup.html`. Android-only for v1 (in-foreground delivery); backgrounded local notifications + wakelock deferred to follow-ups.
+
+- [ ] **Open any saved/generated recipe with cookable times** in the method (e.g. "Bake for 25 minutes"). Verify the time text "25 minutes" renders as a small terracotta pill inside the step prose. Steps without parseable times render as plain prose unchanged.
+- [ ] **Tap an inline time pill** → bottom-sheet picker opens with the matched duration pre-selected (e.g. "25 min"). Tap "Start 25-minute timer" → sheet dismisses, sticky terracotta timer bar appears at top of body.
+- [ ] **Timer counts down visibly** at 1-second cadence. mm:ss format under 1 hour, h:mm:ss at or over 1 hour.
+- [ ] **Tap the running chip** → pauses (chip turns mocha-grey, dot disappears, countdown freezes).
+- [ ] **Tap the paused chip** → resumes from the frozen remaining time (not a fresh start of the planned duration).
+- [ ] **Long-press a chip** → confirm dialog ("Cancel timer?"). Tap "Cancel timer" → chip disappears. Tap "Keep" → chip stays.
+- [ ] **Multi-timer**: start two timers (different steps) → both chips visible in the timer bar.
+- [ ] **Max-concurrent cap**: start 5 timers → trying to start a 6th surfaces snackbar "You have the maximum number of timers running."
+- [ ] **Expiry while app is foreground**: timer hits zero → haptic buzz, system alert sound, snackbar "Step N timer done" with OK button. Tap OK → chip removed.
+- [ ] **Expiry while app is backgrounded** (deferred): currently does NOTHING in v1 — Dart timers pause when the app is suspended. flutter_local_notifications is a follow-up. Verify this is the actual behaviour so we know what to ship next.
+- [ ] **Custom duration**: tap the "custom…" chip in the picker → Material time picker opens (24h mode) → pick a non-standard duration (e.g. 12 min) → returns to picker with "custom…" chip selected. Tap Start.
+- [ ] **Decimal / range edge cases**: a step containing "1.5 hours" should NOT render as a time pill (parser rejects decimals). A step containing "5-10 minutes" should NOT render as a time pill (parser rejects ranges).
+- [ ] **No regressions**: existing RecipeScreen functionality (servings adjust, ingredient swap, side dish gen, hands-free mode, share, bookmark, generate-another, feedback) all still work.
+
 ### Sprint 16.6 quick wins — `sprint/16.6-quick-wins` at `4ba90a2`
 
 Off `sprint/16`, decoupled from 16.1 test path. Visual / model-cleanup only — safe to test alongside 16.1.
