@@ -49,11 +49,13 @@ import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../utils/region_utils.dart';
 import '../../widgets/elio/elio_page_title.dart';
+import '../../widgets/elio/elio_provider_signin_button.dart';
 import '../auth/email_login_screen.dart';
 import '../profile/dietary_screen.dart';
 import '../profile/household_screen.dart';
 import '../profile/kitchen_screen.dart';
 import '../profile/notification_prefs_screen.dart';
+import '../shell/app_shell.dart';
 import 'account_actions.dart';
 import 'legal_doc_screen.dart';
 
@@ -208,13 +210,126 @@ class _AccountScreenState extends State<AccountScreen> {
   /// to AppShell on success via `pushAndRemoveUntil`, so we don't
   /// need to pop back here — the whole AccountScreen instance is
   /// disposed and a fresh one will be built next visit.
+  /// Sprint 16.1.x — Auth UX fix.
+  /// Sprint 16.6.x — provider-chooser sheet.
+  ///
+  /// First version pushed `EmailLoginScreen` directly, which locked out
+  /// every Google-only account (the most common kind in dev + early
+  /// users) — they'd see the form, have no password, and be stuck.
+  /// This version mirrors the onboarding screen 15 provider-button
+  /// pattern: a bottom sheet with Google + Email options. Apple is
+  /// hidden until Sprint 19. After a successful sign-in the user is
+  /// routed to AppShell so the new entitlement / pantry state is
+  /// fresh.
   Future<void> _signIn() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: ElioColors.cream,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            ElioSpacing.xl,
+            ElioSpacing.md,
+            ElioSpacing.xl,
+            ElioSpacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: ElioSpacing.md),
+                  decoration: BoxDecoration(
+                    color: ElioColors.rule,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                'sign in.',
+                style: ElioTextStyles.pageTitleStyle.copyWith(fontSize: 24),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Continue with the account you used at sign-up.',
+                style: ElioTextStyles.bodySmallStyle.copyWith(
+                  color: ElioColors.mocha,
+                ),
+              ),
+              const SizedBox(height: ElioSpacing.lg),
+              ElioProviderSignInButton(
+                kind: ProviderButtonKind.google,
+                onPressed: () async {
+                  Navigator.of(sheetCtx).pop();
+                  await _signInWithGoogle();
+                },
+              ),
+              const SizedBox(height: ElioSpacing.sm),
+              ElioProviderSignInButton(
+                kind: ProviderButtonKind.email,
+                onPressed: () async {
+                  Navigator.of(sheetCtx).pop();
+                  await _signInWithEmail();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    // Refresh in case sign-in raced our pop (or the sheet was just
+    // dismissed). EmailLoginScreen does pushAndRemoveUntil to AppShell
+    // on success; Google success path also routes to AppShell, so the
+    // typical case is we're never here. Defensive only.
+    if (mounted) setState(() {});
+  }
+
+  /// Sprint 16.6.x — Google sign-in from the in-app provider sheet.
+  /// Uses the same `AuthService.signInWithGoogle()` as onboarding screen 15.
+  /// On success, route to AppShell so post-sign-in state (Pro entitlement,
+  /// Firestore pantry, etc.) renders fresh. On cancel / failure, stay
+  /// where the user is and surface a snackbar.
+  Future<void> _signInWithGoogle() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final cred = await AuthService().signInWithGoogle();
+      if (!mounted) return;
+      if (cred == null) {
+        // User cancelled the Google chooser — silent.
+        return;
+      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (_) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            'Couldn\'t sign in with Google: $e',
+          ),
+          backgroundColor: ElioColors.error,
+        ),
+      );
+    }
+  }
+
+  /// Sprint 16.6.x — Email sign-in from the in-app provider sheet.
+  /// Pushes the existing EmailLoginScreen which handles its own AppShell
+  /// routing on success.
+  Future<void> _signInWithEmail() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const EmailLoginScreen()),
     );
-    // If the user cancelled out of the login screen, we're back here.
-    // Refresh so the Account section re-evaluates `_isSignedIn` in case
-    // they did sign in but somehow returned (defensive — not expected).
     if (mounted) setState(() {});
   }
 
