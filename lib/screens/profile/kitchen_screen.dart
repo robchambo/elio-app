@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
 import '../../services/firestore_service.dart';
+import '../../services/user_settings_service.dart';
 
 // ─────────────────────────────────────────────
 // KitchenScreen
@@ -46,7 +47,17 @@ class _KitchenScreenState extends State<KitchenScreen> {
       final data = await _firestore.getUserData();
       if (mounted) {
         setState(() {
-          _appliances = List<String>.from(data['appliances'] ?? []);
+          // Sprint 16.1: legacy onboarding wrote opaque IDs
+          // ('airfryer', 'pressure', 'bbq'). Settings chip IDs are
+          // full display labels ('Air fryer', 'Instant Pot / Pressure
+          // cooker', 'Grill / BBQ'), and `.contains` is case-sensitive
+          // — without normalising, an onboarding-set air fryer never
+          // appears selected here. Subsequent toggles write the
+          // display-label form back to Firestore, organically
+          // migrating legacy data forward.
+          _appliances = UserSettingsService.canonicaliseApplianceList(
+            List<String>.from(data['appliances'] ?? const <String>[]),
+          );
           _isLoading = false;
         });
       }

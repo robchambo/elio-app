@@ -22,6 +22,7 @@ import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
 import '../../services/cooking_timer_service.dart';
 import '../../services/shopping_service.dart';
+import '../../services/user_settings_service.dart';
 import '../../utils/quantity_utils.dart';
 import '../../utils/time_parser.dart';
 import '../../widgets/elio/elio_duration_picker_sheet.dart';
@@ -796,11 +797,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
       return;
     }
     if (widget.isGuest) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.1: explicit duration + hide-current so the toast
+      // doesn't follow the user across navigation.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Sign in to use the shopping list'),
           backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -876,13 +882,31 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Future<void> _executeGeneration(RecipeGenerationRequest request) async {
     setState(() => _isRegenerating = true);
 
+    // Sprint 16.1: force-refresh dietary/allergens fresh-from-server
+    // BEFORE building the regen request. Belt-and-braces against any
+    // missed listener propagation since the original generation —
+    // mid-recipe-screen settings edits MUST be honoured by the next
+    // Generate Another.
+    await UserSettingsService.instance.refresh();
+
     try {
-      // Build updated request — carry forward ALL fields, add exclusions + title
+      // Build updated request — carry forward ALL fields, add exclusions + title.
+      //
+      // Sprint 16.1: dietaryRequirements + customAllergens are the
+      // EXCEPTION to "carry forward". They're re-read from
+      // UserSettingsService at regen time so a Settings → Dietary edit
+      // made between the original Generate and a Generate Another tap
+      // is honoured. Every other field is legitimately frozen at first-
+      // generation time (perishables, taste profile, time/style/mood
+      // selections, recent titles, exclusions accumulated this session).
+      final settings = UserSettingsService.instance;
       final newRequest = RecipeGenerationRequest(
         perishables: request.perishables,
         alwaysHave: request.alwaysHave,
         almostAlwaysHave: request.almostAlwaysHave,
-        dietaryRequirements: request.dietaryRequirements,
+        dietaryRequirements: settings.hydrated
+            ? settings.dietaryRequirements
+            : request.dietaryRequirements,
         timePreference: request.timePreference,
         stylePreference: request.stylePreference,
         moodPreference: request.moodPreference,
@@ -906,7 +930,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
         // Sprint 15.9.3 SAFETY FIX: must propagate on regenerate too —
         // otherwise the second/third recipe could lose the allergen
         // constraint and serve peanut butter to a peanut-allergy user.
-        customAllergens: request.customAllergens,
+        // Sprint 16.1: read fresh from singleton (see comment above).
+        customAllergens:
+            settings.hydrated ? settings.allergies : request.customAllergens,
       );
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);
@@ -1600,11 +1626,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
   // ─── Add ingredients to shopping list (via confirmation dialog) ─────────────
   Future<void> _addToShoppingList() async {
     if (widget.isGuest) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.1: explicit duration + hide-current.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Sign in to use the shopping list'),
           backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -1625,11 +1655,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
 
     if (items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.1: explicit duration + hide-current.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('All ingredients are already in your pantry!'),
           backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -1657,16 +1691,27 @@ class _RecipeScreenState extends State<RecipeScreen> {
         }
         if (mounted) {
           setState(() => _isAddingToShop = false);
-          ScaffoldMessenger.of(context).showSnackBar(
+          // Sprint 16.1: explicit short duration + hide-current-first.
+          // Default SnackBar duration is 4s but with floating + the
+          // root ScaffoldMessenger, the snackbar follows you across
+          // navigation; without an explicit duration Rob saw it stuck
+          // on the Shopping List tab long after the original action.
+          // The View tap also dismisses so we don't have it lingering
+          // behind the destination route.
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
             SnackBar(
               content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
               backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               action: SnackBarAction(
                 label: 'View',
                 textColor: ElioColors.terracotta,
                 onPressed: () {
+                  messenger.hideCurrentSnackBar();
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                   );
@@ -1682,11 +1727,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
       } catch (_) {
         if (mounted) {
           setState(() => _isAddingToShop = false);
-          ScaffoldMessenger.of(context).showSnackBar(
+          // Sprint 16.1: explicit duration + hide-current.
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
             SnackBar(
               content: const Text('Could not add to shopping list'),
               backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );

@@ -21,6 +21,7 @@ import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/user_settings_service.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_big_button.dart';
@@ -53,7 +54,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _perishableInventoryNames = [];
 
   // ── Household profiles (drives active dietary requirements) ────────
-  List<Map<String, dynamic>> _householdProfiles = [];
+  // Sprint 16.1: profile data now lives in UserSettingsService (singleton
+  // ChangeNotifier). HomeScreen subscribes; in-app dietary edits push
+  // notifications back here so the next recipe generation sees fresh
+  // dietary/allergens without an app restart.
   final Set<String> _deactivatedProfileIds = {};
 
   // ── Session deduplication memory (last 20 recipe titles) ─────────────
@@ -78,6 +82,12 @@ class _HomeScreenState extends State<HomeScreen> {
     // the full cold-start tax. This re-fires whenever the user lands on
     // Home — fire-and-forget, errors swallowed inside the service.
     GeminiService.prewarmConnection();
+    // Sprint 16.1: subscribe to UserSettingsService and kick a fresh
+    // refresh. Any dietary/allergen edit (in Settings → Dietary, on
+    // sign-in, on auth change) calls notifyListeners → setState → next
+    // _buildRequest sees fresh data.
+    UserSettingsService.instance.addListener(_onSettingsChanged);
+    UserSettingsService.instance.refresh();
     _loadUserData();
     _loadRecentRecipes();
     // Request notification permission on first HomeScreen load (non-blocking)
@@ -163,9 +173,11 @@ class _HomeScreenState extends State<HomeScreen> {
           _appliances = List<String>.from(data['appliances'] ?? []);
           _perishableDescriptions = perishableDescs;
           _perishableInventoryNames = perishableNames;
-          _householdProfiles = List<Map<String, dynamic>>.from(
-            (data['householdProfiles'] as List?)?.map((p) => Map<String, dynamic>.from(p as Map)) ?? [],
-          );
+          // Sprint 16.1: householdProfiles intentionally NOT cached
+          // here. The dietary/allergen union now flows through
+          // UserSettingsService — which listens to auth changes and
+          // is refreshed by every dietary save. The getters below
+          // read from that singleton.
           _customStyles = List<String>.from(data['stylePreferences'] ?? []);
         });
       }
@@ -190,9 +202,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   // ── Compute union of dietary requirements from all ACTIVE profiles ──
+  // Sprint 16.1: source data lives in UserSettingsService now. This
+  // getter applies the per-profile deactivation filter (a UI-only
+  // concept — "skip my partner's diet for this generation") that the
+  // service doesn't know about. Service stays profile-deactivation-
+  // agnostic so other consumers can union differently.
   List<String> get _activeDietaryRequirements {
     final union = <String>{};
-    for (final profile in _householdProfiles) {
+    for (final profile in UserSettingsService.instance.householdProfiles) {
       final id = profile['id'] as String;
       if (_deactivatedProfileIds.contains(id)) continue;
       final reqs = List<String>.from(profile['dietaryRequirements'] ?? []);
@@ -201,18 +218,20 @@ class _HomeScreenState extends State<HomeScreen> {
     return union.toList();
   }
 
-  // Sprint 15.9.3 SAFETY FIX: union of custom allergens across all
-  // ACTIVE profiles. Threaded into RecipeGenerationRequest so the prompt
-  // can emit a strong "Allergens — strictly excluded" line. Without
-  // this, a peanut-allergy user could be served peanut butter.
+  /// Sprint 15.9.3 SAFETY FIX: union of custom allergens across all
+  /// ACTIVE profiles. Threaded into RecipeGenerationRequest so the
+  /// prompt emits its strong "Allergens — strictly excluded" line.
+  /// Sprint 16.1: source switched to UserSettingsService.
   List<String> get _activeAllergens {
     final union = <String>{};
-    for (final profile in _householdProfiles) {
+    for (final profile in UserSettingsService.instance.householdProfiles) {
       final id = profile['id'] as String;
       if (_deactivatedProfileIds.contains(id)) continue;
-      final raw = (profile['allergens'] as List?) ??
-          (profile['customAllergens'] as List?) ??
-          const <dynamic>[];
+      // The service exposes both `allergens` and `allergies` keys
+      // pointing at the same list. We read `allergens` for compat
+      // with any caller that still passes through the legacy shape.
+      final raw =
+          (profile['allergens'] as List?) ?? const <dynamic>[];
       union.addAll(raw.map((e) => e.toString().trim()).where((s) => s.isNotEmpty));
     }
     return union.toList();
@@ -281,11 +300,17 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Build the full RecipeGenerationRequest from chip prefs + Home state ──
   // Called synchronously by RecipePreferencesScreen when the user taps
   // Generate. Taste profile is fetched best-effort (signed-in only).
-  RecipeGenerationRequest _buildRequest(RecipePreferences prefs) {
-    // Note: taste profile is loaded eagerly in [_loadUserData] in a future
-    // pass; for now we keep the prior best-effort behaviour but make the
-    // request-build sync. If the eager load lands later this stays correct
-    // (just reads the cached value).
+  /// Sprint 16.1: async + forces a UserSettingsService.refresh() before
+  /// reading dietary/allergens. Belt-and-braces against any missed
+  /// notifyListeners propagation between the dietary save and the
+  /// Generate tap. The await adds ~150ms server-read latency which is
+  /// invisible against the multi-second Gemini stream that follows.
+  Future<RecipeGenerationRequest> _buildRequest(RecipePreferences prefs) async {
+    // Force-refresh the singleton so dietary/allergens are guaranteed
+    // fresh-from-server. Errors swallowed inside refresh() — the
+    // request still uses whatever the singleton has cached.
+    await UserSettingsService.instance.refresh();
+
     // Prefer perishables explicitly chosen on the prefs picker; fall back to
     // any auto-selected from the post-scan flow.
     final perishablesForRequest = prefs.useUpItems.isNotEmpty
@@ -361,6 +386,21 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    // Sprint 16.1: unsubscribe from UserSettingsService listeners.
+    UserSettingsService.instance.removeListener(_onSettingsChanged);
+    super.dispose();
+  }
+
+  /// Triggered whenever UserSettingsService.notifyListeners() fires
+  /// (refresh on sign-in/out, dietary screen save). Forces a rebuild
+  /// so _activeDietaryRequirements / _activeAllergens recomputes from
+  /// the service's fresh householdProfiles list.
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   // ─── Sprint 16: Editorial home body ─────────────────────────────────────

@@ -37,6 +37,13 @@ class FirestoreService {
 
   // ─── Onboarding: write all data in a single batch ───────────────
 
+  /// Sprint 16.1: dietary requirements + custom allergens have ONE
+  /// canonical home: `users/{uid}/profiles/{ownerId}.dietaryRequirements`
+  /// and `.allergies`. Do NOT re-introduce user-doc copies — the
+  /// in-app dietary screen only writes the owner-profile copy, so any
+  /// user-doc value drifts the moment the user edits their settings.
+  /// `state.toFirestoreMap()` still emits `dietary` and `allergies`
+  /// keys; we strip them here to keep the user doc clean.
   Future<void> completeOnboarding(OnboardingState state, String displayName) async {
     final batch = _db.batch();
     final userRef = _db.collection('users').doc(_uid);
@@ -63,6 +70,11 @@ class FirestoreService {
       },
       'activeProfileIds': ['owner'],
     };
+    // Sprint 16.1: strip the dietary/allergen duplicates that
+    // toFirestoreMap puts in the user doc. Canonical source is the
+    // owner profile (see step 2 below).
+    userDocData.remove('dietary');
+    userDocData.remove('allergies');
     batch.set(userRef, userDocData);
 
     // 2. Create the owner's household profile. Allergies now live at the
@@ -156,6 +168,12 @@ class FirestoreService {
     // ignored it and could suggest peanut butter to a peanut-allergy user.
     // Now reads `allergies` (canonical field) with a `customAllergens`
     // fallback for any docs written by the buggy old read path's mirror.
+    //
+    // TODO(sprint-17): remove the customAllergens fallback once
+    // telemetry confirms no reads in the wild. With Sprint 16.1's
+    // single-source-of-truth (UserSettingsService + canonical owner
+    // profile), no writer produces customAllergens any more — this
+    // is purely a back-compat read for users with stale data.
     final householdProfiles = <Map<String, dynamic>>[];
     for (final doc in profilesSnapshot.docs) {
       final data = doc.data() as Map<String, dynamic>;
@@ -247,20 +265,35 @@ class FirestoreService {
 
   // ─── Settings: get and update measurement units + region ─────────
 
-  Future<Map<String, String>> getSettings() async {
+  Future<Map<String, dynamic>> getSettings() async {
     final doc = await _db.collection('users').doc(_uid).get();
-    if (!doc.exists) return {'measurementUnits': 'metric', 'region': 'US'};
+    if (!doc.exists) {
+      return {
+        'measurementUnits': 'metric',
+        'region': 'US',
+        'saverModeDefault': false,
+      };
+    }
     final data = doc.data() as Map<String, dynamic>;
     return {
       'measurementUnits': data['measurementUnits'] as String? ?? 'metric',
       'region': data['region'] as String? ?? 'US',
+      // Sprint 16.1: global saver-mode default. Read by
+      // RecipePreferencesScreen on init so the toggle starts in the
+      // user's preferred state; per-recipe overrides still work.
+      'saverModeDefault': data['saverModeDefault'] as bool? ?? false,
     };
   }
 
-  Future<void> updateSettings({String? measurementUnits, String? region}) async {
+  Future<void> updateSettings({
+    String? measurementUnits,
+    String? region,
+    bool? saverModeDefault,
+  }) async {
     final updates = <String, dynamic>{};
     if (measurementUnits != null) updates['measurementUnits'] = measurementUnits;
     if (region != null) updates['region'] = region;
+    if (saverModeDefault != null) updates['saverModeDefault'] = saverModeDefault;
     if (updates.isEmpty) return;
     await _db.collection('users').doc(_uid).update(updates);
   }

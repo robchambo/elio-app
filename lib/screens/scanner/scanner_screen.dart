@@ -477,11 +477,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Sprint 16.1: explicit duration so error toast doesn't follow
+        // the user across navigation.
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           SnackBar(
             content: const Text('Could not read receipt. Try again with better lighting.'),
             backgroundColor: ElioColors.error,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
@@ -761,11 +766,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Sprint 16.1: explicit duration so error toast doesn't follow
+        // the user across navigation.
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           SnackBar(
             content: const Text('Failed to add items. Please try again.'),
             backgroundColor: ElioColors.error,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
