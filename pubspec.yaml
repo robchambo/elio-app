@@ -55,6 +55,11 @@ dependencies:
   image_picker: ^1.1.2
   package_info_plus: ^8.0.2
   shimmer: ^3.0.0
+  # Sprint 16.6: keeps the screen on while a cooking timer is active
+  # so users don't lose the timer view to auto-lock mid-recipe.
+  # Only enabled when CookingTimerService.hasActiveTimers is true;
+  # disabled the moment all timers finish or are cancelled.
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:

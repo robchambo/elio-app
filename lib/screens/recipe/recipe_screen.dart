@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
@@ -198,12 +199,40 @@ class _RecipeScreenState extends State<RecipeScreen> {
     // Sprint 16.6: cooking timer teardown.
     _timerService.removeListener(_onTimerStateChange);
     _timerService.dispose();
+    // Drop the wakelock unconditionally on screen leave — don't want
+    // it leaking past navigation away from the recipe.
+    if (_wakelockHeld) {
+      WakelockPlus.disable().catchError((_) {});
+      _wakelockHeld = false;
+    }
     super.dispose();
   }
 
   // ── Cooking timer handlers (Sprint 16.6) ─────────────────────────────────
+
+  /// Tracks whether wakelock is currently enabled so we only toggle it
+  /// on real edges (active ↔ inactive) — not on every chip countdown
+  /// tick. WakelockPlus.enable()/disable() do platform-channel work.
+  bool _wakelockHeld = false;
+
   void _onTimerStateChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+
+    // Sprint 16.6: hold the wakelock while at least one timer is
+    // running or paused. Drop it the moment everything is done /
+    // cancelled / dismissed. Edge-triggered so we don't re-call the
+    // platform channel on every 1-second tick.
+    final shouldHold = _timerService.hasActiveTimers;
+    if (shouldHold == _wakelockHeld) return;
+    _wakelockHeld = shouldHold;
+    // Fire-and-forget; errors are non-fatal (e.g. unsupported
+    // platform during tests).
+    if (shouldHold) {
+      WakelockPlus.enable().catchError((_) {});
+    } else {
+      WakelockPlus.disable().catchError((_) {});
+    }
   }
 
   /// Fires when any timer hits zero. Plays haptic + system sound for

@@ -11,6 +11,15 @@
 
 ## Currently pending (newest first)
 
+### Sprint 16.6 wakelock + dietary-tile regression tests — `sprint/16.6-quick-wins` (commit hash TBD)
+
+Layered on top of cooking timers v1:
+
+- [ ] **Screen stays on while a timer is active.** Start a timer → leave the phone untouched for longer than your usual auto-lock threshold (e.g. 60s with default Android settings). Screen should remain on. Lock-screen should NOT engage.
+- [ ] **Screen auto-locks normally once all timers are done / cancelled / dismissed.** Wakelock is edge-triggered, so this catches the disable path. Test by: cancel the last running timer → wait past your auto-lock threshold → screen should lock.
+- [ ] **Navigating away from RecipeScreen drops the wakelock.** Start a timer → tap back to Home → wait past auto-lock → screen should lock normally (we drop wakelock unconditionally in `dispose`).
+- [ ] **No on-device check needed for the dietary blocked-state widget tests** — they're regression guards added at the code-side test layer (4 new tests in `test/widgets/elio_pantry_item_tile_test.dart`). Sprint 15.9 pre-merge nit ticked off.
+
 ### Sprint 16.6 cooking timers — `sprint/16.6-quick-wins` at `26f7dcb`
 
 Paprika-style inline tappable times in step text + sticky timer bar at top of RecipeScreen. Mockup: `docs/strategy/2026-05-11-cooking-timer-mockup.html`. Android-only for v1 (in-foreground delivery); backgrounded local notifications + wakelock deferred to follow-ups.
