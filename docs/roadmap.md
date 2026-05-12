@@ -455,6 +455,7 @@ Capture here so they don't keep resurfacing in planning.
 | 6 | Widget test asserting dietary filter actually greys a chip (plumbing tested, render path not) | Sprint 15.9 pre-merge nit | Not started |
 | 7 | `PantryMemoryEntry.isCustom` cleanup (drop or wire through) | Sprint 15.9 pre-merge nit | Not started |
 | 8 | **Pantry ↔ Shopping List "Restock" bridge** (Sprint 16.6.x). Pantry chip long-press exposes **Mark / Unmark running low** — sets `inventory.runningLow` AND adds/removes a `source: restock` shopping-list entry. Pantry chip shows a small terracotta **Low** badge; shopping row shows a **Restock** pill. Wires up `ShoppingService.addRestockItem` / `removeRestockItem`, which were defined but unreachable. | Test backlog item H4 unblocked — Rob asked "what is the restock button?" and the answer was "dead code" | ✅ Done (11 May 2026) — 6 new widget tests, 527/527 passing |
+| 9 | **🔝 NEXT — Small × on pantry chips for explicit delete.** Add a tiny × hit-target to each pantry chip (Wrap items inside expanded tier rows). Tapping it deletes the item with a brief "Removed X — undo" snackbar. Distinct from long-press: long-press is for changing tier / running-low / expiry; × is the dedicated remove affordance. Sprint 16.4 removed the single-tap-to-remove path because chips were vanishing on stray taps — a small explicit × is the right replacement (own hit-target, no gesture conflict). | Notion test list X-section, Rob 11 May | **First up next session.** Not started. ~1 hour. |
 
 **Estimate:** ~1 week.
 
