@@ -11,7 +11,7 @@
 - Sprint 16.1 — Settings Redesign (4-section tree, unified dietary plumbing)
 - Sprint 16.1.x — Auth UX fix (Sign In tile, Restart Onboarding, sign-out preserves onboardingComplete)
 
-**Sprint 16.4 polish (this session):**
+**Sprint 16.4 polish (April 2026):**
 - Bug 4 — Pantry single-tap removed (long-press only); Remove lives in the long-press picker.
 - Bug 5 — Home Recent Recipes pushed below the fold via LayoutBuilder.
 - Bug 6 — Recipes-tab filters (search, makeable-now, category chips) removed; TODO flag for revisit.
@@ -384,6 +384,158 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 
 ---
 
+## Competitor Analysis Cross-Reference (3 May 2026)
+
+Source doc: `docs/strategy/2026-05-03-competitor-analysis.html` — deep-scan of 9 apps (Paprika · Mealime · SideChef · DishGen · Samsung Food · AnyList · Bring! · OurGroceries · Plan to Eat, plus Yummly postmortem after Whirlpool's December 2024 shutdown).
+
+### Three moats Elio already owns — protect, don't erode
+
+1. **AI generation grounded in actual pantry + perishable urgency.** Nobody else combines these. DishGen takes ingredient lists; Samsung Food has Vision AI but no expiry/dietary integration; Mealime + Paprika + AnyList don't generate at all.
+2. **Receipt OCR + barcode + expiry-driven generation.** Samsung Food has barcode + Vision AI for ordering; no competitor does receipt OCR feeding recipe selection.
+3. **Household dietary union math.** No competitor combines multiple humans' dietary restrictions and allergens into a single weekly plan.
+
+### Five must-match gaps from analysis → sprint mapping
+
+| # | Gap | Where it lives in this roadmap |
+|---|-----|---------------------------|
+| 1 | Real household sharing with email/link invite | **Sprint 16.7a investigation → 16.7b implementation** |
+| 2 | In-app cooking timers + cook mode | **Sprint 16.6** |
+| 3 | Browseable saved-recipe library + collections | **Sprint 16.7c** |
+| 4 | Apple Watch + voice-assistant add-to-list | **Split:** Siri Shortcuts already in Sprint 19 (iOS pre-launch); Apple Watch + Google Assistant + Alexa post-launch |
+| 5 | User-customisable aisle ordering | **Sprint 16.7c** |
+
+### Deliberate omissions — features competitors have that Elio should NOT build
+
+Capture here so they don't keep resurfacing in planning.
+
+| Don't build | Why |
+|---|---|
+| Public recipe library / community feed | Yummly tried (now dead); DishGen does it badly (stolen recipes from Minimalist Baker). Moderation cost huge; dilutes the AI-from-your-pantry value. |
+| Smart-fridge integration | Samsung Food's moat. Irrelevant for US-priority launch. |
+| 18,000-recipe browseable corpus | SideChef's moat. Elio is generation-first; a library distracts from the differentiation. Personal saved-recipe library (Sprint 16.7c) is enough. |
+| One-time pricing per platform (Paprika model) | Firestore + Gemini API recurring costs make it unsustainable for an AI app. |
+| Step photos / videos for AI-generated recipes | Generated recipes can't have authentic cooking photos. Stock or AI-generated images would erode trust. Voice cooking is the "active cooking" answer. |
+| Calorie/macro tracking with daily targets | MyFitnessPal territory. Different audience, harder to win. Per-recipe nutrition only. |
+| Coupons / store flyers / price tracking | Flipp / Ibotta territory. Mood-killer for "what should I cook tonight." |
+
+---
+
+## Sprint 16.5 — Settings Menu On-Device Polish (Queued)
+
+**Goal:** Walk every row of the new 4-section Settings tree on-device, catch the small things widget tests won't, ship the polish pass.
+
+**Trigger:** Sprint 16.1 + 16.1.x both code-complete. Some items will be discovered during Rob's on-device run.
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | On-device walk of every Settings row — copy, layout, tap targets, sub-screen pushes | Pending on-device pass |
+| 2 | Manage Subscription — keep snackbar pointing to store, or deep-link to platform subscription page? | Not started |
+| 3 | Notification Prefs sub-screen — confirm topics + toggles match what FCM actually subscribes to | Not started |
+| 4 | Region toggle side-effects audit — US ↔ UK should propagate measurement units + currency across every screen | Not started |
+| 5 | App Version row — show build tag (`build/sprint-X.Y`) alongside semver for easier QA reporting | Not started |
+| 6 | Guest empty-state for AccountScreen — verify nothing flashes or errors when guest hits Settings (Firestore reads no-op for guests) | Not started |
+| 7 | "Restart Onboarding" copy + dialog tone — confirm wording explains "Firestore data is kept, only local guest selections are cleared" clearly | Not started |
+| 8 | New items discovered during the on-device walk | TBD |
+
+**Estimate:** ~2 days once items crystallise on-device.
+
+---
+
+## Sprint 16.6 — Cook & Polish (Queued)
+
+**Goal:** The "small but loud" pre-launch polish batch — cheap features competitors all have that reviewers complain about when missing.
+
+| # | Task | Source | Status |
+|---|------|--------|--------|
+| 1 | **Cooking timers + cook mode (screen-on)** on RecipeScreen | Competitor analysis must-match gap #2 (Paprika + SideChef ship; reviews cite as stickiness driver) | Not started |
+| 2 | **Dark mode** — plumb `ElioColors` tokens through a dark variant | Competitor analysis (every competitor ships; absence shows up in 1-star reviews) | Not started |
+| 3 | **Bulk-prep UI** — wire existing `BulkPrepInfo` Gemini data through to RecipeScreen | Existing TODO + competitor analysis | Not started |
+| 4 | **Perishable chip urgency-coloured backgrounds** on Pantry tab | Standing follow-up (`project_perishable_chip_colors.md`) | Not started |
+| 5 | Mood / style chip UI re-add on `RecipePreferencesScreen` — chips were removed in 16.4; prompts already wired in `59f39c5` | Sprint 16.4 deferred item | Not started |
+| 6 | Widget test asserting dietary filter actually greys a chip (plumbing tested, render path not) | Sprint 15.9 pre-merge nit | Not started |
+| 7 | `PantryMemoryEntry.isCustom` cleanup (drop or wire through) | Sprint 15.9 pre-merge nit | Not started |
+
+**Estimate:** ~1 week.
+
+---
+
+## Sprint 16.7a — Household Sharing Investigation ✅ (11 May 2026)
+
+**Goal:** Resolve the design complexity around real multi-user household sharing before committing to implementation. Output is a shovel-ready spec at `docs/superpowers/specs/2026-05-11-sprint-16.7-household-sharing-design.md` plus a complexity estimate that gates Sprint 16.7b pre-/post-launch.
+
+**Outcome:** Spec landed. Six foundational design decisions locked (full-share opt-in, owner-seeds-invitee-chooses migration, 6-digit code invites, owner's Pro extends to members, per-user dietary with cached household union, single-owner lifecycle). Independent `superpowers:code-reviewer` QA pass applied 5 critical fixes (dietary location, invitee-self-add rule, delete order, EntitlementService snippet, owner-profile filtering) and 5 worth-flagging adjustments. Final estimate: **~11 days** of focused implementation.
+
+**Why this matters:** Competitor analysis must-match gap #1. AnyList's $14.99/yr household tier is the price anchor below Elio's $29.99/yr — defending requires real household sharing.
+
+| # | Investigation question | Status |
+|---|------|--------|
+| 1 | **Firestore schema** — `households/{hid}` subtree with `owner`, `members[]`. Which sub-collections (shoppingItems, mealPlan, inventory, ratings, customItems, tierMemory) move from `users/{uid}/` to `households/{hid}/` vs stay per-UID? | Not started |
+| 2 | **Invite flow** — Firebase Email Link / dynamic link / 6-digit code? Deep-link with accept-invite token. Edge cases: existing-account user vs new sign-up | Not started |
+| 3 | **Security rules** — cross-UID read/write inside `households/{hid}/*` keyed on custom claims vs `get()` lookup. Performance trade-off | Not started |
+| 4 | **Migration** — current household members are local profiles under one UID. Design for: (a) "head of household + dependents without phones" → keep profile-based; (b) "two adults each with own phone" → invite flow | Not started |
+| 5 | **RevenueCat** — does household pricing need a new entitlement, or does an existing Pro subscriber's household grant Pro to invited members? Affects paywall copy | Not started |
+| 6 | **Conflict resolution** — Firestore last-write-wins is fine; UI should attribute changes ("Kate added milk") | Not started |
+| 7 | **UI scope** — invite tile on AccountScreen, member list in HouseholdScreen, owner-only actions, leave-household, guest-vs-member visibility | Not started |
+| 8 | Spec doc + decision-gate write-up | Not started |
+
+**Estimate:** 1–2 days.
+
+**Decision gate at end of 16.7a:**
+- Implementation ≤2 weeks → ship as **Sprint 16.7b pre-launch**
+- Implementation >2 weeks → spec is shovel-ready; **punt 16.7b to v1.1 post-launch**
+
+---
+
+## Sprint 16.7b — Household Sharing Implementation (PUNTED to v1.1 post-launch)
+
+**Decision (11 May 2026):** punted to **v1.1 post-launch**. Spec at `docs/superpowers/specs/2026-05-11-sprint-16.7-household-sharing-design.md` is shovel-ready; implementation kicks off ~4-6 weeks after v1.0 launch as the headline feature of the first major update.
+
+**Reasoning** (full version in spec §12):
+- 11-day implementation estimate. Estimates run hot in this codebase (15.9 was 50% over, 16.1 trending similar). Realistic elapsed 15-18 days.
+- Pre-launch already loaded with 16.6 + 16.8 + 17 + 18 + 19. Slotting 16.7b adds critical-path risk.
+- Cloud Functions for `proActive` cheating prevention land in Sprint 17 — natural pairing if 16.7b ships post-launch alongside (rather than launching with a known security limitation in a marquee feature).
+- Marketing benefit: dedicated "Elio now does household sharing" press moment vs. getting lost in launch noise.
+
+**When work resumes:** writing-plans pass against the spec → Sprint 16.7b branch off whatever is `main` at the time.
+
+---
+
+## Sprint 16.7c — Browseable Library + Custom Aisles (Queued)
+
+**Goal:** Decoupled from household sharing so it ships regardless of the 16.7a gate. Two competitor-analysis must-match gaps that don't depend on household infra.
+
+| # | Task | Source | Status |
+|---|------|--------|--------|
+| 1 | **Browseable saved-recipe library + collections** — UI repackaging of existing `users/{uid}/recipes/{id}` data (filter, sort, collections). Data exists; mostly merchandising | Competitor analysis must-match gap #3 | Not started |
+| 2 | **User-customisable aisle ordering** — per-user `aisleOrder` on user doc. Lift Plan to Eat pattern; reviews tie it to long-term retention | Competitor analysis must-match gap #5 | Not started |
+
+**Estimate:** 3–4 days.
+
+---
+
+## Sprint 16.8 — Email-Forward Order Import (Pre-Launch, blocked on domain)
+
+**Goal:** Capture the growing online-grocery slice. User gets a unique elio inbox (`<uid-hash>@in.elio.app`), forwards Instacart / Amazon Fresh / Tesco / Sainsbury's / Ocado order confirmations, Elio parses line items into pantry as if it were a receipt scan. Hybrid of receipt OCR + a new ingestion path.
+
+**Blocked on:** Rob's domain registration (waiting on ISP login issue). Once `in.elio.app` MX is live, this can start.
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Inbound email infra — Postmark vs AWS SES decision, MX setup on `in.elio.app` | Not started |
+| 2 | Per-user unique inbox address (`<uid-hash>@in.elio.app`) — generate, store, surface in Settings | Not started |
+| 3 | Cloud Function to receive incoming email, validate sender, parse, write to Firestore inventory | Not started |
+| 4 | Email-to-pantry parser (Gemini-driven, reuses receipt OCR pipeline + `InventoryWriter` dedup) | Not started |
+| 5 | Vendor presets — US: Instacart, Amazon Fresh, Walmart. UK: Tesco, Sainsbury's, Ocado | Not started |
+| 6 | Settings UI — "Forward your shopping orders to: `<your-address>`" with copy button + instructions | Not started |
+| 7 | Onboarding-friendly explainer — first-time discoverability | Not started |
+| 8 | Spam / abuse guard — drop emails from unknown senders without an active forwarding rule | Not started |
+
+**Estimate:** ~1.5 weeks once domain is live.
+
+**Why pre-launch (Rob's call, 11 May):** the moat extension over Samsung Food's smart-fridge integration — same job-to-be-done (track what you actually have at home) but reachable without locked-in hardware.
+
+---
+
 ## Sprint 17 — Shared Launch Preparation
 
 **Goal:** Everything that must be true before either store accepts a submission.
@@ -407,7 +559,7 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 
 ## Sprint 18 — Android Track
 
-**Goal:** Play Store submission-ready. Runs in parallel with Sprint 18 iOS work.
+**Goal:** Play Store submission-ready. Runs in parallel with Sprint 19 iOS work.
 
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
@@ -416,8 +568,9 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 | 3 | Submit to Google Play Console (internal testing track) | 1–2 | Not started |
 | 4 | Closed beta feedback loop (pro-tester Firestore list) | 2–3 | Not started |
 | 5 | Production staged rollout (10% → 50% → 100%) | 1 | Not started |
+| 6 | Yummly-migration landing page ("Coming from Yummly? We import your saved recipes") — capture residual displaced audience | 1 | Not started |
 
-**Estimate:** 9–13 hours
+**Estimate:** 10–14 hours
 
 ---
 
@@ -431,7 +584,7 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 | 2 | Apple Sign-In integration (required by App Store when Google Sign-In is present) | 3–4 | Not started |
 | 3 | iOS-specific UI adjustments (safe areas, haptics, keyboard behaviour) | 2–3 | Not started |
 | 4 | Replace `com.elio/audio` platform channel with iOS equivalent (AVAudioSession) OR gate voice-beep suppression to Android only | 1–2 | Not started |
-| 5 | **Siri Shortcuts** — donate `NSUserActivity` for "Generate a recipe", "Open my shopping list", "What's in my pantry", "Start cooking last recipe". Must be done before launch so iOS users get voice entry points on day one. | 3–4 | Not started |
+| 5 | **Siri Shortcuts** — donate `NSUserActivity` for "Generate a recipe", "Open my shopping list", "What's in my pantry", "Start cooking last recipe", and "Add to my shopping list" (voice-assistant add-to-list from competitor analysis). Must be done before launch so iOS users get voice entry points on day one. | 3–4 | Not started |
 | 6 | iOS permissions plist (NSMicrophoneUsageDescription, NSCameraUsageDescription, NSSpeechRecognitionUsageDescription) | 0.5 | Not started |
 | 7 | Full regression test — iOS physical device | 3–4 | Not started |
 | 8 | App Store assets (iOS screenshots at required sizes, App Store listing) | 2–3 | Not started |
@@ -444,17 +597,52 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 
 ## Post-Launch Backlog (Prioritised)
 
+### v1.1 — from competitor analysis (early post-launch)
+
+| Priority | Feature | Notes |
+|----------|---------|-------|
+| **P1** | **Sprint 16.7b — Real Household Sharing** (headline v1.1 feature) | Multi-UID household with full data sharing (inventory, shopping, meal plan), 6-digit code invites, owner's Pro extends to up to 6 members. Competitor-analysis must-match gap #1. Spec at `docs/superpowers/specs/2026-05-11-sprint-16.7-household-sharing-design.md`. **~11 days implementation** + Sprint 17 Cloud Function dependencies (RC webhook, monthly sweep, cascade-delete sweep — 2.5-3 days incremental). |
+| P1 | **Apple Watch app** | Read-only shopping list with check-off. Three of four shopping-list competitors have it; AnyList + OurGroceries reviewers cite as top-3 feature. |
+| P1 | **Google Assistant add-to-list (Android)** | "Hey Google, add milk to my Elio list" — Android equivalent of Siri Shortcuts (which ships in Sprint 19 pre-launch). |
+| P1 | **Free-tier shopping list** (single list, no household, no recipe-link) | Widens conversion funnel. OurGroceries gives full list free; Elio's all-or-nothing gating may cap free-to-paid. |
+| P2 | **Wider recipe-import site coverage** | Top-50 cooking domains with validated parsers as fallback to Vision OCR. AnyList + Plan to Eat publish supported-domain lists. |
+| P2 | **Alexa skill** | Bring! ships it; lower priority than Siri / Google. |
+
+### v1.2 — competitor analysis (data-driven post-launch)
+
+| Priority | Feature | Notes |
+|----------|---------|-------|
+| P2 | **Multiple lists** (groceries, Costco, hardware) | AnyList + Bring! + OurGroceries + Plan to Eat all support. Generalize shopping-list model. After household sharing lands. |
+| P2 | **Recurring lists / templates** | "Weekly staples" template that clones to active list. AnyList + OurGroceries have. |
+| P2 | **Family pricing tier** ($X/yr household, AnyList-style at $14.99/yr) | After Sprint 16.7 household sharing proves out. Match AnyList structure. |
+| P2 | **Per-store aisle layouts** ("my Trader Joe's, my Whole Foods") | After basic custom aisle ordering (16.7c) proves out. Plan to Eat's stickiness driver. |
+| P3 | **Geofence "at the store" reminders** | Bring!-style. Niche-loved; battery + permission friction. |
+
+### Carry-over from existing backlog
+
 | Priority | Feature | Notes |
 |----------|---------|-------|
 | P1 | Accurate cost estimation | Supermarket API integration for real pricing |
 | P1 | Regional language localisation | courgette/zucchini, coriander/cilantro, etc. |
 | P2 | Grocery affiliate integration | Shopping list → delivery service |
 | P2 | Social sharing | Recipe card as shareable image |
-| P2 | Recipe ratings & feedback loop | Like/dislike influences future generation |
+| P2 | Recipe ratings & feedback loop | Like/dislike influences future generation (internal adaptive learning already shipped — this is the user-visible surface) |
 | P3 | Multilingual support | Full app translation |
 | P3 | Tablet/web layout optimisation | Responsive layouts for larger screens |
-| P2 | Linked accounts — shared household shopping list | Requires: householdId on user doc, shared Firestore collection, invite code system, security rules. Current household members are local profiles under one UID — true sharing needs separate auth accounts linked to a household group. |
 | P3 | Offline mode | Cache recent recipes, local-first pantry for all users |
+
+### Small loose ends from memory + earlier sprints
+
+| Item | Notes |
+|------|-------|
+| Onboarding screens 06–15 still using `ElioHeroHeading` wrapper | Migrate to `ElioPageTitle` directly |
+| Legacy `ElioTextStyles` aliases cleanup + delete `ElioHeroHeading` wrapper | Sweep callers, delete aliases |
+| Per-pantry-item dietary metadata pass | ~100+ items in `PantryCategories.all` need per-item dietary tags (content authoring, Kate-voice decision on hide vs grey) |
+| Screen 11/12 search bar | Deferred from Sprint 16.2; reassess after on-device feedback |
+| Screen 10 hero illustration | Kate art (currently placeholder) |
+| Coordinator-owned single progress bar | Replace per-screen progress bars (minor visual refactor) |
+| Bulk Prep on prefs screen — Kate design pass | Open questions: single-recipe-but-batchable vs multi-meal flow; chip vs hero CTA vs dedicated screen |
+| Sprint 18 original (App Check + server-side Gemini migration) | Deferred — original sprint number reused for Android track |
 
 ---
 
