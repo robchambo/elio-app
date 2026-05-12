@@ -4,7 +4,7 @@ import 'package:elio_app/models/pantry_memory_entry.dart';
 
 void main() {
   group('PantryMemoryEntry', () {
-    test('fromTierMemoryDoc builds a non-custom entry with the right fields', () {
+    test('fromTierMemoryDoc builds a tier-memory entry with the right fields', () {
       final lastSeen = Timestamp.fromMillisecondsSinceEpoch(1700000000000);
       final entry = PantryMemoryEntry.fromTierMemoryDoc(
         'carrot',
@@ -14,8 +14,10 @@ void main() {
       expect(entry.normalizedName, 'carrot');
       expect(entry.displayName, 'Carrot');
       expect(entry.tier, 'perishable');
+      // Sprint 16.6: `category == null` is the implicit "this came from
+      // tierMemory" signal now that the redundant `isCustom` flag has
+      // been dropped.
       expect(entry.category, isNull);
-      expect(entry.isCustom, isFalse);
       expect(entry.lastSeen.millisecondsSinceEpoch, 1700000000000);
     });
 
@@ -33,8 +35,10 @@ void main() {
       expect(entry.normalizedName, 'miso paste');
       expect(entry.displayName, 'Miso paste');
       expect(entry.tier, 'alwaysHave');
+      // Sprint 16.6: `category != null` is the implicit "this came from
+      // customItems" signal now that the redundant `isCustom` flag has
+      // been dropped.
       expect(entry.category, 'Asian Pantry');
-      expect(entry.isCustom, isTrue);
     });
 
     test('falls back to safe defaults when fields are missing', () {

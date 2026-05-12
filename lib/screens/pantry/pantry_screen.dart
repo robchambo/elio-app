@@ -29,6 +29,7 @@ import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../utils/pantry_chip_urgency.dart';
 import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
 import '../../widgets/elio/elio_bento_card.dart';
 import '../../widgets/elio/elio_page_title.dart';
@@ -753,31 +754,15 @@ class _TierItemChip extends StatelessWidget {
     required this.onLongPress,
   });
 
-  /// Map the item's expiry date to a leading-dot urgency colour.
-  ///
-  /// Returns null when the item has no expiry date (no dot rendered).
-  /// Buckets are Kate-blessed (2026-04-29):
-  ///   days >= 7  → perishFresh   (sage green)
-  ///   days 1..6  → perishSoon    (saturated orange)
-  ///   days <= 0  → perishGone    (deep red — today + already-expired)
-  Color? _urgencyDotColor() {
-    final expiryStr = item['expiryDate'] as String?;
-    if (expiryStr == null) return null;
-    final expiry = DateTime.tryParse(expiryStr);
-    if (expiry == null) return null;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final exp = DateTime(expiry.year, expiry.month, expiry.day);
-    final days = exp.difference(today).inDays;
-    if (days <= 0) return ElioColors.perishGone;
-    if (days <= 6) return ElioColors.perishSoon;
-    return ElioColors.perishFresh;
-  }
-
   @override
   Widget build(BuildContext context) {
     final name = item['name'] as String? ?? '';
-    final dotColor = _urgencyDotColor();
+    // Sprint 16.6: urgency colours now drive background + border + dot
+    // via PantryChipUrgency.forItem. Matches the onboarding pantry-tile
+    // palette (ElioPantryItemTile._defaultStyles) — same colour language
+    // across both surfaces. See lib/utils/pantry_chip_urgency.dart.
+    final urgency = PantryChipUrgency.forItem(item);
+    final dotColor = urgency.dotColor;
 
     // RawGestureDetector with long-press + a no-op tap recogniser.
     // Sprint 16.4 (Bug 4): tap removed because the cycle ended in delete
@@ -813,9 +798,9 @@ class _TierItemChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: ElioColors.cream,
+          color: urgency.background,
           borderRadius: BorderRadius.circular(ElioRadii.chip),
-          border: Border.all(color: ElioColors.rule),
+          border: Border.all(color: urgency.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
