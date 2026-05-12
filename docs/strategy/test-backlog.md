@@ -1,99 +1,128 @@
 # Elio — On-Device Test Backlog
 
-**Living doc.** Each entry sits here from "code shipped, awaits on-device verification" through "tested on-device, signed off". Move to a new "Signed off" section (or just delete) once a verification passes. New code-side work adds entries.
+**Active integration branch:** `sprint/16-integration`
+**Current build to test:** `releases/elio-sprint-integration.apk` (canonical filename — always the latest)
+**Build tag:** see `git tag --list 'build/sprint-integration*'` (each rebuild stamps a tag with the commit hash)
 
 **Convention:**
 - `[ ]` pending on-device test
-- `[~]` tested but issues found (notes follow)
+- `[~]` tested, issue found (notes follow inline)
 - `[x]` signed off — safe to merge / push / tag
 
+When a section is fully `[x]`, move it to the **Signed off** section at the bottom (or just delete).
+
 ---
 
-## Currently pending (newest first)
+## Currently pending (one APK, one list)
 
-### Sprint 16.6 wakelock + dietary-tile regression tests — `sprint/16.6-quick-wins` at `57b6cbb`
+This is the consolidated list of everything not yet verified against the current `elio-sprint-integration.apk` build. Grouped by area for scannability, **not** by commit / sub-branch. New on-device work-items land here.
 
-Layered on top of cooking timers v1:
+### A. Auth + onboarding
 
-- [ ] **Screen stays on while a timer is active.** Start a timer → leave the phone untouched for longer than your usual auto-lock threshold (e.g. 60s with default Android settings). Screen should remain on. Lock-screen should NOT engage.
-- [ ] **Screen auto-locks normally once all timers are done / cancelled / dismissed.** Wakelock is edge-triggered, so this catches the disable path. Test by: cancel the last running timer → wait past your auto-lock threshold → screen should lock.
-- [ ] **Navigating away from RecipeScreen drops the wakelock.** Start a timer → tap back to Home → wait past auto-lock → screen should lock normally (we drop wakelock unconditionally in `dispose`).
-- [ ] **No on-device check needed for the dietary blocked-state widget tests** — they're regression guards added at the code-side test layer (4 new tests in `test/widgets/elio_pantry_item_tile_test.dart`). Sprint 15.9 pre-merge nit ticked off.
+Bugs originally reported on the pre-merge APK that were testing OLD auth code. **Auth UX fix is now in this build** (commit `8fbc553`, merged in via `e23c0d4`).
 
-### Sprint 16.6 cooking timers — `sprint/16.6-quick-wins` at `26f7dcb`
+- [ ] **Open the app cold.** If you've completed onboarding before, you should land directly on the AppShell — no 15-screen replay. (If you're not signed in, the data-on-install behaviour is separate; see footnote.)
+- [ ] **Sign In tile is visible on AccountScreen when guest.** Top of the Account section.
+- [ ] **Tap Sign In tile** → pushes EmailLoginScreen → log in → lands on AppShell signed in.
+- [ ] **Sign Out from signed-in state** → confirm dialog → user lands on AppShell **still post-onboarding, as a guest** (no 15-screen replay). Sign In tile visible again.
+- [ ] **Restart Onboarding tile** under About → confirm dialog → walks through onboarding from screen 1.
+- [ ] **Delete Account flow unchanged** — re-auth dialog works, account wipes correctly (existing Sprint 17 behaviour preserved).
 
-Paprika-style inline tappable times in step text + sticky timer bar at top of RecipeScreen. Mockup: `docs/strategy/2026-05-11-cooking-timer-mockup.html`. Android-only for v1 (in-foreground delivery); backgrounded local notifications + wakelock deferred to follow-ups.
+### B. Settings tree (Sprint 16.1)
 
-- [ ] **Open any saved/generated recipe with cookable times** in the method (e.g. "Bake for 25 minutes"). Verify the time text "25 minutes" renders as a small terracotta pill inside the step prose. Steps without parseable times render as plain prose unchanged.
-- [ ] **Tap an inline time pill** → bottom-sheet picker opens with the matched duration pre-selected (e.g. "25 min"). Tap "Start 25-minute timer" → sheet dismisses, sticky terracotta timer bar appears at top of body.
-- [ ] **Timer counts down visibly** at 1-second cadence. mm:ss format under 1 hour, h:mm:ss at or over 1 hour.
-- [ ] **Tap the running chip** → pauses (chip turns mocha-grey, dot disappears, countdown freezes).
-- [ ] **Tap the paused chip** → resumes from the frozen remaining time (not a fresh start of the planned duration).
-- [ ] **Long-press a chip** → confirm dialog ("Cancel timer?"). Tap "Cancel timer" → chip disappears. Tap "Keep" → chip stays.
-- [ ] **Multi-timer**: start two timers (different steps) → both chips visible in the timer bar.
-- [ ] **Max-concurrent cap**: start 5 timers → trying to start a 6th surfaces snackbar "You have the maximum number of timers running."
-- [ ] **Expiry while app is foreground**: timer hits zero → haptic buzz, system alert sound, snackbar "Step N timer done" with OK button. Tap OK → chip removed.
-- [ ] **Expiry while app is backgrounded** (deferred): currently does NOTHING in v1 — Dart timers pause when the app is suspended. flutter_local_notifications is a follow-up. Verify this is the actual behaviour so we know what to ship next.
-- [ ] **Custom duration**: tap the "custom…" chip in the picker → Material time picker opens (24h mode) → pick a non-standard duration (e.g. 12 min) → returns to picker with "custom…" chip selected. Tap Start.
-- [ ] **Decimal / range edge cases**: a step containing "1.5 hours" should NOT render as a time pill (parser rejects decimals). A step containing "5-10 minutes" should NOT render as a time pill (parser rejects ranges).
-- [ ] **No regressions**: existing RecipeScreen functionality (servings adjust, ingredient swap, side dish gen, hands-free mode, share, bookmark, generate-another, feedback) all still work.
-
-### Sprint 16.6 quick wins — `sprint/16.6-quick-wins` at `4ba90a2`
-
-Off `sprint/16`, decoupled from 16.1 test path. Visual / model-cleanup only — safe to test alongside 16.1.
-
-- [ ] **Perishable chip background + border colour** on Pantry tab. Items with expiry in the past or today should show tinted-red bg + saturated red border. Items 1–6 days out should show tinted-orange bg + terracotta border. Items 7+ days out should show tinted-green bg + green border. Items with no expiry (staples / almost-always-have) should keep the cream bg + rule border as before.
-- [ ] **Existing leading dot still rendered** on perishable chips (8×8 px circle, saturated dot colour). Should look like a small belt-and-braces signal alongside the background tint.
-- [ ] **Pantry Builder + Add flows unchanged** — adding an item via the per-tier `+ Add` chip, the builder sheet, and onboarding should all still work. (No code change to those paths, but `PantryMemoryEntry.isCustom` was dropped — sanity check that custom items still appear in the builder.)
-
-### Sprint 16.1.x Auth UX fix — `sprint/16.1-settings-redesign` at `8fbc553`
-
-Local-only commit on top of Sprint 16.1 settings redesign. Awaiting weekend test protocol pass (`docs/strategy/2026-05-07-weekend-test-protocol.html`).
-
-- [ ] **Guest user sees Sign In tile** at the top of AccountScreen → Account section. Tile is hidden when signed in.
-- [ ] **Tap Sign In** → pushes EmailLoginScreen → on successful login, lands on AppShell signed in (Pro features unlocked if user is a dev / Pro tester).
-- [ ] **Sign Out from signed-in state** → confirm dialog → user lands on AppShell **as a guest, still post-onboarding** (no 15-screen replay). Sign In tile visible again on AccountScreen.
-- [ ] **Restart Onboarding tile** appears under About section. Tap → confirm dialog ("This signs you out and walks you through setup again...") → walks through onboarding from screen 1.
-- [ ] **Delete Account flow unchanged** — Sprint 17 deletion still wipes onboardingComplete (intentional — account is gone). Verify the existing delete flow still works end-to-end with re-auth dialog.
-- [ ] **Restore Purchases + Manage Subscription tiles** still visible to both guest and signed-in users (no Firebase auth needed for either).
-
-### Sprint 16.1 Settings redesign — `sprint/16.1-settings-redesign` through `55a144f`
-
-The 4-section Settings tree + unified dietary plumbing. Weekend test protocol covers the bulk of this.
-
-- [ ] **4-section tree renders** — Household, Preferences, Account, About — with the expected tiles in each.
-- [ ] **Inline segmented controls** — Measurement Units (Metric ↔ Imperial) and Region (US ↔ UK) toggle and persist. Switching units propagates to recipe display across the app.
+- [ ] **4-section tree renders:** Household, Preferences, Account, About — expected tiles in each.
+- [ ] **Inline Measurement Units segmented control** (Metric ↔ Imperial) toggles, persists, and propagates to recipe display.
+- [ ] **Inline Region segmented control** (US ↔ UK) toggles, persists.
 - [ ] **Saver Mode default switch** persists across app restart.
-- [ ] **Dietary screen save** — change a dietary toggle → the recipe-generation prompt picks it up on the very next generation (no need to kill the app). Verify the position-1 allergen preamble reflects the change.
-- [ ] **Manage Subscription** snackbar — correct copy pointing to Play / App Store.
-- [ ] **Restore Purchases** — non-RC build shows the no-op snackbar; RC build pulls down entitlements.
-- [ ] **Privacy Policy + Terms of Service** open in-app via LegalDocScreen (markdown render).
-- [ ] **Export My Data** — guest sees "Sign in to export" snackbar; signed-in user gets a DataExportService share sheet.
-- [ ] **Send Feedback** dialog shows support email + tap-to-copy works.
+- [ ] **Manage Subscription** tile → correct snackbar pointing to Play / App Store.
+- [ ] **Privacy Policy** + **Terms of Service** open in-app via `LegalDocScreen` (markdown render).
+- [ ] **Export My Data** — guest sees "Sign in to export" snackbar; signed-in user gets DataExportService share sheet.
+- [ ] **Send Feedback** dialog — support email shown, tap-to-copy works.
 - [ ] **App Version row** shows the build's semver.
-- [ ] **Allergen / dietary safety hardening** (the eight commits on sprint/16): verify allergens stamped on recipe.dietaryTags, post-gen allergen filter, position-1 preamble — covered separately by `docs/strategy/2026-05-06-allergen-testing-procedure.html`.
+
+### C. Dietary + allergen safety (retests on the new APK)
+
+Most of these were originally failing on the pre-merge APK. Four merged commits target them: `f8ce971` (unify dietary plumbing), `7f322ab` (force-refresh singleton at every generation entry point), `7c5b33f` (canonicalise tokens), `616eb35` (verify-after-save read-back). Should now pass.
+
+- [ ] **Dietary change reflects in the very next generation.** Open AccountScreen → Dietary → toggle a new allergen on (e.g., Peanut-free) → back → generate a new recipe. The position-1 allergen preamble in the prompt must include the new constraint immediately. **No need to kill the app**.
+- [ ] **Allergens stamped on recipe.dietaryTags.** Generated recipe's data should include the allergen tag (e.g., "Peanut-free"). Backed by commit `a5570b6`.
+- [ ] **Allergen pill displayed on the recipe.** Currently the stat-badge area only shows `r.dietaryTags.first` — if peanut-free isn't the first tag, it won't appear. **If the pill is missing, this is a UI fix on top.** Flag what you see.
+- [ ] **Position-1 allergen preamble** in the Gemini prompt — already covered by `docs/strategy/2026-05-06-allergen-testing-procedure.html`. Run that protocol separately and tick this when it passes.
+
+### D. Household members
+
+- [ ] **Add a household member** via Settings → Household → Add member. Member appears immediately in the list (no need to sign out and back in).
+- [ ] **Remove a household member** via the same flow. Member disappears immediately.
+- [ ] **Member edits** (name + dietary) save and reflect immediately.
+- [ ] **Free-tier user** tapping Add member sees the Pro paywall.
+
+> Originally reported on the pre-merge APK. The dietary-plumbing rewrite may have either fixed or accidentally regressed this surface. Retest from scratch.
+
+### E. Pantry tab
+
+- [ ] **Hundreds of duplicates from legacy data** → **long-press "what did you pick up?"** page title → snackbar reports "Cleaned up N duplicates" with N > 0 (was zero on the old APK — bug fixed in commit `b7e1820`). Duplicates disappear from the list.
+- [ ] **Perishable chip urgency colours:** items with expiry in the past or today show **tinted-red background + saturated red border + red dot**. Items 1–6 days out show **tinted-orange background + terracotta border + orange dot**. Items 7+ days out show **tinted-green background + green border + green dot**. Items with no expiry keep cream background + rule border + no dot.
+- [ ] **Existing 8×8 leading dot still renders** on perishable chips alongside the new background (belt-and-braces signal for colour-blind accessibility).
+- [ ] **Pantry Builder + Add chip** per-tier still works. Custom items persist across reopens.
+- [ ] **Per-tier + Add chip** (the "+" pill leading each tier section) still works (Sprint 16.4 affordance).
+
+### F. Recipe screen — cooking timers (Sprint 16.6)
+
+- [ ] **Open any saved/generated recipe with cookable times** (e.g. "Bake for 25 minutes"). The time text inside the step prose renders as a small terracotta pill. Steps without parseable times render plain — no layout break.
+- [ ] **Tap an inline time pill** → bottom-sheet picker opens with the matched duration pre-selected.
+- [ ] **Tap "Start 25-minute timer"** → sheet dismisses, sticky terracotta timer bar appears at top of body.
+- [ ] **Timer counts down VISIBLY at 1-second cadence** — chip text updates each second (mm:ss format). This was broken on the previous APK; fixed in `b7e1820`.
+- [ ] **Tap the running chip** → pauses (chip turns mocha-grey, dot disappears, countdown freezes).
+- [ ] **Tap the paused chip** → resumes from the frozen remaining time (not a fresh start).
+- [ ] **Long-press a chip** → confirm dialog → "Cancel timer" removes chip; "Keep" leaves it running.
+- [ ] **Multi-timer:** start two timers on different steps → both visible at the top.
+- [ ] **Max-concurrent cap:** start 5 timers → trying a 6th → snackbar "You have the maximum number of timers running."
+- [ ] **Expiry alert (foreground):** timer hits zero → haptic buzz, TTS speaks "Step N timer done", snackbar appears with OK button → OK removes chip.
+- [ ] **Custom duration:** tap "custom…" chip → Material time picker (24h mode) → pick a non-standard duration → returns to picker → Start works.
+- [ ] **Range "2–3 minutes" is deliberately skipped** — no pill rendered for ambiguous ranges. By design (not a bug).
+- [ ] **No regressions:** servings adjust, ingredient swap, side dish gen, hands-free voice, share, bookmark, generate-another, feedback bar — all still work.
+
+### G. Wakelock while cooking timers active
+
+- [ ] **Screen stays on while a timer is active.** Start a timer → leave phone untouched past your auto-lock threshold → screen does NOT lock.
+- [ ] **Cancel last timer** → wait past auto-lock → screen locks normally.
+- [ ] **Navigate away from RecipeScreen** while a timer is running → wait past auto-lock → screen locks (wakelock dropped on screen leave).
+
+### H. Shopping list
+
+- [ ] **"N items added" snackbar dismisses cleanly.** Add ingredients from a recipe → toast appears → it should dismiss when its duration elapses AND on tapping View AND when you navigate to a different screen. (Originally persisted across screens on the pre-merge APK — fixed by commit `c24ae94`.)
+- [ ] **Aisle grouping** of items still works.
+- [ ] **Share** button still works.
+- [ ] **Restock** button still works.
+
+### I. Scanner
+
+- [ ] **Receipt scanning** with a real grocery receipt — items extracted correctly with appropriate tier guesses.
+- [ ] **Tax-form / non-receipt scan** → returns "no food items found" copy. Currently terse — flag if the copy needs softening to "this doesn't look like a grocery receipt".
+- [ ] **Barcode scanning** of a food product → metadata pulled from Open Food Facts.
 
 ---
 
-## Recently signed off
+## Feature requests (post-test cleanup)
 
-(empty — first version of this doc)
+Things Rob asked for that aren't regressions — track separately so the bug list stays a bug list.
+
+- [ ] **Small X to delete pantry items.** Re-add an explicit small X icon on each pantry chip so deletion is a one-tap-on-a-small-target action rather than long-press → SimpleDialog → Remove. Different from the Sprint 16.4 single-tap-removed pattern (which deleted the whole chip on a stray tap on the chip body); a small X is its own hit-target and doesn't conflict with long-press or chip-area gestures.
 
 ---
 
-## Active branches at a glance
+## Signed off
 
-| Branch | Tip | Status |
-|---|---|---|
-| `main` | Sprint 16 rebrand merged + tagged `v0.16.0-rebrand` | stable; not currently touched |
-| `sprint/16` (origin) | `4628719` — safety/dietary audit + sprint 16.4 polish + 15.9.x dedup + 15.9.2 warmup | stable base for new sprint branches |
-| `sprint/16.1-settings-redesign` | `8fbc553` local (Auth UX fix) on top of `55a144f` origin (settings tree + dietary plumbing) + `d5d9cc9` local (16.7a household sharing spec docs) | awaiting weekend on-device test |
-| `sprint/16.6-quick-wins` | `4ba90a2` local | awaiting on-device chip-colour verification |
+(empty — first build of the consolidated era)
 
 ---
 
 ## How to use this doc
 
-When you ship code-side work, add an entry under "Currently pending" with the branch + commit hash and the things to actually look at on-device. When you sit down with a device, work through the unchecked boxes top-to-bottom. Tick them as you go, jot notes inline for anything that's off, and move the whole entry to "Recently signed off" when every box is `[x]`.
+When you sit down with the device, work through "Currently pending" top-to-bottom. Tick boxes as you go. For any `[~]` (tested, issue found), jot the symptom inline below the line — that's what I work from to fix it. When a whole section is `[x]`, move it down to **Signed off** or delete.
 
-I (Claude) will keep this updated each time we ship something testable. You drive the device side; I keep the list honest.
+I (Claude) update this doc every time we ship something testable so it always represents what's on the current APK. The HTML mirror at `docs/strategy/2026-05-11-test-list.html` is the shareable / printable view of the same content — use whichever surface you prefer.
+
+---
+
+> **Footnote on data-on-install:** if `adb install` doesn't preserve app data between builds (e.g. signing-key mismatch from building on a different machine, or you manually uninstall first), `SharedPreferences.onboardingComplete` gets wiped and you'll be sent through onboarding on first open. The auth UX fix can't help with that — it only fixes the within-install case (signing out and signing back in). The proper fix for cross-install data persistence is a release keystore + consistent `--install` behaviour, which is Sprint 17 launch-readiness work.
