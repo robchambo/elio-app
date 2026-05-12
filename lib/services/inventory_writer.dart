@@ -241,6 +241,46 @@ class InventoryWriter {
     }
   }
 
+  /// Sprint 16.6.x — silent auto-dedup fired on PantryScreen open.
+  ///
+  /// The original migration only ran on `addItem` (gated by user-doc
+  /// flags), and the long-press recovery was hidden away on the page
+  /// title. Real users who never trigger an add — e.g. just opened the
+  /// app to view their existing pantry — never got their legacy
+  /// duplicates collapsed. This method is the user-visible safety net:
+  /// when the Pantry tab opens, fire `forceCollapseDuplicates` in the
+  /// background. Cost on a clean pantry is two reads + zero writes
+  /// (backfill commits a flag-set write when no rows need backfilling
+  /// — known tiny extra; see `migrateLegacyRows`).
+  ///
+  /// Session-cached: subsequent calls in the same app launch return
+  /// null without re-running. Reset via [resetAutoDedupCacheForTest].
+  ///
+  /// Returns:
+  ///   - `int` number of duplicate rows deleted (0 if pantry was clean)
+  ///   - `null` if already ran this session
+  ///   - throws on Firestore error (caller decides snackbar policy)
+  Future<int?> autoDedupOnce() async {
+    if (_autoDedupRanThisSession) return null;
+    _autoDedupRanThisSession = true;
+    try {
+      await _backfillLegacyRows();
+      return await _collapseDuplicates();
+    } catch (e, st) {
+      // Reset so a retry can re-fire if the failure was transient.
+      _autoDedupRanThisSession = false;
+      ErrorService.log('inventory_auto_dedup', e, st);
+      rethrow;
+    }
+  }
+
+  bool _autoDedupRanThisSession = false;
+
+  @visibleForTesting
+  void resetAutoDedupCacheForTest() {
+    _autoDedupRanThisSession = false;
+  }
+
   /// Sprint 16.6.x: extracted from [_runMigrationIfNeeded] so the
   /// public [forceCollapseDuplicates] path can call it before the
   /// collapse step. Backfills missing dedup keys + purchase

@@ -91,6 +91,36 @@ class _PantryScreenState extends State<PantryScreen> {
       return;
     }
     _subscribeInventory();
+    // Sprint 16.6.x: fire silent auto-dedup once per app session when
+    // the Pantry tab opens. Cleans legacy pre-15.9.1 duplicates that
+    // the gated-on-addItem migration never ran for users who just
+    // open the app to view their existing pantry. The hidden long-
+    // press recovery on the page title stays as a manual fallback.
+    _runAutoDedup();
+  }
+
+  /// Fire-and-forget auto-dedup. Quiet on a clean pantry; shows a
+  /// brief snackbar only when duplicates were actually merged so the
+  /// user knows the app tidied up.
+  Future<void> _runAutoDedup() async {
+    try {
+      final deleted = await InventoryWriter.instance.autoDedupOnce();
+      if (!mounted) return;
+      if (deleted == null || deleted == 0) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 4),
+          content: Text(
+            'Tidied up your pantry — merged $deleted duplicate '
+            'row${deleted == 1 ? '' : 's'}.',
+          ),
+        ),
+      );
+    } catch (_) {
+      // ErrorService already logged inside InventoryWriter — auto-
+      // dedup failure is a non-event for the user. The hidden long-
+      // press on the page title is the fallback.
+    }
   }
 
   @override

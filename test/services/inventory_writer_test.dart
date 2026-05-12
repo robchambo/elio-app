@@ -527,4 +527,66 @@ void main() {
       expect(storage.docs.keys, containsAll(['a', 'b']));
     });
   });
+
+  group('InventoryWriter.autoDedupOnce', () {
+    test(
+        'Sprint 16.6.x: merges legacy duplicates on first call '
+        '(same fix as forceCollapseDuplicates — runs backfill before collapse)',
+        () async {
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {
+          'inventoryDedupBackfilled': true,
+          'inventoryDuplicatesCollapsed': true,
+        }
+        ..docs = {
+          'leg1': {'name': 'Baking powder', 'tier': 'alwaysHave'},
+          'leg2': {'name': 'Baking powder', 'tier': 'alwaysHave'},
+          'leg3': {'name': 'Baking powder', 'tier': 'alwaysHave'},
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      final deleted = await writer.autoDedupOnce();
+      expect(deleted, 2);
+      expect(storage.docs.values, hasLength(1));
+    });
+
+    test('session-cached: second call returns null without re-running',
+        () async {
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {
+          'inventoryDedupBackfilled': true,
+          'inventoryDuplicatesCollapsed': true,
+        }
+        ..docs = {
+          'a': {'name': 'Salt', 'nameLower': 'salt', 'matchKey': 'salt'},
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      final first = await writer.autoDedupOnce();
+      expect(first, 0,
+          reason: 'first call runs and returns the cleaned count');
+      final second = await writer.autoDedupOnce();
+      expect(second, isNull,
+          reason:
+              'second call in the same session is a no-op (session-cached)');
+    });
+
+    test('resetAutoDedupCacheForTest re-enables firing', () async {
+      final storage = FakeInventoryWriteStorage()
+        ..userDoc = const {
+          'inventoryDedupBackfilled': true,
+          'inventoryDuplicatesCollapsed': true,
+        }
+        ..docs = {
+          'a': {'name': 'Salt', 'nameLower': 'salt', 'matchKey': 'salt'},
+        };
+      final writer = InventoryWriter.test(storage: storage);
+
+      await writer.autoDedupOnce();
+      writer.resetAutoDedupCacheForTest();
+      final third = await writer.autoDedupOnce();
+      expect(third, 0,
+          reason: 'after reset the next call runs again (returns count)');
+    });
+  });
 }
