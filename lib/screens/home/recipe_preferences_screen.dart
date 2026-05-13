@@ -823,6 +823,14 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
             color: ElioColors.mocha,
           ),
           border: InputBorder.none,
+          // 12 May 2026 — override the global inputDecorationTheme which
+          // sets `filled: true` + `fillColor: creamDeep`. Without this
+          // override the TextField draws its own creamDeep rectangle on
+          // top of the outer Container's cream fill, leaving a visible
+          // narrower darker box-within-a-box. Letting the outer Container
+          // drive the visual keeps width parity with the toggle tiles
+          // below (Rob 12 May screenshot).
+          filled: false,
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
         ),
