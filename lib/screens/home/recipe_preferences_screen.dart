@@ -580,7 +580,6 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     return Column(
       children: [
         _buildToggleTile(
-          icon: Icons.savings_outlined,
           title: 'Saver mode',
           subtitle: 'Budget-friendly recipes',
           value: _isSaverMode,
@@ -588,7 +587,6 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
         ),
         const SizedBox(height: ElioSpacing.sm),
         _buildToggleTile(
-          icon: Icons.kitchen_outlined,
           title: 'Bulk cook',
           subtitle: _bulkCookEnabled
               ? '$_bulkMeals meals × $_bulkPortions portions'
@@ -634,13 +632,17 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   }
 
   Widget _buildToggleTile({
-    required IconData icon,
     required String title,
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
     VoidCallback? trailingTap,
   }) {
+    // Sprint 16.6 (Notion XX bug 4): icons removed on the Saver + Bulk
+    // cook tiles — the title + subtitle alone read cleaner and give the
+    // subtitle more horizontal room so the "Freezer-friendly meals in
+    // one go" copy stays on one line on narrower devices. Subtitle
+    // clamped to `maxLines: 1 + ellipsis` as a belt-and-braces guard.
     final card = Container(
       padding: const EdgeInsets.all(ElioSpacing.md),
       decoration: BoxDecoration(
@@ -655,12 +657,6 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       ),
       child: Row(
         children: [
-          Icon(
-            icon,
-            color: value ? ElioColors.terracotta : ElioColors.espresso,
-            size: 22,
-          ),
-          const SizedBox(width: ElioSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -675,6 +671,8 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: ElioTextStyles.bodySmall.copyWith(
                     color: ElioColors.mocha,
                   ),
@@ -793,11 +791,19 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   // the chips layer on. Subtle by design — not amber, no eyebrow shouting,
   // just a friendly nudge that the user can describe what they want.
   Widget _buildCravingField() {
+    // Sprint 16.6 (Notion XX bug 5): visual width parity with the
+    // toggle tiles below. Previously had no border + 20px horizontal
+    // pad → the cream-on-cream rendering made it read as a different
+    // shape than the bordered toggle tiles, even though the underlying
+    // Container stretched the same. Added Border.all(rule) + switched
+    // internal padding to ElioSpacing.md so the outer edge + inner
+    // inset both align with `_buildToggleTile` and the chip rows below.
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.symmetric(horizontal: ElioSpacing.md),
       decoration: BoxDecoration(
         color: ElioColors.cream,
         borderRadius: BorderRadius.circular(ElioRadii.card),
+        border: Border.all(color: ElioColors.rule, width: 1),
       ),
       child: TextField(
         controller: _cravingController,
