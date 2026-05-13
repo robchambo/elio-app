@@ -82,6 +82,14 @@ class _PantryScreenState extends State<PantryScreen> {
   /// Which tier is currently expanded (single-open-at-a-time). `null` = all collapsed.
   String? _expandedTier;
 
+  /// Sprint 16.6 (Notion XX-2 B1, 13 May 2026): track the most-recent
+  /// snackbar from THIS screen so we can dismiss it in dispose() and
+  /// avoid orphan toasts leaking across tab navigation. Combined with
+  /// shorter durations (2s for the × Undo, 3s for auto-dedup +
+  /// running-low) this kills the "toast still persistent" report.
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>?
+      _activeSnackbar;
+
   @override
   void initState() {
     super.initState();
@@ -108,9 +116,11 @@ class _PantryScreenState extends State<PantryScreen> {
       final deleted = await InventoryWriter.instance.autoDedupOnce();
       if (!mounted) return;
       if (deleted == null || deleted == 0) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      _activeSnackbar = messenger.showSnackBar(
         SnackBar(
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 3),
           content: Text(
             'Tidied up your pantry — merged $deleted duplicate '
             'row${deleted == 1 ? '' : 's'}.',
@@ -127,6 +137,18 @@ class _PantryScreenState extends State<PantryScreen> {
   @override
   void dispose() {
     _invSub?.cancel();
+    // Notion XX-2 B1 (13 May 2026): kill any active pantry-tab
+    // snackbar on screen dispose so it can't leak past the screen's
+    // lifetime. Combined with shorter durations this prevents toasts
+    // lingering past a tab navigation in production builds.
+    //
+    // Try/catch: close() throws "Bad state: No element" when the
+    // snackbar queue is already drained (e.g. user tapped Undo or it
+    // auto-dismissed and the messenger has torn down). Close is
+    // best-effort — swallow.
+    try {
+      _activeSnackbar?.close();
+    } catch (_) {}
     super.dispose();
   }
 
@@ -418,9 +440,14 @@ class _PantryScreenState extends State<PantryScreen> {
 
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
+    // Notion XX-2 B1 (13 May 2026): duration reduced from 4s → 2s so
+    // the snackbar dismisses before the user can realistically switch
+    // tabs. Material's standard undo-snackbar pattern lands around 2s
+    // and Undo is still hittable. Controller saved so dispose() can
+    // force-close on screen lifecycle exit.
+    _activeSnackbar = messenger.showSnackBar(
       SnackBar(
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 2),
         content: Text(
           name.isEmpty ? 'Removed item.' : 'Removed $name.',
         ),
@@ -483,7 +510,10 @@ class _PantryScreenState extends State<PantryScreen> {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
+    // Notion XX-2 B1 (13 May 2026): controller saved so dispose() can
+    // close it on screen exit. Duration kept at 3s — short enough to
+    // not leak across tabs, long enough to read.
+    _activeSnackbar = messenger.showSnackBar(
       SnackBar(
         duration: const Duration(seconds: 3),
         content: Text(
