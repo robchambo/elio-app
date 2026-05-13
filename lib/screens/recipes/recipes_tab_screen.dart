@@ -1,23 +1,24 @@
 // lib/screens/recipes/recipes_tab_screen.dart
 //
-// Sprint 16 Phase 6 — standalone Recipe Book tab.
+// Sprint 16.7c — Saved / History tab split.
 //
-// Body-only (hosted inside ElioAppScaffold via AppShell). Replaces the legacy
-// Recipe Book tab that previously lived inside ProfileScreen. Structure
-// follows the V1 user flow + Sprint 16.3 polish (mirror the Pantry tab's
-// two-tile lead-in):
+// Replaces the single-column "two sequential sections" layout with a proper
+// TabBar + TabBarView. Saved is the default landing tab (per Rob 12 May
+// 2026 — "Saved being left and the default start point"); user can swipe
+// or tap to switch to History. Tab labels carry filtered counts so the
+// user can spot results in the inactive tab.
+//
+// Above the tabs, in fixed position so they apply to both tabs:
 //   • ElioHeroHeading — "your / recipes" with amber last line + underline
-//   • Two ElioBentoCards — Take photo / Paste a URL — mirroring the Pantry
-//     tab's Scan receipt / Scan barcode pair.
-//   • Search Everything field (filters title / description / ingredient / tag)
-//   • Pantry Availability switch — "Show only recipes I can cook now"
-//   • Saved section (eyebrow header) — bookmarked recipes
-//   • History section (eyebrow header) — all recent recipes
+//   • Two ElioBentoCards — Take photo / Manual entry — recipe import
+//   • Makeable-now switch — "Show only recipes I can cook now"
+//   • TabBar — Saved (N) | History (N)
 //
-// Recipes are local (HistoryService, SharedPreferences). The pantry side of
-// the makeable-now filter uses the user's Firestore inventory (+ always have /
-// almost always have fields on the user doc) with EXACT matching — fuzzy is
-// reserved for add-item dedup per CLAUDE.md.
+// Body-only (hosted inside ElioAppScaffold via AppShell). Recipes are local
+// (HistoryService, SharedPreferences). The pantry side of the makeable-now
+// filter uses the user's Firestore inventory (+ always-have / almost-always-
+// have fields on the user doc) with EXACT matching — fuzzy is reserved for
+// add-item dedup per CLAUDE.md.
 
 import 'dart:async';
 
@@ -31,7 +32,6 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_bento_card.dart';
-import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
 import '../profile/recipe_import_screen.dart';
 import '../recipe/recipe_screen.dart';
@@ -45,16 +45,25 @@ class RecipesTabScreen extends StatefulWidget {
   State<RecipesTabScreen> createState() => _RecipesTabScreenState();
 }
 
-class _RecipesTabScreenState extends State<RecipesTabScreen> {
+class _RecipesTabScreenState extends State<RecipesTabScreen>
+    with SingleTickerProviderStateMixin {
   List<SavedRecipe> _all = const [];
   Set<String> _pantryLower = const {};
   bool _makeableOnly = false;
   bool _loading = true;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -136,10 +145,6 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    // The makeable-now toggle was restored 2026-04-30 after a family
-    // tester missed it. Search field + category chip row stay removed
-    // (Sprint 16.4 Bug 6) — they were noise on a tab whose only purpose
-    // is to find a saved or recently generated recipe.
     bool passes(SavedRecipe r) => !_makeableOnly || _isMakeableNow(r);
 
     final saved = _all
@@ -149,12 +154,12 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
         .toList();
     final history = _all.where(passes).take(_kMaxPerSection).toList();
 
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.fromLTRB(
         ElioSpacing.screenEdge,
         ElioSpacing.lg,
         ElioSpacing.screenEdge,
-        ElioSpacing.xxl,
+        0,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,36 +197,68 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
           ),
           const SizedBox(height: ElioSpacing.xl),
 
-          // ── Makeable-now toggle ────────────────────────────────────
+          // ── Makeable-now toggle (above tabs so it filters both) ────
           _MakeableSwitch(
             value: _makeableOnly,
             onChanged: (v) => setState(() => _makeableOnly = v),
           ),
-          const SizedBox(height: ElioSpacing.lg),
+          const SizedBox(height: ElioSpacing.md),
 
-          // ── Saved ──────────────────────────────────────────────────
-          const ElioEyebrow('saved'),
-          const SizedBox(height: ElioSpacing.sm),
-          if (saved.isEmpty)
-            _emptyText(_makeableOnly
-                ? 'No saved recipes you can cook with your pantry right now.'
-                : "You haven't bookmarked any recipes yet.")
-          else
-            ...saved.map(_buildRecipeCard),
+          // ── Tab bar with filtered counts in labels ─────────────────
+          TabBar(
+            controller: _tabController,
+            labelColor: ElioColors.terracotta,
+            unselectedLabelColor: ElioColors.mocha,
+            indicatorColor: ElioColors.terracotta,
+            labelStyle: ElioTextStyles.tabLabelStyle,
+            unselectedLabelStyle: ElioTextStyles.tabLabelStyle,
+            tabs: [
+              Tab(text: 'Saved (${saved.length})'),
+              Tab(text: 'History (${history.length})'),
+            ],
+          ),
 
-          const SizedBox(height: ElioSpacing.lg),
-
-          // ── History ────────────────────────────────────────────────
-          const ElioEyebrow('history'),
-          const SizedBox(height: ElioSpacing.sm),
-          if (history.isEmpty)
-            _emptyText(_makeableOnly
-                ? 'No history recipes you can cook with your pantry right now.'
-                : 'Recipes you generate will appear here.')
-          else
-            ...history.map(_buildRecipeCard),
+          // ── Tab content (each tab has its own scroll view) ─────────
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildList(
+                  saved,
+                  emptyText: _makeableOnly
+                      ? 'No saved recipes you can cook with your pantry right now.'
+                      : "You haven't bookmarked any recipes yet.",
+                ),
+                _buildList(
+                  history,
+                  emptyText: _makeableOnly
+                      ? 'No history recipes you can cook with your pantry right now.'
+                      : 'Recipes you generate will appear here.',
+                ),
+              ],
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildList(List<SavedRecipe> recipes, {required String emptyText}) {
+    if (recipes.isEmpty) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: ElioSpacing.lg),
+        child: _emptyText(emptyText),
+      );
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(
+        0,
+        ElioSpacing.md,
+        0,
+        ElioSpacing.xxl,
+      ),
+      itemCount: recipes.length,
+      itemBuilder: (_, i) => _buildRecipeCard(recipes[i]),
     );
   }
 
@@ -270,7 +307,7 @@ class _RecipesTabScreenState extends State<RecipesTabScreen> {
                   await HistoryService.toggleBookmark(saved.savedAt);
                   if (!mounted) return;
                   // Reload history only (not pantry) so the icon reflects
-                  // the new bookmark state and the saved/history sections
+                  // the new bookmark state and the saved/history tabs
                   // re-partition.
                   final updated = await HistoryService.getHistory();
                   if (!mounted) return;
@@ -342,4 +379,3 @@ class _MakeableSwitch extends StatelessWidget {
     );
   }
 }
-
