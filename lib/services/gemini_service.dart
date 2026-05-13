@@ -526,14 +526,17 @@ class GeminiService {
             if (parts == null) continue;
 
             for (final part in parts) {
-              // Sprint 16.6 — mirror the thought-part filter used by
-              // substitution (~L1389), URL import (~L1517), and side
-              // dish (~L1631). With thinkingConfig.thinkingBudget = 0
-              // this is a no-op today, but hardens against config drift
-              // and any future API behaviour change that emits thoughts
-              // by default. Without it, a stray thought part would
-              // concatenate into the JSON buffer and break extraction.
-              if (part is Map && part['thought'] == true) continue;
+              // Sprint 16.6 — REVERTED 12 May 2026. The thought-part
+              // filter added in 43b34ac coincided with nutrition + cost
+              // fields disappearing from generated recipes (Rob 12 May
+              // on-device). Theory: filter was correct in principle but
+              // under current API behaviour it dropped legitimate
+              // content parts, causing _extractJson to truncation-repair
+              // the JSON and lose tail fields (nutrition / cost).
+              // Reverted to the pre-43b34ac shape pending diagnosis.
+              // Substitution / URL import / side dish keep their own
+              // filters (they use a different parts-aggregation shape
+              // and were working before this change).
               final text = part['text'] as String?;
               if (text != null) buffer.write(text);
             }
