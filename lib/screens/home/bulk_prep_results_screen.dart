@@ -218,13 +218,34 @@ class _BulkPrepResultsScreenState extends State<BulkPrepResultsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          content: Text(_friendlyError(e)),
           backgroundColor: ElioColors.espresso,
         ),
       );
     } finally {
       if (mounted) setState(() => _regenerating.remove(index));
     }
+  }
+
+  /// Notion XX-2 B5 (13 May 2026): Map raw exception text to a clean
+  /// user-facing message. Most non-fatal regen failures are network-
+  /// shaped (offline, DNS resolution, host unreachable) — surface them
+  /// as a friendly "you're offline" rather than `SocketException: Failed
+  /// host lookup ...`. All other shapes fall back to the trimmed
+  /// exception text, which usually reads OK because GeminiService
+  /// raises Exception('readable message') deliberately.
+  String _friendlyError(Object e) {
+    final raw = e.toString().toLowerCase();
+    final isOffline = raw.contains('socketexception') ||
+        raw.contains('failed host lookup') ||
+        raw.contains('no address associated with hostname') ||
+        raw.contains('network is unreachable') ||
+        raw.contains('connection refused') ||
+        raw.contains('connection failed');
+    if (isOffline) {
+      return "You're offline. Reconnect and try the refresh again.";
+    }
+    return e.toString().replaceFirst('Exception: ', '');
   }
 
   Widget _buildBottomBar() {
@@ -308,28 +329,107 @@ class _RecipeCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 10),
-              Text(recipe.title, style: ElioText.headingMedium),
-              if (recipe.description.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  recipe.description,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: ElioText.bodyMedium.copyWith(
-                    color: ElioColors.mocha,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              _buildMetaRow(),
-              if (bulkPrepInfo != null &&
-                  bulkPrepInfo!.storageLife.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                _buildStorageRow(),
-              ],
+              // Notion XX-2 B4 (Rob 13 May 2026): during regen, swap
+              // the title/description/meta block for skeleton blocks +
+              // a tiny "Re-rolling…" label. Previously only the 32×32
+              // refresh button changed (spinner), which Rob reported
+              // as "looks like nothing's working". The card body
+              // skeleton makes the whole card visibly active.
+              if (isRegenerating) ..._regeneratingBody() else ..._normalBody(),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Recipe content as normally rendered (title / description / meta / storage).
+  List<Widget> _normalBody() => [
+        Text(recipe.title, style: ElioText.headingMedium),
+        if (recipe.description.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            recipe.description,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: ElioText.bodyMedium.copyWith(
+              color: ElioColors.mocha,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
+        _buildMetaRow(),
+        if (bulkPrepInfo != null && bulkPrepInfo!.storageLife.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _buildStorageRow(),
+        ],
+      ];
+
+  /// Skeleton placeholders while [isRegenerating] is true. Matches the
+  /// shape of [_normalBody] so the card height doesn't jump when the
+  /// real recipe lands.
+  List<Widget> _regeneratingBody() => [
+        Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                color: ElioColors.terracotta,
+                strokeWidth: 2,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Re-rolling this meal…',
+              style: ElioText.label.copyWith(
+                color: ElioColors.mocha,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Title placeholder
+        _skeletonBar(height: 22, widthFraction: 0.7),
+        const SizedBox(height: 8),
+        // Description placeholders (two lines)
+        _skeletonBar(height: 14, widthFraction: 1.0),
+        const SizedBox(height: 6),
+        _skeletonBar(height: 14, widthFraction: 0.6),
+        const SizedBox(height: 14),
+        // Meta-chip placeholders
+        Row(
+          children: [
+            _skeletonChip(width: 76),
+            const SizedBox(width: 8),
+            _skeletonChip(width: 80),
+            const SizedBox(width: 8),
+            _skeletonChip(width: 92),
+          ],
+        ),
+      ];
+
+  Widget _skeletonBar({required double height, required double widthFraction}) {
+    return LayoutBuilder(
+      builder: (context, constraints) => Container(
+        height: height,
+        width: constraints.maxWidth * widthFraction,
+        decoration: BoxDecoration(
+          color: ElioColors.rule.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(6),
+        ),
+      ),
+    );
+  }
+
+  Widget _skeletonChip({required double width}) {
+    return Container(
+      height: 24,
+      width: width,
+      decoration: BoxDecoration(
+        color: ElioColors.rule.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
       ),
     );
   }
