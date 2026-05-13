@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:elio_app/models/elio_models.dart';
 import 'package:elio_app/models/onboarding_state.dart';
+import 'package:elio_app/models/recipe_models.dart';
 import 'package:elio_app/services/gemini_service.dart';
 
 // ─────────────────────────────────────────────
@@ -129,6 +130,94 @@ void main() {
       expect(rules.toLowerCase(), contains('oil'));
       // And tells Gemini NOT to list them as ingredients.
       expect(rules.toLowerCase(), contains('do not list'));
+    });
+  });
+
+  // Sprint 16.6 row 5b — meal-type hard constraint. When the user picks a
+  // chip on RecipePreferencesScreen, the request carries `mealType` and
+  // the prompt must emit a hard MUST line. When null, no line at all
+  // (option A — trust Gemini's priors, no positive example anchors).
+  group('mealType hard constraint (Sprint 16.6 row 5b)', () {
+    const RecipeGenerationRequest baseRequest = RecipeGenerationRequest(
+      perishables: [],
+      alwaysHave: [],
+      almostAlwaysHave: [],
+      dietaryRequirements: [],
+    );
+
+    test('omits the meal-type line when mealType is null', () {
+      final prompt = GeminiService.buildPromptForTest(baseRequest);
+      expect(prompt.toLowerCase(), isNot(contains('breakfast recipe')));
+      expect(prompt.toLowerCase(), isNot(contains('lunch recipe')));
+      expect(prompt.toLowerCase(), isNot(contains('dinner recipe')));
+    });
+
+    test('emits the hard constraint for Breakfast', () {
+      final prompt = GeminiService.buildPromptForTest(
+        const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+          mealType: 'Breakfast',
+        ),
+      );
+      expect(prompt, contains('You MUST make a Breakfast recipe'));
+      expect(prompt, contains('hard requirement'));
+      // Lives inside HARD CONSTRAINTS block, not buried after.
+      final hardIdx = prompt.indexOf('## HARD CONSTRAINTS');
+      final mealIdx = prompt.indexOf('Breakfast recipe');
+      expect(hardIdx, greaterThan(-1));
+      expect(mealIdx, greaterThan(hardIdx));
+    });
+
+    test('emits the hard constraint for Lunch', () {
+      final prompt = GeminiService.buildPromptForTest(
+        const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+          mealType: 'Lunch',
+        ),
+      );
+      expect(prompt, contains('You MUST make a Lunch recipe'));
+    });
+
+    test('emits the hard constraint for Dinner', () {
+      final prompt = GeminiService.buildPromptForTest(
+        const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+          mealType: 'Dinner',
+        ),
+      );
+      expect(prompt, contains('You MUST make a Dinner recipe'));
+    });
+
+    test('no positive example list (no anchoring on specific dishes)', () {
+      // Deliberate: we do NOT list "eggs / toast / oatmeal" etc. The
+      // concern is anchoring — concrete examples bias Gemini toward those
+      // exact items and narrow regional/cultural breadth. Bare assertion
+      // only. If on-device shows drift later, add negative constraints
+      // surgically — never positive example lists. Regression guard.
+      final prompt = GeminiService.buildPromptForTest(
+        const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+          mealType: 'Breakfast',
+        ),
+      );
+      // Common breakfast-example words that should NOT appear in the
+      // prompt as part of the mealType guidance.
+      for (final word in const ['oatmeal', 'pancakes', 'granola', 'smoothie']) {
+        expect(prompt.toLowerCase(), isNot(contains(word)),
+            reason: 'mealType prompt must not list "$word" — anchors output.');
+      }
     });
   });
 }

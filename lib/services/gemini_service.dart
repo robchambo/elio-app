@@ -357,6 +357,14 @@ class GeminiService {
         recentTitles: recentTitles,
       ));
 
+  /// Visible-for-testing hook for direct prompt assertions on a fully-
+  /// constructed [RecipeGenerationRequest]. Used by Sprint 16.6 row 5b
+  /// tests to verify the meal-type hard constraint line is emitted
+  /// (and omitted when [mealType] is null).
+  @visibleForTesting
+  static String buildPromptForTest(RecipeGenerationRequest request) =>
+      _buildPrompt(request);
+
   /// Public streaming entry point — wraps [_streamAttemptOnce] in a
   /// retry loop so transient failures (5xx, network blip, truncated SSE
   /// stream, JSON parse failure) are retried silently before the user
@@ -913,6 +921,16 @@ class GeminiService {
     // Style as a hard constraint (unless "Surprise me")
     if (request.stylePreference != null && request.stylePreference != 'Surprise me') {
       buffer.writeln('You MUST make a ${request.stylePreference} recipe. This is a hard requirement — the recipe\'s cuisine/style must clearly be ${request.stylePreference}.');
+    }
+
+    // Sprint 16.6 row 5b — meal-type hard constraint. Bare assertion, no
+    // example list: positive examples ("eggs, toast, oatmeal") anchor the
+    // output and narrow regional/cultural breadth. Gemini-2.5-flash has
+    // strong priors on what breakfast/lunch/dinner means; we just invoke
+    // them. Add negative constraints surgically later if device-test
+    // shows drift (e.g. dinner returning where breakfast was asked).
+    if (request.mealType != null) {
+      buffer.writeln('You MUST make a ${request.mealType} recipe. This is a hard requirement — the recipe must clearly fit a ${request.mealType!.toLowerCase()} meal occasion.');
     }
 
     // ── Leftover mode: completely different framing ──────────────────

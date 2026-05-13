@@ -324,6 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
       timePreference: prefs.time,
       stylePreference: prefs.style,
       moodPreference: prefs.mood,
+      mealType: prefs.mealType,
       servings: 2,
       recentTitles: List.from(_recentTitles),
       runningLowItems: List.from(_runningLowItems),

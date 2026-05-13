@@ -17,6 +17,13 @@ class RecipePreferences {
   final String? style;
   final String? mood;
 
+  /// Sprint 16.6 row 5b — meal-type hard constraint. One of 'Breakfast',
+  /// 'Lunch', 'Dinner', or null. Null = no preference (user didn't pick a
+  /// chip — most generations). When set, becomes a hard constraint on the
+  /// recipe shape in the prompt. Selecting a chip while another is already
+  /// selected replaces it (single-select, mutually exclusive).
+  final String? mealType;
+
   /// Budget-friendly mode. When true, Gemini biases toward cheaper
   /// ingredients and shows estimated cost per serving.
   final bool isSaverMode;
@@ -42,6 +49,7 @@ class RecipePreferences {
     this.time,
     this.style,
     this.mood,
+    this.mealType,
     this.isSaverMode = false,
     this.isLeftoverMode = false,
     this.leftoverItems = const [],
@@ -53,6 +61,7 @@ class RecipePreferences {
     : time = null,
       style = null,
       mood = null,
+      mealType = null,
       isSaverMode = false,
       isLeftoverMode = false,
       leftoverItems = const [],

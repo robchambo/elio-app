@@ -28,6 +28,14 @@ class RecipeGenerationRequest {
   /// Mood chip selection (soft preference)
   final String? moodPreference; // e.g. "Something hearty", "Light bite"
 
+  /// Sprint 16.6 row 5b — meal-type hard constraint. One of 'Breakfast',
+  /// 'Lunch', 'Dinner', or null. Null = no preference. When set, emits a
+  /// hard constraint line under `## HARD CONSTRAINTS` in the prompt so
+  /// the recipe shape (breakfast vs lunch vs dinner) is locked. No
+  /// example list — Gemini's training priors handle the meal-shape
+  /// concept; positive example anchors would bias output.
+  final String? mealType;
+
   /// Number of servings to generate for
   final int servings;
 
@@ -84,6 +92,7 @@ class RecipeGenerationRequest {
     this.timePreference,
     this.stylePreference,
     this.moodPreference,
+    this.mealType,
     this.servings = 2,
     this.excludedIngredients = const [],
     this.recentTitles = const [],

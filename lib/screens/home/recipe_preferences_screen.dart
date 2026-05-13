@@ -161,6 +161,13 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   String _style = 'Any';
   String _mood = 'Any';
 
+  /// Sprint 16.6 row 5b — meal-type single-select. Null = none picked
+  /// (the default — most generations). Tapping a chip toggles selection;
+  /// tapping a different chip replaces (mutual exclusivity). Flows
+  /// through to [RecipeGenerationRequest.mealType] as a hard constraint
+  /// in the prompt. No "Any" sentinel — null is the no-preference state.
+  String? _mealType;
+
   // Sprint 16.3 — Saver + Bulk cook live as the top-of-screen toggle row
   // (above the chip sections). Bulk cook is Pro-gated and opens a slider
   // dialog (meals 1-3, portions 4-12) on enable; tapping the right side
@@ -243,6 +250,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       time: _time == 'Any' ? null : _time,
       style: _style == 'Any' ? null : _style,
       mood: _mood == 'Any' ? null : _mood,
+      mealType: _mealType,
       isSaverMode: _isSaverMode,
       // Legacy leftover-mode flag retained on the value object for callers
       // that still consume it; the new picker drives [useUpItems] directly.
@@ -442,6 +450,40 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   }
 
   // ── UI ───────────────────────────────────────────────────────────
+
+  /// Sprint 16.6 row 5b — meal-type row. Single-select toggle: tapping
+  /// an unselected chip selects it (and replaces any other selection);
+  /// tapping the selected chip clears it back to null. Distinct from
+  /// [_section]: no "Any" sentinel, null is the default no-preference
+  /// state, mutual exclusivity is enforced by simple assignment.
+  Widget _mealTypeRow() {
+    const options = <String>['Breakfast', 'Lunch', 'Dinner'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ElioEyebrow('meal'),
+        const SizedBox(height: ElioSpacing.md),
+        Wrap(
+          spacing: ElioSpacing.sm,
+          runSpacing: ElioSpacing.sm,
+          children: [
+            for (final opt in options)
+              ElioChip(
+                label: opt,
+                selected: _mealType == opt,
+                onTap: () => setState(() {
+                  // Tap selected chip → deselect (null). Tap other →
+                  // select it (replaces previous selection, so mutual
+                  // exclusivity is automatic).
+                  _mealType = _mealType == opt ? null : opt;
+                }),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _section({
     required String eyebrow,
     required List<String> options,
@@ -881,6 +923,8 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           _buildCravingField(),
           const SizedBox(height: ElioSpacing.xl),
           _buildTopToggles(),
+          const SizedBox(height: ElioSpacing.xl),
+          _mealTypeRow(),
           const SizedBox(height: ElioSpacing.xl),
           _section(
             eyebrow: 'time',

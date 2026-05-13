@@ -16,6 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:elio_app/models/recipe_models.dart';
 import 'package:elio_app/models/recipe_preferences.dart';
 import 'package:elio_app/screens/home/recipe_preferences_screen.dart';
+import 'package:elio_app/widgets/elio/elio_chip.dart';
 
 // Sprint 16.1: BuildRequestFn became async to allow HomeScreen's
 // _buildRequest to refresh UserSettingsService before returning. The
@@ -161,5 +162,156 @@ void main() {
     // Dialog title + slider helper labels.
     expect(find.text('Meals: 2'), findsOneWidget);
     expect(find.text('Portions per meal: 6'), findsOneWidget);
+  });
+
+  // Sprint 16.6 row 5b — meal-type row above Time, below Bulk cook.
+  // Three chips, none selected by default. Single-select with mutual
+  // exclusivity (selecting Dinner deselects Breakfast). Tap-to-deselect
+  // (tapping the selected chip clears it to null — no "Any" sentinel).
+  group('meal-type row', () {
+    ElioChip chipForLabel(WidgetTester tester, String label) {
+      // Each label appears exactly once on the page (we don't reuse
+      // 'Breakfast' anywhere else as a chip).
+      return tester.widget<ElioChip>(
+        find.widgetWithText(ElioChip, label),
+      );
+    }
+
+    testWidgets('renders Breakfast / Lunch / Dinner with none selected',
+        (tester) async {
+      await tester.pumpWidget(_harness());
+      await tester.pump();
+
+      // Eyebrow label (ElioEyebrow uppercases the source).
+      expect(find.text('MEAL'), findsOneWidget);
+
+      // All three chips render and none are selected.
+      for (final label in const ['Breakfast', 'Lunch', 'Dinner']) {
+        expect(find.widgetWithText(ElioChip, label), findsOneWidget,
+            reason: '$label chip should render in the meal row.');
+        expect(chipForLabel(tester, label).selected, isFalse,
+            reason: '$label chip must default to unselected.');
+      }
+    });
+
+    testWidgets('tapping a chip selects it (others stay unselected)',
+        (tester) async {
+      await tester.pumpWidget(_harness());
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(ElioChip, 'Breakfast'));
+      await tester.pumpAndSettle();
+
+      expect(chipForLabel(tester, 'Breakfast').selected, isTrue);
+      expect(chipForLabel(tester, 'Lunch').selected, isFalse);
+      expect(chipForLabel(tester, 'Dinner').selected, isFalse);
+    });
+
+    testWidgets(
+        'mutual exclusivity — selecting Dinner deselects Breakfast',
+        (tester) async {
+      await tester.pumpWidget(_harness());
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(ElioChip, 'Breakfast'));
+      await tester.pumpAndSettle();
+      expect(chipForLabel(tester, 'Breakfast').selected, isTrue);
+
+      await tester.tap(find.widgetWithText(ElioChip, 'Dinner'));
+      await tester.pumpAndSettle();
+
+      expect(chipForLabel(tester, 'Dinner').selected, isTrue);
+      expect(chipForLabel(tester, 'Breakfast').selected, isFalse,
+          reason: 'Picking Dinner must clear Breakfast (single-select).');
+      expect(chipForLabel(tester, 'Lunch').selected, isFalse);
+    });
+
+    testWidgets('tapping the selected chip clears it back to null',
+        (tester) async {
+      await tester.pumpWidget(_harness());
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(ElioChip, 'Lunch'));
+      await tester.pumpAndSettle();
+      expect(chipForLabel(tester, 'Lunch').selected, isTrue);
+
+      // Tap again → deselect (no "Any" sentinel — null is the state).
+      await tester.tap(find.widgetWithText(ElioChip, 'Lunch'));
+      await tester.pumpAndSettle();
+
+      expect(chipForLabel(tester, 'Lunch').selected, isFalse);
+      expect(chipForLabel(tester, 'Breakfast').selected, isFalse);
+      expect(chipForLabel(tester, 'Dinner').selected, isFalse);
+    });
+
+    testWidgets('selected meal flows into the RecipePreferences object',
+        (tester) async {
+      RecipePreferences? captured;
+      Future<RecipeGenerationRequest> capturingBuild(
+          RecipePreferences p) async {
+        captured = p;
+        return const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+        );
+      }
+
+      final ctrl = StreamController<RecipeGenerationStatus>();
+      addTearDown(ctrl.close);
+
+      await tester.pumpWidget(MaterialApp(
+        home: RecipePreferencesScreen(
+          buildRequest: capturingBuild,
+          onRecipeComplete: (_, __) {},
+          isGuest: true,
+          streamFactory: (_) => ctrl.stream,
+        ),
+      ));
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(ElioChip, 'Dinner'));
+      await tester.pumpAndSettle();
+      await _tapGenerate(tester);
+      await tester.pump();
+
+      expect(captured, isNotNull);
+      expect(captured!.mealType, 'Dinner');
+    });
+
+    testWidgets('unselected meal row leaves prefs.mealType null',
+        (tester) async {
+      RecipePreferences? captured;
+      Future<RecipeGenerationRequest> capturingBuild(
+          RecipePreferences p) async {
+        captured = p;
+        return const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+        );
+      }
+
+      final ctrl = StreamController<RecipeGenerationStatus>();
+      addTearDown(ctrl.close);
+
+      await tester.pumpWidget(MaterialApp(
+        home: RecipePreferencesScreen(
+          buildRequest: capturingBuild,
+          onRecipeComplete: (_, __) {},
+          isGuest: true,
+          streamFactory: (_) => ctrl.stream,
+        ),
+      ));
+      await tester.pump();
+
+      await _tapGenerate(tester);
+      await tester.pump();
+
+      expect(captured, isNotNull);
+      expect(captured!.mealType, isNull);
+    });
   });
 }
