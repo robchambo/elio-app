@@ -471,6 +471,12 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
               ElioChip(
                 label: opt,
                 selected: _mealType == opt,
+                // Notion XX-2 B3 (12 May 2026): suppress the trailing
+                // ✓ on the meal row so the three chips (Breakfast /
+                // Lunch / Dinner) fit on one line. Solid terracotta
+                // fill is enough visual signal on a 3-chip row; the
+                // check pushed "Dinner" to a new line on a Pixel.
+                showCheck: false,
                 onTap: () => setState(() {
                   // Tap selected chip → deselect (null). Tap other →
                   // select it (replaces previous selection, so mutual
@@ -822,14 +828,24 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           hintStyle: ElioTextStyles.body.copyWith(
             color: ElioColors.mocha,
           ),
+          // 12 May 2026 — ALL border states explicitly cleared. Just
+          // `border: InputBorder.none` isn't enough: when the user taps
+          // the field and focus moves, Material falls through to the
+          // theme's `OutlineInputBorder` for `focusedBorder` /
+          // `enabledBorder` / etc., which re-applies stroke + extra
+          // inset and the field visibly changes size on tap (Rob 13
+          // May screenshot, Notion XX-2 B2). Override every state.
           border: InputBorder.none,
-          // 12 May 2026 — override the global inputDecorationTheme which
-          // sets `filled: true` + `fillColor: creamDeep`. Without this
-          // override the TextField draws its own creamDeep rectangle on
-          // top of the outer Container's cream fill, leaving a visible
-          // narrower darker box-within-a-box. Letting the outer Container
-          // drive the visual keeps width parity with the toggle tiles
-          // below (Rob 12 May screenshot).
+          focusedBorder: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          errorBorder: InputBorder.none,
+          focusedErrorBorder: InputBorder.none,
+          // Override the global inputDecorationTheme which sets
+          // `filled: true` + `fillColor: creamDeep`. Without this the
+          // TextField draws its own creamDeep rectangle on top of the
+          // outer Container's cream fill, leaving a visible
+          // narrower-and-darker box-within-a-box (12 May fix).
           filled: false,
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
