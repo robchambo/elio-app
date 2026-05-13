@@ -562,7 +562,7 @@ class GeminiService {
 
       try {
         final recipeJson = _extractJson(rawText);
-        final recipe = GeneratedRecipe.fromJson(recipeJson);
+        final recipe = _parseGeneratedRecipe(recipeJson);
         // Sprint 15.9.3 SAFETY: post-gen allergen scan. Even with the
         // ALLERGENS prompt block, Gemini occasionally serves canonical-
         // dish ingredients (e.g. peanuts in pad thai). The filter
@@ -685,6 +685,50 @@ class GeminiService {
   /// "peanut" and "peanuts" in any haystack.
   ///
   /// False positives possible (e.g. a description containing
+  /// Sprint 16.6 — single funnel for every Gemini parse path that turns
+  /// raw JSON into a [GeneratedRecipe]. Threads a truncation sink through
+  /// [GeneratedRecipe.fromJson] so any over-cap ingredient string fields
+  /// surface as ONE aggregated `ErrorService.log` per recipe instead of
+  /// one log per field (Crashlytics non-fatals would otherwise flood the
+  /// dashboard). History read-back (SavedRecipe.fromJson) doesn't go
+  /// through here, so old already-truncated recipes from Firestore stay
+  /// silent.
+  ///
+  /// Two failure shapes seen in production motivated this:
+  ///   * Wall-of-text deliberation (chickpeas: ~1500 chars in `quantity`)
+  ///   * Prompt-echo + repetition collapse (red peppers: "DO NOT REMOVE
+  ///     THIS." repeated dozens of times)
+  /// Both root-caused in `thinkingBudget: 0` removing Gemini's scratch
+  /// space so it deliberates *inside* the JSON value.
+  static GeneratedRecipe _parseGeneratedRecipe(Map<String, dynamic> json) {
+    final truncated = <String>[];
+    final recipe = GeneratedRecipe.fromJson(json, ingredientTruncations: truncated);
+    if (truncated.isNotEmpty) {
+      final summary = _summariseTruncations(truncated);
+      ErrorService.log(
+        'recipe_ingredient_truncations',
+        '${truncated.length} ingredient field(s) capped: $summary',
+      );
+    }
+    return recipe;
+  }
+
+  /// Compresses ['quantity', 'quantity', 'name'] -> 'quantity×2, name×1'
+  /// for the aggregated truncation log. Order is name → quantity → unit
+  /// (the sanitizer call order in [RecipeIngredient.fromJson]), giving
+  /// stable summaries for Crashlytics grouping.
+  static String _summariseTruncations(List<String> fields) {
+    final counts = <String, int>{};
+    for (final f in fields) {
+      counts[f] = (counts[f] ?? 0) + 1;
+    }
+    final ordered = ['name', 'quantity', 'unit']
+        .where(counts.containsKey)
+        .map((f) => '$f×${counts[f]}')
+        .join(', ');
+    return ordered;
+  }
+
   /// "peanut-free"). Cost is a retry — safer than letting a violation
   /// through.
   ///
@@ -1436,7 +1480,7 @@ class GeminiService {
       throw Exception(json['error'] as String);
     }
 
-    return GeneratedRecipe.fromJson(json);
+    return _parseGeneratedRecipe(json);
   }
 
   /// Import a recipe from a URL by fetching the webpage, stripping HTML,
@@ -1528,7 +1572,7 @@ class GeminiService {
       throw Exception(json['error'] as String);
     }
 
-    return GeneratedRecipe.fromJson(json);
+    return _parseGeneratedRecipe(json);
   }
 
   // ── Side dish generation ──────────────────────────────────────────────────────
@@ -1638,7 +1682,7 @@ class GeminiService {
         }
 
         final json = _extractJson(rawText);
-        return GeneratedRecipe.fromJson(json);
+        return _parseGeneratedRecipe(json);
       } catch (e) {
         lastError = e;
         ErrorService.log('side_dish_attempt_$attempt', e);

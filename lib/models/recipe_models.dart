@@ -4,6 +4,31 @@
 // Mirrors the Firestore schema in the design document.
 // ─────────────────────────────────────────────
 
+// Sprint 16.6 — defensive cap on RecipeIngredient string fields. Gemini
+// occasionally writes deliberation text or echoes prompt instructions
+// into string-typed fields when `thinkingBudget: 0` removes its scratch
+// space. 80 chars covers every legitimate quantity observed; truncation
+// adds an ellipsis (single U+2026 char). Field names are pushed onto an
+// optional sink so the calling parse path (GeneratedRecipe.fromJson)
+// can fire one aggregated ErrorService.log per recipe instead of one
+// per field.
+//
+// TODO(observability): if Crashlytics shows tips/description/title/
+// steps suffer the same failure mode, extend the same defence to those
+// fields.
+const int _ingredientFieldCharCap = 80;
+
+String _sanitizeIngredientField(
+  Object? raw, {
+  required String fieldName,
+  List<String>? sink,
+}) {
+  final asString = raw?.toString().trim() ?? '';
+  if (asString.length <= _ingredientFieldCharCap) return asString;
+  if (sink != null) sink.add(fieldName);
+  return '${asString.substring(0, _ingredientFieldCharCap)}…';
+}
+
 // ─── Generation request ───────────────────────────────────────────────────────
 
 class RecipeGenerationRequest {
@@ -192,7 +217,16 @@ class GeneratedRecipe {
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
 
-  factory GeneratedRecipe.fromJson(Map<String, dynamic> json) {
+  /// Parse from JSON. When [ingredientTruncations] is non-null, it gets
+  /// populated with field names of any over-cap ingredient strings so the
+  /// caller (typically `gemini_service.dart:_parseGeneratedRecipe`) can
+  /// fire one aggregated `ErrorService.log` per recipe. History read-back
+  /// (SavedRecipe.fromJson) doesn't pass a sink — old already-truncated
+  /// recipes from Firestore stay quiet.
+  factory GeneratedRecipe.fromJson(
+    Map<String, dynamic> json, {
+    List<String>? ingredientTruncations,
+  }) {
     return GeneratedRecipe(
       title: json['title'] as String? ?? 'Recipe',
       prepTimeMinutes: (json['prepTimeMinutes'] as num?)?.toInt() ?? 10,
@@ -200,7 +234,10 @@ class GeneratedRecipe {
       servings: (json['servings'] as num?)?.toInt() ?? 2,
       description: json['description'] as String? ?? '',
       ingredients: (json['ingredients'] as List<dynamic>? ?? [])
-          .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))
+          .map((e) => RecipeIngredient.fromJson(
+                e as Map<String, dynamic>,
+                truncatedSink: ingredientTruncations,
+              ))
           .toList(),
       steps: (json['steps'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
@@ -278,11 +315,24 @@ class RecipeIngredient {
     required this.fromInventory,
   });
 
-  factory RecipeIngredient.fromJson(Map<String, dynamic> json) {
+  /// Parse from JSON with defensive field caps. When [truncatedSink] is
+  /// non-null, field names of any truncated string fields get pushed onto
+  /// it so the caller (GeneratedRecipe.fromJson) can fire one aggregated
+  /// ErrorService.log per recipe instead of one log per field. When null
+  /// (e.g. SavedRecipe history read-back), capping still applies but no
+  /// observability event fires — old already-truncated recipes in
+  /// Firestore stay quiet.
+  factory RecipeIngredient.fromJson(
+    Map<String, dynamic> json, {
+    List<String>? truncatedSink,
+  }) {
     return RecipeIngredient(
-      name: json['name'] as String? ?? '',
-      quantity: json['quantity']?.toString() ?? '',
-      unit: json['unit'] as String? ?? '',
+      name: _sanitizeIngredientField(json['name'],
+          fieldName: 'name', sink: truncatedSink),
+      quantity: _sanitizeIngredientField(json['quantity'],
+          fieldName: 'quantity', sink: truncatedSink),
+      unit: _sanitizeIngredientField(json['unit'],
+          fieldName: 'unit', sink: truncatedSink),
       fromInventory: json['fromInventory'] as bool? ?? false,
     );
   }
