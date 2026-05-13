@@ -22,6 +22,7 @@ import '../../services/entitlement_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/user_settings_service.dart';
+import '../../utils/recipe_variation.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_big_button.dart';
@@ -62,6 +63,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── Session deduplication memory (last 20 recipe titles) ─────────────
   final List<String> _recentTitles = [];
+
+  // ── Sprint 16.6 (Notion XX bug 3) — variation memory ────────────────
+  // Last 3 hero ingredients + cookware extracted from recent recipes,
+  // fed into the prompt's VARIATION section. Window of 3 chosen by Rob
+  // (12 May 2026): short enough that someone with chicken in the fridge
+  // isn't locked out of chicken after one chicken recipe. In-memory
+  // only — mirrors _recentTitles' ephemerality (resets on app launch).
+  final List<String> _recentHeroIngredients = [];
+  final List<String> _recentCookware = [];
+  static const int _variationWindow = 3;
 
   // ── Taste profile (loaded eagerly so _buildRequest stays sync) ──────
   List<String> _likedRecipes = [];
@@ -327,6 +338,8 @@ class _HomeScreenState extends State<HomeScreen> {
       mealType: prefs.mealType,
       servings: 2,
       recentTitles: List.from(_recentTitles),
+      recentHeroIngredients: List.from(_recentHeroIngredients),
+      recentCookware: List.from(_recentCookware),
       runningLowItems: List.from(_runningLowItems),
       isLeftoverMode: prefs.isLeftoverMode,
       leftoverItems: prefs.leftoverItems,
@@ -353,6 +366,27 @@ class _HomeScreenState extends State<HomeScreen> {
     // Track title for deduplication (keep last 20)
     _recentTitles.add(recipe.title);
     if (_recentTitles.length > 20) _recentTitles.removeAt(0);
+
+    // Sprint 16.6 (Notion XX bug 3) — push extracted hero + cookware
+    // into the variation FIFO. Either extractor returning null is
+    // expected (salt-water-only recipe edge case for hero; no
+    // recognised cookware noun for cookware) — skip the push for that
+    // recipe rather than recording an empty slot. _variationWindow
+    // bounds both lists at 3.
+    final hero = RecipeVariation.heroIngredient(recipe);
+    if (hero != null) {
+      _recentHeroIngredients.add(hero);
+      if (_recentHeroIngredients.length > _variationWindow) {
+        _recentHeroIngredients.removeAt(0);
+      }
+    }
+    final cookware = RecipeVariation.cookware(recipe);
+    if (cookware != null) {
+      _recentCookware.add(cookware);
+      if (_recentCookware.length > _variationWindow) {
+        _recentCookware.removeAt(0);
+      }
+    }
 
     _analytics.logEvent('recipe_generated', {
       'perishable_count': request.perishables.length,

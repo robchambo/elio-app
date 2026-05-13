@@ -1099,6 +1099,36 @@ class GeminiService {
           'If all oven-baked, try stovetop or no-cook. Variety is key.');
     }
 
+    // Sprint 16.6 (Notion XX bug 3) — VARIATION memory.
+    //
+    // The RECENTLY GENERATED block above gives titles only; Gemini has
+    // to *infer* recent hero ingredients and cookware from those
+    // strings, which it does unreliably. Rob's complaint on 11 May was
+    // explicit: chickpeas appearing 3 in a row, "hearty" overused,
+    // "skillet" overused. Feeding the actual signal direct (extracted
+    // client-side via RecipeVariation.heroIngredient + .cookware on
+    // each recipe completion) makes the variety nudge actionable.
+    //
+    // Window of 3 recipes (per Rob) — short enough that a user with
+    // chicken in the fridge isn't locked out of chicken after one
+    // chicken recipe.
+    if (request.recentHeroIngredients.isNotEmpty ||
+        request.recentCookware.isNotEmpty) {
+      buffer.writeln();
+      buffer.writeln('## VARIATION (last 3 recipes — vary against these):');
+      if (request.recentHeroIngredients.isNotEmpty) {
+        buffer.writeln(
+            'Hero ingredients used: ${request.recentHeroIngredients.join(', ')}.');
+      }
+      if (request.recentCookware.isNotEmpty) {
+        buffer.writeln(
+            'Cookware used: ${request.recentCookware.join(', ')}.');
+      }
+      buffer.writeln(
+          'Pick a DIFFERENT hero ingredient AND a different primary cookware from the above. '
+          'Also vary your descriptive language — if recent recipes leaned on words like "hearty", "warming", or "comforting", reach for fresher vocabulary this time.');
+    }
+
     // Taste profile is injected by caller via request fields
     if (request.likedRecipes.isNotEmpty || request.dislikedRecipes.isNotEmpty) {
       buffer.writeln();

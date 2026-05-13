@@ -220,4 +220,69 @@ void main() {
       }
     });
   });
+
+  // Sprint 16.6 (Notion XX bug 3) — VARIATION section. When recent
+  // hero ingredients or cookware are present in the request, the
+  // prompt must include a `## VARIATION` section telling Gemini to
+  // pick a different protagonist + cookware. When both lists are
+  // empty, the section must be omitted entirely (no empty header).
+  group('VARIATION section (Sprint 16.6 row XX bug 3)', () {
+    const RecipeGenerationRequest baseRequest = RecipeGenerationRequest(
+      perishables: [],
+      alwaysHave: [],
+      almostAlwaysHave: [],
+      dietaryRequirements: [],
+    );
+
+    test('omitted when both lists are empty', () {
+      final prompt = GeminiService.buildPromptForTest(baseRequest);
+      expect(prompt, isNot(contains('## VARIATION')));
+    });
+
+    test('emits the section when recentHeroIngredients is non-empty', () {
+      final prompt = GeminiService.buildPromptForTest(
+        const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+          recentHeroIngredients: ['chickpeas', 'chickpeas', 'chickpeas'],
+        ),
+      );
+      expect(prompt, contains('## VARIATION'));
+      expect(prompt, contains('Hero ingredients used: chickpeas, chickpeas, chickpeas'));
+      expect(prompt, contains('DIFFERENT hero ingredient'));
+    });
+
+    test('emits the section when recentCookware is non-empty', () {
+      final prompt = GeminiService.buildPromptForTest(
+        const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+          recentCookware: ['skillet', 'skillet', 'skillet'],
+        ),
+      );
+      expect(prompt, contains('## VARIATION'));
+      expect(prompt, contains('Cookware used: skillet, skillet, skillet'));
+    });
+
+    test('mentions varying descriptive language', () {
+      // Rob's complaint included repetitive language ("hearty") even
+      // when ingredients varied. The VARIATION block must call this
+      // out so Gemini doesn't paraphrase the same adjectives.
+      final prompt = GeminiService.buildPromptForTest(
+        const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+          recentHeroIngredients: ['tofu'],
+        ),
+      );
+      expect(prompt.toLowerCase(), contains('vary your descriptive language'));
+      expect(prompt.toLowerCase(), contains('hearty'));
+    });
+  });
 }

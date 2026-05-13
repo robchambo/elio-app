@@ -70,6 +70,19 @@ class RecipeGenerationRequest {
   /// Titles of recently generated recipes — used to prevent duplicates
   final List<String> recentTitles;
 
+  /// Sprint 16.6 (Notion XX bug 3): hero ingredients from the last 3
+  /// recipes (window per Rob). Fed into a VARIATION prompt section so
+  /// Gemini sees the actual signal instead of having to infer it from
+  /// titles. Empty by default → VARIATION section is omitted entirely.
+  /// Length cap is enforced upstream (HomeScreen FIFO of 3).
+  final List<String> recentHeroIngredients;
+
+  /// Sprint 16.6 (Notion XX bug 3): cookware nouns from the last 3
+  /// recipes' steps. Same wiring as recentHeroIngredients — feeds the
+  /// VARIATION prompt section so "skillet × 3 in a row" stops
+  /// happening. Empty by default → omitted from prompt.
+  final List<String> recentCookware;
+
   /// Pantry items flagged as running low — Gemini will avoid or treat as optional
   final List<String> runningLowItems;
 
@@ -121,6 +134,8 @@ class RecipeGenerationRequest {
     this.servings = 2,
     this.excludedIngredients = const [],
     this.recentTitles = const [],
+    this.recentHeroIngredients = const [],
+    this.recentCookware = const [],
     this.runningLowItems = const [],
     this.isLeftoverMode = false,
     this.leftoverItems = const [],
