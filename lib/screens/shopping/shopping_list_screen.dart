@@ -33,6 +33,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/firestore_service.dart';
 import '../../services/shopping_service.dart';
@@ -52,6 +53,11 @@ class ShoppingListScreen extends StatefulWidget {
   State<ShoppingListScreen> createState() => _ShoppingListScreenState();
 }
 
+/// SharedPreferences key for the one-time aisle-reorder hint snackbar.
+/// Bumping the suffix forces the hint to re-show (e.g. if we ever
+/// change the gesture or copy materially).
+const String _kAisleReorderHintKey = 'aisle_reorder_hint_shown_v1';
+
 class _ShoppingListScreenState extends State<ShoppingListScreen> {
   final TextEditingController _addController = TextEditingController();
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
@@ -62,6 +68,13 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
   // Loaded once on init; updated optimistically + persisted to Firestore
   // each time the user reorders.
   List<String>? _aisleOrder;
+  // Discoverability backstop for the long-press-to-reorder gesture
+  // (Sprint 16.7c). Defaults to true ("already shown — don't bother")
+  // so we never accidentally fire on a brand-new install while prefs
+  // are still loading. The actual value lands in [_loadAisleOrder].
+  // [_hintScheduled] guards against re-firing across rebuilds.
+  bool _aisleHintShown = true;
+  bool _hintScheduled = false;
 
   @override
   void initState() {
@@ -75,11 +88,53 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     if (user == null) return;
     try {
       final order = await FirestoreService().getAisleOrder();
+      final prefs = await SharedPreferences.getInstance();
+      final hintShown = prefs.getBool(_kAisleReorderHintKey) ?? false;
       if (!mounted) return;
-      setState(() => _aisleOrder = order);
+      setState(() {
+        _aisleOrder = order;
+        _aisleHintShown = hintShown;
+      });
     } catch (_) {
       // Silent — fall back to default order via AisleUtils.orderedFor(null).
     }
+  }
+
+  /// One-time snackbar pointing at the long-press-to-reorder gesture.
+  /// Only fires once the user actually has something to reorder
+  /// (>= 2 visible aisles); persists to SharedPreferences immediately
+  /// so reopens don't re-trigger even if the user dismisses without
+  /// tapping "Got it".
+  void _maybeShowReorderHint(int visibleAisleCount) {
+    if (_aisleHintShown || _hintScheduled || visibleAisleCount < 2) return;
+    _hintScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      // Persist before showing so a reopen mid-snackbar can't re-fire.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_kAisleReorderHintKey, true);
+      } catch (_) {
+        // Silent — at worst the hint shows once more next session.
+      }
+      if (!mounted) return;
+      _aisleHintShown = true;
+      messenger.showSnackBar(
+        SnackBar(
+          content: const Text(
+            'Tip: long-press an aisle header to drag and reorder.',
+          ),
+          duration: const Duration(seconds: 6),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Got it',
+            onPressed: messenger.hideCurrentSnackBar,
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -352,6 +407,11 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     final visible = orderedAll
         .where((a) => grouped[a]?.isNotEmpty == true)
         .toList();
+
+    // Discoverability backstop — fire the one-time tooltip if there are
+    // actually >= 2 aisles to reorder. Internal guards prevent re-firing
+    // across rebuilds; the call is safe from build via post-frame defer.
+    _maybeShowReorderHint(visible.length);
 
     return ReorderableListView(
       shrinkWrap: true,
