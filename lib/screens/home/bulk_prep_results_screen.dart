@@ -1,12 +1,23 @@
 import 'package:flutter/material.dart';
+
+import '../../models/recipe_models.dart';
+import '../../services/analytics_service.dart';
+import '../../services/gemini_service.dart';
+import '../../services/history_service.dart';
+import '../../services/user_settings_service.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
-import '../../models/recipe_models.dart';
 import '../recipe/recipe_screen.dart';
 
 /// Shows the results of a bulk prep generation session.
 /// Displays 1-3 recipe cards that the user can tap to view in full.
-class BulkPrepResultsScreen extends StatelessWidget {
+///
+/// Sprint 16.6 row 3: each card has a per-meal refresh icon (top-right)
+/// that re-rolls just that meal via [GeminiService.generateBulkRecipeStream],
+/// keeping the other meals untouched. Mirrors `MealPlanScreen._regenerateMeal`
+/// 1:1 in pattern (Sprint 16.1 dietary refresh, dedup against other titles,
+/// snackbar on failure, keep both old + new in history).
+class BulkPrepResultsScreen extends StatefulWidget {
   final List<GeneratedRecipe> recipes;
   final RecipeGenerationRequest? originalRequest;
   final bool isGuest;
@@ -17,6 +28,32 @@ class BulkPrepResultsScreen extends StatelessWidget {
     this.originalRequest,
     this.isGuest = false,
   });
+
+  @override
+  State<BulkPrepResultsScreen> createState() => _BulkPrepResultsScreenState();
+}
+
+class _BulkPrepResultsScreenState extends State<BulkPrepResultsScreen> {
+  final AnalyticsService _analytics = AnalyticsService.instance;
+
+  /// Local mutable copy of the batch — per-card regen replaces an entry
+  /// in this list and rebuilds.
+  late List<GeneratedRecipe> _recipes;
+
+  /// Indices of meal cards currently regenerating. Disables the card tap
+  /// and the refresh button while in flight to prevent double-fire.
+  final Set<int> _regenerating = <int>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _recipes = List<GeneratedRecipe>.from(widget.recipes);
+  }
+
+  /// Whether per-meal regen is available. Older saved bulk recipes opened
+  /// from history won't have an [originalRequest] envelope — without it
+  /// we can't rebuild a generation request, so the icon is hidden.
+  bool get _canRegenerate => widget.originalRequest != null;
 
   @override
   Widget build(BuildContext context) {
@@ -58,13 +95,24 @@ class BulkPrepResultsScreen extends StatelessWidget {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
-              itemCount: recipes.length,
-              itemBuilder: (context, index) => _RecipeCard(
-                recipe: recipes[index],
-                mealNumber: index + 1,
-                bulkPrepInfo: recipes[index].bulkPrepInfo,
-                onTap: () => _openRecipe(context, recipes[index]),
-              ),
+              itemCount: _recipes.length,
+              itemBuilder: (context, index) {
+                final isRegenerating = _regenerating.contains(index);
+                return _RecipeCard(
+                  recipe: _recipes[index],
+                  mealNumber: index + 1,
+                  bulkPrepInfo: _recipes[index].bulkPrepInfo,
+                  isRegenerating: isRegenerating,
+                  // Hide the icon when we can't regen (no originalRequest)
+                  // so the slot doesn't show a dead button.
+                  onRegenerate: _canRegenerate && !isRegenerating
+                      ? () => _regenerateMeal(index)
+                      : null,
+                  onTap: isRegenerating
+                      ? null
+                      : () => _openRecipe(_recipes[index]),
+                );
+              },
             ),
           ),
           _buildBottomBar(),
@@ -74,25 +122,109 @@ class BulkPrepResultsScreen extends StatelessWidget {
   }
 
   String _subtitleText() {
-    final mealCount = recipes.length;
+    final mealCount = _recipes.length;
     final mealWord = mealCount == 1 ? 'meal' : 'meals';
-    if (recipes.isNotEmpty) {
-      final portions = recipes.first.servings;
-      return '$mealCount $mealWord \u00b7 $portions portions each';
+    if (_recipes.isNotEmpty) {
+      final portions = _recipes.first.servings;
+      return '$mealCount $mealWord · $portions portions each';
     }
     return '$mealCount $mealWord';
   }
 
-  void _openRecipe(BuildContext context, GeneratedRecipe recipe) {
+  void _openRecipe(GeneratedRecipe recipe) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => RecipeScreen(
           recipe: recipe,
-          originalRequest: originalRequest,
-          isGuest: isGuest,
+          originalRequest: widget.originalRequest,
+          isGuest: widget.isGuest,
         ),
       ),
     );
+  }
+
+  /// Re-rolls a single meal in the batch via the bulk generation stream.
+  /// Mirrors [MealPlanScreen._regenerateMeal]:
+  ///   * Sprint 16.1 pattern — refresh dietary/allergens from server first
+  ///     so an edit since this batch was generated is honoured.
+  ///   * Dedup against all OTHER meals in the batch so the replacement is
+  ///     meaningfully different. (The replaced title is intentionally NOT
+  ///     in the dedup list — a close variant is fine.)
+  ///   * Keeps both old + new in history (matches meal planner).
+  ///   * Disables the card tap + refresh button while in flight.
+  Future<void> _regenerateMeal(int index) async {
+    final request = widget.originalRequest;
+    if (request == null) return;
+    if (_regenerating.contains(index)) return;
+
+    setState(() => _regenerating.add(index));
+
+    try {
+      // Sprint 16.1: pick up any dietary edits since the batch was generated.
+      await UserSettingsService.instance.refresh();
+
+      // Dedup against the other meals — not the one being replaced.
+      final otherTitles = <String>[
+        for (int i = 0; i < _recipes.length; i++)
+          if (i != index) _recipes[i].title,
+      ];
+
+      GeneratedRecipe? replacement;
+      String? errorMsg;
+      await for (final status in GeminiService.generateBulkRecipeStream(
+        request,
+        portions: _recipes[index].servings,
+        mealNumber: index + 1,
+        totalMeals: _recipes.length,
+        previousMealTitles: otherTitles,
+      )) {
+        if (!mounted) return;
+        switch (status) {
+          case RecipeGenerating():
+            break;
+          case RecipeComplete():
+            replacement = status.recipe;
+          case RecipeError():
+            errorMsg = status.message;
+        }
+      }
+
+      if (errorMsg != null) {
+        throw Exception(errorMsg);
+      }
+      if (replacement == null) {
+        throw Exception('Bulk cook regeneration returned no recipe.');
+      }
+      if (!mounted) return;
+
+      setState(() {
+        final updated = List<GeneratedRecipe>.from(_recipes);
+        updated[index] = replacement!;
+        _recipes = updated;
+      });
+
+      // Save the replacement to history with a fresh timestamp. The
+      // previous one stays — matches meal planner behaviour.
+      HistoryService.saveRecipe(SavedRecipe(
+        recipe: replacement,
+        savedAt: DateTime.now().toUtc().toIso8601String(),
+      ));
+
+      _analytics.logEvent('bulk_prep_meal_regenerated', {
+        'meal_number': index + 1,
+        'total_meals': _recipes.length,
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: ElioColors.espresso,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _regenerating.remove(index));
+    }
   }
 
   Widget _buildBottomBar() {
@@ -128,12 +260,22 @@ class _RecipeCard extends StatelessWidget {
   final GeneratedRecipe recipe;
   final int mealNumber;
   final BulkPrepInfo? bulkPrepInfo;
-  final VoidCallback onTap;
+  final bool isRegenerating;
+
+  /// Null when regen isn't available (no originalRequest) — the refresh
+  /// button is hidden entirely in that case.
+  final VoidCallback? onRegenerate;
+
+  /// Null while [isRegenerating] is true — disables opening a half-stale
+  /// recipe mid-regen.
+  final VoidCallback? onTap;
 
   const _RecipeCard({
     required this.recipe,
     required this.mealNumber,
     required this.bulkPrepInfo,
+    required this.isRegenerating,
+    required this.onRegenerate,
     required this.onTap,
   });
 
@@ -153,7 +295,18 @@ class _RecipeCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildMealChip(),
+              // Meal chip + refresh icon row — matches the meal planner's
+              // per-slot regen affordance (meal_plan_screen.dart ~L1018).
+              Row(
+                children: [
+                  _buildMealChip(),
+                  const Spacer(),
+                  if (onRegenerate != null) _RegenerateButton(
+                    isRegenerating: isRegenerating,
+                    onTap: isRegenerating ? null : onRegenerate,
+                  ),
+                ],
+              ),
               const SizedBox(height: 10),
               Text(recipe.title, style: ElioText.headingMedium),
               if (recipe.description.isNotEmpty) ...[
@@ -237,6 +390,48 @@ class _RecipeCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Regenerate button ────────────────────────────────────────────────────────
+//
+// 32×32 cream square with rule border, Icons.refresh 16 mocha. Swaps to a
+// terracotta CircularProgressIndicator (strokeWidth 2) while regenerating.
+// Visual is a 1:1 mirror of MealPlanScreen's per-slot regen button
+// (meal_plan_screen.dart ~L1019-1039) so the affordance is consistent
+// across bulk cook and meal planner.
+class _RegenerateButton extends StatelessWidget {
+  final bool isRegenerating;
+  final VoidCallback? onTap;
+
+  const _RegenerateButton({
+    required this.isRegenerating,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: ElioColors.cream,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: ElioColors.rule),
+        ),
+        child: isRegenerating
+            ? const Padding(
+                padding: EdgeInsets.all(7),
+                child: CircularProgressIndicator(
+                  color: ElioColors.terracotta,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(Icons.refresh, size: 16, color: ElioColors.mocha),
+      ),
     );
   }
 }
