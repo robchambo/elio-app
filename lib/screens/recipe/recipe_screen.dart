@@ -401,8 +401,23 @@ class _RecipeScreenState extends State<RecipeScreen> {
     });
   }
 
+  /// Whether the recipe ingredient is already in the user's live pantry.
+  ///
+  /// Sprint 16.6 (Notion XX bug 2): the raw recipe name carries prep
+  /// words ("Diced onion", "Large eggs", "Chopped garlic, peeled") and
+  /// size adjectives that the pantry doesn't. Comparing raw names misses
+  /// the match — the green/red pantry indicator showed red AND the
+  /// "Add to shopping list" path skipped its dedup branch, re-adding
+  /// items the user already had.
+  ///
+  /// Cleaning via [ShoppingService.cleanForShopping] strips comma
+  /// clauses with prep words, parentheticals with prep words, and
+  /// leading size adjectives. Then [PantryUtils.normalise] handles
+  /// plurals + variant synonyms. Cleaning is idempotent on already-
+  /// clean pantry-style names (no-op for "Onion").
   bool _isInPantry(RecipeIngredient ing) {
-    final norm = PantryUtils.normalise(ing.name);
+    final cleaned = ShoppingService.cleanForShopping(ing.name);
+    final norm = PantryUtils.normalise(cleaned);
     return normalizedInventoryNames.contains(norm);
   }
 

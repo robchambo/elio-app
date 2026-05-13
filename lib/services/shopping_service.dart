@@ -309,10 +309,27 @@ class ShoppingService {
   /// "Shrimp (raw, peeled and deveined)" → "Shrimp"
   /// "Large Eggs" → "Eggs"
   /// "Butter, melted" → "Butter"
+  /// "Diced onion" → "Onion" (Sprint 16.6 — leading prep prefix)
   static String cleanForShopping(String name) {
     var cleaned = name.trim();
 
-    // 1. Strip comma-clauses that contain prep words
+    // 1. Strip parentheticals that contain prep words — must run BEFORE
+    //    the comma-clause strip because a comma INSIDE the parens would
+    //    otherwise trigger step 2 prematurely. e.g. "Shrimp (raw, peeled
+    //    and deveined)" — the comma at index 11 sits inside the parens;
+    //    without step-1-first the comma split would yield "Shrimp (raw"
+    //    and the parens-strip would then never fire on the empty tail.
+    //    But keep "(white)", "(brown)", "(basmati)" — product variants.
+    //    Sprint 16.6 reorder (Notion XX bug 2).
+    final parenMatch = RegExp(r'\s*\([^)]+\)\s*$').firstMatch(cleaned);
+    if (parenMatch != null) {
+      final parenContent = parenMatch.group(0)!.toLowerCase();
+      if (_prepWords.any((w) => parenContent.contains(w))) {
+        cleaned = cleaned.substring(0, parenMatch.start).trim();
+      }
+    }
+
+    // 2. Strip comma-clauses that contain prep words
     //    "Ham, cut into cubes" → "Ham"
     //    "Butter, melted" → "Butter"
     //    But keep "Rice, white" style commas that are product descriptors
@@ -321,17 +338,6 @@ class ShoppingService {
       final afterComma = cleaned.substring(commaIdx + 1).toLowerCase().trim();
       if (_prepWords.any((w) => afterComma.contains(w))) {
         cleaned = cleaned.substring(0, commaIdx).trim();
-      }
-    }
-
-    // 2. Strip parentheticals that contain prep words
-    //    "Shrimp (raw, peeled and deveined)" → "Shrimp"
-    //    But keep "(white)", "(brown)", "(basmati)" — product variants
-    final parenMatch = RegExp(r'\s*\([^)]+\)\s*$').firstMatch(cleaned);
-    if (parenMatch != null) {
-      final parenContent = parenMatch.group(0)!.toLowerCase();
-      if (_prepWords.any((w) => parenContent.contains(w))) {
-        cleaned = cleaned.substring(0, parenMatch.start).trim();
       }
     }
 
@@ -345,7 +351,34 @@ class ShoppingService {
       }
     }
 
-    // 4. Capitalise first letter
+    // 4. Strip leading prep adjectives ("Diced onion" → "onion").
+    //    Sprint 16.6 (Notion XX bug 2): prep words were only stripped
+    //    inside parentheticals / comma-clauses, leaving "Diced onion"
+    //    intact. That broke pantry dedup on the recipe → shopping list
+    //    flow (recipe has "Diced onion", pantry has "Onion", names
+    //    didn't match → item piled into shopping list anyway).
+    //
+    //    Iterative because adverb+prep combinations are common
+    //    ("Thinly sliced onion" → "Thinly sliced onion" → "sliced
+    //    onion" → "onion"). Three loops max in practice — bounded
+    //    upper safety cap on the while.
+    var loops = 0;
+    var prepChanged = true;
+    while (prepChanged && loops < 5) {
+      prepChanged = false;
+      loops++;
+      final lowerNow = cleaned.toLowerCase();
+      for (final adj in _prepWords) {
+        final prefix = '$adj ';
+        if (lowerNow.startsWith(prefix)) {
+          cleaned = cleaned.substring(adj.length).trim();
+          prepChanged = true;
+          break;
+        }
+      }
+    }
+
+    // 5. Capitalise first letter
     if (cleaned.isNotEmpty) {
       cleaned = cleaned[0].toUpperCase() + cleaned.substring(1);
     }
