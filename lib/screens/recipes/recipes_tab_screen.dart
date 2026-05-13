@@ -52,18 +52,29 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
   bool _makeableOnly = false;
   bool _loading = true;
   late final TabController _tabController;
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _searchController.addListener(_onQueryChanged);
     _load();
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_onQueryChanged);
+    _searchController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onQueryChanged() {
+    if (_searchController.text != _query) {
+      setState(() => _query = _searchController.text);
+    }
   }
 
   Future<void> _load() async {
@@ -117,6 +128,23 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
     });
   }
 
+  /// Case-insensitive substring match across title, description,
+  /// ingredient names, and dietary tags. Empty query matches everything.
+  bool _matchesQuery(SavedRecipe saved) {
+    final q = _query.toLowerCase().trim();
+    if (q.isEmpty) return true;
+    final r = saved.recipe;
+    if (r.title.toLowerCase().contains(q)) return true;
+    if (r.description.toLowerCase().contains(q)) return true;
+    for (final ing in r.ingredients) {
+      if (ing.name.toLowerCase().contains(q)) return true;
+    }
+    for (final tag in r.dietaryTags) {
+      if (tag.toLowerCase().contains(q)) return true;
+    }
+    return false;
+  }
+
   // ── Actions ────────────────────────────────────────────────────────
   Future<void> _openRecipe(SavedRecipe saved) async {
     await Navigator.of(context).push(
@@ -145,14 +173,18 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
       return const Center(child: CircularProgressIndicator());
     }
 
-    bool passes(SavedRecipe r) => !_makeableOnly || _isMakeableNow(r);
+    bool passes(SavedRecipe r) =>
+        (!_makeableOnly || _isMakeableNow(r)) && _matchesQuery(r);
 
-    final saved = _all
-        .where((r) => r.isBookmarked)
-        .where(passes)
-        .take(_kMaxPerSection)
-        .toList();
-    final history = _all.where(passes).take(_kMaxPerSection).toList();
+    // Cap each section at 20 when browsing; lift the cap when the user
+    // is actively searching so a result on item #21 isn't hidden.
+    final hasQuery = _query.trim().isNotEmpty;
+    Iterable<SavedRecipe> capped(Iterable<SavedRecipe> source) =>
+        hasQuery ? source : source.take(_kMaxPerSection);
+
+    final saved =
+        capped(_all.where((r) => r.isBookmarked).where(passes)).toList();
+    final history = capped(_all.where(passes)).toList();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -196,6 +228,10 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
             ],
           ),
           const SizedBox(height: ElioSpacing.xl),
+
+          // ── Search field (filters both tabs; lifts the 20-cap) ─────
+          _SearchField(controller: _searchController),
+          const SizedBox(height: ElioSpacing.md),
 
           // ── Makeable-now toggle (above tabs so it filters both) ────
           _MakeableSwitch(
@@ -337,6 +373,60 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
         padding: const EdgeInsets.symmetric(vertical: ElioSpacing.md),
         child: Text(text, style: ElioTextStyles.bodySmallStyle),
       );
+}
+
+/// Cream-deep search field with magnifier prefix and a clear (×)
+/// suffix that appears once the user has typed. Filters both the
+/// Saved and History tabs in real time; the tab labels carry counts
+/// so the user can see results in the inactive tab.
+///
+/// Restored 12 May 2026 (Sprint 16.7c) after Sprint 16.4 Bug 6 had
+/// removed it as "noise on a tab whose only purpose is to find a
+/// saved or recently generated recipe." Reversed call: when the
+/// recipe library scales, search is the primary affordance to find
+/// the one you want.
+class _SearchField extends StatelessWidget {
+  final TextEditingController controller;
+  const _SearchField({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: ElioColors.creamDeep,
+        borderRadius: BorderRadius.circular(ElioRadii.input),
+      ),
+      child: TextField(
+        controller: controller,
+        style: ElioTextStyles.bodyStyle,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          hintText: 'Search recipes…',
+          hintStyle:
+              ElioTextStyles.bodyStyle.copyWith(color: ElioColors.mocha),
+          prefixIcon:
+              const Icon(Icons.search_rounded, color: ElioColors.mocha),
+          suffixIcon: ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller,
+            builder: (context, value, _) {
+              if (value.text.isEmpty) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.close_rounded,
+                    color: ElioColors.mocha),
+                onPressed: controller.clear,
+                tooltip: 'Clear search',
+              );
+            },
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: ElioSpacing.md,
+            vertical: ElioSpacing.sm,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Cream-deep panel + terracotta switch — toggles the makeable-now

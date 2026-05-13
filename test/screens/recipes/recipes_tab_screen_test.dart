@@ -15,6 +15,9 @@ SavedRecipe _fixture({
   required String savedAt,
   required String title,
   bool bookmarked = false,
+  String description = 'A simple test recipe.',
+  List<String> ingredientNames = const ['Tomato'],
+  List<String> dietaryTags = const [],
 }) {
   return SavedRecipe(
     recipe: GeneratedRecipe(
@@ -22,18 +25,18 @@ SavedRecipe _fixture({
       prepTimeMinutes: 5,
       cookTimeMinutes: 10,
       servings: 2,
-      description: 'A simple test recipe.',
-      ingredients: const [
-        RecipeIngredient(
-          name: 'Tomato',
-          quantity: '2',
-          unit: '',
-          fromInventory: true,
-        ),
-      ],
+      description: description,
+      ingredients: ingredientNames
+          .map((n) => RecipeIngredient(
+                name: n,
+                quantity: '1',
+                unit: '',
+                fromInventory: true,
+              ))
+          .toList(),
       steps: const ['Chop tomato.', 'Serve.'],
       substitutions: const [],
-      dietaryTags: const [],
+      dietaryTags: dietaryTags,
     ),
     savedAt: savedAt,
     isBookmarked: bookmarked,
@@ -181,6 +184,118 @@ void main() {
 
     expect(find.text('Saved (0)'), findsOneWidget);
     expect(find.text('History (0)'), findsOneWidget);
+  });
+
+  // ── Search field (Sprint 16.7c piece 2) ─────────────────────────
+
+  testWidgets('Search field renders above the makeable-now toggle',
+      (tester) async {
+    await _seedHistory([
+      _fixture(savedAt: '2026-05-12T08:00:00.000', title: 'Soup'),
+    ]);
+    await _pump(tester);
+
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('Search recipes…'), findsOneWidget);
+  });
+
+  testWidgets('Typing a query filters tab counts (matches title)',
+      (tester) async {
+    await _seedHistory([
+      _fixture(
+        savedAt: '2026-05-12T08:00:00.000',
+        title: 'Chicken Curry',
+        bookmarked: true,
+      ),
+      _fixture(savedAt: '2026-05-12T09:00:00.000', title: 'Beef Stew'),
+      _fixture(savedAt: '2026-05-12T10:00:00.000', title: 'Vegetable Soup'),
+    ]);
+    await _pump(tester);
+
+    // Baseline.
+    expect(find.text('Saved (1)'), findsOneWidget);
+    expect(find.text('History (3)'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'chicken');
+    await tester.pumpAndSettle();
+
+    // Chicken matches the bookmarked recipe → Saved (1), History (1).
+    expect(find.text('Saved (1)'), findsOneWidget);
+    expect(find.text('History (1)'), findsOneWidget);
+  });
+
+  testWidgets('Search is case-insensitive substring match on title',
+      (tester) async {
+    await _seedHistory([
+      _fixture(savedAt: '2026-05-12T08:00:00.000', title: 'Chicken Tikka Masala'),
+      _fixture(savedAt: '2026-05-12T09:00:00.000', title: 'Beef Stew'),
+    ]);
+    await _pump(tester);
+
+    await tester.enterText(find.byType(TextField), 'TIKKA');
+    await tester.pumpAndSettle();
+
+    expect(find.text('History (1)'), findsOneWidget);
+  });
+
+  testWidgets('Search matches recipe ingredient name', (tester) async {
+    await _seedHistory([
+      _fixture(
+        savedAt: '2026-05-12T08:00:00.000',
+        title: 'Soup',
+        ingredientNames: const ['Leek', 'Potato'],
+      ),
+      _fixture(
+        savedAt: '2026-05-12T09:00:00.000',
+        title: 'Curry',
+        ingredientNames: const ['Chicken', 'Onion'],
+      ),
+    ]);
+    await _pump(tester);
+
+    await tester.enterText(find.byType(TextField), 'leek');
+    await tester.pumpAndSettle();
+
+    expect(find.text('History (1)'), findsOneWidget);
+  });
+
+  testWidgets('Search matches recipe dietary tag', (tester) async {
+    await _seedHistory([
+      _fixture(
+        savedAt: '2026-05-12T08:00:00.000',
+        title: 'Stew',
+        dietaryTags: const ['Vegan'],
+      ),
+      _fixture(savedAt: '2026-05-12T09:00:00.000', title: 'Curry'),
+    ]);
+    await _pump(tester);
+
+    await tester.enterText(find.byType(TextField), 'vegan');
+    await tester.pumpAndSettle();
+
+    expect(find.text('History (1)'), findsOneWidget);
+  });
+
+  testWidgets('20-item cap is removed when search query is active',
+      (tester) async {
+    final recipes = List.generate(
+      25,
+      (i) => _fixture(
+        savedAt: '2026-05-12T${i.toString().padLeft(2, '0')}:00:00.000',
+        title: 'Match Recipe $i',
+      ),
+    );
+    await _seedHistory(recipes);
+    await _pump(tester);
+
+    // Baseline: capped at 20.
+    expect(find.text('History (20)'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Match');
+    await tester.pumpAndSettle();
+
+    // All 25 match — cap lifted while query is active.
+    expect(find.text('History (25)'), findsOneWidget);
   });
 
   testWidgets(
