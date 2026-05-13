@@ -398,6 +398,84 @@ class _PantryScreenState extends State<PantryScreen> {
     }
   }
 
+  /// Sprint 16.6 row 9 — explicit per-chip remove with undo.
+  ///
+  /// Distinct from the long-press picker's Remove (which exists for
+  /// power users already inside the picker for another reason): the
+  /// small × on each chip is the dedicated remove affordance. It
+  /// deletes the item immediately and shows an Undo snackbar with a
+  /// 4-second window so a stray tap doesn't lose data.
+  Future<void> _onItemRemove(Map<String, dynamic> item) async {
+    final id = item['id'] as String?;
+    if (id == null) return;
+    // Snapshot the full row before deletion so Undo can recreate
+    // name + tier + expiry + runningLow exactly.
+    final snapshot = Map<String, dynamic>.from(item);
+    final name = (item['name'] as String?) ?? '';
+
+    await _applyMutation(id, const {'type': 'delete'});
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(seconds: 4),
+        content: Text(
+          name.isEmpty ? 'Removed item.' : 'Removed $name.',
+        ),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () => _restoreItem(snapshot),
+        ),
+      ),
+    );
+  }
+
+  /// Re-adds a previously-deleted inventory row via the same add path
+  /// used by the per-tier "+ Add" chip. Goes through
+  /// `debugPantryAddOverride` in tests, and `FirestoreService.addInventoryItem`
+  /// + a follow-up `updateInventoryItem(runningLow)` in production so a
+  /// chip that was Low when removed comes back still Low.
+  Future<void> _restoreItem(Map<String, dynamic> snapshot) async {
+    final name = (snapshot['name'] as String?) ?? '';
+    if (name.isEmpty) return;
+    final tier = (snapshot['tier'] as String?) ?? _tierAlwaysHave;
+    DateTime? expiry;
+    final rawExpiry = snapshot['expiryDate'];
+    if (rawExpiry is String) {
+      expiry = DateTime.tryParse(rawExpiry);
+    }
+    final runningLow = snapshot['runningLow'] == true;
+
+    final addOverride = debugPantryAddOverride;
+    if (addOverride != null) {
+      final newId = addOverride(name, tier, expiry);
+      setState(() {
+        _items = [
+          ..._items,
+          {
+            'id': newId,
+            'name': name,
+            'tier': tier,
+            'runningLow': runningLow,
+            if (expiry != null) 'expiryDate': expiry.toIso8601String(),
+          },
+        ];
+      });
+      return;
+    }
+
+    final newId = await _firestore.addInventoryItem(
+      name,
+      tier,
+      expiryDate: expiry,
+    );
+    if (runningLow) {
+      await _firestore.updateInventoryItem(newId, runningLow: true);
+    }
+  }
+
   /// Confirmation snackbar after toggling running-low. The shopping-list
   /// side-effect is silent otherwise — this is the user's cue to check
   /// the Shopping tab.
@@ -694,6 +772,7 @@ class _PantryScreenState extends State<PantryScreen> {
                 ? _TierItemsList(
                     items: perishables,
                     onItemLongPress: _onItemLongPress,
+                    onItemRemove: _onItemRemove,
                     onAdd: () => _onAddToTier(_tierPerishable),
                   )
                 : null,
@@ -707,6 +786,7 @@ class _PantryScreenState extends State<PantryScreen> {
                 ? _TierItemsList(
                     items: alwaysHave,
                     onItemLongPress: _onItemLongPress,
+                    onItemRemove: _onItemRemove,
                     onAdd: () => _onAddToTier(_tierAlwaysHave),
                   )
                 : null,
@@ -720,6 +800,7 @@ class _PantryScreenState extends State<PantryScreen> {
                 ? _TierItemsList(
                     items: almostAlways,
                     onItemLongPress: _onItemLongPress,
+                    onItemRemove: _onItemRemove,
                     onAdd: () => _onAddToTier(_tierAlmostAlwaysHave),
                   )
                 : null,
@@ -782,10 +863,12 @@ class _PantryBuilderRow extends StatelessWidget {
 class _TierItemsList extends StatelessWidget {
   final List<Map<String, dynamic>> items;
   final ValueChanged<Map<String, dynamic>> onItemLongPress;
+  final ValueChanged<Map<String, dynamic>> onItemRemove;
   final VoidCallback onAdd;
   const _TierItemsList({
     required this.items,
     required this.onItemLongPress,
+    required this.onItemRemove,
     required this.onAdd,
   });
 
@@ -802,6 +885,7 @@ class _TierItemsList extends StatelessWidget {
           _TierItemChip(
             item: item,
             onLongPress: () => onItemLongPress(item),
+            onRemove: () => onItemRemove(item),
           ),
       ],
     );
@@ -852,9 +936,11 @@ class _AddSomethingChip extends StatelessWidget {
 class _TierItemChip extends StatelessWidget {
   final Map<String, dynamic> item;
   final VoidCallback onLongPress;
+  final VoidCallback onRemove;
   const _TierItemChip({
     required this.item,
     required this.onLongPress,
+    required this.onRemove,
   });
 
   @override
@@ -868,86 +954,124 @@ class _TierItemChip extends StatelessWidget {
     final urgency = PantryChipUrgency.forItem(item);
     final dotColor = urgency.dotColor;
 
-    // RawGestureDetector with long-press + a no-op tap recogniser.
-    // Sprint 16.4 (Bug 4): tap removed because the cycle ended in delete
-    // and chips were vanishing on a stray tap. Long-press → SimpleDialog
-    // is the only mutation entry point now (Remove lives in the dialog).
+    // Sprint 16.6 row 9: dedicated × hit-target on each chip for
+    // explicit delete with Undo snackbar. Long-press still opens the
+    // tier/expiry/running-low picker (which also contains Remove for
+    // power users already inside the dialog).
     //
-    // The no-op TapGestureRecognizer is required to ABSORB the tap so it
-    // doesn't bubble up to the parent ElioTierRow's InkWell — without it,
-    // tapping a chip would collapse the whole tier.
+    // Layout: a single outer Container with the chip decoration, an
+    // inner Row that has TWO independent gesture surfaces side by
+    // side. The chip body uses RawGestureDetector (long-press +
+    // no-op tap absorber) so a stray tap doesn't collapse the parent
+    // ElioTierRow. The × is a separate GestureDetector so its tap is
+    // claimed before bubbling.
     //
     // CLAUDE.md gotcha: bare GestureDetector long-press loses to
     // Wrap/scrollable scroll arbitration — RawGestureDetector required.
-    return RawGestureDetector(
-      behavior: HitTestBehavior.opaque,
-      gestures: <Type, GestureRecognizerFactory>{
-        TapGestureRecognizer:
-            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
-          () => TapGestureRecognizer(),
-          (TapGestureRecognizer r) {
-            r.onTap = () {}; // no-op — absorb tap, prevent parent toggle
-          },
-        ),
-        LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<
-            LongPressGestureRecognizer>(
-          () => LongPressGestureRecognizer(
-            duration: const Duration(milliseconds: 300),
-          ),
-          (LongPressGestureRecognizer r) {
-            r.onLongPress = onLongPress;
-          },
-        ),
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: urgency.background,
-          borderRadius: BorderRadius.circular(ElioRadii.chip),
-          border: Border.all(color: urgency.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (dotColor != null) ...[
-              Container(
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: dotColor,
-                  shape: BoxShape.circle,
-                ),
+    return Container(
+      decoration: BoxDecoration(
+        color: urgency.background,
+        borderRadius: BorderRadius.circular(ElioRadii.chip),
+        border: Border.all(color: urgency.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          RawGestureDetector(
+            behavior: HitTestBehavior.opaque,
+            gestures: <Type, GestureRecognizerFactory>{
+              TapGestureRecognizer:
+                  GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+                () => TapGestureRecognizer(),
+                (TapGestureRecognizer r) {
+                  r.onTap = () {}; // no-op — absorb tap, prevent parent toggle
+                },
               ),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              name,
-              style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso),
+              LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+                  LongPressGestureRecognizer>(
+                () => LongPressGestureRecognizer(
+                  duration: const Duration(milliseconds: 300),
+                ),
+                (LongPressGestureRecognizer r) {
+                  r.onLongPress = onLongPress;
+                },
+              ),
+            },
+            child: Padding(
+              padding:
+                  const EdgeInsets.only(left: 12, right: 4, top: 6, bottom: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (dotColor != null) ...[
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: dotColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(
+                    name,
+                    style: ElioTextStyles.bodySmallStyle
+                        .copyWith(color: ElioColors.espresso),
+                  ),
+                  if (isRunningLow) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: ElioColors.terracotta.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(ElioRadii.chip),
+                        border: Border.all(
+                          color:
+                              ElioColors.terracotta.withValues(alpha: 0.55),
+                        ),
+                      ),
+                      child: Text(
+                        'Low',
+                        style: ElioTextStyles.bodySmallStyle.copyWith(
+                          color: ElioColors.terracotta,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            if (isRunningLow) ...[
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: ElioColors.terracotta.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(ElioRadii.chip),
-                  border: Border.all(
-                    color: ElioColors.terracotta.withValues(alpha: 0.55),
-                  ),
-                ),
-                child: Text(
-                  'Low',
-                  style: ElioTextStyles.bodySmallStyle.copyWith(
-                    color: ElioColors.terracotta,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.4,
+          ),
+          // Dedicated × hit-target. Tooltip + Semantics for a11y.
+          // Padding gives the icon a ~30×26 hit area — tight but bigger
+          // than a bare 14px icon. Deliberate hit-area choice: the ×
+          // sits inside the visible chip footprint so the chip doesn't
+          // grow tall, and the Undo snackbar (4s) covers stray-tap risk.
+          Tooltip(
+            message: 'Remove $name',
+            child: Semantics(
+              button: true,
+              label: 'Remove $name',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onRemove,
+                child: const Padding(
+                  padding: EdgeInsets.fromLTRB(4, 6, 10, 6),
+                  child: Icon(
+                    Icons.close,
+                    size: 14,
+                    color: ElioColors.mocha,
                   ),
                 ),
               ),
-            ],
-          ],
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

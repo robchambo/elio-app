@@ -393,4 +393,155 @@ void main() {
     expect(added.first['tier'], 'perishable');
     expect(added.first['expiry'], isNotNull);
   });
+
+  // Sprint 16.6 row 9: dedicated × hit-target on each chip for explicit
+  // delete with Undo snackbar. Distinct from long-press picker's Remove.
+
+  testWidgets('× on a staple chip renders the explicit-remove hit-target',
+      (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'salt-1',
+        'name': 'Salt',
+        'tier': 'alwaysHave',
+        'runningLow': false,
+      },
+    ];
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Always Have (1)'));
+    await tester.pumpAndSettle();
+
+    // One Icons.close on the chip; the +Add chip uses Icons.add so
+    // they don't collide.
+    expect(find.byIcon(Icons.close), findsOneWidget);
+    expect(find.byTooltip('Remove Salt'), findsOneWidget);
+  });
+
+  testWidgets('Tapping × deletes the staple and shows Undo snackbar',
+      (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'salt-1',
+        'name': 'Salt',
+        'tier': 'alwaysHave',
+        'runningLow': false,
+      },
+    ];
+    final calls = <Map<String, dynamic>>[];
+    debugPantryMutationOverride = (id, action) {
+      calls.add({'id': id, ...action});
+    };
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Always Have (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Remove Salt'));
+    await tester.pumpAndSettle();
+
+    expect(calls, hasLength(1));
+    expect(calls.first['id'], 'salt-1');
+    expect(calls.first['type'], 'delete');
+    expect(find.text('Salt'), findsNothing);
+
+    // Undo snackbar + action visible.
+    expect(find.text('Removed Salt.'), findsOneWidget);
+    expect(find.widgetWithText(SnackBarAction, 'Undo'), findsOneWidget);
+  });
+
+  testWidgets('Tapping × on a perishable deletes the chip', (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'tomato-1',
+        'name': 'Tomato',
+        'tier': 'perishable',
+        'runningLow': false,
+        'expiryDate':
+            DateTime.now().add(const Duration(days: 7)).toIso8601String(),
+      },
+    ];
+    final calls = <Map<String, dynamic>>[];
+    debugPantryMutationOverride = (id, action) {
+      calls.add({'id': id, ...action});
+    };
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Perishables (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Remove Tomato'));
+    await tester.pumpAndSettle();
+
+    expect(calls.single['type'], 'delete');
+    expect(find.text('Removed Tomato.'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Undo after × restores the chip via the add path, preserving expiry',
+      (tester) async {
+    final freshExpiry =
+        DateTime.now().add(const Duration(days: 7)).toIso8601String();
+    debugPantryInitialItems = [
+      {
+        'id': 'tomato-1',
+        'name': 'Tomato',
+        'tier': 'perishable',
+        'runningLow': false,
+        'expiryDate': freshExpiry,
+      },
+    ];
+    debugPantryMutationOverride = (_, __) {};
+    final added = <Map<String, dynamic>>[];
+    debugPantryAddOverride = (name, tier, expiry) {
+      added.add({'name': name, 'tier': tier, 'expiry': expiry});
+      return 'restored-${added.length}';
+    };
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Perishables (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Remove Tomato'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Removed Tomato.'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(SnackBarAction, 'Undo'));
+    await tester.pumpAndSettle();
+
+    expect(added, hasLength(1));
+    expect(added.first['name'], 'Tomato');
+    expect(added.first['tier'], 'perishable');
+    expect(added.first['expiry'], isA<DateTime>(),
+        reason: 'Undo should restore the expiry timestamp so the perishable '
+            'comes back with the same urgency colour.');
+    expect(find.textContaining('Tomato'), findsOneWidget);
+  });
+
+  testWidgets('Undo preserves runningLow on a staple chip', (tester) async {
+    debugPantryInitialItems = [
+      {
+        'id': 'milk-1',
+        'name': 'Milk',
+        'tier': 'almostAlwaysHave',
+        'runningLow': true,
+      },
+    ];
+    debugPantryMutationOverride = (_, __) {};
+    debugPantryAddOverride = (name, tier, expiry) => 'restored-milk';
+
+    await pumpPantry(tester);
+    await tester.tap(find.text('Almost Always Have (1)'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Remove Milk'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(SnackBarAction, 'Undo'));
+    await tester.pumpAndSettle();
+
+    // Restored chip should still show the Low badge.
+    expect(find.text('Milk'), findsOneWidget);
+    expect(find.text('Low'), findsOneWidget);
+  });
 }
