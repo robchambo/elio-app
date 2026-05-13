@@ -1176,6 +1176,28 @@ class GeminiService {
     buffer.writeln('## JSON SCHEMA (return exactly this structure):');
     buffer.writeln('Include estimated per-serving nutritional values in the "nutrition" field.');
     buffer.writeln('Set "category" to the single best fit for this recipe; use exactly one of the listed values.');
+    // Sprint 16.6 (Notion XX-2 nutrition+cost, 13 May 2026) — field
+    // order matters under maxOutputTokens: 1024.
+    //
+    // Gemini emits the JSON in the order presented here. When the
+    // 1024-token cap hits mid-response, fields LATER in the schema
+    // are silently dropped — `_extractJson`'s truncation-repair
+    // closes the structure but cannot fabricate fields that were
+    // never written. Previously `nutrition` + cost were last, so a
+    // truncation inside the long ingredients[] or steps[] arrays
+    // wiped them and the RecipeScreen pills disappeared.
+    //
+    // Reordered by survival priority:
+    //   * tier 1 (tiny, always survive): title / category / description
+    //     / prep+cook times / servings
+    //   * tier 2 (short, MUST survive — drive UI conditional pills):
+    //     dietaryTags / nutrition / estimatedCostPerServing*
+    //   * tier 3 (short array, partial OK): substitutions
+    //   * tier 4 (long arrays, partial OK — _tryRepairTruncatedJson
+    //     handles the close): ingredients / steps
+    //
+    // If truncation still loses tier-3/4 content, the next lever is
+    // bumping maxOutputTokens 1024 → 1536 (see _streamFromPrompt).
     buffer.writeln('''{
   "title": "string",
   "category": "<one of: Appetizer | Entrée | Side dish | Dessert | Breakfast | Brunch | Lunch | Snack | Soup | Salad | Drink>",
@@ -1184,13 +1206,6 @@ class GeminiService {
   "cookTimeMinutes": 20,
   "servings": 2,
   "dietaryTags": ["string"],
-  "ingredients": [
-    {"name": "string", "quantity": "string", "unit": "string", "fromInventory": true}
-  ],
-  "steps": ["string"],
-  "substitutions": [
-    {"original": "string", "substitute": "string", "tradeOff": "string"}
-  ],
   "nutrition": {
     "calories": 450,
     "proteinG": 35.0,
@@ -1199,7 +1214,14 @@ class GeminiService {
     "fibreG": 6.0
   },
   "estimatedCostPerServingUSD": 4.50,
-  "estimatedCostPerServingGBP": 3.50
+  "estimatedCostPerServingGBP": 3.50,
+  "substitutions": [
+    {"original": "string", "substitute": "string", "tradeOff": "string"}
+  ],
+  "ingredients": [
+    {"name": "string", "quantity": "string", "unit": "string", "fromInventory": true}
+  ],
+  "steps": ["string"]
 }''');
 
     return buffer.toString();
