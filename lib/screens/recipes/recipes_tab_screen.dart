@@ -167,6 +167,16 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
   }
 
   // ── Build ──────────────────────────────────────────────────────────
+  //
+  // Layout: NestedScrollView so the hero / import bentos / search / makeable
+  // toggle all scroll AWAY as the user scrolls up, leaving only the tab bar
+  // pinned at the top. The previous Padding > Column > Expanded(TabBarView)
+  // layout left only ~250-300px for recipe content on a typical phone, which
+  // showed ~one recipe at a time. NestedScrollView lifts that ceiling.
+  //
+  // SliverOverlapAbsorber + SliverOverlapInjector pair handles the inner-
+  // scroll position correctly when swiping between tabs (without it the body
+  // can jump on tab change).
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -186,115 +196,151 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
         capped(_all.where((r) => r.isBookmarked).where(passes)).toList();
     final history = capped(_all.where(passes)).toList();
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        ElioSpacing.screenEdge,
-        ElioSpacing.lg,
-        ElioSpacing.screenEdge,
-        0,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const ElioHeroHeading(
-            lines: ['your', 'recipes'],
-            amberLastLine: true,
-            showUnderline: true,
-          ),
-          const SizedBox(height: ElioSpacing.xl),
+    final tabBar = TabBar(
+      controller: _tabController,
+      labelColor: ElioColors.terracotta,
+      unselectedLabelColor: ElioColors.mocha,
+      indicatorColor: ElioColors.terracotta,
+      labelStyle: ElioTextStyles.tabLabelStyle,
+      unselectedLabelStyle: ElioTextStyles.tabLabelStyle,
+      tabs: [
+        Tab(text: 'Saved (${saved.length})'),
+        Tab(text: 'History (${history.length})'),
+      ],
+    );
 
-          // ── Import tiles (mirrors Pantry tab) ──────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: ElioBentoCard(
-                  icon: Icons.photo_camera_outlined,
-                  kicker: 'Photo Or Camera',
-                  title: 'Take Photo',
-                  iconBackgroundColor: ElioColors.peach,
-                  onTap: () => _openImport(initialTab: 0),
-                ),
-              ),
-              const SizedBox(width: ElioSpacing.lg),
-              Expanded(
-                child: ElioBentoCard(
-                  icon: Icons.link_rounded,
-                  kicker: 'URL Or Text',
-                  title: 'Manual Entry',
-                  iconBackgroundColor: const Color(0xFFF5C26B),
-                  onTap: () => _openImport(initialTab: 1),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: ElioSpacing.xl),
-
-          // ── Search field (filters both tabs; lifts the 20-cap) ─────
-          _SearchField(controller: _searchController),
-          const SizedBox(height: ElioSpacing.md),
-
-          // ── Makeable-now toggle (above tabs so it filters both) ────
-          _MakeableSwitch(
-            value: _makeableOnly,
-            onChanged: (v) => setState(() => _makeableOnly = v),
-          ),
-          const SizedBox(height: ElioSpacing.md),
-
-          // ── Tab bar with filtered counts in labels ─────────────────
-          TabBar(
-            controller: _tabController,
-            labelColor: ElioColors.terracotta,
-            unselectedLabelColor: ElioColors.mocha,
-            indicatorColor: ElioColors.terracotta,
-            labelStyle: ElioTextStyles.tabLabelStyle,
-            unselectedLabelStyle: ElioTextStyles.tabLabelStyle,
-            tabs: [
-              Tab(text: 'Saved (${saved.length})'),
-              Tab(text: 'History (${history.length})'),
-            ],
-          ),
-
-          // ── Tab content (each tab has its own scroll view) ─────────
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildList(
-                  saved,
-                  emptyText: _makeableOnly
-                      ? 'No saved recipes you can cook with your pantry right now.'
-                      : "You haven't bookmarked any recipes yet.",
-                ),
-                _buildList(
-                  history,
-                  emptyText: _makeableOnly
-                      ? 'No history recipes you can cook with your pantry right now.'
-                      : 'Recipes you generate will appear here.',
-                ),
-              ],
+    return NestedScrollView(
+      headerSliverBuilder: (context, innerBoxIsScrolled) => [
+        SliverOverlapAbsorber(
+          handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+          sliver: SliverPadding(
+            padding: const EdgeInsets.fromLTRB(
+              ElioSpacing.screenEdge,
+              ElioSpacing.lg,
+              ElioSpacing.screenEdge,
+              0,
             ),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                const ElioHeroHeading(
+                  lines: ['your', 'recipes'],
+                  amberLastLine: true,
+                  showUnderline: true,
+                ),
+                const SizedBox(height: ElioSpacing.xl),
+
+                // ── Import tiles (mirrors Pantry tab) ──────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElioBentoCard(
+                        icon: Icons.photo_camera_outlined,
+                        kicker: 'Photo Or Camera',
+                        title: 'Take Photo',
+                        iconBackgroundColor: ElioColors.peach,
+                        onTap: () => _openImport(initialTab: 0),
+                      ),
+                    ),
+                    const SizedBox(width: ElioSpacing.lg),
+                    Expanded(
+                      child: ElioBentoCard(
+                        icon: Icons.link_rounded,
+                        kicker: 'URL Or Text',
+                        title: 'Manual Entry',
+                        iconBackgroundColor: const Color(0xFFF5C26B),
+                        onTap: () => _openImport(initialTab: 1),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: ElioSpacing.xl),
+
+                // ── Search field (filters both tabs; lifts the 20-cap)
+                _SearchField(controller: _searchController),
+                const SizedBox(height: ElioSpacing.md),
+
+                // ── Makeable-now toggle (filters both tabs) ────────
+                _MakeableSwitch(
+                  value: _makeableOnly,
+                  onChanged: (v) => setState(() => _makeableOnly = v),
+                ),
+                const SizedBox(height: ElioSpacing.md),
+              ]),
+            ),
+          ),
+        ),
+        SliverPersistentHeader(
+          pinned: true,
+          delegate: _TabBarDelegate(tabBar: tabBar),
+        ),
+      ],
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildTabContent(
+            saved,
+            emptyText: _makeableOnly
+                ? 'No saved recipes you can cook with your pantry right now.'
+                : "You haven't bookmarked any recipes yet.",
+            storageKey: 'recipes-tab-saved',
+          ),
+          _buildTabContent(
+            history,
+            emptyText: _makeableOnly
+                ? 'No history recipes you can cook with your pantry right now.'
+                : 'Recipes you generate will appear here.',
+            storageKey: 'recipes-tab-history',
           ),
         ],
       ),
     );
   }
 
-  Widget _buildList(List<SavedRecipe> recipes, {required String emptyText}) {
-    if (recipes.isEmpty) {
-      return SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: ElioSpacing.lg),
-        child: _emptyText(emptyText),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(
-        0,
-        ElioSpacing.md,
-        0,
-        ElioSpacing.xxl,
-      ),
-      itemCount: recipes.length,
-      itemBuilder: (_, i) => _buildRecipeCard(recipes[i]),
+  /// Inner scroll view per tab. Wrapped in a Builder so each tab has its
+  /// own BuildContext for [NestedScrollView.sliverOverlapAbsorberHandleFor].
+  /// PageStorageKey preserves scroll position when swiping between tabs.
+  Widget _buildTabContent(
+    List<SavedRecipe> recipes, {
+    required String emptyText,
+    required String storageKey,
+  }) {
+    return Builder(
+      builder: (context) {
+        return CustomScrollView(
+          key: PageStorageKey<String>(storageKey),
+          slivers: [
+            SliverOverlapInjector(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+            ),
+            if (recipes.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    ElioSpacing.screenEdge,
+                    ElioSpacing.lg,
+                    ElioSpacing.screenEdge,
+                    0,
+                  ),
+                  child: _emptyText(emptyText),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(
+                  ElioSpacing.screenEdge,
+                  ElioSpacing.md,
+                  ElioSpacing.screenEdge,
+                  ElioSpacing.xxl,
+                ),
+                sliver: SliverList.builder(
+                  itemCount: recipes.length,
+                  itemBuilder: (_, i) => _buildRecipeCard(recipes[i]),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -373,6 +419,39 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
         padding: const EdgeInsets.symmetric(vertical: ElioSpacing.md),
         child: Text(text, style: ElioTextStyles.bodySmallStyle),
       );
+}
+
+/// SliverPersistentHeaderDelegate that keeps the [TabBar] pinned at
+/// the top of the [NestedScrollView] body once the hero / bento /
+/// search / makeable header content has scrolled away. Solid cream
+/// background so recipe cards scrolling beneath the bar are obscured
+/// (without it, text would visibly bleed through the bar).
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  const _TabBarDelegate({required this.tabBar});
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: ElioColors.cream,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_TabBarDelegate oldDelegate) {
+    return tabBar != oldDelegate.tabBar;
+  }
 }
 
 /// Cream-deep search field with magnifier prefix and a clear (×)
