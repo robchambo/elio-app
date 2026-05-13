@@ -56,3 +56,6 @@ coverage/
 # Java heap dumps
 *.hprof
 android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# Git worktrees (project-local isolation directory)
+.worktrees/
