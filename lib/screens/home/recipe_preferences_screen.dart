@@ -794,11 +794,19 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     // Sprint 16.6 (Notion XX bug 5): visual width parity with the
     // toggle tiles below. Previously had no border + 20px horizontal
     // pad → the cream-on-cream rendering made it read as a different
-    // shape than the bordered toggle tiles, even though the underlying
-    // Container stretched the same. Added Border.all(rule) + switched
-    // internal padding to ElioSpacing.md so the outer edge + inner
-    // inset both align with `_buildToggleTile` and the chip rows below.
+    // shape than the bordered toggle tiles. Added Border.all(rule) +
+    // switched internal padding to ElioSpacing.md so the outer edge +
+    // inner inset both align with `_buildToggleTile` and the chip rows.
+    //
+    // 12 May 2026 — `width: double.infinity` explicitly added. Without
+    // it the Container hugs the TextField's intrinsic content width
+    // inside `Column(crossAxisAlignment: start)`, so the cream fill
+    // stops where the hint text ends rather than stretching to the
+    // right edge. Toggle tiles below escape this because their inner
+    // Row+Expanded forces full width; this Container doesn't have
+    // that, so we set it directly.
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: ElioSpacing.md),
       decoration: BoxDecoration(
         color: ElioColors.cream,
