@@ -298,6 +298,26 @@ class FirestoreService {
     await _db.collection('users').doc(_uid).update(updates);
   }
 
+  // ─── Sprint 16.7c: per-user shopping aisle ordering ──────────────
+
+  /// Reads the user's preferred aisle ordering. Returns null if the user
+  /// has never reordered (the shopping list falls back to the default
+  /// enum order in that case via [AisleUtils.orderedFor]).
+  Future<List<String>?> getAisleOrder() async {
+    final doc = await _db.collection('users').doc(_uid).get();
+    if (!doc.exists) return null;
+    final data = doc.data() as Map<String, dynamic>;
+    final raw = data['aisleOrder'];
+    if (raw is List) return raw.map((e) => e.toString()).toList();
+    return null;
+  }
+
+  /// Persists the user's preferred aisle ordering. Stored as a list of
+  /// [GroceryAisle.name] strings on the user doc.
+  Future<void> saveAisleOrder(List<String> order) async {
+    await _db.collection('users').doc(_uid).update({'aisleOrder': order});
+  }
+
   // ─── Free tier: check if user can generate a recipe ─────────────
   // Free tier: 3 recipes/day. Resets at midnight UTC.
   // Pro tier: unlimited.
