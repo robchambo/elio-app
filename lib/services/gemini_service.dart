@@ -526,6 +526,14 @@ class GeminiService {
             if (parts == null) continue;
 
             for (final part in parts) {
+              // Sprint 16.6 — mirror the thought-part filter used by
+              // substitution (~L1389), URL import (~L1517), and side
+              // dish (~L1631). With thinkingConfig.thinkingBudget = 0
+              // this is a no-op today, but hardens against config drift
+              // and any future API behaviour change that emits thoughts
+              // by default. Without it, a stray thought part would
+              // concatenate into the JSON buffer and break extraction.
+              if (part is Map && part['thought'] == true) continue;
               final text = part['text'] as String?;
               if (text != null) buffer.write(text);
             }
