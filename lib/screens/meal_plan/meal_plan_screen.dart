@@ -13,6 +13,7 @@ import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/shopping_service.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../paywall/paywall_screen.dart';
 import '../shopping/shopping_list_screen.dart';
 import '../../utils/quantity_utils.dart';
@@ -441,7 +442,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         // follow the user across navigation indefinitely.
         final messenger = ScaffoldMessenger.of(context);
         messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(
+        // Sprint 16.7c — withTimer enforces the 3s dismiss even when
+        // accessibleNavigation is true (Flutter would otherwise leave
+        // the action snackbar on screen indefinitely).
+        messenger.showSnackBarWithTimer(
           SnackBar(
             content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
             backgroundColor: ElioColors.espresso,

@@ -448,6 +448,11 @@ void main() {
     // Undo snackbar + action visible.
     expect(find.text('Removed Salt.'), findsOneWidget);
     expect(find.widgetWithText(SnackBarAction, 'Undo'), findsOneWidget);
+
+    // Sprint 16.7c: showSnackBarWithTimer schedules an external Timer
+    // for the snackbar's duration. Pump past it so the framework's
+    // end-of-test '!timersPending' assertion has nothing to flag.
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets('Tapping × on a perishable deletes the chip', (tester) async {
@@ -475,6 +480,10 @@ void main() {
 
     expect(calls.single['type'], 'delete');
     expect(find.text('Removed Tomato.'), findsOneWidget);
+
+    // Sprint 16.7c: pump past the snackbar's external Timer to satisfy
+    // the framework's end-of-test '!timersPending' assertion.
+    await tester.pump(const Duration(seconds: 5));
   });
 
   testWidgets(

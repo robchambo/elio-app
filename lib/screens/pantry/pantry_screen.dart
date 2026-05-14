@@ -31,6 +31,7 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../utils/pantry_chip_urgency.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
 import '../../widgets/elio/elio_bento_card.dart';
 import '../../widgets/elio/elio_page_title.dart';
@@ -440,12 +441,20 @@ class _PantryScreenState extends State<PantryScreen> {
 
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
-    // Notion XX-2 B1 (13 May 2026): duration reduced from 4s → 2s so
-    // the snackbar dismisses before the user can realistically switch
-    // tabs. Material's standard undo-snackbar pattern lands around 2s
-    // and Undo is still hittable. Controller saved so dispose() can
-    // force-close on screen lifecycle exit.
-    _activeSnackbar = messenger.showSnackBar(
+    // Belt-and-braces snackbar lifecycle (13 May 2026), combining two
+    // independent fixes that both landed for the same Rob-reported bug:
+    //   • duration 4s → 2s (Notion XX-2 B1, integration commit 841e91c)
+    //     — Material's standard undo pattern, shrinks the leak window
+    //     to almost nothing
+    //   • _activeSnackbar tracked + closed in dispose() (also 841e91c)
+    //     — kills the toast on screen lifecycle exit
+    //   • showSnackBarWithTimer (Sprint 16.7c, commit d8e5e7c) — bypasses
+    //     Flutter's accessibility-related timer suppression so the 2s
+    //     dismiss is enforced on devices with TalkBack / Switch Access
+    //     / various Samsung accessibility shortcuts (Flutter otherwise
+    //     skips its own auto-dismiss timer when accessibleNavigation is
+    //     true AND the snackbar has an action).
+    _activeSnackbar = messenger.showSnackBarWithTimer(
       SnackBar(
         duration: const Duration(seconds: 2),
         content: Text(

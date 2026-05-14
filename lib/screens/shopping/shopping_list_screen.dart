@@ -33,13 +33,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../services/firestore_service.dart';
 import '../../services/shopping_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../utils/aisle_utils.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../../widgets/elio/elio_app_scaffold.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
@@ -51,17 +54,91 @@ class ShoppingListScreen extends StatefulWidget {
   State<ShoppingListScreen> createState() => _ShoppingListScreenState();
 }
 
+/// SharedPreferences key for the one-time aisle-reorder hint snackbar.
+/// Bumping the suffix forces the hint to re-show (e.g. if we ever
+/// change the gesture or copy materially).
+const String _kAisleReorderHintKey = 'aisle_reorder_hint_shown_v1';
+
 class _ShoppingListScreenState extends State<ShoppingListScreen> {
   final TextEditingController _addController = TextEditingController();
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _sub;
 
   List<PersistentShoppingItem> _items = const [];
   bool _loading = true;
+  // Sprint 16.7c: per-user aisle ordering. null = use default enum order.
+  // Loaded once on init; updated optimistically + persisted to Firestore
+  // each time the user reorders.
+  List<String>? _aisleOrder;
+  // Discoverability backstop for the long-press-to-reorder gesture
+  // (Sprint 16.7c). Defaults to true ("already shown — don't bother")
+  // so we never accidentally fire on a brand-new install while prefs
+  // are still loading. The actual value lands in [_loadAisleOrder].
+  // [_hintScheduled] guards against re-firing across rebuilds.
+  bool _aisleHintShown = true;
+  bool _hintScheduled = false;
 
   @override
   void initState() {
     super.initState();
     _subscribe();
+    _loadAisleOrder();
+  }
+
+  Future<void> _loadAisleOrder() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final order = await FirestoreService().getAisleOrder();
+      final prefs = await SharedPreferences.getInstance();
+      final hintShown = prefs.getBool(_kAisleReorderHintKey) ?? false;
+      if (!mounted) return;
+      setState(() {
+        _aisleOrder = order;
+        _aisleHintShown = hintShown;
+      });
+    } catch (_) {
+      // Silent — fall back to default order via AisleUtils.orderedFor(null).
+    }
+  }
+
+  /// One-time snackbar pointing at the long-press-to-reorder gesture.
+  /// Only fires once the user actually has something to reorder
+  /// (>= 2 visible aisles); persists to SharedPreferences immediately
+  /// so reopens don't re-trigger even if the user dismisses without
+  /// tapping "Got it".
+  void _maybeShowReorderHint(int visibleAisleCount) {
+    if (_aisleHintShown || _hintScheduled || visibleAisleCount < 2) return;
+    _hintScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger == null) return;
+      // Persist before showing so a reopen mid-snackbar can't re-fire.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_kAisleReorderHintKey, true);
+      } catch (_) {
+        // Silent — at worst the hint shows once more next session.
+      }
+      if (!mounted) return;
+      _aisleHintShown = true;
+      // Sprint 16.7c — withTimer enforces the 6s dismiss even when
+      // accessibleNavigation is true (Flutter would otherwise suppress
+      // its own timer because of the action).
+      messenger.showSnackBarWithTimer(
+        SnackBar(
+          content: const Text(
+            'Tip: long-press an aisle header to drag and reorder.',
+          ),
+          duration: const Duration(seconds: 6),
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Got it',
+            onPressed: messenger.hideCurrentSnackBar,
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -201,7 +278,9 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     final buffer = StringBuffer();
     buffer.writeln('Shopping List');
     buffer.writeln('─────────────');
-    for (final aisle in AisleUtils.displayOrder) {
+    // Honour the user's custom aisle order so the share text reads in
+    // the same sequence as the on-screen list.
+    for (final aisle in AisleUtils.orderedFor(_aisleOrder)) {
       final items = grouped[aisle];
       if (items == null || items.isEmpty) continue;
       buffer.writeln();
@@ -267,20 +346,21 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
           if (_items.isEmpty)
             _buildEmptyState()
           else ...[
-            // Discoverability hint for the swipe-to-delete gesture.
+            // Discoverability hint for swipe-to-delete on rows AND the
+            // long-press-to-reorder on aisle headers (Sprint 16.7c).
             Padding(
               padding: const EdgeInsets.only(bottom: ElioSpacing.xs),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Icon(
-                    Icons.swipe_left_rounded,
+                    Icons.drag_indicator_rounded,
                     size: 14,
                     color: ElioColors.mocha.withValues(alpha: 0.7),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 2),
                   Text(
-                    'swipe to remove',
+                    'long-press header to reorder · swipe row to remove',
                     style: ElioTextStyles.bodySmall.copyWith(
                       color: ElioColors.mocha,
                       fontSize: 12,
@@ -289,7 +369,7 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
                 ],
               ),
             ),
-            ..._buildAisleSections(_items),
+            _buildReorderableAisles(_items),
             if (_items.any((i) => i.isChecked)) ...[
               const SizedBox(height: ElioSpacing.lg),
               _ClearCheckedButton(
@@ -303,8 +383,22 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
     );
   }
 
-  List<Widget> _buildAisleSections(List<PersistentShoppingItem> items) {
-    if (items.isEmpty) return const [];
+  /// Sprint 16.7c — aisles render as a [ReorderableListView] so the user
+  /// can long-press an aisle header and drag the whole section up or
+  /// down to match their store's actual layout. Default Flutter drag
+  /// handles are disabled (`buildDefaultDragHandles: false`) and a
+  /// [ReorderableDragStartListener] is wrapped around the header only —
+  /// long-pressing a row inside the section does NOT trigger reorder
+  /// (which would clash with swipe-to-delete and tap-to-check).
+  ///
+  /// shrinkWrap + NeverScrollableScrollPhysics so the list nests inside
+  /// the screen's outer SingleChildScrollView. Aisles with no items
+  /// auto-hide (visible-only reorder); newly-arriving items in a
+  /// previously-invisible aisle slot in at the bottom of the user's
+  /// custom order — they can be dragged into place from there.
+  Widget _buildReorderableAisles(List<PersistentShoppingItem> items) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
     // Group all items (checked + unchecked) by aisle so checked rows stay in
     // place greyed instead of jumping to a separate "in basket" section.
     final grouped = <GroceryAisle, List<PersistentShoppingItem>>{};
@@ -313,17 +407,67 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
       grouped.putIfAbsent(aisle, () => []).add(item);
     }
 
-    final sections = <Widget>[];
-    for (final aisle in AisleUtils.displayOrder) {
-      final aisleItems = grouped[aisle];
-      if (aisleItems == null || aisleItems.isEmpty) continue;
-      sections.add(Padding(
-        padding: const EdgeInsets.only(top: ElioSpacing.sm, bottom: ElioSpacing.xs),
-        child: ElioEyebrow(AisleUtils.displayName(aisle)),
-      ));
-      sections.addAll(aisleItems.map(_buildRow));
-    }
-    return sections;
+    final orderedAll = AisleUtils.orderedFor(_aisleOrder);
+    final visible = orderedAll
+        .where((a) => grouped[a]?.isNotEmpty == true)
+        .toList();
+
+    // Discoverability backstop — fire the one-time tooltip if there are
+    // actually >= 2 aisles to reorder. Internal guards prevent re-firing
+    // across rebuilds; the call is safe from build via post-frame defer.
+    _maybeShowReorderHint(visible.length);
+
+    return ReorderableListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      buildDefaultDragHandles: false,
+      onReorder: (oldIndex, newIndex) =>
+          _onAisleReorder(visible, oldIndex, newIndex),
+      children: [
+        for (var i = 0; i < visible.length; i++)
+          _AisleSection(
+            key: ValueKey('aisle-${visible[i].name}'),
+            aisle: visible[i],
+            items: grouped[visible[i]]!,
+            dragIndex: i,
+            buildRow: _buildRow,
+          ),
+      ],
+    );
+  }
+
+  /// Apply a visible-aisles reorder to the full preference list. Invisible
+  /// aisles (no items today) preserve their relative position in the
+  /// default enum order and append after the user's custom-ordered
+  /// visible aisles.
+  void _onAisleReorder(
+    List<GroceryAisle> visible,
+    int oldIndex,
+    int newIndex,
+  ) {
+    // ReorderableListView semantics: when moving down, newIndex points
+    // to the position AFTER removal. Adjust here so the math below is
+    // simple "remove + insert at index".
+    var adjustedNew = newIndex;
+    if (adjustedNew > oldIndex) adjustedNew -= 1;
+
+    final reorderedVisible = List<GroceryAisle>.from(visible);
+    final moved = reorderedVisible.removeAt(oldIndex);
+    reorderedVisible.insert(adjustedNew, moved);
+
+    final visibleSet = visible.toSet();
+    final invisibleInDefaultOrder =
+        GroceryAisle.values.where((a) => !visibleSet.contains(a));
+    final newFullOrder = <String>[
+      ...reorderedVisible.map((a) => a.name),
+      ...invisibleInDefaultOrder.map((a) => a.name),
+    ];
+
+    setState(() => _aisleOrder = newFullOrder);
+    // Fire-and-forget — UI updates optimistically. A failure here just
+    // means the next page load reverts to the prior order; no action
+    // for the user to take, so no snackbar.
+    FirestoreService().saveAisleOrder(newFullOrder).catchError((_) {});
   }
 
   Widget _buildRow(PersistentShoppingItem item) {
@@ -382,6 +526,59 @@ class ShoppingListPage extends StatelessWidget {
     return const ElioAppScaffold(
       body: ShoppingListScreen(),
       showBottomNav: false,
+    );
+  }
+}
+
+// ─── Aisle section (Sprint 16.7c) ────────────────────────────────────
+//
+// One reorderable item in the [_buildReorderableAisles] list. The header
+// is wrapped in [ReorderableDragStartListener] so long-press-to-drag is
+// scoped to the eyebrow row only — item rows below stay free for tap +
+// swipe. A subtle drag-indicator icon on the right of the header gives
+// the gesture some discoverability without screaming for attention.
+class _AisleSection extends StatelessWidget {
+  final GroceryAisle aisle;
+  final List<PersistentShoppingItem> items;
+  final int dragIndex;
+  final Widget Function(PersistentShoppingItem) buildRow;
+
+  const _AisleSection({
+    required Key key,
+    required this.aisle,
+    required this.items,
+    required this.dragIndex,
+    required this.buildRow,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ReorderableDragStartListener(
+          index: dragIndex,
+          child: Padding(
+            padding: const EdgeInsets.only(
+              top: ElioSpacing.sm,
+              bottom: ElioSpacing.xs,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ElioEyebrow(AisleUtils.displayName(aisle)),
+                ),
+                Icon(
+                  Icons.drag_indicator_rounded,
+                  size: 16,
+                  color: ElioColors.mocha.withValues(alpha: 0.4),
+                ),
+              ],
+            ),
+          ),
+        ),
+        ...items.map(buildRow),
+      ],
     );
   }
 }

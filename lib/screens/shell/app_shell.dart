@@ -91,6 +91,13 @@ class _AppShellState extends State<AppShell> {
   /// controller.
   void _selectTab(ElioNavTab next, {bool animate = true}) {
     if (next == _tab) return;
+    // Sprint 16.7c — AppShell hosts a single root ScaffoldMessenger that
+    // all four PageView children share. A snackbar fired from one tab
+    // (e.g. "Removed Sausages." from Pantry) otherwise persists across
+    // tab switches because changing tabs isn't a Navigator pop event,
+    // so the messenger queue isn't cleared. Clear on every tab change
+    // for consistent behaviour across all current and future snackbars.
+    ScaffoldMessenger.of(context).clearSnackBars();
     setState(() {
       _tabHistory.add(_tab);
       _tab = next;
@@ -106,6 +113,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _goToTabFromHistory(ElioNavTab next) {
+    // Same rationale as in _selectTab — clear pending snackbars on the
+    // back-button path too, so a snackbar from the leaving tab doesn't
+    // follow the user across.
+    ScaffoldMessenger.of(context).clearSnackBars();
     setState(() {
       _tab = next;
     });

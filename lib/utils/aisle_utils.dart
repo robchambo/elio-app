@@ -39,8 +39,43 @@ class AisleUtils {
   /// Returns the human-readable display name for an aisle.
   static String displayName(GroceryAisle aisle) => _displayNames[aisle]!;
 
-  /// Returns aisles in the order they should appear in the UI.
+  /// Returns aisles in the default order they should appear in the UI.
+  ///
+  /// Default order = enum declaration order. For per-user custom
+  /// orderings (Sprint 16.7c), call [orderedFor] with the user's
+  /// stored preference instead.
   static List<GroceryAisle> get displayOrder => GroceryAisle.values;
+
+  /// Returns aisles in the user's preferred order. Sprint 16.7c — backs
+  /// the long-press-and-drag reorder UX on the shopping list. The user
+  /// preference is a list of [GroceryAisle.name] strings persisted on
+  /// `users/{uid}.aisleOrder`.
+  ///
+  /// Behaviour:
+  ///   • null or empty preference → falls back to the default enum order.
+  ///   • Unknown aisle names in the preference → silently dropped.
+  ///   • Known names not present in the preference → appended at the end
+  ///     in the default enum order. Newly-added aisles in future schema
+  ///     versions inherit a sensible default rather than vanishing.
+  ///   • Repeats in the preference → deduplicated; first occurrence wins.
+  static List<GroceryAisle> orderedFor(List<String>? preference) {
+    if (preference == null || preference.isEmpty) {
+      return GroceryAisle.values;
+    }
+    final byName = {for (final a in GroceryAisle.values) a.name: a};
+    final ordered = <GroceryAisle>[];
+    final seen = <GroceryAisle>{};
+    for (final name in preference) {
+      final aisle = byName[name];
+      if (aisle != null && seen.add(aisle)) {
+        ordered.add(aisle);
+      }
+    }
+    for (final aisle in GroceryAisle.values) {
+      if (!seen.contains(aisle)) ordered.add(aisle);
+    }
+    return ordered;
+  }
 
   /// Keyword → aisle mapping. Ordered from most specific to least specific
   /// so that multi-word phrases match before their individual words.
