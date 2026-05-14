@@ -59,3 +59,10 @@ android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
 
 # Git worktrees (project-local isolation directory)
 .worktrees/
+
+# Personal / ephemeral docs that don't belong in version control.
+# Notion test list is the live source of truth for the test protocol;
+# the recipe-field-sanitization plan lives in the planning workspace
+# rather than the repo per Rob's call (14 May 2026).
+docs/strategy/2026-05-07-weekend-test-protocol.html
+docs/superpowers/plans/2026-05-12-recipe-field-sanitization.md
