@@ -276,7 +276,8 @@ void main() {
     expect(find.text('History (1)'), findsOneWidget);
   });
 
-  testWidgets('20-item cap is removed when search query is active',
+  testWidgets(
+      'No render cap — 25 history recipes report (25) in browse and search modes',
       (tester) async {
     final recipes = List.generate(
       25,
@@ -288,13 +289,15 @@ void main() {
     await _seedHistory(recipes);
     await _pump(tester);
 
-    // Baseline: capped at 20.
-    expect(find.text('History (20)'), findsOneWidget);
+    // No cap — label reflects the full list whether the user is
+    // browsing or searching. Removes the prior 20-item ceiling that
+    // made toggle-on/toggle-off both display "(20)" when underlying
+    // sets differed.
+    expect(find.text('History (25)'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'Match');
     await tester.pumpAndSettle();
 
-    // All 25 match — cap lifted while query is active.
     expect(find.text('History (25)'), findsOneWidget);
   });
 

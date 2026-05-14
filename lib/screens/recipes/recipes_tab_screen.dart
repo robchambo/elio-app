@@ -36,8 +36,6 @@ import '../../widgets/elio/elio_hero_heading.dart';
 import '../profile/recipe_import_screen.dart';
 import '../recipe/recipe_screen.dart';
 
-const int _kMaxPerSection = 20;
-
 class RecipesTabScreen extends StatefulWidget {
   const RecipesTabScreen({super.key});
 
@@ -186,15 +184,13 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
     bool passes(SavedRecipe r) =>
         (!_makeableOnly || _isMakeableNow(r)) && _matchesQuery(r);
 
-    // Cap each section at 20 when browsing; lift the cap when the user
-    // is actively searching so a result on item #21 isn't hidden.
-    final hasQuery = _query.trim().isNotEmpty;
-    Iterable<SavedRecipe> capped(Iterable<SavedRecipe> source) =>
-        hasQuery ? source : source.take(_kMaxPerSection);
-
-    final saved =
-        capped(_all.where((r) => r.isBookmarked).where(passes)).toList();
-    final history = capped(_all.where(passes)).toList();
+    // No render cap. Pro history is server-capped at 50, free at 20 — a
+    // few flicks of the thumb. Capping client-side here was confusing:
+    // the count label and the visible list could both top out at 20
+    // even when the underlying filtered set was different (toggle on/
+    // off both showed "(20)"). Removed 13 May 2026.
+    final saved = _all.where((r) => r.isBookmarked).where(passes).toList();
+    final history = _all.where(passes).toList();
 
     final tabBar = TabBar(
       controller: _tabController,
