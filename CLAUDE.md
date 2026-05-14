@@ -116,7 +116,7 @@ users/{uid}/
 - **Model:** `gemini-2.5-flash` (streaming), `gemini-2.5-flash-lite` (batch: receipts, import, substitutions, meal plans)
 - **Streaming endpoint:** `streamGenerateContent?alt=sse` via raw `http.Client` (static, reused — no per-request TCP/TLS overhead)
 - **Generation config:** temperature 0.8, topK 40, topP 0.95, `responseMimeType: 'application/json'`, `thinkingConfig: { thinkingBudget: 0 }`
-- **Max tokens:** 1024 (standard recipe), 2048 (bulk prep)
+- **Max tokens:** 3072 (standard recipe streaming + photo import), 2048 (bulk prep), 1024 (URL recipe import, flash-lite path)
 - **Timeout:** 60 seconds
 - **Retry:** 2 attempts on failure
 - **`_extractJson()`** kept as safety net for JSON parsing
@@ -367,7 +367,7 @@ Coordinated Android + iOS launch. Android built first, both released in the same
 - Receipt scanner edit/delete/expiry, pantry expiry chips, onboarding success screen
 
 ### Gemini API State
-- **Streaming**: gemini-2.5-flash via SSE, maxOutputTokens 1024 (standard) / 2048 (bulk prep), thinking disabled (thinkingBudget: 0), responseMimeType: application/json
+- **Streaming**: gemini-2.5-flash via SSE, maxOutputTokens 3072 (standard recipe + photo import) / 2048 (bulk prep), thinking disabled (thinkingBudget: 0), responseMimeType: application/json
 - **Batch**: gemini-2.5-flash-lite, responseMimeType: application/json, used for: URL recipe import (1024 tokens), substitutions, meal plans (6144 weekly / 1024 single / 512 detail), **side dish generation (768 tokens)**
 - **Timeouts**: 60s streaming, 90s meal plan weekly, 60s meal plan single, 45s meal plan detail, 20s side dish, 30s URL import
 - **Connection**: static http.Client reused across calls
