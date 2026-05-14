@@ -561,6 +561,36 @@ class GeminiService {
       final maxTokensHit = finishReason == 'MAX_TOKENS';
 
       final rawText = buffer.toString().trim();
+
+      // Sprint 16.6 (deliberation-bleed plan, Phase 0.1, 13 May 2026)
+      // — log any finish reason other than STOP as a Crashlytics
+      // non-fatal so we can dashboard MAX_TOKENS frequency without
+      // server-side logging. Includes prompt-shape booleans so we can
+      // correlate which feature combinations are most prone to
+      // truncation. No PII (no ingredient names, no recipe titles).
+      if (finishReason != null && finishReason != 'STOP') {
+        // Substring-detect the request-shape flags from the prompt
+        // itself — keeps the signature of _streamAttemptOnce stable
+        // and avoids plumbing a request-context Map through callers.
+        // The substrings are emitted by stable section headers in
+        // _buildPrompt, so the detection is reliable.
+        final hasPerishables = prompt.contains('REQUIRED') ||
+            prompt.contains('PERISHABLE ITEMS') ||
+            prompt.contains('Items the user has specifically chosen');
+        final hasMealType = prompt.contains('Meal type:') ||
+            prompt.contains('make a Breakfast recipe') ||
+            prompt.contains('make a Lunch recipe') ||
+            prompt.contains('make a Dinner recipe');
+        final hasVariation = prompt.contains('## VARIATION');
+        final hasAllergens = prompt.contains('ALLERGENS —');
+        ErrorService.log(
+          'recipe_finish_reason',
+          '$finishReason | bufLen=${rawText.length} | '
+              'perishables=$hasPerishables | mealType=$hasMealType | '
+              'variation=$hasVariation | allergens=$hasAllergens',
+        );
+      }
+
       if (rawText.isEmpty) {
         // Empty stream — usually a network blip or transient upstream
         // issue; worth retrying.
