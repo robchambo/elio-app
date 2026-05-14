@@ -108,10 +108,12 @@ void main() {
       expect(i.quantity, '4');
     });
 
-    test('truncated-field sink captures field names when provided', () {
-      // The aggregated-logging path: GeneratedRecipe.fromJson passes a sink
-      // through so it can fire ONE ErrorService.log per recipe instead of
-      // per field. When no sink is passed, the sanitizer just caps silently.
+    test('truncated-field sink captures field names with :long classifier', () {
+      // Sprint 16.6 deliberation-bleed plan, Phase 0.2 — sink entries
+      // now carry a shape classifier suffix (`:long` for generic
+      // verbose, `:bleed` for prompt-instruction echo). Plain wall-of-
+      // A's don't contain any prompt markers, so they all classify as
+      // `:long`.
       final sink = <String>[];
       RecipeIngredient.fromJson(
         {
@@ -121,8 +123,60 @@ void main() {
         },
         truncatedSink: sink,
       );
-      // Order is name, quantity, unit (the sanitizer call order in fromJson).
-      expect(sink, containsAll(['name', 'quantity', 'unit']));
+      expect(sink,
+          containsAll(['name:long', 'quantity:long', 'unit:long']));
+    });
+
+    test('sink classifies prompt-instruction echo as `:bleed`', () {
+      // Real failure shape from the 13 May Rob screenshot: Gemini
+      // paraphrased our prompt language ("(use this first)",
+      // "(from inventory)", "(expires today)") into the quantity
+      // value. The classifier flags these for Crashlytics so we can
+      // dashboard the bleed-vs-long ratio after the Phase 2 prompt
+      // restructure.
+      final sink = <String>[];
+      RecipeIngredient.fromJson(
+        {
+          'name': 'Chicken breast',
+          'quantity':
+              '0.5 lb (about 1 breast) (from inventory) (expires today) (use this first) ) (from in',
+        },
+        truncatedSink: sink,
+      );
+      expect(sink, contains('quantity:bleed'));
+      expect(sink, isNot(contains('quantity:long')));
+    });
+
+    test('sink classifies MUST USE ALL paraphrase as `:bleed`', () {
+      // 100+ chars so the field actually trips the 80-char cap and
+      // hits the classifier branch.
+      final sink = <String>[];
+      RecipeIngredient.fromJson(
+        {
+          'name': 'Spinach',
+          'quantity':
+              '80 grams — REQUIRED, you MUST use ALL of this in the recipe, do not omit any of it, every gram counts',
+        },
+        truncatedSink: sink,
+      );
+      expect(sink, contains('quantity:bleed'));
+    });
+
+    test('long verbose quantity without prompt markers classifies as `:long`',
+        () {
+      // Regression guard: a verbose-but-innocent quantity shouldn't
+      // be flagged as bleed. 100+ chars to trip the cap.
+      final sink = <String>[];
+      RecipeIngredient.fromJson(
+        {
+          'name': 'Pasta',
+          'quantity':
+              '500 grams uncooked, approximately two-thirds of a standard 750g pack, drained well after boiling',
+        },
+        truncatedSink: sink,
+      );
+      expect(sink, contains('quantity:long'));
+      expect(sink, isNot(contains('quantity:bleed')));
     });
 
     test('no truncation = empty sink', () {

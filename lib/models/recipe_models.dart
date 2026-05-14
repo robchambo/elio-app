@@ -13,10 +13,34 @@
 // can fire one aggregated ErrorService.log per recipe instead of one
 // per field.
 //
+// Sprint 16.6 (deliberation-bleed plan, Phase 0.2, 13 May 2026):
+// the sink now carries a shape classifier (`fieldName:bleed` or
+// `fieldName:long`) instead of just the field name. Lets the
+// aggregated Crashlytics log distinguish "Gemini paraphrased prompt
+// instructions into a value" (bleed) from "Gemini was just verbose"
+// (long) — the bleed pattern is the one we're root-causing in Phase 2.
+//
 // TODO(observability): if Crashlytics shows tips/description/title/
 // steps suffer the same failure mode, extend the same defence to those
 // fields.
 const int _ingredientFieldCharCap = 80;
+
+/// Lowercase substrings that indicate Gemini paraphrased one of our
+/// prompt instructions into the ingredient field value rather than
+/// emitting a clean numeric quantity. The phrases are extracted from
+/// the prompt section in `_buildPrompt` at gemini_service.dart around
+/// lines 1010 + 1014 — when these reach the response unaltered, the
+/// model has clearly bled deliberation into the JSON value.
+const Set<String> _bleedMarkers = {
+  '(from inventory)',
+  '(use this first)',
+  '(expires today)',
+  '(expires',
+  'must use all',
+  'required',
+  'do not',
+  'use these first',
+};
 
 String _sanitizeIngredientField(
   Object? raw, {
@@ -25,7 +49,11 @@ String _sanitizeIngredientField(
 }) {
   final asString = raw?.toString().trim() ?? '';
   if (asString.length <= _ingredientFieldCharCap) return asString;
-  if (sink != null) sink.add(fieldName);
+  if (sink != null) {
+    final lower = asString.toLowerCase();
+    final isBleed = _bleedMarkers.any(lower.contains);
+    sink.add('$fieldName:${isBleed ? 'bleed' : 'long'}');
+  }
   return '${asString.substring(0, _ingredientFieldCharCap)}…';
 }
 

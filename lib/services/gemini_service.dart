@@ -754,20 +754,38 @@ class GeminiService {
     return recipe;
   }
 
-  /// Compresses ['quantity', 'quantity', 'name'] -> 'quantity×2, name×1'
-  /// for the aggregated truncation log. Order is name → quantity → unit
-  /// (the sanitizer call order in [RecipeIngredient.fromJson]), giving
-  /// stable summaries for Crashlytics grouping.
+  /// Compresses ['quantity:bleed', 'quantity:long', 'name:long']
+  /// -> 'quantity:bleed×1, quantity:long×1, name:long×1' for the
+  /// aggregated truncation log. Order is name → quantity → unit
+  /// (the sanitizer call order in [RecipeIngredient.fromJson]),
+  /// then by classifier within each field, giving stable summaries
+  /// for Crashlytics grouping.
+  ///
+  /// Sprint 16.6 (deliberation-bleed plan, Phase 0.2, 13 May 2026):
+  /// sink entries now carry a shape classifier (`bleed` or `long`)
+  /// after a colon. `bleed` signals Gemini paraphrased prompt
+  /// instructions into a value — the Phase 2 prompt restructure
+  /// should drive this to near zero.
   static String _summariseTruncations(List<String> fields) {
     final counts = <String, int>{};
     for (final f in fields) {
       counts[f] = (counts[f] ?? 0) + 1;
     }
-    final ordered = ['name', 'quantity', 'unit']
-        .where(counts.containsKey)
-        .map((f) => '$f×${counts[f]}')
-        .join(', ');
-    return ordered;
+    // Stable ordering: by field, then by classifier within the field.
+    const fieldOrder = ['name', 'quantity', 'unit'];
+    const classifierOrder = ['bleed', 'long'];
+    final keys = <String>[];
+    for (final field in fieldOrder) {
+      for (final classifier in classifierOrder) {
+        final key = '$field:$classifier';
+        if (counts.containsKey(key)) keys.add(key);
+      }
+      // Legacy un-classified entries (pre-Phase-0.2 callers): still
+      // surface them so older saved-data round-trips don't crash the
+      // summariser. Should never fire in production after this commit.
+      if (counts.containsKey(field)) keys.add(field);
+    }
+    return keys.map((k) => '$k×${counts[k]}').join(', ');
   }
 
   /// "peanut-free"). Cost is a retry — safer than letting a violation
