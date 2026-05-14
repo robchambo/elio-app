@@ -276,8 +276,14 @@ void main() {
         ),
       );
       expect(prompt, contains('## VARIATION'));
-      expect(prompt, contains('Hero ingredients used: chickpeas, chickpeas, chickpeas'));
-      expect(prompt, contains('DIFFERENT hero ingredient'));
+      expect(prompt,
+          contains('Hero ingredients in the user\'s last 3 recipes: chickpeas, chickpeas, chickpeas'));
+      // 14 May 2026 — tightened wording: was "Pick a DIFFERENT hero
+      // ingredient", now "Do not use any of the above as the primary
+      // protagonist of THIS recipe". Regression guard against the
+      // softer phrasing slipping back.
+      expect(prompt.toLowerCase(), contains('do not use any of the above'));
+      expect(prompt, contains('primary protagonist'));
     });
 
     test('emits the section when recentCookware is non-empty', () {
@@ -291,7 +297,8 @@ void main() {
         ),
       );
       expect(prompt, contains('## VARIATION'));
-      expect(prompt, contains('Cookware used: skillet, skillet, skillet'));
+      expect(prompt,
+          contains('Cookware in the user\'s last 3 recipes: skillet, skillet, skillet'));
     });
 
     test('mentions varying descriptive language', () {

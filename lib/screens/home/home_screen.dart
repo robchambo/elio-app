@@ -373,8 +373,26 @@ class _HomeScreenState extends State<HomeScreen> {
     // recognised cookware noun for cookware) — skip the push for that
     // recipe rather than recording an empty slot. _variationWindow
     // bounds both lists at 3.
+    //
+    // 14 May 2026 — exclude user-REQUIRED perishables from the hero
+    // FIFO. Rob's complaint: "Chicken kept being mentioned beyond
+    // the 4th generation in every recipe." Root cause was that when
+    // chicken is in `request.perishables` (user picked it from the
+    // perishables picker because it was expiring today), the
+    // perishables REQUIRED prompt block forces Gemini to use it.
+    // The hero extractor then dutifully recorded "chicken" in the
+    // FIFO. The VARIATION block then said "Hero ingredients used:
+    // chicken, chicken, chicken — pick a different hero", but
+    // Gemini was already under the REQUIRED constraint, so it kept
+    // using chicken. The FIFO was polluted by USER intent disguised
+    // as MODEL bias.
+    //
+    // Fix: skip the hero push when the extracted hero matches any
+    // user-selected required perishable. The FIFO now only tracks
+    // free-choice heroes (cases where Gemini picked the protagonist
+    // on its own), so the VARIATION nudge actually works.
     final hero = RecipeVariation.heroIngredient(recipe);
-    if (hero != null) {
+    if (hero != null && !_isUserRequiredPerishable(hero, request)) {
       _recentHeroIngredients.add(hero);
       if (_recentHeroIngredients.length > _variationWindow) {
         _recentHeroIngredients.removeAt(0);
@@ -395,6 +413,34 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Background saves (Firestore, entitlements) — non-blocking
     _performBackgroundSaves(recipe);
+  }
+
+  /// Sprint 16.6 (Notion XX bug 3, 14 May 2026): true when [hero]
+  /// matches any of the user-selected required perishables in
+  /// [request]. Used to keep the VARIATION FIFO clean of
+  /// user-forced ingredient choices.
+  ///
+  /// Matches case-insensitively and tolerates the cleaned-name
+  /// extraction (RecipeVariation.heroIngredient runs
+  /// ShoppingService.cleanForShopping → lowercase). The required
+  /// list may have prep prefixes ("Diced onion") that don't match
+  /// the bare hero ("onion") — we check whether the perishable
+  /// CONTAINS the hero as a whole-word substring.
+  bool _isUserRequiredPerishable(
+      String hero, RecipeGenerationRequest request) {
+    if (request.perishables.isEmpty) return false;
+    final h = hero.toLowerCase().trim();
+    if (h.isEmpty) return false;
+    for (final p in request.perishables) {
+      final pl = p.toLowerCase().trim();
+      if (pl.isEmpty) continue;
+      // Direct substring works for "chicken" vs "chicken breast":
+      // the perishable contains the hero word. Whole-word check
+      // prevents false positives like "onion" matching "onions in
+      // brine" — fine because the cleaner already strips prep words.
+      if (pl == h || pl.contains(h) || h.contains(pl)) return true;
+    }
+    return false;
   }
 
   Future<void> _performBackgroundSaves(GeneratedRecipe recipe) async {

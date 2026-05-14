@@ -1210,17 +1210,28 @@ class GeminiService {
     if (request.recentHeroIngredients.isNotEmpty ||
         request.recentCookware.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('## VARIATION (last 3 recipes — vary against these):');
+      buffer.writeln('## VARIATION (last 3 recipes — pivot away from these):');
       if (request.recentHeroIngredients.isNotEmpty) {
         buffer.writeln(
-            'Hero ingredients used: ${request.recentHeroIngredients.join(', ')}.');
+            'Hero ingredients in the user\'s last 3 recipes: ${request.recentHeroIngredients.join(', ')}.');
       }
       if (request.recentCookware.isNotEmpty) {
         buffer.writeln(
-            'Cookware used: ${request.recentCookware.join(', ')}.');
+            'Cookware in the user\'s last 3 recipes: ${request.recentCookware.join(', ')}.');
       }
+      // 14 May 2026 — tightened wording. The FIFO is now scrubbed
+      // upstream to exclude user-REQUIRED perishables (home_screen.
+      // dart `_isUserRequiredPerishable`), so anything appearing in
+      // these lists is genuinely a free-choice repeat from Gemini's
+      // priors. Stronger framing: "Do not use" instead of
+      // "pick a DIFFERENT", and explicit "even if it would otherwise
+      // be a natural fit" to anticipate Gemini's reasoning escape.
       buffer.writeln(
-          'Pick a DIFFERENT hero ingredient AND a different primary cookware from the above. '
+          'Do not use any of the above as the primary protagonist of THIS recipe, '
+          'and pick a clearly different primary cookware. The user has been getting '
+          'too much repetition — they explicitly want variety this time, even if '
+          'the previous choices would otherwise feel like natural fits.');
+      buffer.writeln(
           'Also vary your descriptive language — if recent recipes leaned on words like "hearty", "warming", or "comforting", reach for fresher vocabulary this time.');
     }
 
