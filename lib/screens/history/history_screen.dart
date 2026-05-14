@@ -4,6 +4,7 @@ import '../../services/history_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../recipe/recipe_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -54,7 +55,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     await HistoryService.deleteRecipe(saved.savedAt);
     if (mounted) setState(() => _recipes.removeWhere((r) => r.savedAt == saved.savedAt));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.7c — withTimer enforces the default 4s dismiss even
+      // when the device's accessibleNavigation flag is true.
+      ScaffoldMessenger.of(context).showSnackBarWithTimer(
         SnackBar(
           content: Text('${saved.recipe.title} removed', style: ElioTextStyles.bodyStyle),
           backgroundColor: ElioColors.espresso,

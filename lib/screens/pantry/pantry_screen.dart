@@ -31,6 +31,7 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../utils/pantry_chip_urgency.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../../widgets/elio/elio_add_pantry_item_dialog.dart';
 import '../../widgets/elio/elio_bento_card.dart';
 import '../../widgets/elio/elio_page_title.dart';
@@ -418,7 +419,10 @@ class _PantryScreenState extends State<PantryScreen> {
 
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
+    // Sprint 16.7c — showSnackBarWithTimer enforces the 4s dismiss
+    // even when the device's accessibleNavigation flag is true (which
+    // would otherwise suppress Flutter's built-in timer). Rob 13 May.
+    messenger.showSnackBarWithTimer(
       SnackBar(
         duration: const Duration(seconds: 4),
         content: Text(

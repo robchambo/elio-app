@@ -23,6 +23,7 @@ import '../../services/error_service.dart';
 import '../../services/cooking_timer_service.dart';
 import '../../services/shopping_service.dart';
 import '../../services/user_settings_service.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../../utils/quantity_utils.dart';
 import '../../utils/time_parser.dart';
 import '../../widgets/elio/elio_duration_picker_sheet.dart';
@@ -252,7 +253,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
     HapticFeedback.heavyImpact();
     _speakText('${timer.label} timer done');
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    // Sprint 16.7c — withTimer enforces the 6s dismiss even when
+    // accessibleNavigation is true (Flutter would otherwise suppress
+    // its own timer because of the OK action).
+    ScaffoldMessenger.of(context).showSnackBarWithTimer(
       SnackBar(
         content: Text('${timer.label} timer done'),
         backgroundColor: ElioColors.terracotta,
@@ -1732,7 +1736,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
           // behind the destination route.
           final messenger = ScaffoldMessenger.of(context);
           messenger.hideCurrentSnackBar();
-          messenger.showSnackBar(
+          // Sprint 16.7c — withTimer enforces the 3s dismiss even when
+          // accessibleNavigation is true.
+          messenger.showSnackBarWithTimer(
             SnackBar(
               content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
               backgroundColor: ElioColors.espresso,

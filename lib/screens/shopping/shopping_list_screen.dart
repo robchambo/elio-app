@@ -42,6 +42,7 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../utils/aisle_utils.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../../widgets/elio/elio_app_scaffold.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
@@ -121,7 +122,10 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
       }
       if (!mounted) return;
       _aisleHintShown = true;
-      messenger.showSnackBar(
+      // Sprint 16.7c — withTimer enforces the 6s dismiss even when
+      // accessibleNavigation is true (Flutter would otherwise suppress
+      // its own timer because of the action).
+      messenger.showSnackBarWithTimer(
         SnackBar(
           content: const Text(
             'Tip: long-press an aisle header to drag and reorder.',
