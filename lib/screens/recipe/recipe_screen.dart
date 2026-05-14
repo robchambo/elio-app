@@ -2027,8 +2027,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _startHandsFree,
-              icon: const Icon(Icons.visibility_outlined, size: 20),
-              label: const Text('Start hands-free mode'),
+              icon: const Icon(Icons.soup_kitchen_outlined, size: 20),
+              // Sprint 16.7c (14 May 2026): renamed from "Start hands-free
+              // mode" — the feature is more than voice (bigger step UI,
+              // wakelock, simplified layout). "Cook Mode" matches the
+              // industry convention (Paprika / SideChef / Allrecipes) and
+              // anchors on the use case rather than the input method.
+              label: const Text('Start Cook Mode'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: ElioColors.espresso,
                 side: const BorderSide(color: ElioColors.espresso, width: 1.5),
@@ -2047,7 +2052,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
-  // Hands-free entry point (also used by mic icon in top bar).
+  // Cook Mode entry point (also used by the soup-kitchen icon in the
+  // top bar). Method name kept as `_startHandsFree` to avoid churn
+  // across the wider voice/TTS plumbing that still uses "hands-free"
+  // internally — only user-facing copy + icons rebranded 14 May 2026.
   void _startHandsFree() {
     setState(() {
       _handsFreeMode = true;
@@ -2128,11 +2136,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
-        // Voice / hands-free entry
+        // Cook Mode entry (renamed from "voice / hands-free" 14 May 2026 —
+        // see _startHandsFree button below for rationale).
         IconButton(
-          icon: const Icon(Icons.mic_none_outlined,
+          icon: const Icon(Icons.soup_kitchen_outlined,
               color: ElioColors.espresso, size: 22),
-          tooltip: 'Hands-free cooking',
+          tooltip: 'Cook Mode',
           onPressed: _startHandsFree,
         ),
         // Save / bookmark
