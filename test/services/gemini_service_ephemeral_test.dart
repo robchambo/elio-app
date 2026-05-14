@@ -18,7 +18,7 @@ import 'package:elio_app/services/gemini_service.dart';
 
 void main() {
   group('GeminiService.streamGenerateContentEphemeral prompt', () {
-    test('hero ingredient appears in the REQUIRED list', () {
+    test('hero ingredient appears in the user-chosen-items list', () {
       final pantry = [
         const InventoryItem(name: 'Chicken thighs', tier: 'perishable'),
         const InventoryItem(name: 'Lemon', tier: 'perishable'),
@@ -34,9 +34,12 @@ void main() {
         heroIngredientName: 'Lemon',
       );
 
-      // _buildPrompt writes "REQUIRED ingredients — you MUST use ALL of these"
-      // and lists the items. The hero name must appear in that line.
-      expect(prompt, contains('REQUIRED ingredients'));
+      // 13 May 2026 (deliberation-bleed plan Step 2.1): the section
+      // header changed from `REQUIRED ingredients — you MUST use ALL`
+      // to `Items the user has specifically chosen to use:` with a
+      // bullet list. The anti-bleed instruction sentence lives
+      // below the data, not adjacent to it. Hero name still appears.
+      expect(prompt, contains('Items the user has specifically chosen'));
       expect(prompt, contains('Lemon'));
     });
 

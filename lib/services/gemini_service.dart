@@ -574,9 +574,11 @@ class GeminiService {
         // and avoids plumbing a request-context Map through callers.
         // The substrings are emitted by stable section headers in
         // _buildPrompt, so the detection is reliable.
-        final hasPerishables = prompt.contains('REQUIRED') ||
+        final hasPerishables = prompt.contains('Perishables to prioritise') ||
+            prompt.contains('Items the user has specifically chosen') ||
+            // Legacy pre-Step-2.1 prompt shape (in case of mid-build):
             prompt.contains('PERISHABLE ITEMS') ||
-            prompt.contains('Items the user has specifically chosen');
+            prompt.contains('REQUIRED ingredients');
         final hasMealType = prompt.contains('Meal type:') ||
             prompt.contains('make a Breakfast recipe') ||
             prompt.contains('make a Lunch recipe') ||
@@ -1063,13 +1065,45 @@ class GeminiService {
       buffer.writeln();
       buffer.writeln('## INVENTORY:');
 
-      // Perishable inventory items with urgency (from pantry perishable tier)
+      // Sprint 16.6 (deliberation-bleed plan Step 2.1, 13 May 2026):
+      // restructured to put DATA and INSTRUCTIONS in separate
+      // surfaces. The previous version emitted inline parenthetical
+      // instructions next to the item names:
+      //
+      //   'PERISHABLE ITEMS (use these first): chicken breast (expires today)'
+      //   'REQUIRED ingredients — you MUST use ALL of these...: chicken breast.'
+      //
+      // With `thinkingBudget: 0`, Gemini paraphrased these inline
+      // instructions directly into ingredient `quantity` field values
+      // ("(use this first)", "(from inventory)", "(expires today)" —
+      // Rob's 13 May screenshot showed all three in a single quantity).
+      //
+      // New shape: bullet list of data, then a separate instruction
+      // sentence telling Gemini explicitly that quantities are
+      // numeric + unit only with positive examples. The
+      // anti-bleed instruction lives BELOW the data, not adjacent
+      // to it, so paraphrasing patterns don't pick it up.
+
+      // Perishable inventory items with urgency (from pantry perishable tier).
       if (request.perishableInventoryDescriptions.isNotEmpty) {
-        buffer.writeln('PERISHABLE ITEMS (use these first): ${request.perishableInventoryDescriptions.join(', ')}');
+        buffer.writeln('Perishables to prioritise:');
+        for (final desc in request.perishableInventoryDescriptions) {
+          buffer.writeln('- $desc');
+        }
       }
 
       if (request.perishables.isNotEmpty) {
-        buffer.writeln('REQUIRED ingredients — you MUST use ALL of these in the recipe (not just some of them): ${request.perishables.join(', ')}. Every single one of these must appear in the ingredients list and be used meaningfully in the cooking steps.');
+        buffer.writeln('Items the user has specifically chosen to use:');
+        for (final p in request.perishables) {
+          buffer.writeln('- $p');
+        }
+        buffer.writeln(
+            'Every item in the list above must appear in the recipe\'s '
+            '`ingredients` array and be used in the cooking steps. '
+            'Do NOT write instructions, reminders, or status notes '
+            'inside any ingredient `quantity` value — quantities are '
+            'numeric + optional unit only '
+            '(e.g. "0.5 lb", "200 g", "2 cloves", "1 cup").');
       } else if (request.perishableInventoryDescriptions.isEmpty) {
         buffer.writeln('No fresh items — use pantry staples.');
       }
