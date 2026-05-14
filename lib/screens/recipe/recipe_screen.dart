@@ -23,6 +23,7 @@ import '../../services/error_service.dart';
 import '../../services/cooking_timer_service.dart';
 import '../../services/shopping_service.dart';
 import '../../services/user_settings_service.dart';
+import '../../utils/friendly_error.dart';
 import '../../utils/snackbar_helpers.dart';
 import '../../utils/quantity_utils.dart';
 import '../../utils/time_parser.dart';
@@ -2626,7 +2627,10 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
       ErrorService.log('substitution_generation', e);
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          // 14 May 2026 (Notion XX-2 #2/#3): route through friendly
+          // error so network failures show "You're offline" + scrub
+          // the API key from any URL embedded in the exception text.
+          _errorMessage = friendlyError(e);
           _state = 'error';
         });
       }

@@ -5,6 +5,7 @@ import '../../services/analytics_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
 import '../../services/user_settings_service.dart';
+import '../../utils/friendly_error.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../recipe/recipe_screen.dart';
@@ -218,7 +219,7 @@ class _BulkPrepResultsScreenState extends State<BulkPrepResultsScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(_friendlyError(e)),
+          content: Text(friendlyError(e)),
           backgroundColor: ElioColors.espresso,
         ),
       );
@@ -226,27 +227,12 @@ class _BulkPrepResultsScreenState extends State<BulkPrepResultsScreen> {
       if (mounted) setState(() => _regenerating.remove(index));
     }
   }
-
-  /// Notion XX-2 B5 (13 May 2026): Map raw exception text to a clean
-  /// user-facing message. Most non-fatal regen failures are network-
-  /// shaped (offline, DNS resolution, host unreachable) — surface them
-  /// as a friendly "you're offline" rather than `SocketException: Failed
-  /// host lookup ...`. All other shapes fall back to the trimmed
-  /// exception text, which usually reads OK because GeminiService
-  /// raises Exception('readable message') deliberately.
-  String _friendlyError(Object e) {
-    final raw = e.toString().toLowerCase();
-    final isOffline = raw.contains('socketexception') ||
-        raw.contains('failed host lookup') ||
-        raw.contains('no address associated with hostname') ||
-        raw.contains('network is unreachable') ||
-        raw.contains('connection refused') ||
-        raw.contains('connection failed');
-    if (isOffline) {
-      return "You're offline. Reconnect and try the refresh again.";
-    }
-    return e.toString().replaceFirst('Exception: ', '');
-  }
+  // 14 May 2026 (Notion XX-2 #2/#3): local `_friendlyError` helper
+  // promoted to a shared `lib/utils/friendly_error.dart`. Now used
+  // across every Gemini error surface in the app (recipe gen, bulk
+  // regen, side dish, meal plan, recipe import). Also strips the
+  // Gemini API key from any URL embedded in exception text — Kate's
+  // 14 May screenshot showed the key visible in the in-app error.
 
   Widget _buildBottomBar() {
     return SafeArea(

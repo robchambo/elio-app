@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../models/elio_models.dart';
 import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
+import '../utils/friendly_error.dart';
 import '../utils/pantry_string_match.dart';
 import '../utils/region_utils.dart';
 import 'error_service.dart';
@@ -642,11 +643,19 @@ class GeminiService {
         );
       }
     } catch (e) {
-      ErrorService.log('recipe_generation_stream', e);
+      // 14 May 2026 (Notion XX-2 #2/#3): SocketException / ClientException
+      // from `client.send()` includes the full request URI in its
+      // `toString()`, and that URI carries `?key=AIzaSy...`. Both the
+      // ErrorService.log line AND the user-visible RecipeError message
+      // need scrubbing. Use scrubApiKey on what we log to Crashlytics;
+      // the UI yield path goes through callers which now route through
+      // friendlyError → also scrubs. Belt and braces.
+      ErrorService.log(
+          'recipe_generation_stream', scrubApiKey(e.toString()));
       // Network / timeout / decoder failures are all worth retrying.
       yield RecipeError(
         message: e is Exception
-            ? e.toString().replaceFirst('Exception: ', '')
+            ? scrubApiKey(e.toString().replaceFirst('Exception: ', ''))
             : 'Recipe generation failed. Please try again.',
         retryable: true,
       );

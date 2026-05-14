@@ -24,6 +24,7 @@ import '../../services/firestore_service.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
 import '../../services/user_settings_service.dart';
+import '../../utils/friendly_error.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
@@ -283,7 +284,12 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       (status) => _handleStatus(status, request),
       onError: (Object e) {
         if (!mounted) return;
-        _showError(e.toString());
+        // 14 May 2026 (Notion XX-2 #2/#3): main recipe gen stream was
+        // surfacing raw e.toString() including the API key in the URL
+        // when the network failed (Kate's app-switch screenshot).
+        // Route through friendlyError so network failures show a
+        // clean "You're offline" copy and the API key is scrubbed.
+        _showError(friendlyError(e));
       },
       onDone: () {
         // If we never saw a complete or error, treat as failure.
@@ -383,8 +389,11 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
         // Stream itself threw (transport / parse failure). Without this
         // catch the exception bubbles uncaught and the user is stuck in
         // the generating phase with the message rotation running forever.
+        // 14 May 2026: route through friendlyError to map network
+        // failures to "You're offline" + scrub API key from any URL
+        // embedded in the exception text.
         if (!mounted) return;
-        _showError(e.toString());
+        _showError(friendlyError(e));
         return;
       }
       if (errorMsg != null) {

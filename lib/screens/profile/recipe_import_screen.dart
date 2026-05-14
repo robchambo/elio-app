@@ -6,6 +6,7 @@ import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
 import '../../services/gemini_service.dart';
 import '../../services/error_service.dart';
+import '../../utils/friendly_error.dart';
 import '../recipe/recipe_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -119,7 +120,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
       if (!mounted) return;
       setState(() => _isImportingUrl = false);
 
-      final msg = e.toString().replaceFirst('Exception: ', '');
+      final msg = friendlyError(e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg.length > 100 ? '${msg.substring(0, 100)}...' : msg),
@@ -329,7 +330,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
       if (!mounted) return;
       setState(() => _isProcessing = false);
 
-      final msg = e.toString().replaceFirst('Exception: ', '');
+      final msg = friendlyError(e);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg.length > 100 ? '${msg.substring(0, 100)}...' : msg),

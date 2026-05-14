@@ -13,6 +13,7 @@ import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/shopping_service.dart';
+import '../../utils/friendly_error.dart';
 import '../../utils/snackbar_helpers.dart';
 import '../paywall/paywall_screen.dart';
 import '../shopping/shopping_list_screen.dart';
@@ -225,7 +226,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            content: Text(friendlyError(e)),
             backgroundColor: ElioColors.espresso,
           ),
         );
@@ -342,7 +343,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            content: Text(friendlyError(e)),
             backgroundColor: ElioColors.espresso,
           ),
         );
@@ -516,7 +517,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(e.toString().replaceFirst('Exception: ', '')),
+              content: Text(friendlyError(e)),
               backgroundColor: ElioColors.espresso,
             ),
           );
