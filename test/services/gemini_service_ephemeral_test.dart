@@ -152,7 +152,12 @@ void main() {
       expect(prompt.toLowerCase(), isNot(contains('dinner recipe')));
     });
 
-    test('emits the hard constraint for Breakfast', () {
+    test('emits the meal-type hint for Breakfast', () {
+      // 13 May 2026 (deliberation-bleed plan Step 1.2): downgraded
+      // from `You MUST make a Breakfast recipe` to a soft
+      // `Meal type: Breakfast` hint to lower constraint stack on
+      // a thinkingBudget:0 model. Still position-sensitive inside
+      // HARD CONSTRAINTS so Gemini sees it early.
       final prompt = GeminiService.buildPromptForTest(
         const RecipeGenerationRequest(
           perishables: [],
@@ -162,16 +167,17 @@ void main() {
           mealType: 'Breakfast',
         ),
       );
-      expect(prompt, contains('You MUST make a Breakfast recipe'));
-      expect(prompt, contains('hard requirement'));
-      // Lives inside HARD CONSTRAINTS block, not buried after.
+      expect(prompt, contains('Meal type: Breakfast'));
+      expect(prompt, contains('Tailor the dish to that meal occasion'));
+      // Still lives inside the HARD CONSTRAINTS block (position
+      // matters for LLM attention even when wording is softened).
       final hardIdx = prompt.indexOf('## HARD CONSTRAINTS');
-      final mealIdx = prompt.indexOf('Breakfast recipe');
+      final mealIdx = prompt.indexOf('Meal type: Breakfast');
       expect(hardIdx, greaterThan(-1));
       expect(mealIdx, greaterThan(hardIdx));
     });
 
-    test('emits the hard constraint for Lunch', () {
+    test('emits the meal-type hint for Lunch', () {
       final prompt = GeminiService.buildPromptForTest(
         const RecipeGenerationRequest(
           perishables: [],
@@ -181,10 +187,10 @@ void main() {
           mealType: 'Lunch',
         ),
       );
-      expect(prompt, contains('You MUST make a Lunch recipe'));
+      expect(prompt, contains('Meal type: Lunch'));
     });
 
-    test('emits the hard constraint for Dinner', () {
+    test('emits the meal-type hint for Dinner', () {
       final prompt = GeminiService.buildPromptForTest(
         const RecipeGenerationRequest(
           perishables: [],
@@ -194,7 +200,24 @@ void main() {
           mealType: 'Dinner',
         ),
       );
-      expect(prompt, contains('You MUST make a Dinner recipe'));
+      expect(prompt, contains('Meal type: Dinner'));
+    });
+
+    test('does NOT stack a third MUST (downgraded 13 May)', () {
+      // Regression guard: don't accidentally add another HARD MUST
+      // for meal-type. Phase 1.2 of the deliberation-bleed plan
+      // explicitly removes the third MUST from the stack.
+      final prompt = GeminiService.buildPromptForTest(
+        const RecipeGenerationRequest(
+          perishables: [],
+          alwaysHave: [],
+          almostAlwaysHave: [],
+          dietaryRequirements: [],
+          mealType: 'Dinner',
+        ),
+      );
+      expect(prompt, isNot(contains('You MUST make a Dinner')));
+      expect(prompt, isNot(contains('hard requirement')));
     });
 
     test('no positive example list (no anchoring on specific dishes)', () {

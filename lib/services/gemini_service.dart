@@ -1026,14 +1026,24 @@ class GeminiService {
       buffer.writeln('You MUST make a ${request.stylePreference} recipe. This is a hard requirement — the recipe\'s cuisine/style must clearly be ${request.stylePreference}.');
     }
 
-    // Sprint 16.6 row 5b — meal-type hard constraint. Bare assertion, no
-    // example list: positive examples ("eggs, toast, oatmeal") anchor the
-    // output and narrow regional/cultural breadth. Gemini-2.5-flash has
-    // strong priors on what breakfast/lunch/dinner means; we just invoke
-    // them. Add negative constraints surgically later if device-test
-    // shows drift (e.g. dinner returning where breakfast was asked).
+    // Sprint 16.6 row 5b — meal-type chip selection.
+    //
+    // 13 May 2026 (deliberation-bleed plan Step 1.2): downgraded from
+    // a third HARD `MUST` line to a soft hint. Stacking three HARD
+    // constraints (dietary/allergens + perishables REQUIRED + meal
+    // type MUST) on a model with `thinkingBudget: 0` was raising the
+    // cognitive load past a stability threshold and contributing to
+    // deliberation-bleed (Gemini paraphrasing prompt language into
+    // JSON values). Gemini's training already strongly biases recipes
+    // for "breakfast"/"lunch"/"dinner" language; we don't need the
+    // hammer of MUST.
+    //
+    // Bare assertion, no example list: positive examples ("eggs,
+    // toast, oatmeal") anchor the output and narrow regional/cultural
+    // breadth.
     if (request.mealType != null) {
-      buffer.writeln('You MUST make a ${request.mealType} recipe. This is a hard requirement — the recipe must clearly fit a ${request.mealType!.toLowerCase()} meal occasion.');
+      buffer.writeln(
+          'Meal type: ${request.mealType}. Tailor the dish to that meal occasion.');
     }
 
     // ── Leftover mode: completely different framing ──────────────────
