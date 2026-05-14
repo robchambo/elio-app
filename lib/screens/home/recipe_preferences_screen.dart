@@ -596,7 +596,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           title: 'Bulk cook',
           subtitle: _bulkCookEnabled
               ? '$_bulkMeals meals × $_bulkPortions portions'
-              : 'Freezer-friendly meals in one go',
+              : 'Freezer-friendly meals',
           value: _bulkCookEnabled,
           onChanged: (v) async {
             if (v) {
