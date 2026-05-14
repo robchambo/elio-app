@@ -1668,14 +1668,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
     // Build editable item list from recipe ingredients
     final items = <_RecipeShoppingItem>[];
     for (final ing in _currentRecipe.ingredients) {
-      // Gemini's fromInventory flag is a hint based on the pantry
-      // snapshot at generation time. Cross-check against the LIVE
-      // pantry too — the user may have added the ingredient between
-      // generating and adding to shopping list, or Gemini may have
-      // missed a match. Either way, we shouldn't add what they
-      // already own. (Sprint 16.6.x — Rob reported items already in
-      // pantry were being re-added.)
-      if (ing.fromInventory) continue;
+      // Sprint 16.7c — pantry-truth check via _isInPantry only. Gemini's
+      // fromInventory flag is a snapshot from generation time, so it
+      // lies after the user mutates their pantry: a recipe generated
+      // when sausages were in the pantry will keep `fromInventory: true`
+      // on the sausage ingredient even after the user × deletes
+      // sausages, which had us silently dropping the just-removed item
+      // from "Add to shopping list" (Bug 2b, 13 May 2026). The live
+      // _isInPantry check below is the only source of truth.
       if (_isInPantry(ing)) continue;
       if (_isShoppingExclusion(ing.name)) continue;
       final cleanName = ShoppingService.cleanForShopping(ing.name);
