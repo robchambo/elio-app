@@ -179,6 +179,62 @@ void main() {
       expect(sink, isNot(contains('quantity:bleed')));
     });
 
+    test('non-Latin script (Tamil) deliberation classifies as `:bleed-script`',
+        () {
+      // Sprint 16.6 (Notion XX-2 #4): Rob's screenshot showed a
+      // quantity that started in English then switched to Tamil
+      // script mid-sentence. Classify as `:bleed-script` so we can
+      // distinguish in Crashlytics from English instruction
+      // paraphrase (`:bleed`).
+      final sink = <String>[];
+      RecipeIngredient.fromJson(
+        {
+          'name': 'White fish',
+          'quantity':
+              '300 grams செ ன்னல் சால்மன் மீன் வகையறாக்கள், பஸ்ஸா மீன், Tilapia மீன், மற்றும் Cod மீன்',
+        },
+        truncatedSink: sink,
+      );
+      expect(sink, contains('quantity:bleed-script'));
+      expect(sink, isNot(contains('quantity:bleed')));
+      expect(sink, isNot(contains('quantity:long')));
+    });
+
+    test('CJK script (Chinese) deliberation also classifies as `:bleed-script`',
+        () {
+      // Defensive — Gemini occasionally pivots to other Asian
+      // scripts. The classifier covers anything outside extended
+      // Latin / common punctuation, so any non-Latin foreign
+      // content qualifies. >80 chars to trip the truncation cap.
+      final cjkLong = '300 grams of fish 白色鱼类包括三文鱼巴沙鱼罗非鱼鳕鱼' * 3;
+      final sink = <String>[];
+      RecipeIngredient.fromJson(
+        {'name': 'Fish', 'quantity': cjkLong},
+        truncatedSink: sink,
+      );
+      expect(cjkLong.length, greaterThan(80),
+          reason: 'Test setup: string must exceed cap to trip the classifier.');
+      expect(sink, contains('quantity:bleed-script'));
+    });
+
+    test('Latin-1 supplement chars (£, €, é) do NOT trigger bleed-script',
+        () {
+      // Regression guard: a legitimate quantity using Latin-1
+      // accented characters or currency symbols shouldn't be
+      // mistakenly classified as foreign script.
+      final sink = <String>[];
+      RecipeIngredient.fromJson(
+        {
+          'name': 'Cheese',
+          'quantity':
+              '200g of brie de Meaux — approximately a quarter of a standard wheel, refrigerated until serving and then sliced',
+        },
+        truncatedSink: sink,
+      );
+      expect(sink, isNot(contains('quantity:bleed-script')));
+      expect(sink, contains('quantity:long'));
+    });
+
     test('no truncation = empty sink', () {
       final sink = <String>[];
       RecipeIngredient.fromJson(

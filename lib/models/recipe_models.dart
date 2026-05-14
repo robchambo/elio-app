@@ -42,6 +42,37 @@ const Set<String> _bleedMarkers = {
   'use these first',
 };
 
+/// Sprint 16.6 (14 May 2026, Notion XX-2 #4): Rob's "Different
+/// language has appeared in recipe UI" screenshot showed a quantity
+/// field whose value started in English then switched to Tamil
+/// script mid-sentence. Same class of failure as the
+/// English-paraphrase bleed but with a non-Latin destination.
+///
+/// Match by Unicode block: if a field value contains any character
+/// outside the common-Latin / extended-Latin / punctuation ranges
+/// we'd expect in a quantity ("0.5 lb", "200 g", "2 cloves"), it's
+/// almost certainly model deliberation in another language. This is
+/// classified as `:bleed-script` to distinguish from `:bleed`
+/// (instruction paraphrase) in Crashlytics — the underlying cause
+/// is the same (deliberation inside JSON) but the fix surface differs.
+bool _containsNonLatinScript(String s) {
+  for (final cu in s.codeUnits) {
+    // Allow common ASCII (0x20-0x7E) + Latin-1 supplement (0xA0-0xFF
+    // — covers €, £, accented letters) + Latin Extended A+B
+    // (0x0100-0x024F) + General Punctuation (0x2000-0x206F — em-dash,
+    // en-dash, curly quotes, ellipsis we add ourselves). Anything
+    // else (CJK, Tamil, Devanagari, Arabic, Greek, Cyrillic, etc.)
+    // is foreign content that doesn't belong in an ingredient field.
+    if (cu < 0x20) continue; // control chars OK (whitespace etc.)
+    if (cu <= 0x7E) continue; // ASCII printable
+    if (cu >= 0xA0 && cu <= 0xFF) continue; // Latin-1 supplement
+    if (cu >= 0x0100 && cu <= 0x024F) continue; // Latin extended A+B
+    if (cu >= 0x2000 && cu <= 0x206F) continue; // General Punctuation
+    return true;
+  }
+  return false;
+}
+
 String _sanitizeIngredientField(
   Object? raw, {
   required String fieldName,
@@ -51,8 +82,15 @@ String _sanitizeIngredientField(
   if (asString.length <= _ingredientFieldCharCap) return asString;
   if (sink != null) {
     final lower = asString.toLowerCase();
-    final isBleed = _bleedMarkers.any(lower.contains);
-    sink.add('$fieldName:${isBleed ? 'bleed' : 'long'}');
+    final String classifier;
+    if (_containsNonLatinScript(asString)) {
+      classifier = 'bleed-script';
+    } else if (_bleedMarkers.any(lower.contains)) {
+      classifier = 'bleed';
+    } else {
+      classifier = 'long';
+    }
+    sink.add('$fieldName:$classifier');
   }
   return '${asString.substring(0, _ingredientFieldCharCap)}…';
 }

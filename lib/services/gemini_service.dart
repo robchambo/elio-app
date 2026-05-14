@@ -784,7 +784,9 @@ class GeminiService {
     }
     // Stable ordering: by field, then by classifier within the field.
     const fieldOrder = ['name', 'quantity', 'unit'];
-    const classifierOrder = ['bleed', 'long'];
+    // 14 May 2026 (Notion XX-2 #4): added `bleed-script` for non-
+    // Latin deliberation (Rob's Tamil-in-quantity screenshot).
+    const classifierOrder = ['bleed', 'bleed-script', 'long'];
     final keys = <String>[];
     for (final field in fieldOrder) {
       for (final classifier in classifierOrder) {
