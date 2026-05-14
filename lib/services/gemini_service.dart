@@ -1269,13 +1269,13 @@ class GeminiService {
     buffer.writeln('Include estimated per-serving nutritional values in the "nutrition" field.');
     buffer.writeln('Set "category" to the single best fit for this recipe; use exactly one of the listed values.');
     // Sprint 16.6 (Notion XX-2 nutrition+cost, 13 May 2026) — field
-    // order matters under maxOutputTokens: 1024.
+    // order matters under maxOutputTokens.
     //
     // Gemini emits the JSON in the order presented here. When the
-    // 1024-token cap hits mid-response, fields LATER in the schema
-    // are silently dropped — `_extractJson`'s truncation-repair
-    // closes the structure but cannot fabricate fields that were
-    // never written. Previously `nutrition` + cost were last, so a
+    // token cap hits mid-response, fields LATER in the schema are
+    // silently dropped — `_extractJson`'s truncation-repair closes
+    // the structure but cannot fabricate fields that were never
+    // written. Previously `nutrition` + cost were last, so a
     // truncation inside the long ingredients[] or steps[] arrays
     // wiped them and the RecipeScreen pills disappeared.
     //
@@ -1288,8 +1288,20 @@ class GeminiService {
     //   * tier 4 (long arrays, partial OK — _tryRepairTruncatedJson
     //     handles the close): ingredients / steps
     //
-    // If truncation still loses tier-3/4 content, the next lever is
-    // bumping maxOutputTokens 1024 → 1536 (see _streamFromPrompt).
+    // Actual cap on the streaming path is 3072 tokens (see line ~84),
+    // not 1024 as an earlier comment on this block claimed; corrected
+    // on 13 May 2026.
+    //
+    // Sprint 16.6 (deliberation-bleed plan Step 2.2, 13 May 2026):
+    // quantity field in the example schema now shows a concrete
+    // numeric-string shape ("0.5") with a unit example instead of
+    // the previous `"string"`. The companion sentence reminds Gemini
+    // that quantities are numeric + unit only — never prose, never
+    // parentheticals. Reinforces the anti-bleed instruction from
+    // Step 2.1's INVENTORY block.
+    buffer.writeln(
+        'Quantities are numeric + optional unit only. Never write '
+        'parentheticals or reminders into a quantity value.');
     buffer.writeln('''{
   "title": "string",
   "category": "<one of: Appetizer | Entrée | Side dish | Dessert | Breakfast | Brunch | Lunch | Snack | Soup | Salad | Drink>",
@@ -1311,7 +1323,7 @@ class GeminiService {
     {"original": "string", "substitute": "string", "tradeOff": "string"}
   ],
   "ingredients": [
-    {"name": "string", "quantity": "string", "unit": "string", "fromInventory": true}
+    {"name": "Chicken breast", "quantity": "0.5", "unit": "lb", "fromInventory": true}
   ],
   "steps": ["string"]
 }''');
