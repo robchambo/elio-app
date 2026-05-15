@@ -73,6 +73,7 @@ service cloud.firestore {
       match /mealPlan/{id}      { allow read, write: if isOwner(uid); }
       match /shoppingItems/{id} { allow read, write: if isOwner(uid); }
       match /tierMemory/{id}    { allow read, write: if isOwner(uid); }
+      match /customItems/{id}   { allow read, write: if isOwner(uid); }
       match /fcmTokens/{id}     { allow read, write: if isOwner(uid); }
     }
 
