@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 13 April 2026 (Sprint 15.8 complete — share shopping list, unit abbreviations, pantry builder fix, bookmark fix, back button targets, household delete fix)
+**Last updated:** 15 May 2026 (Sprint 15.9 scoped — Gemini model upgrade evaluation; Sprint 15.8 complete)
 
 ---
 
@@ -193,6 +193,43 @@ Work is grouped into three parallel tracks:
 | 4 | Household member delete — 350ms delay after sheet dismiss before opening confirmation dialog (animation race condition) | 0.5 | ✅ Done |
 
 **Build:** `elio-sprint-15.8.apk` (72.9 MB)
+
+---
+
+## Sprint 15.9 — Gemini Model Upgrade Evaluation
+
+**Goal:** Decide whether to move the streaming hot path off `gemini-2.5-flash` and the batch path off `gemini-2.5-flash-lite`. Landscape has moved: Google shipped Gemini 3 Flash (Dec 2025) and Gemini 3.1 Flash-Lite Preview (Mar 2026); Anthropic Haiku 4.5 and OpenAI GPT-5.4 mini also released. Comparison done — see decision basis below.
+
+### Decision basis (May 2026 snapshot)
+
+**Streaming candidates (replaces `gemini-2.5-flash`):**
+- **Gemini 3.1 Flash-Lite Preview** — $0.25/$1.50 per 1M, ~347 tok/s, 2.5x faster TTFT, beats 2.5 Flash on AA index. Drop-in replacement (same SSE endpoint, same JSON-mode flags).
+- **Gemini 3 Flash** — $0.50/$3.00, ~218 tok/s, frontier-small quality. 30% pricier than 2.5 Flash but real intelligence jump.
+- **GPT-5.4 mini** — $0.75/$4.50, strict JSON schemas (could delete `_extractJson()` safety net). ~1 day migration to OpenAI-compatible SSE.
+
+**Batch candidates (replaces `gemini-2.5-flash-lite`):**
+- **Stay on 2.5 Flash-Lite** — at $0.10/$0.40 still the price/quality leader at our scale.
+- **Llama 4 Scout on Groq** — 500+ tok/s for weekly meal plan (6144 tok output: ~12s → ~2s). OpenAI-compatible API.
+
+**Monthly cost at 30k generations × (1.5k in / 800 out):** current $73.50 streaming + $14.10 batch = ~$87.60. 3.1 Flash-Lite would drop streaming to $47.25. Groq for meal plans alone is negligible.
+
+### Tasks
+
+| # | Task | Est. Hours | Status |
+|---|------|-----------|--------|
+| 1 | Add `streaming_model` + `batch_model` Remote Config keys (default to current 2.5 values) | 0.5 | Not started |
+| 2 | Wire `RemoteConfigService` reads into `GeminiService._buildPrompt` / streaming + batch call sites — model name no longer hardcoded | 1 | Not started |
+| 3 | Add `gemini-3.1-flash-lite-preview` as candidate streaming model — verify SSE event shape unchanged, JSON mode still works, `thinkingBudget: 0` honoured | 1 | Not started |
+| 4 | Shadow-traffic harness — dual-call streaming (current + candidate) for dev accounts only, log both outputs to Firestore `modelComparisons/{uid}/{recipeId}`, surface user-side current model only | 2–3 | Not started |
+| 5 | One-week shadow run on dev accounts — collect TTFT, full-stream latency, JSON parse success rate, selected-ingredient adherence, dietary compliance | passive | Not started |
+| 6 | Decision gate — pick winner, flip Remote Config default for 10% of users, monitor Crashlytics + paywall conversion for 48h | 0.5 | Not started |
+| 7 | Staged rollout — 10% → 50% → 100% via Remote Config, no app update needed | 0.5 | Not started |
+| 8 | Batch — A/B `gemini-3.1-flash-lite-preview` vs `gemini-2.5-flash-lite` for URL import + substitutions only (where reasoning quality matters most). Meal plans stay on 2.5 Flash-Lite unless Groq trial happens. | 1–2 | Not started |
+| 9 | (Optional) `LLMClient` interface — abstract `GeminiService` so OpenAI / Groq adapters become swap-in. Defer unless step 6 picks a non-Gemini winner. | 3–4 | Deferred |
+
+**Estimate:** 6.5–8.5 hours (excluding optional LLMClient abstraction)
+
+**Net advice from comparison:** highest-leverage single change is moving the streaming hot path to `gemini-3.1-flash-lite-preview` — same SDK call shape, faster TTFT (UX win), lower output cost (margin win), measurably better quality. Ship behind Remote Config, shadow for a week, then flip the default.
 
 ---
 
