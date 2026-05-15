@@ -70,6 +70,21 @@ class RecipeScreen extends StatefulWidget {
   /// screen replacements. After 3, a preference adjustment dialog appears.
   final int regenCount;
 
+  /// True when this RecipeScreen renders a generated side dish (pushed
+  /// from a main recipe's "Suggest a side dish" CTA). When true:
+  ///   - the secondary CTA at the bottom reads "Generate another" (not
+  ///     "Suggest a side dish") because the user is already on one;
+  ///   - that CTA regenerates a fresh side dish against the SAME main
+  ///     recipe context using [sideDishMainTitle] / [sideDishMainIngredientNames]
+  ///     / [sideDishMainDietaryTags] (not against the current side
+  ///     dish itself, which would compound).
+  ///   - the new side dish replaces this screen rather than pushing
+  ///     deeper, so back goes straight to the main recipe.
+  final bool isSideDish;
+  final String? sideDishMainTitle;
+  final List<String>? sideDishMainIngredientNames;
+  final List<String>? sideDishMainDietaryTags;
+
   const RecipeScreen({
     super.key,
     required this.recipe,
@@ -78,6 +93,10 @@ class RecipeScreen extends StatefulWidget {
     this.autoSave = false,
     this.savedAt,
     this.regenCount = 0,
+    this.isSideDish = false,
+    this.sideDishMainTitle,
+    this.sideDishMainIngredientNames,
+    this.sideDishMainDietaryTags,
   });
 
   @override
@@ -995,10 +1014,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
       ErrorService.log('recipe_regeneration', e);
       if (mounted) {
         setState(() => _isRegenerating = false);
-        final msg = e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(msg),
+            content: Text(friendlyError(e)),
             backgroundColor: ElioColors.espresso,
             duration: const Duration(seconds: 8),
           ),
@@ -1026,40 +1044,63 @@ class _RecipeScreenState extends State<RecipeScreen> {
     setState(() => _isGeneratingSideDish = true);
 
     try {
-      final ingredientNames = _currentRecipe.ingredients
-          .map((i) => i.name)
-          .toList();
+      // When the current screen is itself a side dish, generate
+      // against the ORIGINAL main recipe context so we don't spiral
+      // into side-dishes-of-side-dishes. Fall back to the current
+      // recipe when this is a main-recipe screen.
+      final mainTitle = widget.isSideDish
+          ? (widget.sideDishMainTitle ?? _currentRecipe.title)
+          : _currentRecipe.title;
+      final ingredientNames = widget.isSideDish
+          ? (widget.sideDishMainIngredientNames ??
+              _currentRecipe.ingredients.map((i) => i.name).toList())
+          : _currentRecipe.ingredients.map((i) => i.name).toList();
+      final dietaryTags = widget.isSideDish
+          ? (widget.sideDishMainDietaryTags ?? _currentRecipe.dietaryTags)
+          : _currentRecipe.dietaryTags;
 
       final sideDish = await GeminiService.generateSideDish(
-        mainRecipeTitle: _currentRecipe.title,
+        mainRecipeTitle: mainTitle,
         mainIngredientNames: ingredientNames,
-        dietaryTags: _currentRecipe.dietaryTags,
+        dietaryTags: dietaryTags,
         servings: _servings,
       );
 
       _analytics.logEvent('side_dish_generated', {
-        'main_recipe': _currentRecipe.title,
+        'main_recipe': mainTitle,
         'side_dish': sideDish.title,
       });
 
       if (mounted) {
         setState(() => _sideDishGenerated = true);
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => RecipeScreen(
-              recipe: sideDish,
-              isGuest: widget.isGuest,
-              // No originalRequest — "Generate Another" won't appear
-            ),
+        // When already on a side dish, REPLACE the screen so back
+        // returns to the main recipe (not a stack of side dishes).
+        // Pass the main-recipe context through so the next "Generate
+        // another" keeps anchoring on the same main.
+        final route = MaterialPageRoute(
+          builder: (_) => RecipeScreen(
+            recipe: sideDish,
+            isGuest: widget.isGuest,
+            isSideDish: true,
+            sideDishMainTitle: mainTitle,
+            sideDishMainIngredientNames: ingredientNames,
+            sideDishMainDietaryTags: dietaryTags,
+            // No originalRequest — "Generate Another" (main-recipe
+            // regen) is not relevant on a side dish.
           ),
         );
+        if (widget.isSideDish) {
+          Navigator.of(context).pushReplacement(route);
+        } else {
+          Navigator.of(context).push(route);
+        }
       }
     } catch (e) {
       ErrorService.log('side_dish_generation', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            content: Text(friendlyError(e)),
             backgroundColor: ElioColors.espresso,
           ),
         );
@@ -2008,11 +2049,22 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           strokeWidth: 2, color: ElioColors.terracotta),
                     )
                   : const Icon(Icons.restaurant_menu_rounded, size: 20),
+              // Sprint 16.7 (14 May 2026): when the current screen is
+              // itself a side dish (`widget.isSideDish`), the CTA reads
+              // "Generate another" — semantically clearer than
+              // "Suggest a side dish" when you're already on one. The
+              // action still calls `_generateSideDish`, which detects
+              // the side-dish context and regenerates against the
+              // original main recipe (not the current side dish).
               label: Text(_isGeneratingSideDish
-                  ? 'Finding a side dish...'
-                  : (_sideDishGenerated
-                      ? 'Suggest another side dish'
-                      : 'Suggest a side dish')),
+                  ? (widget.isSideDish
+                      ? 'Finding another...'
+                      : 'Finding a side dish...')
+                  : (widget.isSideDish
+                      ? 'Generate another'
+                      : (_sideDishGenerated
+                          ? 'Suggest another side dish'
+                          : 'Suggest a side dish'))),
               style: OutlinedButton.styleFrom(
                 foregroundColor: ElioColors.terracotta,
                 side: const BorderSide(color: ElioColors.terracotta, width: 1.5),
