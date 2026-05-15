@@ -115,7 +115,7 @@ users/{uid}/
 **Current config (Sprint 15.3):**
 - **Model:** `gemini-2.5-flash` (streaming), `gemini-2.5-flash-lite` (batch: receipts, import, substitutions, meal plans)
 - **Streaming endpoint:** `streamGenerateContent?alt=sse` via raw `http.Client` (static, reused — no per-request TCP/TLS overhead)
-- **Generation config:** temperature 0.8, topK 40, topP 0.95, `responseMimeType: 'application/json'`, `thinkingConfig: { thinkingBudget: 0 }`
+- **Generation config:** temperature 0.8, topK 40, topP 0.95, `responseMimeType: 'application/json'`, `thinkingConfig: { thinkingBudget: 1024 }` on standard recipe streaming (Sprint 16.7 Tier 2 — gives the model scratch space so deliberation doesn't bleed into JSON values; thought-part filter on the SSE parser drops `thought: true` parts). Bulk/batch paths (URL import, substitutions, meal plans, side dish) remain on `thinkingBudget: 0`.
 - **Max tokens:** 3072 (standard recipe streaming + photo import), 2048 (bulk prep), 1024 (URL recipe import, flash-lite path)
 - **Timeout:** 60 seconds
 - **Retry:** 2 attempts on failure

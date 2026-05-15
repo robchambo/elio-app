@@ -448,7 +448,23 @@ class GeminiService {
         'topP': 0.95,
         'maxOutputTokens': maxOutputTokens,
         'responseMimeType': 'application/json',
-        'thinkingConfig': {'thinkingBudget': 0},
+        // Sprint 16.7 Tier 2 (14 May 2026): thinkingBudget 0 → 1024.
+        // Rationale: with no scratch space, gemini-2.5-flash was
+        // deliberating INSIDE JSON values under stacked hard
+        // constraints (dietary + perishables REQUIRED + meal type +
+        // VARIATION), producing wall-of-text quantities and missing
+        // nutrition / cost tail fields (token-budget exhaustion).
+        // Tier 1 (prompt restructure + observability, commits
+        // 2fa4cb0 et al.) reduced but did not eliminate the bleed —
+        // nutrition + cost pills still missing intermittently. 1024
+        // gives the model room to plan structured output without
+        // serialising deliberation. Pairs with the thought-part
+        // filter in the SSE parse loop below (parts marked
+        // `thought: true` must be skipped — they're scratch).
+        // Cost impact: ~2× output tokens on a successful generation;
+        // acceptable trade for completeness + cleanliness. Latency
+        // impact: +200–400ms; still well under the 6s budget.
+        'thinkingConfig': {'thinkingBudget': 1024},
         if (responseSchema != null) 'responseSchema': responseSchema,
       };
       httpRequest.body = jsonEncode({
@@ -527,17 +543,19 @@ class GeminiService {
             if (parts == null) continue;
 
             for (final part in parts) {
-              // Sprint 16.6 — REVERTED 12 May 2026. The thought-part
-              // filter added in 43b34ac coincided with nutrition + cost
-              // fields disappearing from generated recipes (Rob 12 May
-              // on-device). Theory: filter was correct in principle but
-              // under current API behaviour it dropped legitimate
-              // content parts, causing _extractJson to truncation-repair
-              // the JSON and lose tail fields (nutrition / cost).
-              // Reverted to the pre-43b34ac shape pending diagnosis.
-              // Substitution / URL import / side dish keep their own
-              // filters (they use a different parts-aggregation shape
-              // and were working before this change).
+              // Sprint 16.7 Tier 2 (14 May 2026): RE-INSTATED the
+              // thought-part filter. Reverted in a1ba7cd (12 May)
+              // when nutrition + cost fields disappeared after
+              // 43b34ac, but that was the WRONG diagnosis — the real
+              // cause was deliberation-bleed under thinkingBudget: 0
+              // (Tier 1 prompt restructure helped but didn't fully
+              // fix it). With thinkingBudget: 1024 now on, the API
+              // emits parts with `thought: true` that contain
+              // model scratch — concatenating those into the JSON
+              // buffer corrupts the response. Skip them.
+              // Mirrors the same filter on substitution / URL
+              // import / side dish paths (lines ~1389, 1517, 1631).
+              if (part is Map && part['thought'] == true) continue;
               final text = part['text'] as String?;
               if (text != null) buffer.write(text);
             }
