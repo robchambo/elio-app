@@ -110,9 +110,13 @@ class CookingTimer {
 /// calls `tick()` to re-evaluate expiry. Production calls
 /// `startTicker()` so a 1-second Timer.periodic does the same.
 class CookingTimerService extends ChangeNotifier {
-  /// Maximum number of timers that can be active at once. Caps the
-  /// visual chip stack and protects against runaway state.
-  static const int maxConcurrentTimers = 5;
+  /// Maximum number of timers that can be active at once. Sprint 16.6
+  /// shipped this at 5 to cap the visual chip stack; raised to 10 in
+  /// Sprint 16.7d after Rob hit it on a Sunday-roast cook (turkey +
+  /// spuds + Yorkshires + parsnips + gravy + sprouts is already 6).
+  /// The bar is now horizontally scrollable, so overflow no longer
+  /// steals vertical space from the step content.
+  static const int maxConcurrentTimers = 10;
 
   final DateTime Function() _clock;
   final void Function(CookingTimer)? onExpire;

@@ -371,42 +371,51 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   /// Sticky timer bar rendered just under the AppBar. Only visible
   /// when at least one timer exists.
+  ///
+  /// Sprint 16.7d: horizontal scroll instead of Wrap. With the cap
+  /// raised from 5 → 10, a Sunday-roast chip stack could push the
+  /// timer bar to two rows and steal vertical space from the step.
+  /// Single-row scroll keeps the bar a consistent height regardless
+  /// of timer count.
   Widget _buildTimerBar() {
     final timers = _timerService.timers;
     if (timers.isEmpty) return const SizedBox.shrink();
     final now = DateTime.now();
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: ElioColors.cream.withValues(alpha: 0.95),
         border: const Border(
           bottom: BorderSide(color: ElioColors.rule),
         ),
       ),
-      child: Wrap(
-        spacing: 8,
-        runSpacing: 6,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 2, top: 4),
-            child: Text(
-              'TIMERS',
-              style: ElioTextStyles.eyebrowStyle.copyWith(
-                color: ElioColors.mocha,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 10, top: 4),
+              child: Text(
+                'TIMERS',
+                style: ElioTextStyles.eyebrowStyle.copyWith(
+                  color: ElioColors.mocha,
+                ),
               ),
             ),
-          ),
-          for (final t in timers)
-            ElioTimerChip(
-              key: ValueKey(t.id),
-              timer: t,
-              now: now,
-              onTap: () => _onTimerChipTap(t),
-              onLongPress: () => _onTimerChipLongPress(t),
-            ),
-        ],
+            for (final t in timers) ...[
+              ElioTimerChip(
+                key: ValueKey(t.id),
+                timer: t,
+                now: now,
+                onTap: () => _onTimerChipTap(t),
+                onLongPress: () => _onTimerChipLongPress(t),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
       ),
     );
   }
