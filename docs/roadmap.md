@@ -649,6 +649,7 @@ Capture here so they don't keep resurfacing in planning.
 | Coordinator-owned single progress bar | Replace per-screen progress bars (minor visual refactor) |
 | Bulk Prep on prefs screen — Kate design pass | Open questions: single-recipe-but-batchable vs multi-meal flow; chip vs hero CTA vs dedicated screen |
 | Sprint 18 original (App Check + server-side Gemini migration) | Deferred — original sprint number reused for Android track |
+| Widen `TimeParser` regex to cover ranges + natural language | Sprint 16.6 v1 deliberately excluded ranges ("5–10 minutes"), decimals ("1.5 hours"), and natural-language ("about an hour", "half an hour"). Cook Mode on-device testing surfaced a real recipe with a duration that wasn't matched. Cheapest wins: ranges (default to lower bound) and "about/around N". |
 
 ---
 
