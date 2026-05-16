@@ -5,10 +5,15 @@
 // pills (Paprika-style). When [onTimeTap] is null the widget behaves
 // exactly as before — plain Text — so existing callers are
 // unaffected.
+//
+// Sprint 16.7d: the body-with-pills rendering is exposed via the
+// public [ElioMethodStepBody] widget so Cook Mode (and any other
+// caller without the numeral/title chrome) can reuse it at its own
+// text size.
 import 'package:flutter/material.dart';
 import '../../theme/elio_radii.dart';
-import '../../theme/elio_theme.dart';
 import '../../theme/elio_text_styles.dart';
+import '../../theme/elio_theme.dart';
 import '../../utils/time_parser.dart';
 
 class ElioMethodStep extends StatelessWidget {
@@ -62,7 +67,11 @@ class ElioMethodStep extends StatelessWidget {
                   Text(title, style: ElioTextStyles.uiLabelStyle),
                   const SizedBox(height: 8),
                 ],
-                _buildBody(),
+                ElioMethodStepBody(
+                  body: body,
+                  onTimeTap: onTimeTap,
+                  baseStyle: ElioTextStyles.bodySmallStyle,
+                ),
               ],
             ),
           ),
@@ -70,18 +79,42 @@ class ElioMethodStep extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _buildBody() {
-    final baseStyle = ElioTextStyles.bodySmallStyle;
+/// Renders step prose with inline tappable terracotta time pills
+/// (Sprint 16.6 cooking timer). When [onTimeTap] is null the body
+/// renders as plain Text. [baseStyle] is applied to the surrounding
+/// prose AND scales the pill text — pass the larger body style in
+/// Cook Mode so the pills track the 18pt prose.
+class ElioMethodStepBody extends StatelessWidget {
+  final String body;
+  final void Function(TimeMatch match)? onTimeTap;
+  final TextStyle baseStyle;
+
+  const ElioMethodStepBody({
+    super.key,
+    required this.body,
+    required this.onTimeTap,
+    required this.baseStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final tap = onTimeTap;
     if (tap == null) return Text(body, style: baseStyle);
 
     final matches = TimeParser.findMatches(body);
     if (matches.isEmpty) return Text(body, style: baseStyle);
 
+    final pillTextStyle = baseStyle.copyWith(
+      color: Colors.white,
+      fontFamily: 'DM Mono',
+      fontWeight: FontWeight.w500,
+    );
+
     // Walk the matches in order, emitting plain text + tappable
-    // widget spans alternately. SelectableText-style RichText so the
-    // pills sit cleanly inline with the surrounding prose.
+    // widget spans alternately. RichText so pills sit cleanly inline
+    // with the surrounding prose.
     final spans = <InlineSpan>[];
     var cursor = 0;
     for (final m in matches) {
@@ -92,6 +125,7 @@ class ElioMethodStep extends StatelessWidget {
         alignment: PlaceholderAlignment.middle,
         child: _TimePill(
           label: m.matchedText,
+          textStyle: pillTextStyle,
           onTap: () => tap(m),
         ),
       ));
@@ -109,9 +143,14 @@ class ElioMethodStep extends StatelessWidget {
 /// `docs/strategy/2026-05-11-cooking-timer-mockup.html`.
 class _TimePill extends StatelessWidget {
   final String label;
+  final TextStyle textStyle;
   final VoidCallback onTap;
 
-  const _TimePill({required this.label, required this.onTap});
+  const _TimePill({
+    required this.label,
+    required this.textStyle,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -128,14 +167,7 @@ class _TimePill extends StatelessWidget {
             color: ElioColors.terracotta,
             borderRadius: BorderRadius.circular(ElioRadii.chip),
           ),
-          child: Text(
-            label,
-            style: ElioTextStyles.bodySmallStyle.copyWith(
-              color: Colors.white,
-              fontFamily: 'DM Mono',
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+          child: Text(label, style: textStyle),
         ),
       ),
     );

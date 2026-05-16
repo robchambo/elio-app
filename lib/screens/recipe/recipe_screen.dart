@@ -294,6 +294,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
   /// picker pre-filled with the detected duration; starts a timer
   /// labelled by step number.
   Future<void> _onMethodTimeTap(int stepIndex, TimeMatch match) async {
+    // showModalBottomSheet fails silently inside immersiveSticky
+    // (CLAUDE.md Flutter gotcha), so when Cook Mode is active we
+    // briefly drop back to edge-to-edge while the picker is open.
+    final wasImmersive = _handsFreeMode;
+    if (wasImmersive) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
     final picked = await ElioDurationPickerSheet.show(
       context,
       initialDuration: match.duration,
@@ -301,6 +308,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
           'Step ${stepIndex + 1} · we detected ${match.matchedText} '
           'in the instruction',
     );
+    if (wasImmersive && mounted && _handsFreeMode) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
     if (picked == null || !mounted) return;
     try {
       _timerService.start(
@@ -2423,6 +2433,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 }),
               ),
             ),
+            // Sprint 16.7d: parity with regular recipe view — sticky
+            // timer bar so running timers are visible/manageable from
+            // Cook Mode. Renders nothing when no timers are active.
+            _buildTimerBar(),
             // ── Step content ──
             Expanded(
               child: Padding(
@@ -2442,9 +2456,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       style: ElioTextStyles.heading2,
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      steps[_currentStep],
-                      style: ElioTextStyles.body.copyWith(fontSize: 18, height: 1.5),
+                    // Sprint 16.7d: inline tappable time pills (parity
+                    // with regular recipe view). Pill text scales to
+                    // the 18pt cook-mode prose via baseStyle.
+                    ElioMethodStepBody(
+                      body: steps[_currentStep],
+                      baseStyle: ElioTextStyles.body
+                          .copyWith(fontSize: 18, height: 1.5),
+                      onTimeTap: (match) =>
+                          _onMethodTimeTap(_currentStep, match),
                     ),
                   ],
                 ),
