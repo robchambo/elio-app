@@ -25,7 +25,11 @@ import 'remote_config_service.dart';
 
 class GeminiService {
   static String get _apiKey => RemoteConfigService.instance.geminiApiKey;
-  static const String _model = 'gemini-2.5-flash';
+  // Sprint 15.9 eval (15 May 2026, tool/eval/run.dart × 5 fixtures):
+  // gemini-2.5-flash-lite matched 2.5-flash on TTFT (683 vs 689 ms) and
+  // beat it on total stream time (~1 s faster), cost (~83% cheaper), and
+  // structural pass rate. Same SSE shape + SDK contract, drop-in swap.
+  static const String _model = 'gemini-2.5-flash-lite';
   static const String _streamUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:streamGenerateContent';
   static final _httpClient = http.Client();
@@ -132,14 +136,15 @@ class GeminiService {
   /// call inherits a warm path.
   ///
   /// **Sprint 15.9.2 reliability pass:** previously hit `flash-lite`
-  /// with 8 tokens. Switched to `gemini-2.5-flash` with 32 tokens so the
-  /// warmup targets the same model the production streaming path uses
-  /// — TLS handshake reuse alone wasn't warming Google's per-model pool.
-  /// Cost is negligible (~$0.0001 per app launch).
+  /// with 8 tokens. Switched to use the same model as the production
+  /// streaming path with 32 tokens — TLS handshake reuse alone wasn't
+  /// warming Google's per-model pool. Sprint 15.9 (May 2026) swapped
+  /// streaming → 2.5-flash-lite, so prewarm follows. Cost is negligible
+  /// (~$0.0001 per app launch).
   ///
   /// Errors are swallowed silently — this is best-effort, never blocks.
   static Future<void> prewarmConnection() async {
-    const prewarmModel = 'gemini-2.5-flash';
+    const prewarmModel = 'gemini-2.5-flash-lite';
     const prewarmEndpoint =
         'https://generativelanguage.googleapis.com/v1beta/models/$prewarmModel:generateContent';
     try {
