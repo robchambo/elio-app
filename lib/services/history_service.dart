@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/recipe_models.dart';
 
@@ -14,6 +15,17 @@ class HistoryService {
   static const int _maxRecipes = 50;
   static List<SavedRecipe>? _cache;
 
+  /// Fires after every history mutation. Views that read history
+  /// (RecipesTabScreen, Home recents) listen so they refresh when an
+  /// auto-saved import lands while they're already mounted — the import
+  /// flow uses pushReplacement, which would otherwise prevent the
+  /// usual `await Navigator.push(...); _load();` refresh from running.
+  static final ValueNotifier<int> changes = ValueNotifier<int>(0);
+
+  static void _notifyChange() {
+    changes.value = changes.value + 1;
+  }
+
   /// Save a recipe to local history. Newest first. Prunes to _maxRecipes.
   static Future<void> saveRecipe(SavedRecipe recipe) async {
     final prefs = await SharedPreferences.getInstance();
@@ -23,6 +35,7 @@ class HistoryService {
     final encoded = jsonEncode(pruned.map((r) => r.toJson()).toList());
     await prefs.setString(_key, encoded);
     _cache = null;
+    _notifyChange();
   }
 
   /// Returns all saved recipes, newest first.
@@ -55,6 +68,7 @@ class HistoryService {
       await prefs.setString(_key, encoded);
     }
     _cache = null;
+    _notifyChange();
   }
 
   /// Returns only bookmarked recipes, newest first.
@@ -78,6 +92,7 @@ class HistoryService {
     final encoded = jsonEncode(existing.map((r) => r.toJson()).toList());
     await prefs.setString(_key, encoded);
     _cache = null;
+    _notifyChange();
   }
 
   /// Clear all non-bookmarked history.
@@ -92,6 +107,7 @@ class HistoryService {
       await prefs.setString(_key, encoded);
     }
     _cache = null;
+    _notifyChange();
   }
 
   /// Update collections for a recipe by its savedAt timestamp.
@@ -105,6 +121,7 @@ class HistoryService {
       await prefs.setString(_key, encoded);
     }
     _cache = null;
+    _notifyChange();
   }
 
   /// Clear all history including bookmarks.
@@ -112,5 +129,6 @@ class HistoryService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
     _cache = null;
+    _notifyChange();
   }
 }

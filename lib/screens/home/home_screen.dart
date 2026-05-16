@@ -99,6 +99,12 @@ class _HomeScreenState extends State<HomeScreen> {
     // _buildRequest sees fresh data.
     UserSettingsService.instance.addListener(_onSettingsChanged);
     UserSettingsService.instance.refresh();
+    // Refresh the recents peek whenever history mutates anywhere. The
+    // Generate flow uses pushReplacement → RecipeScreen (auto-saves on
+    // entry), which breaks the `await Navigator.push(...); _loadRecentRecipes();`
+    // refresh chain — without this listener, a newly generated recipe
+    // wouldn't appear in the Home peek until the user re-mounted Home.
+    HistoryService.changes.addListener(_onHistoryChanged);
     _loadUserData();
     _loadRecentRecipes();
     // Request notification permission on first HomeScreen load (non-blocking)
@@ -473,6 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     // Sprint 16.1: unsubscribe from UserSettingsService listeners.
     UserSettingsService.instance.removeListener(_onSettingsChanged);
+    HistoryService.changes.removeListener(_onHistoryChanged);
     super.dispose();
   }
 
@@ -482,6 +489,11 @@ class _HomeScreenState extends State<HomeScreen> {
   /// the service's fresh householdProfiles list.
   void _onSettingsChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _onHistoryChanged() {
+    if (!mounted) return;
+    _loadRecentRecipes();
   }
 
   // ─── Sprint 16: Editorial home body ─────────────────────────────────────

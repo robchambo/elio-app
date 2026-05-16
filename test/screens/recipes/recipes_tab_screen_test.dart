@@ -148,6 +148,35 @@ void main() {
     expect(tabBar.controller!.index, 1);
   });
 
+  testWidgets(
+      'Saved tab refreshes when a recipe is saved while the tab is mounted',
+      (tester) async {
+    // Regression for the URL-import bug: RecipeImportScreen uses
+    // pushReplacement → RecipeScreen, which prevents the
+    // `await Navigator.push(...); _load();` refresh in _openImport from
+    // running on back-out. RecipesTabScreen listens to
+    // HistoryService.changes so an auto-saved recipe lands in Saved
+    // immediately without re-mounting the tab.
+    await _seedHistory([
+      _fixture(
+        savedAt: '2026-05-12T08:00:00.000',
+        title: 'Existing Bookmark',
+        bookmarked: true,
+      ),
+    ]);
+    await _pump(tester);
+    expect(find.text('Saved (1)'), findsOneWidget);
+
+    await HistoryService.saveRecipe(_fixture(
+      savedAt: '2026-05-12T09:00:00.000',
+      title: 'Newly Imported',
+      bookmarked: true,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved (2)'), findsOneWidget);
+  });
+
   testWidgets('Saved tab shows empty-state copy when no bookmarks',
       (tester) async {
     await _seedHistory([

@@ -58,15 +58,27 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _searchController.addListener(_onQueryChanged);
+    // Refresh whenever history mutates anywhere. Required because URL/
+    // photo/manual import all use pushReplacement → RecipeScreen, which
+    // breaks the `await Navigator.push(...); _load();` refresh chain in
+    // _openImport — without the listener, an auto-saved imported recipe
+    // wouldn't appear on the Saved tab until the user re-mounted the tab.
+    HistoryService.changes.addListener(_onHistoryChanged);
     _load();
   }
 
   @override
   void dispose() {
+    HistoryService.changes.removeListener(_onHistoryChanged);
     _searchController.removeListener(_onQueryChanged);
     _searchController.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onHistoryChanged() {
+    if (!mounted) return;
+    _load();
   }
 
   void _onQueryChanged() {
