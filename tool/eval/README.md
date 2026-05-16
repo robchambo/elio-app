@@ -59,7 +59,7 @@ gitignored.
 | `gemini-2.5-flash` | Current production streaming baseline |
 | `gemini-2.5-flash-lite` | Current batch baseline |
 | `gemini-3.1-flash-lite-preview` | Sprint 15.9 top candidate |
-| `gemma-4` (→ `gemma-3-27b-it` fallback) | Open-source comparison |
+| `gemma-4-26b-a4b-it` (→ `gemma-4-31b-it` fallback) | Open-source comparison, free on AI Studio |
 | `gpt-4.1-nano` | OpenAI cheap tier |
 | `meta-llama/llama-4-scout-17b-16e-instruct` (Groq) | Speed wildcard |
 | `mistral-small-latest` | Cost+speed wildcard |

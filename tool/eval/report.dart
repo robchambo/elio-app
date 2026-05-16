@@ -120,7 +120,7 @@ class Report {
             : m;
 
         if (r.isError) {
-          buf.writeln('| $modelLabel | — | — | — | — | ✗ ${r.errorMessage} | — | — | — |${judgeEnabled ? " — |" : ""}');
+          buf.writeln('| $modelLabel | — | — | — | — | ✗ ${_oneLine(r.errorMessage, max: 80)} | — | — | — |${judgeEnabled ? " — |" : ""}');
           continue;
         }
 
@@ -208,12 +208,12 @@ class Report {
     final failures = <String>[];
     for (final cell in results) {
       if (cell.response.isError) {
-        failures.add('- **${cell.modelId}** on `${cell.fixture.id}`: ${cell.response.errorMessage}');
+        failures.add('- **${cell.modelId}** on `${cell.fixture.id}`: ${_oneLine(cell.response.errorMessage, max: 200)}');
         continue;
       }
       for (final c in cell.structural.checks) {
         if (!c.passed) {
-          failures.add('- **${cell.modelId}** on `${cell.fixture.id}` — ${c.name}: ${c.detail ?? "(no detail)"}');
+          failures.add('- **${cell.modelId}** on `${cell.fixture.id}` — ${c.name}: ${_oneLine(c.detail, max: 200) ?? "(no detail)"}');
         }
       }
     }
@@ -254,5 +254,15 @@ class Report {
     final c = sr.checks.where((c) => c.name == name).toList();
     if (c.isEmpty) return '—';
     return c.first.passed ? '✓' : '✗';
+  }
+
+  /// Collapse newlines/runs of whitespace, escape markdown table pipes,
+  /// and truncate to `max` chars so error blobs don't shatter the
+  /// report's tables or bullets.
+  static String? _oneLine(String? s, {int max = 200}) {
+    if (s == null) return null;
+    var out = s.replaceAll(RegExp(r'\s+'), ' ').trim().replaceAll('|', r'\|');
+    if (out.length > max) out = '${out.substring(0, max - 1)}…';
+    return out;
   }
 }

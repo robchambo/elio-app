@@ -170,11 +170,13 @@ List<Provider> _buildProviders() {
     out.add(GeminiProvider(modelId: 'gemini-2.5-flash', apiKey: geminiKey));
     out.add(GeminiProvider(modelId: 'gemini-2.5-flash-lite', apiKey: geminiKey));
     out.add(GeminiProvider(modelId: 'gemini-3.1-flash-lite-preview', apiKey: geminiKey));
-    // Gemma 4 — fall back to gemma-3-27b-it (also on AI Studio) if 404
+    // Gemma 4 — AI Studio currently exposes two SKUs. Use the MoE
+    // 26B/4B-active variant as primary (faster), fall back to the 31B
+    // dense build if the smaller one ever 404s.
     out.add(GeminiProvider(
-      modelId: 'gemma-4',
+      modelId: 'gemma-4-26b-a4b-it',
       apiKey: geminiKey,
-      fallbackModelId: 'gemma-3-27b-it',
+      fallbackModelId: 'gemma-4-31b-it',
       useThinkingBudgetZero: false,
     ));
   } else {

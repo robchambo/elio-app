@@ -13,7 +13,10 @@ class ModelPricing {
     'gemini-2.5-flash': ModelPricing(0.30, 2.50),
     'gemini-2.5-flash-lite': ModelPricing(0.10, 0.40),
     'gemini-3.1-flash-lite-preview': ModelPricing(0.25, 1.50),
-    'gemma-3-27b-it': ModelPricing(0.09, 0.17), // via OpenRouter fallback
+    // Gemma on AI Studio is free; if Rob ever switches to a paid host
+    // (OpenRouter/Together) these need refreshing.
+    'gemma-4-26b-a4b-it': ModelPricing(0.0, 0.0),
+    'gemma-4-31b-it': ModelPricing(0.0, 0.0),
 
     // OpenAI
     'gpt-4.1-nano': ModelPricing(0.10, 0.40),
