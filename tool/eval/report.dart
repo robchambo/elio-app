@@ -51,7 +51,7 @@ class Report {
     required this.judgeEnabled,
   });
 
-  /// Write report.md and raw.json to tool/eval/results/<runId>/
+  /// Write report.md and raw.json to `tool/eval/results/<runId>/`.
   Future<String> write({String baseDir = 'tool/eval/results'}) async {
     final dir = Directory('$baseDir/$runId');
     await dir.create(recursive: true);
