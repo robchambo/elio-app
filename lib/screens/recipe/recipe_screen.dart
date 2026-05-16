@@ -128,6 +128,65 @@ class _RecipeScreenState extends State<RecipeScreen> {
     setState(() => _sideDishGenerated = true);
   }
 
+  /// Builds the [RecipeGenerationRequest] used by "Generate another".
+  ///
+  /// Carries forward every field from [base] and overlays:
+  ///   • exclusions accumulated in this session (`_excludedIngredients`)
+  ///   • the current recipe's title appended to `recentTitles`
+  ///   • dietary + custom-allergen lists re-read from
+  ///     [UserSettingsService] so mid-screen Settings edits are honoured
+  ///     (Sprint 16.1 belt-and-braces, see git log on this file).
+  ///
+  /// **Iron rule:** every other field — including the free-text
+  /// `userRequest` craving, `mealType`, and the variation FIFOs
+  /// (`recentHeroIngredients`/`recentCookware`) — MUST be threaded
+  /// through. Dropping any of them silently makes "Generate another"
+  /// regress to a generic generation that ignores the user's stated
+  /// intent. This was Sprint 16.3 bug: `userRequest` was being lost.
+  ///
+  /// Exposed for test reach. Pure with respect to widget state — does
+  /// not mutate.
+  @visibleForTesting
+  RecipeGenerationRequest debugBuildRegenRequest(
+    RecipeGenerationRequest base,
+  ) {
+    final settings = UserSettingsService.instance;
+    return RecipeGenerationRequest(
+      perishables: base.perishables,
+      alwaysHave: base.alwaysHave,
+      almostAlwaysHave: base.almostAlwaysHave,
+      dietaryRequirements: settings.hydrated
+          ? settings.dietaryRequirements
+          : base.dietaryRequirements,
+      timePreference: base.timePreference,
+      stylePreference: base.stylePreference,
+      moodPreference: base.moodPreference,
+      mealType: base.mealType,
+      servings: base.servings,
+      excludedIngredients: [
+        ...base.excludedIngredients,
+        ..._excludedIngredients,
+      ],
+      recentTitles: [
+        ...base.recentTitles,
+        _currentRecipe.title,
+      ],
+      recentHeroIngredients: base.recentHeroIngredients,
+      recentCookware: base.recentCookware,
+      runningLowItems: base.runningLowItems,
+      isLeftoverMode: base.isLeftoverMode,
+      leftoverItems: base.leftoverItems,
+      likedRecipes: base.likedRecipes,
+      dislikedRecipes: base.dislikedRecipes,
+      appliances: base.appliances,
+      isSaverMode: base.isSaverMode,
+      perishableInventoryDescriptions: base.perishableInventoryDescriptions,
+      userRequest: base.userRequest,
+      customAllergens:
+          settings.hydrated ? settings.allergies : base.customAllergens,
+    );
+  }
+
   late int _regenCount;
   final Set<String> _excludedIngredients = {};
   // Visual-only "ticked off" state for ingredient rows (Sprint 16).
@@ -938,50 +997,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     await UserSettingsService.instance.refresh();
 
     try {
-      // Build updated request — carry forward ALL fields, add exclusions + title.
-      //
-      // Sprint 16.1: dietaryRequirements + customAllergens are the
-      // EXCEPTION to "carry forward". They're re-read from
-      // UserSettingsService at regen time so a Settings → Dietary edit
-      // made between the original Generate and a Generate Another tap
-      // is honoured. Every other field is legitimately frozen at first-
-      // generation time (perishables, taste profile, time/style/mood
-      // selections, recent titles, exclusions accumulated this session).
-      final settings = UserSettingsService.instance;
-      final newRequest = RecipeGenerationRequest(
-        perishables: request.perishables,
-        alwaysHave: request.alwaysHave,
-        almostAlwaysHave: request.almostAlwaysHave,
-        dietaryRequirements: settings.hydrated
-            ? settings.dietaryRequirements
-            : request.dietaryRequirements,
-        timePreference: request.timePreference,
-        stylePreference: request.stylePreference,
-        moodPreference: request.moodPreference,
-        servings: request.servings,
-        excludedIngredients: [
-          ...request.excludedIngredients,
-          ..._excludedIngredients,
-        ],
-        recentTitles: [
-          ...request.recentTitles,
-          _currentRecipe.title,
-        ],
-        runningLowItems: request.runningLowItems,
-        isLeftoverMode: request.isLeftoverMode,
-        leftoverItems: request.leftoverItems,
-        likedRecipes: request.likedRecipes,
-        dislikedRecipes: request.dislikedRecipes,
-        appliances: request.appliances,
-        isSaverMode: request.isSaverMode,
-        perishableInventoryDescriptions: request.perishableInventoryDescriptions,
-        // Sprint 15.9.3 SAFETY FIX: must propagate on regenerate too —
-        // otherwise the second/third recipe could lose the allergen
-        // constraint and serve peanut butter to a peanut-allergy user.
-        // Sprint 16.1: read fresh from singleton (see comment above).
-        customAllergens:
-            settings.hydrated ? settings.allergies : request.customAllergens,
-      );
+      final newRequest = debugBuildRegenRequest(request);
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);
 
@@ -1279,9 +1295,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             timePreference: selectedTime,
                             stylePreference: selectedStyle,
                             moodPreference: selectedMood,
+                            mealType: request.mealType,
                             servings: request.servings,
                             excludedIngredients: request.excludedIngredients,
                             recentTitles: request.recentTitles,
+                            recentHeroIngredients: request.recentHeroIngredients,
+                            recentCookware: request.recentCookware,
                             runningLowItems: request.runningLowItems,
                             isLeftoverMode: request.isLeftoverMode,
                             leftoverItems: request.leftoverItems,
@@ -1290,6 +1309,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             appliances: request.appliances,
                             isSaverMode: request.isSaverMode,
                             perishableInventoryDescriptions: request.perishableInventoryDescriptions,
+                            userRequest: request.userRequest,
                             customAllergens: request.customAllergens,
                           );
                           Navigator.of(dialogContext).pop(adjusted);

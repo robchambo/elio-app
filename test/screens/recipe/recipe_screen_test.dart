@@ -130,4 +130,87 @@ void main() {
     expect(inStockCount, 2, reason: 'Olive oil and Salt should be in pantry');
     expect(missingCount, 1, reason: 'Saffron should be missing');
   });
+
+  // Regression: Sprint 16.3 added a free-text `userRequest` ("craving")
+  // on RecipePreferencesScreen, threaded to RecipeGenerationRequest and
+  // emitted by Gemini's _buildPrompt as a high-priority soft preference.
+  // The "Generate another" regen builder on RecipeScreen was dropping
+  // it (along with mealType + the variation FIFOs), so successive
+  // recipes silently ignored the craving. This guards the carry-forward.
+  testWidgets(
+    "'Generate another' regen carries forward userRequest + variation fields",
+    (tester) async {
+      const base = RecipeGenerationRequest(
+        perishables: ['Chicken'],
+        alwaysHave: ['Salt'],
+        almostAlwaysHave: ['Pasta'],
+        dietaryRequirements: ['Vegetarian'],
+        timePreference: 'Quick',
+        stylePreference: 'Comfort',
+        moodPreference: 'Cosy',
+        mealType: 'dinner',
+        servings: 4,
+        excludedIngredients: ['Mushroom'],
+        recentTitles: ['Old Recipe'],
+        recentHeroIngredients: ['chicken', 'pasta'],
+        recentCookware: ['skillet'],
+        runningLowItems: ['Oil'],
+        isLeftoverMode: false,
+        leftoverItems: [],
+        likedRecipes: ['Carbonara'],
+        dislikedRecipes: ['Liver'],
+        appliances: ['Oven'],
+        isSaverMode: true,
+        perishableInventoryDescriptions: ['chicken (expires today)'],
+        userRequest: 'something with mushrooms',
+        customAllergens: ['Peanut'],
+      );
+
+      await tester.pumpWidget(MaterialApp(
+        home: RecipeScreen(
+          recipe: _fixtureRecipe(),
+          originalRequest: base,
+        ),
+      ));
+      await tester.pump();
+
+      final dynamic state = tester.state<State>(find.byType(RecipeScreen));
+      final RecipeGenerationRequest regen =
+          state.debugBuildRegenRequest(base);
+
+      // The reported bug — userRequest MUST survive regen.
+      expect(regen.userRequest, 'something with mushrooms',
+          reason: 'Sprint 16.3 craving was being dropped on Generate Another');
+
+      // Same shape-of-bug fields fixed alongside userRequest.
+      expect(regen.mealType, 'dinner');
+      expect(regen.recentHeroIngredients, ['chicken', 'pasta']);
+      expect(regen.recentCookware, ['skillet']);
+
+      // Spot-check the rest of the carry-forward + the documented merges.
+      expect(regen.perishables, ['Chicken']);
+      expect(regen.alwaysHave, ['Salt']);
+      expect(regen.almostAlwaysHave, ['Pasta']);
+      expect(regen.dietaryRequirements, ['Vegetarian']);
+      expect(regen.timePreference, 'Quick');
+      expect(regen.stylePreference, 'Comfort');
+      expect(regen.moodPreference, 'Cosy');
+      expect(regen.servings, 4);
+      expect(regen.runningLowItems, ['Oil']);
+      expect(regen.isLeftoverMode, isFalse);
+      expect(regen.likedRecipes, ['Carbonara']);
+      expect(regen.dislikedRecipes, ['Liver']);
+      expect(regen.appliances, ['Oven']);
+      expect(regen.isSaverMode, isTrue);
+      expect(regen.perishableInventoryDescriptions,
+          ['chicken (expires today)']);
+      expect(regen.customAllergens, ['Peanut']);
+
+      // recentTitles MUST gain the current recipe title (dedup signal).
+      expect(regen.recentTitles, ['Old Recipe', 'Test Recipe']);
+
+      // excludedIngredients merges base + session exclusions (empty here).
+      expect(regen.excludedIngredients, ['Mushroom']);
+    },
+  );
 }
