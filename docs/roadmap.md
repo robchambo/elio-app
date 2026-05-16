@@ -1,15 +1,16 @@
 # Elio Roadmap
 
-**Last updated:** 11 May 2026 (Sprint 16.1.x auth UX fix committed locally on `sprint/16.1-settings-redesign` at `8fbc553`. APK building. Awaiting on-device verification.)
+**Last updated:** 15 May 2026 (Flash-Lite streaming swap on `fix/flash-lite-streaming` at `c58c924`, on-device verified, awaiting merge into `sprint/16-integration`.)
 
-**Active branch:** `sprint/16.1-settings-redesign` — Sprint 16.1 Settings Redesign + auth UX fix on top.
-**Pushed to origin:** through `55a144f` (appliances case-mismatch fix). `8fbc553` (auth UX fix) is local-only pending on-device test.
+**Active branch:** `sprint/16-integration` — main integration line. Topic branch `fix/flash-lite-streaming` (1 commit ahead) ready to merge.
+**Pushed to origin:** through `041a915` on `sprint/16-integration`; `c58c924` pushed on `fix/flash-lite-streaming` after on-device sign-off.
 
-**Recent (1–11 May 2026):**
+**Recent (1–15 May 2026):**
 - Sprint 15.9.2 — Gemini warmup (cold-start reliability)
 - Dietary/allergen safety audit (8+ commits on `sprint/16`) — major pre-launch risk closed
 - Sprint 16.1 — Settings Redesign (4-section tree, unified dietary plumbing)
 - Sprint 16.1.x — Auth UX fix (Sign In tile, Restart Onboarding, sign-out preserves onboardingComplete)
+- **Streaming model swap (15 May 2026)** — recipe-generation hot path moved `gemini-2.5-flash` → `gemini-2.5-flash-lite` after a head-to-head eval (`tool/eval/run.dart` × 5 fixtures on `claude/compare-gemini-models-9in2t`). Flash-Lite matched Flash on TTFT, beat it on total stream time (~1 s faster), cost (~83% cheaper), and structural pass rate. Prewarm call also swapped to match. Subjectively "noticeably quicker" on-device with no quality regression. Branch `fix/flash-lite-streaming`, commit `c58c924`, APK tag `build/sprint-16-integration-flash-lite`.
 
 **Sprint 16.4 polish (April 2026):**
 - Bug 4 — Pantry single-tap removed (long-press only); Remove lives in the long-press picker.
