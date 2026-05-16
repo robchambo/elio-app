@@ -50,6 +50,9 @@ coverage/
 # Local environment (API keys — never commit)
 .env.local
 
+# Eval harness results (may contain raw model output)
+tool/eval/results/
+
 # Claude Code
 .claude/
 
