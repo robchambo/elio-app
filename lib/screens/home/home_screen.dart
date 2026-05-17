@@ -78,6 +78,13 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> _likedRecipes = [];
   List<String> _dislikedRecipes = [];
 
+  // ── Household size (drives default servings) ────────────────────────
+  // 16 May 2026: onboarding captures householdCount but pre-fix the
+  // home generate flow always passed servings: 2. Now read from user
+  // doc and threaded into _buildRequest. Defaults to 2 (sensible if
+  // householdCount is missing for legacy accounts).
+  int _householdCount = 2;
+
   // ── Saved custom food styles (e.g. "Mediterranean") ────────────────
   List<String> _customStyles = [];
 
@@ -196,6 +203,11 @@ class _HomeScreenState extends State<HomeScreen> {
           // is refreshed by every dietary save. The getters below
           // read from that singleton.
           _customStyles = List<String>.from(data['stylePreferences'] ?? []);
+          // 16 May 2026: drive default servings from the household
+          // count the user set in onboarding (or edited in Settings →
+          // Household). Clamp to [1, 10] to match the stepper bounds.
+          final hc = (data['householdCount'] as num?)?.toInt() ?? 2;
+          _householdCount = hc.clamp(1, 10);
         });
       }
     } catch (_) {
@@ -342,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
       stylePreference: prefs.style,
       moodPreference: prefs.mood,
       mealType: prefs.mealType,
-      servings: 2,
+      servings: _householdCount,
       recentTitles: List.from(_recentTitles),
       recentHeroIngredients: List.from(_recentHeroIngredients),
       recentCookware: List.from(_recentCookware),

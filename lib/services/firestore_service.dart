@@ -263,6 +263,28 @@ class FirestoreService {
     await _db.collection('users').doc(_uid).update({'appliances': appliances});
   }
 
+  /// Update the user's household size. Drives default servings on
+  /// every generation (home_screen reads users/{uid}.householdCount
+  /// and threads into RecipeGenerationRequest.servings).
+  /// Onboarding initially sets this via toFirestoreMap(); the
+  /// Settings → Household stepper edits it in-session.
+  Future<void> saveHouseholdCount(int count) async {
+    await _db.collection('users').doc(_uid).update({'householdCount': count});
+  }
+
+  /// Read the user's stored household size, defaulting to 2 when the
+  /// doc is missing or the field hasn't been set (legacy account
+  /// pre-onboarding-v15).
+  Future<int> getHouseholdCount() async {
+    final doc = await _db.collection('users').doc(_uid).get();
+    if (!doc.exists) return 2;
+    final data = doc.data() as Map<String, dynamic>;
+    final raw = data['householdCount'];
+    if (raw is int) return raw.clamp(1, 10);
+    if (raw is num) return raw.toInt().clamp(1, 10);
+    return 2;
+  }
+
   // ─── Settings: get and update measurement units + region ─────────
 
   Future<Map<String, dynamic>> getSettings() async {
