@@ -315,7 +315,18 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       case RecipeComplete():
         _handleComplete(status.recipe, request);
       case RecipeError():
-        _showError(status.message);
+        // 16 May 2026 (Notion friendlyError row, on-device retest):
+        // RecipeError messages from gemini_service still flow as raw
+        // scrubbed exception text on a first-generation failure (the
+        // onError branch above already friendly-wraps, but a stream
+        // that yields a terminal RecipeError lands here instead). The
+        // full-page "Something went wrong / ClientException with
+        // SocketFailed..." dump Rob screenshotted hit this branch.
+        // Route through friendlyError so SocketException/host-lookup
+        // failures become "You're offline. Reconnect and try again."
+        // Already-friendly messages (rate-limit copy, allergen retry
+        // copy) pass through untouched.
+        _showError(friendlyError(status.message));
     }
   }
 
