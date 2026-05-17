@@ -152,8 +152,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadUserData() async {
-    // Guest mode: load from SharedPreferences
-    if (widget.isGuest) {
+    // 17 May 2026: detect guest mode from auth state, NOT from
+    // widget.isGuest alone. AppShell constructs HomeScreen() without
+    // passing isGuest, so widget.isGuest is always false in the
+    // normal app flow and this guest branch never fired — guest
+    // users hit the Firestore path, which threw on
+    // `_auth.currentUser!.uid` and got silently swallowed by the
+    // catch below. Net result: `_householdCount` stayed at the
+    // default 2 for any unsigned-in user (Rob saw this on 17may-c:
+    // Settings showed 3, first gen came back with 2 servings).
+    // Auth state is the canonical signal for "do I have a Firestore
+    // doc to read", so use that.
+    final isGuest =
+        widget.isGuest || FirebaseAuth.instance.currentUser == null;
+    if (isGuest) {
       final saved = await GuestPantryService.load();
       // 16 May 2026 follow-up: household size is now persisted for
       // guests too (under its own SharedPreferences key, set by
