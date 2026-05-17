@@ -2022,10 +2022,18 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     value: kcalLabel,
                   ),
                 ),
-              if (r.dietaryTags.isNotEmpty)
+              // 16 May 2026 (Notion dietaryTags row): render ONE chip
+              // per active constraint, not just `.first`. The pre-fix
+              // code shipped a single-pill summary because Sprint 16.1
+              // only cared about making the first tag honest. With the
+              // request->dietaryTags merge in gemini_service (lines
+              // 113-121), the list now reliably contains every active
+              // constraint (e.g. ["Gluten-Free", "Dairy-Free"]), so
+              // we iterate. Wrap handles overflow to a second row.
+              for (final tag in r.dietaryTags)
                 ElioStatBadge(
                   icon: Icons.local_dining_outlined,
-                  value: r.dietaryTags.first,
+                  value: tag,
                 ),
             ],
           ),
