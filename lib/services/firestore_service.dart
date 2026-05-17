@@ -244,6 +244,21 @@ class FirestoreService {
     // Owner's custom allergens
     final customAllergens = List<String>.from(ownerProfile['customAllergens'] ?? []);
 
+    // 17 May 2026: include householdCount in the returned map so
+    // home_screen._loadUserData can thread it into _buildRequest as
+    // `servings`. Pre-fix the field was missing here entirely; Home
+    // read `data['householdCount']` (always null), defaulted to 2,
+    // and the stepper in Settings → Household appeared to do
+    // nothing on signed-in accounts (Settings reads via the
+    // dedicated getHouseholdCount() path, so the stepper itself
+    // worked; the gap was here, in the bulk-read used by Home).
+    final hcRaw = userData['householdCount'];
+    final householdCount = hcRaw is int
+        ? hcRaw.clamp(1, 10)
+        : hcRaw is num
+            ? hcRaw.toInt().clamp(1, 10)
+            : 2;
+
     return {
       'stylePreferences': List<String>.from(userData['stylePreferences'] ?? []),
       'appliances': List<String>.from(userData['appliances'] ?? []),
@@ -254,6 +269,7 @@ class FirestoreService {
       'almostAlwaysHave': almostAlwaysHave,
       'runningLowItems': runningLowItems,
       'inventoryWithIds': inventoryWithIds,
+      'householdCount': householdCount,
       'subscription': userData['subscription'] as Map<String, dynamic>? ?? {},
     };
   }
