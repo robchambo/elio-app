@@ -1099,17 +1099,34 @@ class GeminiService {
     // constraints (dietary/allergens + perishables REQUIRED + meal
     // type MUST) on a model with `thinkingBudget: 0` was raising the
     // cognitive load past a stability threshold and contributing to
-    // deliberation-bleed (Gemini paraphrasing prompt language into
-    // JSON values). Gemini's training already strongly biases recipes
-    // for "breakfast"/"lunch"/"dinner" language; we don't need the
-    // hammer of MUST.
+    // deliberation-bleed.
+    //
+    // 17 May 2026 — re-promoted to HARD. Rob reported (Notion comment
+    // 06:34Z) that mealType still drops on regen even after Cluster
+    // A's anchor wording: pick Breakfast on prefs, generate, tap
+    // Generate another, second recipe is not a breakfast. End-to-end
+    // trace confirms the threading IS correct — `_mealType` is read
+    // on prefs, flowed through `_buildRequest`, passed in
+    // `originalRequest`, carried forward by `debugBuildRegenRequest`,
+    // emitted to the prompt. So the gap is at the model layer, not
+    // the wiring. Two changes since the 13 May softening make HARD
+    // safe again: (a) `thinkingBudget` is now 1024 in streaming
+    // (commit d350736), giving Gemini scratch space so adding a third
+    // HARD constraint no longer pushes us back into deliberation-
+    // bleed territory; (b) the model is now gemini-2.5-flash-lite
+    // (c58c924), which has weaker meal-occasion training bias than
+    // flash had, so "Tailor the dish to that meal occasion" is no
+    // longer strong enough on its own. Promoted to MUST with
+    // dish-appropriateness language to match the style-preference
+    // hard line above.
     //
     // Bare assertion, no example list: positive examples ("eggs,
     // toast, oatmeal") anchor the output and narrow regional/cultural
     // breadth.
     if (request.mealType != null) {
+      final lower = request.mealType!.toLowerCase();
       buffer.writeln(
-          'Meal type: ${request.mealType}. Tailor the dish to that meal occasion.');
+          'Meal type: ${request.mealType}. The recipe MUST be appropriate to serve as $lower — this is a hard requirement, not a preference. Do not drift to a different meal occasion on regeneration.');
     }
 
     // ── Leftover mode: completely different framing ──────────────────
