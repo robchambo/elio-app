@@ -5,7 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_spacing.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/firestore_service.dart';
+import '../../widgets/elio/elio_household_stepper.dart';
 
 // ─────────────────────────────────────────────
 // HouseholdScreen
@@ -23,6 +26,16 @@ class HouseholdScreen extends StatefulWidget {
 class _HouseholdScreenState extends State<HouseholdScreen> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _members = [];
+
+  // 16 May 2026: household size mirrors the onboarding screen-03
+  // stepper. Drives the default `servings` value for every generation
+  // (home_screen reads users/{uid}.householdCount). Loaded once in
+  // initState; edits write straight to Firestore via
+  // FirestoreService.saveHouseholdCount, with optimistic local update
+  // for instant feedback.
+  int _householdCount = 2;
+  bool _householdCountLoaded = false;
+  final FirestoreService _firestore = FirestoreService();
 
   // Sprint 16.6.x: live Firestore stream replaces the previous one-shot
   // get(). Mutations now write to Firestore and the stream re-renders;
@@ -43,6 +56,36 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
   void initState() {
     super.initState();
     _subscribeMembers();
+    _loadHouseholdCount();
+  }
+
+  Future<void> _loadHouseholdCount() async {
+    try {
+      final count = await _firestore.getHouseholdCount();
+      if (mounted) {
+        setState(() {
+          _householdCount = count;
+          _householdCountLoaded = true;
+        });
+      }
+    } catch (_) {
+      // Non-critical — stepper just renders the default of 2.
+      if (mounted) setState(() => _householdCountLoaded = true);
+    }
+  }
+
+  Future<void> _onHouseholdCountChanged(int v) async {
+    // Optimistic update so the stepper is instant. Revert on failure.
+    final previous = _householdCount;
+    setState(() => _householdCount = v);
+    try {
+      await _firestore.saveHouseholdCount(v);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _householdCount = previous);
+        _showSnack('Could not save household size. Try again.');
+      }
+    }
   }
 
   @override
@@ -352,6 +395,57 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
                 child: ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
+                    // ── Household size (drives default servings) ─────────
+                    // 16 May 2026: mirrors the onboarding screen-03
+                    // stepper so the user can adjust the size that
+                    // drives default recipe servings without redoing
+                    // onboarding. Sits above the members list because
+                    // every household has a size, even when no extra
+                    // members have been added.
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: ElioColors.cream,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: ElioColors.rule),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Household size',
+                                    style: ElioText.label.copyWith(
+                                        color: ElioColors.espresso)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Default servings for every recipe.',
+                                  style: ElioText.bodyMedium
+                                      .copyWith(color: ElioColors.mocha),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: ElioSpacing.md),
+                          if (_householdCountLoaded)
+                            ElioHouseholdStepper(
+                              value: _householdCount,
+                              onChanged: _onHouseholdCountChanged,
+                            )
+                          else
+                            const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: ElioColors.terracotta,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     Text(
                       'Add household members so Elio can respect everyone\'s dietary needs when generating recipes.',
                       style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
