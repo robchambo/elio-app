@@ -269,15 +269,28 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
             const SizedBox(height: 12),
             Text('Extracting recipe...', style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
           ] else ...[
+            // 17 May 2026: button height 50 was clipping the bottom
+            // of descenders on the `L` glyph (Import URL button) and
+            // forcing `Take Photo` to wrap to two lines on narrow
+            // phones (Rob's screenshot: row showed only "Take" with
+            // bottom stroke clipped). Raised to 56 (Material's
+            // standard min touch target) + `maxLines: 1` + label
+            // shortened to `Camera` so it sits parallel with
+            // `Gallery` and never wraps regardless of width.
             Row(
               children: [
                 Expanded(
                   child: SizedBox(
-                    height: 50,
+                    height: 56,
                     child: ElevatedButton.icon(
                       onPressed: () => _capturePhoto(ImageSource.camera),
                       icon: const Icon(Icons.camera_alt_rounded, size: 18, color: Colors.white),
-                      label: const Text('Take Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                      label: const Text(
+                        'Camera',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: ElioColors.terracotta,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -289,11 +302,16 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: SizedBox(
-                    height: 50,
+                    height: 56,
                     child: OutlinedButton.icon(
                       onPressed: () => _capturePhoto(ImageSource.gallery),
                       icon: const Icon(Icons.photo_library_rounded, size: 18, color: ElioColors.espresso),
-                      label: Text('Gallery', style: TextStyle(color: ElioColors.espresso, fontWeight: FontWeight.w700)),
+                      label: const Text(
+                        'Gallery',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: ElioColors.espresso, fontWeight: FontWeight.w700),
+                      ),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: ElioColors.rule),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -405,7 +423,7 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 56,
             child: ElevatedButton(
               onPressed: _isImportingUrl ? null : _importFromUrl,
               style: ElevatedButton.styleFrom(
@@ -421,6 +439,8 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
                     )
                   : const Text(
                       'Import from URL',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
                     ),
             ),
