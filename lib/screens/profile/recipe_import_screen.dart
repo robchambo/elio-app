@@ -502,10 +502,11 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
             maxLines: 8,
           ),
           const SizedBox(height: 28),
-          // Save button
+          // Save button. 17 May 2026: height 50 → 56 + maxLines on
+          // the label, mirroring the URL + photo button fix.
           SizedBox(
             width: double.infinity,
-            height: 50,
+            height: 56,
             child: ElevatedButton(
               onPressed: _saveManualRecipe,
               style: ElevatedButton.styleFrom(
@@ -515,6 +516,8 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
               ),
               child: const Text(
                 'Save Recipe',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
               ),
             ),

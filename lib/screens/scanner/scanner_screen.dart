@@ -369,7 +369,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             children: [
               Expanded(
                 child: _amberButton(
-                  'Take Photo',
+                  'Camera',
                   Icons.camera_alt_rounded,
                   _captureReceipt,
                 ),
@@ -401,13 +401,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
     );
   }
 
+  // 17 May 2026: height 50 → 56 + `maxLines: 1` on the label so
+  // glyph descenders don't clip vertically and long labels don't
+  // wrap to a second clipped line. Mirrors the recipe_import_screen
+  // fix in 3892d9b.
   Widget _amberButton(String label, IconData icon, VoidCallback onPressed) {
     return SizedBox(
-      height: 50,
+      height: 56,
       child: ElevatedButton.icon(
         onPressed: _isProcessing ? null : onPressed,
         icon: Icon(icon, size: 20),
-        label: Text(label),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         style: ElevatedButton.styleFrom(
           backgroundColor: ElioColors.terracotta,
           foregroundColor: Colors.white,
@@ -421,11 +425,11 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Widget _outlineButton(String label, IconData icon, VoidCallback onPressed) {
     return SizedBox(
-      height: 50,
+      height: 56,
       child: OutlinedButton.icon(
         onPressed: _isProcessing ? null : onPressed,
         icon: Icon(icon, size: 20),
-        label: Text(label),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         style: OutlinedButton.styleFrom(
           foregroundColor: ElioColors.espresso,
           side: const BorderSide(color: ElioColors.rule, width: 1.5),
