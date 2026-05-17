@@ -112,6 +112,14 @@ class _HomeScreenState extends State<HomeScreen> {
     // refresh chain — without this listener, a newly generated recipe
     // wouldn't appear in the Home peek until the user re-mounted Home.
     HistoryService.changes.addListener(_onHistoryChanged);
+    // 17 May 2026: HomeScreen is mounted forever inside AppShell's
+    // PageView and never re-runs initState, so an edit to the
+    // household-size stepper on Settings → Household was invisible
+    // to `_buildRequest` until the app was killed. Both save paths
+    // (Firestore + GuestPantryService) bump this notifier; we reload
+    // `_householdCount` on tick. Same pattern as HistoryService.
+    GuestPantryService.householdCountChanges
+        .addListener(_onHouseholdCountChanged);
     _loadUserData();
     _loadRecentRecipes();
     // Request notification permission on first HomeScreen load (non-blocking)
@@ -501,6 +509,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // Sprint 16.1: unsubscribe from UserSettingsService listeners.
     UserSettingsService.instance.removeListener(_onSettingsChanged);
     HistoryService.changes.removeListener(_onHistoryChanged);
+    GuestPantryService.householdCountChanges
+        .removeListener(_onHouseholdCountChanged);
     super.dispose();
   }
 
@@ -515,6 +525,19 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onHistoryChanged() {
     if (!mounted) return;
     _loadRecentRecipes();
+  }
+
+  /// Re-read household count after Settings → Household writes a new
+  /// value. Lightweight: only this one field is fetched, regardless
+  /// of auth state.
+  Future<void> _onHouseholdCountChanged() async {
+    if (!mounted) return;
+    final signedIn = FirebaseAuth.instance.currentUser != null;
+    final hc = signedIn
+        ? await _firestore.getHouseholdCount()
+        : await GuestPantryService.loadHouseholdCount();
+    if (!mounted) return;
+    setState(() => _householdCount = hc);
   }
 
   // ─── Sprint 16: Editorial home body ─────────────────────────────────────

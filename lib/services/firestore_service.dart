@@ -7,6 +7,7 @@ import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
 import '../utils/pantry_utils.dart';
 import 'error_service.dart';
+import 'guest_pantry_service.dart';
 import 'inventory_writer.dart';
 
 // ─────────────────────────────────────────────
@@ -278,6 +279,10 @@ class FirestoreService {
         .collection('users')
         .doc(_uid)
         .set({'householdCount': count}, SetOptions(merge: true));
+    // 17 May 2026: notify in-process listeners (HomeScreen) so the
+    // next recipe generation picks up the fresh value without a
+    // restart. Mirror notifier on the guest save path.
+    GuestPantryService.notifyHouseholdCountChanged();
   }
 
   /// Read the user's stored household size, defaulting to 2 when the
