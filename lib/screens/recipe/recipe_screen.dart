@@ -27,6 +27,7 @@ import '../../utils/friendly_error.dart';
 import '../../utils/snackbar_helpers.dart';
 import '../../utils/quantity_utils.dart';
 import '../../utils/time_parser.dart';
+import '../../utils/recipe_variation.dart';
 import '../../widgets/elio/elio_duration_picker_sheet.dart';
 import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_section_heading.dart';
@@ -144,6 +145,17 @@ class _RecipeScreenState extends State<RecipeScreen> {
   /// regress to a generic generation that ignores the user's stated
   /// intent. This was Sprint 16.3 bug: `userRequest` was being lost.
   ///
+  /// **Variation FIFOs are extended in-place by this method.** Home
+  /// owns the FIFO across separate generations, but home never sees a
+  /// regen happen on this screen, so the hero + cookware of
+  /// [_currentRecipe] are appended here (capped at the same window of
+  /// 3 home enforces). Without this the 2nd, 3rd, 4th... regen all see
+  /// the SAME stale variation memory and rotation breaks (Notion bug
+  /// row "4th recipe should pivot", 16 May 2026). User-required
+  /// perishables are excluded from the hero FIFO using the same rule
+  /// as [HomeScreen._onRecipeComplete] (matches HomeScreen's
+  /// `_isUserRequiredPerishable`).
+  ///
   /// Exposed for test reach. Pure with respect to widget state — does
   /// not mutate.
   @visibleForTesting
@@ -151,6 +163,28 @@ class _RecipeScreenState extends State<RecipeScreen> {
     RecipeGenerationRequest base,
   ) {
     final settings = UserSettingsService.instance;
+
+    // Variation FIFO updates — append current recipe's hero/cookware
+    // before regen so successive regens actually see rotation. Cap at
+    // window of 3 (matches HomeScreen._variationWindow).
+    const variationWindow = 3;
+    final updatedHeroes = List<String>.from(base.recentHeroIngredients);
+    final hero = RecipeVariation.heroIngredient(_currentRecipe);
+    if (hero != null && !_isUserRequiredPerishable(hero, base)) {
+      updatedHeroes.add(hero);
+      while (updatedHeroes.length > variationWindow) {
+        updatedHeroes.removeAt(0);
+      }
+    }
+    final updatedCookware = List<String>.from(base.recentCookware);
+    final cookware = RecipeVariation.cookware(_currentRecipe);
+    if (cookware != null) {
+      updatedCookware.add(cookware);
+      while (updatedCookware.length > variationWindow) {
+        updatedCookware.removeAt(0);
+      }
+    }
+
     return RecipeGenerationRequest(
       perishables: base.perishables,
       alwaysHave: base.alwaysHave,
@@ -171,8 +205,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ...base.recentTitles,
         _currentRecipe.title,
       ],
-      recentHeroIngredients: base.recentHeroIngredients,
-      recentCookware: base.recentCookware,
+      recentHeroIngredients: updatedHeroes,
+      recentCookware: updatedCookware,
       runningLowItems: base.runningLowItems,
       isLeftoverMode: base.isLeftoverMode,
       leftoverItems: base.leftoverItems,
@@ -185,6 +219,23 @@ class _RecipeScreenState extends State<RecipeScreen> {
       customAllergens:
           settings.hydrated ? settings.allergies : base.customAllergens,
     );
+  }
+
+  /// Mirrors HomeScreen's `_isUserRequiredPerishable` — keeps the hero
+  /// FIFO clean of user-chosen required perishables (chicken every
+  /// recipe because the user said "use up chicken" isn't model
+  /// repetition, so shouldn't poison variety memory).
+  bool _isUserRequiredPerishable(
+      String hero, RecipeGenerationRequest request) {
+    if (request.perishables.isEmpty) return false;
+    final h = hero.toLowerCase().trim();
+    if (h.isEmpty) return false;
+    for (final p in request.perishables) {
+      final pl = p.toLowerCase().trim();
+      if (pl.isEmpty) continue;
+      if (pl == h || pl.contains(h) || h.contains(pl)) return true;
+    }
+    return false;
   }
 
   late int _regenCount;

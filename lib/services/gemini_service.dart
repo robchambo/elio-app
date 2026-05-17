@@ -1217,15 +1217,42 @@ class GeminiService {
       // Sprint 15.9.3: previously listed titles twice (RECENTLY GENERATED
       // section + VARIETY section). Single combined section saves tokens
       // and reads more clearly.
+      //
+      // 16 May 2026 (Notion regen cluster): when the user has supplied
+      // an explicit `userRequest` (craving) or `mealType`, those are
+      // load-bearing — they're the reason the user tapped Generate in
+      // the first place. The variety nudge below was winning over them
+      // on regen ("beef mince" craving → 1st recipe has beef mince →
+      // recentTitles names it → Gemini reads "DO NOT REPEAT" as "avoid
+      // beef mince" and pivots away). Anchor the non-negotiable
+      // dimensions explicitly so variety happens on style/method/
+      // cuisine, not on the user-stated intent.
+      final hasUserRequest =
+          request.userRequest != null && request.userRequest!.trim().isNotEmpty;
+      final hasMealType = request.mealType != null;
       buffer.writeln();
       buffer.writeln('## RECENTLY GENERATED (do NOT repeat; vary against these):');
       for (final title in request.recentTitles) {
         buffer.writeln('- $title');
       }
-      buffer.writeln(
-          'Generate something with a DIFFERENT base ingredient, cooking method, AND cuisine from the list above. '
-          'If they\'re pasta-heavy, avoid pasta. If Asian-leaning, try a different region. '
-          'If all oven-baked, try stovetop or no-cook. Variety is key.');
+      if (hasUserRequest || hasMealType) {
+        final anchors = <String>[];
+        if (hasUserRequest) {
+          anchors.add(
+              'the user\'s stated craving ("${request.userRequest!.trim()}") — keep honouring it');
+        }
+        if (hasMealType) {
+          anchors.add(
+              'the chosen meal type (${request.mealType}) — stay in that meal-occasion shape');
+        }
+        buffer.writeln(
+            'Vary against the titles above by style, cooking method, region, OR primary cookware — but do NOT vary away from ${anchors.join(' or ')}. The repetition guard is for model bias, not for the user\'s explicit input.');
+      } else {
+        buffer.writeln(
+            'Generate something with a DIFFERENT base ingredient, cooking method, AND cuisine from the list above. '
+            'If they\'re pasta-heavy, avoid pasta. If Asian-leaning, try a different region. '
+            'If all oven-baked, try stovetop or no-cook. Variety is key.');
+      }
     }
 
     // Sprint 16.6 (Notion XX bug 3) — VARIATION memory.
@@ -1260,11 +1287,26 @@ class GeminiService {
       // priors. Stronger framing: "Do not use" instead of
       // "pick a DIFFERENT", and explicit "even if it would otherwise
       // be a natural fit" to anticipate Gemini's reasoning escape.
-      buffer.writeln(
-          'Do not use any of the above as the primary protagonist of THIS recipe, '
-          'and pick a clearly different primary cookware. The user has been getting '
-          'too much repetition — they explicitly want variety this time, even if '
-          'the previous choices would otherwise feel like natural fits.');
+      //
+      // 16 May 2026 (Notion regen cluster): same anchor-protection as
+      // the RECENTLY GENERATED block above. When the user has typed a
+      // craving, the hero list MIGHT contain something semantically
+      // close to that craving (1st regen pushed it in), and we don't
+      // want "do not use the above as protagonist" to override the
+      // user's explicit ask. Cookware variation is always safe to
+      // push.
+      final hasUserRequestForVariation =
+          request.userRequest != null && request.userRequest!.trim().isNotEmpty;
+      if (hasUserRequestForVariation) {
+        buffer.writeln(
+            'Pick a clearly different primary cookware from the above. For the hero ingredient, prioritise the user\'s craving ("${request.userRequest!.trim()}") even if it overlaps with a recent hero — the user\'s explicit input beats the variety nudge.');
+      } else {
+        buffer.writeln(
+            'Do not use any of the above as the primary protagonist of THIS recipe, '
+            'and pick a clearly different primary cookware. The user has been getting '
+            'too much repetition — they explicitly want variety this time, even if '
+            'the previous choices would otherwise feel like natural fits.');
+      }
       buffer.writeln(
           'Also vary your descriptive language — if recent recipes leaned on words like "hearty", "warming", or "comforting", reach for fresher vocabulary this time.');
     }

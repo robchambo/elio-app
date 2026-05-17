@@ -184,7 +184,12 @@ void main() {
 
       // Same shape-of-bug fields fixed alongside userRequest.
       expect(regen.mealType, 'dinner');
-      expect(regen.recentHeroIngredients, ['chicken', 'pasta']);
+      // 16 May 2026: regen now appends current recipe's hero to the
+      // FIFO (window of 3, matches HomeScreen). Fixture recipe's first
+      // non-staple ingredient is 'tomato', so the FIFO grows by one.
+      expect(regen.recentHeroIngredients, ['chicken', 'pasta', 'tomato']);
+      // Fixture recipe has no recognised cookware noun in its steps
+      // ('Chop tomato.', 'Serve.') — FIFO unchanged.
       expect(regen.recentCookware, ['skillet']);
 
       // Spot-check the rest of the carry-forward + the documented merges.
