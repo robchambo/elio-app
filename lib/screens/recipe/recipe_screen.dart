@@ -57,14 +57,12 @@ class RecipeScreen extends StatefulWidget {
   final RecipeGenerationRequest? originalRequest;
   final bool isGuest;
 
-  /// When true, the recipe is auto-saved as bookmarked on first open.
-  /// Used by recipe import to avoid double-saves.
-  /// When true, the recipe is auto-saved as bookmarked on first open.
-  /// Used by recipe import to avoid double-saves.
-  final bool autoSave;
-
   /// The savedAt timestamp from history — enables bookmark toggling
-  /// instead of creating duplicates.
+  /// instead of creating duplicates. Import + Generate flows now pre-
+  /// save the recipe and pass the resulting `savedAt` in (was
+  /// previously a separate `autoSave` flag with a fire-and-forget save
+  /// in initState — removed 16 May 2026 because the race against
+  /// pushReplacement caused stale Saved/Home recents on Android).
   final String? savedAt;
 
   /// Tracks how many times "Generate Another" has been tapped across
@@ -91,7 +89,6 @@ class RecipeScreen extends StatefulWidget {
     required this.recipe,
     this.originalRequest,
     this.isGuest = false,
-    this.autoSave = false,
     this.savedAt,
     this.regenCount = 0,
     this.isSideDish = false,
@@ -301,15 +298,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
       ..addListener(_onTimerStateChange);
     _initTts();
     _subscribeInventory();
-    if (widget.autoSave) {
+    if (_savedAt != null) {
+      // Opened from history OR pre-saved by Import/Generate flow —
+      // either way it's in history, so it's "saved". Check bookmark
+      // state for the toggle indicator.
       _isSaved = true;
-      // Save in background — recipe was just imported
-      final saved = SavedRecipe.fromRecipe(widget.recipe, bookmarked: true);
-      _savedAt = saved.savedAt; // Capture so bookmark toggle works
-      HistoryService.saveRecipe(saved);
-    } else if (_savedAt != null) {
-      // Opened from history — check if bookmarked
-      _isSaved = true; // It's in history, so it's "saved"
       _checkBookmarkStatus();
     }
   }

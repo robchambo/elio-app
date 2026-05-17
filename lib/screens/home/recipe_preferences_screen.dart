@@ -319,11 +319,20 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
     }
   }
 
-  void _handleComplete(GeneratedRecipe recipe, RecipeGenerationRequest request) {
+  Future<void> _handleComplete(
+      GeneratedRecipe recipe, RecipeGenerationRequest request) async {
     // Save to history FIRST so RecipeScreen knows the savedAt and bookmark
     // toggling treats it as already-saved (mirrors the prior Home behaviour).
+    //
+    // 16 May 2026 (Notion Home-recents-peek row): MUST await the save
+    // so HistoryService.changes has bumped + cache is invalidated
+    // before pushReplacement removes this screen. Fire-and-forget here
+    // raced against pushReplacement on Android: the listener fired but
+    // HomeScreen had already been replaced underneath, so the recents
+    // peek didn't repaint until the user navigated away and back.
     final savedAt = DateTime.now().toUtc().toIso8601String();
-    HistoryService.saveRecipe(SavedRecipe(recipe: recipe, savedAt: savedAt));
+    await HistoryService.saveRecipe(SavedRecipe(recipe: recipe, savedAt: savedAt));
+    if (!mounted) return;
 
     // Let Home update recent titles, fire analytics, and kick off
     // background Firestore saves while we navigate.
