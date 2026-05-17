@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/onboarding_state.dart';
 
@@ -32,6 +33,21 @@ class GuestPantryService {
   static const _perishablesKey = 'guest_perishables';
   static const _householdCountKey = 'guest_household_count';
 
+  /// In-process change notifier for household-size updates. Both
+  /// writers (Firestore for signed-in users, SharedPreferences for
+  /// guests) bump this AFTER a successful save so HomeScreen can
+  /// reload `_householdCount` and the next `_buildRequest` threads
+  /// the fresh value as `servings`. Lives on GuestPantryService for
+  /// proximity to the SharedPreferences household methods — the
+  /// signed-in writer imports it explicitly. Mirrors the
+  /// `HistoryService.changes` pattern used for saved-tab refresh.
+  static final ValueNotifier<int> householdCountChanges =
+      ValueNotifier<int>(0);
+
+  static void notifyHouseholdCountChanged() {
+    householdCountChanges.value = householdCountChanges.value + 1;
+  }
+
   /// Persist the guest user's household size locally. Mirrors the
   /// Firestore `users/{uid}.householdCount` field used for signed-in
   /// users (FirestoreService.saveHouseholdCount). 16 May 2026 — added
@@ -42,6 +58,7 @@ class GuestPantryService {
   static Future<void> saveHouseholdCount(int count) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_householdCountKey, count);
+    notifyHouseholdCountChanged();
   }
 
   /// Read the guest household size with int / null coercion + clamp +
