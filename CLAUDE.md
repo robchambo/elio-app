@@ -12,6 +12,10 @@ Flutter app. Gemini AI generates recipes from your actual pantry. Android-primar
 - **Stack:** Flutter/Dart, Firebase (Auth/Firestore/Crashlytics/Analytics/FCM/Remote Config), Gemini (2.5-flash streaming + 2.5-flash-lite batch), RevenueCat, mobile_scanner, shimmer
 - **Flutter:** 3.27.x | Dart SDK `>=3.4.0 <4.0.0` | AGP 8.9.1 | Gradle 8.11.1
 
+## Fresh device? Read this first
+
+If `C:\src\elio-app` doesn't exist, or `flutter --version` / `firebase --version` / `gh auth status` fail from a fresh PowerShell — **stop and run** `scripts\setup-windows.ps1`. Full runbook (what it does + what's still manual) is at `docs/device-setup.md`. Don't waste an hour hand-fixing PATH / cmdline-tools / SDK licenses.
+
 ## Build — CRITICAL
 
 ```
