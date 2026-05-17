@@ -6,6 +6,7 @@ import '../../theme/elio_theme.dart';
 import '../../models/recipe_models.dart';
 import '../../services/gemini_service.dart';
 import '../../services/error_service.dart';
+import '../../services/history_service.dart';
 import '../../utils/friendly_error.dart';
 import '../recipe/recipe_screen.dart';
 
@@ -107,12 +108,25 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
     try {
       final recipe = await GeminiService.importRecipeFromUrl(url);
 
+      // 16 May 2026 (Notion Recipe Book auto-refresh row): save BEFORE
+      // navigating away. Previously this used `RecipeScreen(autoSave:
+      // true)` which fired the save from initState as fire-and-forget.
+      // On Android the SharedPreferences write often hadn't committed
+      // (and `HistoryService.changes` hadn't bumped) by the time the
+      // user popped back to RecipesTabScreen, so the new recipe was
+      // missing from Saved until the tab was unmounted + remounted.
+      // Awaiting the save here guarantees the cache is invalidated +
+      // listener bumped before navigation, so RecipesTabScreen
+      // refreshes deterministically.
+      final saved = SavedRecipe.fromRecipe(recipe, bookmarked: true);
+      await HistoryService.saveRecipe(saved);
+
       if (!mounted) return;
       setState(() => _isImportingUrl = false);
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => RecipeScreen(recipe: recipe, autoSave: true),
+          builder: (_) => RecipeScreen(recipe: recipe, savedAt: saved.savedAt),
         ),
       );
     } catch (e) {
@@ -316,13 +330,16 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
     try {
       final recipe = await GeminiService.importRecipeFromImage(bytes);
 
+      // 16 May 2026: save-before-navigate (see _importFromUrl note).
+      final saved = SavedRecipe.fromRecipe(recipe, bookmarked: true);
+      await HistoryService.saveRecipe(saved);
+
       if (!mounted) return;
       setState(() => _isProcessing = false);
 
-      // Navigate to recipe screen — autoSave handles saving + bookmarking
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (_) => RecipeScreen(recipe: recipe, autoSave: true),
+          builder: (_) => RecipeScreen(recipe: recipe, savedAt: saved.savedAt),
         ),
       );
     } catch (e) {
@@ -659,12 +676,15 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
       dietaryTags: [],
     );
 
+    // 16 May 2026: save-before-navigate (see _importFromUrl note).
+    final saved = SavedRecipe.fromRecipe(recipe, bookmarked: true);
+    await HistoryService.saveRecipe(saved);
+
     if (!mounted) return;
 
-    // Navigate to recipe screen — autoSave handles saving + bookmarking
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => RecipeScreen(recipe: recipe, autoSave: true),
+        builder: (_) => RecipeScreen(recipe: recipe, savedAt: saved.savedAt),
       ),
     );
   }
