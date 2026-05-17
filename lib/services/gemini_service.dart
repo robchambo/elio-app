@@ -234,10 +234,20 @@ class GeminiService {
       // JSON. Adding them to the schema unblocks the field on Flash-
       // Lite without touching the prompt or model selection.
       //
-      // None of these are marked required — Tier 2 is best-effort and
-      // we keep the nullable model paths. Keys mirror GeneratedRecipe /
-      // NutritionInfo property names exactly so fromJson lines 332-336
-      // wire through unchanged.
+      // 17 May 2026 update: previously marked optional ("Tier 2 is
+      // best-effort"). On-device retest after the schema-fields fix
+      // got chip-row coverage from 0% → 50%; the model treats unlisted-
+      // required fields as discretionary and omits them ~half the time
+      // under flash-lite. Promoting to required forces emission every
+      // time. Trade-off: for genuinely hard-to-estimate recipes the
+      // model may fabricate values rather than omit; mitigation is
+      // that the UI conditional-render paths still tolerate null /
+      // zero gracefully (region_utils.formatCost guards on the
+      // null-or-non-positive case, kcal pill renders only when
+      // nutrition.calories > 0).
+      //
+      // Keys mirror GeneratedRecipe / NutritionInfo property names
+      // exactly so fromJson lines 332-336 wire through unchanged.
       'nutrition': {
         'type': 'OBJECT',
         'properties': {
@@ -247,11 +257,19 @@ class GeminiService {
           'fatG': {'type': 'NUMBER'},
           'fibreG': {'type': 'NUMBER'},
         },
+        'required': ['calories', 'proteinG', 'carbsG', 'fatG', 'fibreG'],
       },
       'estimatedCostPerServingUSD': {'type': 'NUMBER'},
       'estimatedCostPerServingGBP': {'type': 'NUMBER'},
     },
-    'required': ['title', 'ingredients', 'steps'],
+    'required': [
+      'title',
+      'ingredients',
+      'steps',
+      'nutrition',
+      'estimatedCostPerServingUSD',
+      'estimatedCostPerServingGBP',
+    ],
   };
 
   // ── Onboarding ephemeral entry point (Task 5.0) ─────────────────────────────
