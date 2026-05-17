@@ -30,6 +30,28 @@ class GuestPantryService {
   static const _legacyKey = 'guest_pantry_v1';
   static const _staplesKey = 'guest_staples';
   static const _perishablesKey = 'guest_perishables';
+  static const _householdCountKey = 'guest_household_count';
+
+  /// Persist the guest user's household size locally. Mirrors the
+  /// Firestore `users/{uid}.householdCount` field used for signed-in
+  /// users (FirestoreService.saveHouseholdCount). 16 May 2026 — added
+  /// after Rob hit the household-stepper failure path on the 17 May
+  /// build: he’d skipped account creation, so the Firestore write
+  /// blew up on a null `currentUser.uid` and the stepper toasted
+  /// “Could not save household size” every tap.
+  static Future<void> saveHouseholdCount(int count) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_householdCountKey, count);
+  }
+
+  /// Read the guest household size with int / null coercion + clamp +
+  /// default-to-2 fallback. Mirrors FirestoreService.getHouseholdCount.
+  static Future<int> loadHouseholdCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getInt(_householdCountKey);
+    if (raw == null) return 2;
+    return raw.clamp(1, 10);
+  }
 
   Future<void> saveStaples(Map<String, String> tiers) async {
     final p = await SharedPreferences.getInstance();
@@ -54,6 +76,7 @@ class GuestPantryService {
     await p.remove(_staplesKey);
     await p.remove(_perishablesKey);
     await p.remove(_legacyKey);
+    await p.remove(_householdCountKey);
   }
 
   Map<String, String> _decode(String? s) => s == null

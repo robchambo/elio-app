@@ -268,8 +268,16 @@ class FirestoreService {
   /// and threads into RecipeGenerationRequest.servings).
   /// Onboarding initially sets this via toFirestoreMap(); the
   /// Settings → Household stepper edits it in-session.
+  ///
+  /// Uses set+merge instead of update so the write succeeds even if
+  /// the user doc doesn't exist yet (defensive — happens if a
+  /// migrated guest hits the stepper before any other Firestore
+  /// write creates the doc).
   Future<void> saveHouseholdCount(int count) async {
-    await _db.collection('users').doc(_uid).update({'householdCount': count});
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .set({'householdCount': count}, SetOptions(merge: true));
   }
 
   /// Read the user's stored household size, defaulting to 2 when the

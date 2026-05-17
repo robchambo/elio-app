@@ -147,10 +147,19 @@ class _HomeScreenState extends State<HomeScreen> {
     // Guest mode: load from SharedPreferences
     if (widget.isGuest) {
       final saved = await GuestPantryService.load();
-      if (mounted && saved != null) {
+      // 16 May 2026 follow-up: household size is now persisted for
+      // guests too (under its own SharedPreferences key, set by
+      // Settings → Household). Falls back to 2 for guest installs
+      // that never set it.
+      final hc = await GuestPantryService.loadHouseholdCount();
+      if (mounted) {
         setState(() {
-          _alwaysHave = List<String>.from(saved['alwaysHave'] ?? []);
-          _almostAlwaysHave = List<String>.from(saved['almostAlwaysHave'] ?? []);
+          if (saved != null) {
+            _alwaysHave = List<String>.from(saved['alwaysHave'] ?? []);
+            _almostAlwaysHave =
+                List<String>.from(saved['almostAlwaysHave'] ?? []);
+          }
+          _householdCount = hc;
         });
       }
       return;

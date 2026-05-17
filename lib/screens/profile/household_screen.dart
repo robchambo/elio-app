@@ -8,6 +8,7 @@ import '../../theme/elio_theme.dart';
 import '../../theme/elio_spacing.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/guest_pantry_service.dart';
 import '../../widgets/elio/elio_household_stepper.dart';
 
 // ─────────────────────────────────────────────
@@ -61,7 +62,15 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
 
   Future<void> _loadHouseholdCount() async {
     try {
-      final count = await _firestore.getHouseholdCount();
+      // 16 May 2026 follow-up: branch on auth state. Guest users
+      // (skipped account creation on screen 15) have no Firebase
+      // user, so FirestoreService throws on `_uid`. Mirror the
+      // pantry pattern — Firestore for signed-in, SharedPreferences
+      // for guests via GuestPantryService.
+      final signedIn = FirebaseAuth.instance.currentUser != null;
+      final count = signedIn
+          ? await _firestore.getHouseholdCount()
+          : await GuestPantryService.loadHouseholdCount();
       if (mounted) {
         setState(() {
           _householdCount = count;
@@ -79,7 +88,12 @@ class _HouseholdScreenState extends State<HouseholdScreen> {
     final previous = _householdCount;
     setState(() => _householdCount = v);
     try {
-      await _firestore.saveHouseholdCount(v);
+      final signedIn = FirebaseAuth.instance.currentUser != null;
+      if (signedIn) {
+        await _firestore.saveHouseholdCount(v);
+      } else {
+        await GuestPantryService.saveHouseholdCount(v);
+      }
     } catch (_) {
       if (mounted) {
         setState(() => _householdCount = previous);
