@@ -220,6 +220,36 @@ class GeminiService {
         },
       },
       'tips': {'type': 'STRING'},
+      // 16 May 2026 (Notion Tier-2 chips row, on-device retest): on
+      // build/sprint-15.9-personalized-pantry these were emitted
+      // reliably with `gemini-2.5-flash`; on the post-c58c924 build
+      // with `gemini-2.5-flash-lite` they disappeared. The chip-
+      // rendering code is byte-identical across both builds — the
+      // regression is data, not UI. The previous schema omitted these
+      // properties entirely, which on Flash worked because Flash treats
+      // the schema as a hint and still serialises unlisted prompt-
+      // mentioned fields. Flash-Lite enforces the schema more strictly
+      // and drops anything unlisted, so the nutrition / cost-per-
+      // serving lines we prompt for never made it into the streamed
+      // JSON. Adding them to the schema unblocks the field on Flash-
+      // Lite without touching the prompt or model selection.
+      //
+      // None of these are marked required — Tier 2 is best-effort and
+      // we keep the nullable model paths. Keys mirror GeneratedRecipe /
+      // NutritionInfo property names exactly so fromJson lines 332-336
+      // wire through unchanged.
+      'nutrition': {
+        'type': 'OBJECT',
+        'properties': {
+          'calories': {'type': 'INTEGER'},
+          'proteinG': {'type': 'NUMBER'},
+          'carbsG': {'type': 'NUMBER'},
+          'fatG': {'type': 'NUMBER'},
+          'fibreG': {'type': 'NUMBER'},
+        },
+      },
+      'estimatedCostPerServingUSD': {'type': 'NUMBER'},
+      'estimatedCostPerServingGBP': {'type': 'NUMBER'},
     },
     'required': ['title', 'ingredients', 'steps'],
   };
