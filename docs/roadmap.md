@@ -279,7 +279,7 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 
 **In flight: Sprint 16.2 — Copy polish pass** (stays on `sprint/16-onboarding-rebuild`, not a separate sprint). Screen-by-screen walkthrough of copy on 01 → 15: spec `.md` + screen `.dart` kept in lockstep, commit per screen. Flag conditional variants (screens 05/07/10/13/14).
 
-**Progress (22 Apr):** Screens 03 (household), 04 (dietary), 05 (allergies), 06 (time), 07 (confidence), 08 (appliances, 3-col grid + tighter tiles), 09 (region — post-override helper dropped) all polished + committed. Screen 10 reviewed, illustration flagged for Kate. Screens 11/12 got the v1 "+ Add something" per-category tile with dedup (exact-match silent promote / fuzzy-match confirm via `PantryUtils.findDuplicates`) — shipped `feat(sprint-16-onboarding): + Add something tile on screens 11/12 with dedup`. Still to review: 13 (first-recipe demo), 14 (paywall), 15 (account).
+**Progress (22 Apr → 18 May):** Screens 03 (household), 04 (dietary), 05 (allergies), 06 (time), 07 (confidence), 08 (appliances, 3-col grid + tighter tiles), 09 (region — post-override helper dropped) all polished + committed. Screen 10 reviewed, illustration flagged for Kate. Screens 11/12 got the v1 "+ Add something" per-category tile with dedup (exact-match silent promote / fuzzy-match confirm via `PantryUtils.findDuplicates`) — shipped `feat(sprint-16-onboarding): + Add something tile on screens 11/12 with dedup`. Screens 13 (first-recipe demo), 14 (paywall), 15 (account) walked + committed — copy verified against spec on 18 May; specs have explicit `Sprint 16.2 notes / Sprint 16.2 update` sections recording the polish decisions that shipped (per-goal headlines, region-aware takeaway variant, feature comparison addition, tappable Terms + Privacy footer, "coming soon" toasts for Apple + Email).
 
 **Then:** on-device smoke test → tag `v16.1-onboarding-rebuild` → merge to `sprint/16`.
 
@@ -290,7 +290,7 @@ All 4 ready-for-dev screens (Home, Pantry, Recipe, Dietary) plus stretch screens
 - Screen 11/12 search bar not built (flagged later after on-device feedback).
 - Screen 11/12 full dietary/allergy filtering beyond default-exclude — deferred: needs per-item metadata pass on ~100+ `PantryCategories` items (content authoring, Kate-voice decision on hide vs grey).
 - Coordinator uses per-screen progress bars rather than a single coordinator-owned bar (minor visual refactor).
-- **Bulk Prep on the recipe prefs screen — Kate design pass.** Flagged 24 Apr while restoring Saver / Leftover toggles on `RecipePreferencesScreen`. Bulk Prep can't reuse the regular single-recipe pipeline — `GeminiService.generateBulkRecipeStream` takes `portions`, `mealNumber`, `totalMeals`, `previousMealTitles`, and the result expects a `bulkPrepInfo` block (freezing/reheating/storage). Open questions for Kate: is "Bulk prep" on prefs single-recipe-but-batchable (portions slider, one recipe out) or does it pivot the UI to a mini multi-meal flow? Where does it sit relative to Saver / Leftover (constraints chip, separate hero CTA, dedicated screen)? Until designed, prefs screen has Saver + Leftover only and a `// TODO(sprint-16-polish-bulk-prep)` comment in `recipe_preferences_screen.dart`.
+- ~~**Bulk Prep on the recipe prefs screen — Kate design pass.**~~ Dropped 2026-05-17 (Rob). Current prefs screen has Saver + Leftover only; the dedicated `BulkPrepResultsScreen` flow (Pro) is the way in for now. Revisit only if user feedback specifically asks for a Bulk-Prep entry from prefs.
 
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
@@ -647,7 +647,6 @@ Capture here so they don't keep resurfacing in planning.
 | Screen 11/12 search bar | Deferred from Sprint 16.2; reassess after on-device feedback |
 | Screen 10 hero illustration | Kate art (currently placeholder) |
 | Coordinator-owned single progress bar | Replace per-screen progress bars (minor visual refactor) |
-| Bulk Prep on prefs screen — Kate design pass | Open questions: single-recipe-but-batchable vs multi-meal flow; chip vs hero CTA vs dedicated screen |
 | Sprint 18 original (App Check + server-side Gemini migration) | Deferred — original sprint number reused for Android track |
 | Widen `TimeParser` regex to cover ranges + natural language | Sprint 16.6 v1 deliberately excluded ranges ("5–10 minutes"), decimals ("1.5 hours"), and natural-language ("about an hour", "half an hour"). Cook Mode on-device testing surfaced a real recipe with a duration that wasn't matched. Cheapest wins: ranges (default to lower bound) and "about/around N". |
 
