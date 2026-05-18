@@ -967,6 +967,16 @@ class _SwitchRow extends StatelessWidget {
 }
 
 /// Static info row — label + read-only value. Used for App Version.
+///
+/// 17 May 2026: switched from Row(Expanded(label), Text(value)) to
+/// a Column. The old layout broke once build labels exceeded ~20
+/// chars: `Text(value)` reports its intrinsic width to the Row,
+/// which squeezed the Expanded label down to its smallest possible
+/// width (1 character per line, vertical). Rob screenshot showed
+/// "App Version" stacked vertically with the value spilling
+/// horizontally off-screen. Stacking label-above-value sidesteps
+/// the intrinsic-width tug-of-war and lets the mono value soft-
+/// wrap onto a second line when it's longer than the screen.
 class _StaticRow extends StatelessWidget {
   final String label;
   final String value;
@@ -976,11 +986,14 @@ class _StaticRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(child: Text(label, style: ElioTextStyles.uiLabelStyle)),
+          Text(label, style: ElioTextStyles.uiLabelStyle),
+          const SizedBox(height: 4),
           Text(
             value,
+            softWrap: true,
             style: ElioTextStyles.bodySmallStyle.copyWith(
               color: ElioColors.mocha,
               fontFamily: 'DM Mono',
