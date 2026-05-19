@@ -12,7 +12,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'package:flutter/foundation.dart' show debugPrint, visibleForTesting;
 
 import '../utils/pantry_string_match.dart';
 import 'error_service.dart';
@@ -507,7 +507,20 @@ class _FirestoreInventoryWriteStorage implements InventoryWriteStorage {
   Future<String> insertInventoryDoc(Map<String, dynamic> data) async {
     final uid = _uid;
     if (uid == null) {
-      throw StateError('Cannot insert inventory doc without a signed-in user.');
+      // 2026-05-19 (Crashes DB issue _FirestoreInventoryWriteStorage.
+      // insertInventoryDoc — Bad state: Cannot insert): degrade silently
+      // for guest sessions instead of throwing, mirroring the rest of
+      // this storage class (findExistingByKey returns null; updateInventoryDoc,
+      // migrateLegacyRows, fetchAllInventory all early-return for null uid).
+      // Pre-fix, a guest user hitting the pantry "+" chip or a barcode scan
+      // crashed with `StateError('Cannot insert inventory doc without a
+      // signed-in user.')`. Guests should write to GuestPantryService /
+      // SharedPreferences upstream; this is the defence in depth.
+      debugPrint(
+        'InventoryWriter: skipped insertInventoryDoc — no signed-in user '
+        '(guest mode). Caller should have routed to GuestPantryService.',
+      );
+      return '';
     }
     final ref = _inventory(uid).doc();
     await ref.set(data);
