@@ -98,20 +98,22 @@ class ElioPantryItemTile extends StatelessWidget {
       glyph: Icons.star_rounded,
       borderColor: ElioColors.terracotta,
     ),
+    // Background tints unified with Pantry-tab palette (Kate
+    // 2026-05-18, Option B).
     'fresh': PantryTierStyle(
-      background: Color(0x1F3D9970),
+      background: Color(0x1F7A876D),
       glyphColor: ElioColors.freshGreen,
       glyph: Icons.eco,
       borderColor: ElioColors.freshGreen,
     ),
     'thisWeek': PantryTierStyle(
-      background: Color(0x1FF08C14),
+      background: Color(0x1FFE9D00),
       glyphColor: ElioColors.perishThisWeek,
       glyph: Icons.schedule,
       borderColor: ElioColors.perishThisWeek,
     ),
     'today': PantryTierStyle(
-      background: Color(0x1FE06C5E),
+      background: Color(0x1FA43D09),
       glyphColor: ElioColors.perishToday,
       glyph: Icons.warning_amber_rounded,
       borderColor: ElioColors.perishToday,

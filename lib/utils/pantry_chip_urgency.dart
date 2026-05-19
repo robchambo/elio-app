@@ -82,18 +82,20 @@ class PantryChipUrgency {
     border: ElioColors.rule,
     dotColor: null,
   );
+  // Background tints unified with the Pantry-tab palette (Kate
+  // 2026-05-18, Option B). Same family as the matching border/dot.
   static const _today = PantryChipUrgency(
-    background: Color(0x1FE06C5E),
+    background: Color(0x1FA43D09),
     border: ElioColors.perishToday,
     dotColor: ElioColors.perishToday,
   );
   static const _thisWeek = PantryChipUrgency(
-    background: Color(0x1FF08C14),
+    background: Color(0x1FFE9D00),
     border: ElioColors.perishThisWeek,
     dotColor: ElioColors.perishThisWeek,
   );
   static const _fresh = PantryChipUrgency(
-    background: Color(0x1F3D9970),
+    background: Color(0x1F7A876D),
     border: ElioColors.freshGreen,
     dotColor: ElioColors.freshGreen,
   );
