@@ -211,7 +211,10 @@ class DietaryFilter {
     // ─── Vegan-only blocks (animal-derived) ──────────────────────
     'honey': {_BlockFlag.vegan},
     'ghee': {_BlockFlag.vegan, _BlockFlag.dairy},
-    'paneer': {_BlockFlag.vegan, _BlockFlag.dairy, _BlockFlag.vegetarian},
+    // 2026-05-19 Kate flag pass: dropped the `vegetarian` block — paneer IS
+    // vegetarian (animal-rennet-free; standard rennet used is vegetable or
+    // microbial). Pre-fix it greyed out for vegetarians, which was wrong.
+    'paneer': {_BlockFlag.vegan, _BlockFlag.dairy},
     'feta': {_BlockFlag.vegan, _BlockFlag.dairy},
     'halloumi': {_BlockFlag.vegan, _BlockFlag.dairy},
     'sour cream': {_BlockFlag.vegan, _BlockFlag.dairy},
@@ -263,6 +266,12 @@ class DietaryFilter {
     'tofu': {_BlockFlag.soy},
     'miso paste': {_BlockFlag.soy},
     'frozen edamame': {_BlockFlag.soy},
+    // 2026-05-19 Kate flag pass: gochujang is reliably fermented
+    // soybean. Gluten content is brand-dependent (some brands use
+    // barley malt, modern brands often rice-only) — per Kate's
+    // Option-B don't-speculate call, omit `gluten` and rely on the
+    // user-supplied custom-allergen exact-match for that path.
+    'gochujang': {_BlockFlag.soy},
 
     // ─── Nuts ────────────────────────────────────────────────────
     'pine nuts': {_BlockFlag.treenut},
@@ -271,11 +280,26 @@ class DietaryFilter {
     // ─── Sesame ──────────────────────────────────────────────────
     'sesame oil': {_BlockFlag.sesame},
     'tahini': {_BlockFlag.sesame},
+    // 2026-05-19 Kate flag pass: hummus always contains tahini.
+    'hummus': {_BlockFlag.sesame},
 
     // ─── Perishable dairy & herbs (mixed category) ───────────────
+    // 2026-05-19 Kate flag pass: filled in the rest of the Dairy &
+    // Eggs items. The category block already greys these for
+    // `dairy`-allergic users; the per-item `vegan` flag is the
+    // missing piece. Parmesan deliberately NOT `vegetarian`-flagged
+    // per Kate's Option-B don't-speculate call (animal rennet is
+    // brand-dependent — most major brands now use vegetable rennet).
     'milk': {_BlockFlag.vegan, _BlockFlag.dairy},
     'yoghurt': {_BlockFlag.vegan, _BlockFlag.dairy},
     'double cream': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'single cream': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'cheddar cheese': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'parmesan': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'mozzarella': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'cream cheese': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'greek yoghurt': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'natural yoghurt': {_BlockFlag.vegan, _BlockFlag.dairy},
 
     // ─── Perishable meat (under Fresh meat & fish) ───────────────
     'chicken breast': {_BlockFlag.meat},
@@ -288,6 +312,19 @@ class DietaryFilter {
 
     // ─── Other animal items in non-obvious categories ────────────
     'butter': {_BlockFlag.vegan, _BlockFlag.dairy},
+    // 2026-05-19 Kate flag pass: meat-based stock cubes block
+    // vegan + vegetarian + the `meat` flag (which also catches
+    // pescatarians). Vegetable stock stays un-flagged.
+    'stock cubes (chicken)': {
+      _BlockFlag.vegan,
+      _BlockFlag.vegetarian,
+      _BlockFlag.meat,
+    },
+    'stock cubes (beef)': {
+      _BlockFlag.vegan,
+      _BlockFlag.vegetarian,
+      _BlockFlag.meat,
+    },
   };
 }
 
