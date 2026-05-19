@@ -90,25 +90,21 @@ class Screen10PantryIntro extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: ElioSpacing.xl),
-                  // Hero illustration placeholder — Kate to supply final art.
-                  // Represented here as an amber-tinted rounded block with an
-                  // emoji + alt text so tests can assert presence.
+                  // Hero illustration — Kate-supplied 19 May 2026. Replaces
+                  // the 🧊 placeholder. JPG (no transparency needed; the
+                  // illustration ships with its own cream backdrop that
+                  // sits cleanly on the screen's cream surface). 24 px
+                  // ClipRRect mirrors the placeholder's rounded corners.
                   Expanded(
                     child: Center(
                       child: Semantics(
                         label:
-                            'An open fridge with recognisable ingredients — tomatoes, a lemon, eggs, a tin of beans',
-                        child: Container(
-                          width: 240,
-                          height: 240,
-                          decoration: BoxDecoration(
-                            color: ElioColors.terracotta.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            '🧊',
-                            style: TextStyle(fontSize: 96),
+                            'Illustrated pantry shelf — jars of grains, baskets of potatoes and onions, bottles of oil and vinegar',
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(24),
+                          child: Image.asset(
+                            'assets/images/onboarding/pantry_intro_hero.jpg',
+                            fit: BoxFit.contain,
                           ),
                         ),
                       ),
