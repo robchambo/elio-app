@@ -1103,6 +1103,16 @@ class GeminiService {
           'ALLERGENS — STRICTLY EXCLUDE these ingredients and ANYTHING containing them: ${request.customAllergens.join(', ')}.');
       buffer.writeln(
           'Treat as medical safety, not preference. No exceptions. Do NOT include these in the recipe under any name (e.g. if "peanuts" is listed, never use peanuts, peanut butter, peanut oil, satay sauce, groundnuts, or anything else peanut-derived). If a recipe would normally call for one of these, choose a different recipe entirely.');
+      // 19 May 2026 — Rob, Pantry-flag-pass Asian Pantry comment.
+      // Naturally-gluten-free swaps for items where a gluten-allergic
+      // user already keeps both the regular and the gluten-free version
+      // at home. Cheaper than excluding the recipe entirely.
+      if (request.customAllergens.any((a) =>
+          a.toLowerCase().trim() == 'gluten' ||
+          a.toLowerCase().contains('wheat'))) {
+        buffer.writeln(
+            'GLUTEN-FREE SWAPS: when a recipe calls for soy sauce, write it as "gluten-free soy sauce" (or "tamari") so a gluten-allergic user can use their naturally-gluten-free version. Same shape for hoisin → "gluten-free hoisin", oyster sauce → "gluten-free oyster sauce". Do NOT swap the ingredient out — keep the dish intact; just label the variant.');
+      }
     }
 
     // Style as a hard constraint (unless "Surprise me")
