@@ -8,7 +8,6 @@ import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_onboarding_progress_bar.dart';
 import '../../widgets/elio/elio_page_title.dart';
-import '../../widgets/elio/phone_mockup_recipe_card.dart';
 import '../auth/email_login_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -71,7 +70,16 @@ class Screen01Welcome extends StatelessWidget {
                 style: ElioTextStyles.ledeStyle,
               ),
               const SizedBox(height: ElioSpacing.lg),
-              const Expanded(child: PhoneMockupRecipeCard()),
+              // 18 May 2026: replaced the procedural PhoneMockupRecipeCard
+              // widget (broken "Tomato & basil pasta" overflow demo) with
+              // Kate's marketing hero image — three phone mockups
+              // (Home / Recipe / Pantry) on a black backdrop.
+              Expanded(
+                child: Image.asset(
+                  'assets/images/onboarding/welcome_hero.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
               const SizedBox(height: ElioSpacing.lg),
               ElioBigButton(
                 label: 'Get started',

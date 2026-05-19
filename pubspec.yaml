@@ -114,6 +114,7 @@ flutter:
 
   assets:
     - assets/illustrations/
+    - assets/images/onboarding/
     - assets/legal/
 
   fonts:
