@@ -62,7 +62,14 @@ void main() {
       );
     });
 
-    test('blocks Worcestershire sauce (anchovies)', () {
+    // Kate sign-off 19 May 2026 (Pantry dietary flag pass follow-up):
+    // Worcestershire moved to relabel-not-block. The GLUTEN-FREE SWAPS
+    // block in gemini_service.dart instructs the model to write it as
+    // "gluten-free Worcestershire sauce" when a gluten allergy is set;
+    // for vegan/vegetarian, we trust the user to choose a vegan brand
+    // rather than blocking the ingredient outright.
+    test('does NOT block Worcestershire sauce (relabel pattern, not block)',
+        () {
       expect(
         DietaryFilter.isBlocked(
           itemName: 'Worcestershire sauce',
@@ -70,7 +77,7 @@ void main() {
           allergies: allergies,
           categoryName: 'Sauces & Condiments',
         ),
-        isTrue,
+        isFalse,
       );
     });
 
@@ -111,12 +118,13 @@ void main() {
       );
     });
 
-    test('blocks Tuna, Frozen prawns, Fish sauce, Worcestershire sauce', () {
+    // Kate sign-off 19 May 2026: Worcestershire dropped from this list —
+    // moved to relabel-not-block (see vegan group above for rationale).
+    test('blocks Tuna, Frozen prawns, Fish sauce', () {
       for (final name in [
         'Tuna',
         'Frozen prawns',
         'Fish sauce',
-        'Worcestershire sauce',
       ]) {
         expect(
           DietaryFilter.isBlocked(
@@ -129,6 +137,18 @@ void main() {
           reason: '$name should block for vegetarian',
         );
       }
+    });
+
+    test('does NOT block Worcestershire (relabel pattern, not block)', () {
+      expect(
+        DietaryFilter.isBlocked(
+          itemName: 'Worcestershire sauce',
+          dietary: dietary,
+          allergies: const [],
+          categoryName: 'Sauces & Condiments',
+        ),
+        isFalse,
+      );
     });
 
     test('blocks all Fresh meat & fish items', () {
@@ -244,7 +264,11 @@ void main() {
       }
     });
 
-    test('blocks Soy sauce, Hoisin sauce, Worcestershire, Sausages', () {
+    // Kate sign-off 19 May 2026: Worcestershire and the puff/shortcrust
+    // pastries dropped — handled via the GLUTEN-FREE SWAPS prompt block
+    // in gemini_service.dart, which instructs the model to write the
+    // gluten-free variant rather than block the ingredient.
+    test('blocks Soy sauce, Hoisin sauce, Sausages', () {
       expect(
         DietaryFilter.isBlocked(
           itemName: 'Soy sauce',
@@ -265,15 +289,6 @@ void main() {
       );
       expect(
         DietaryFilter.isBlocked(
-          itemName: 'Worcestershire sauce',
-          dietary: const [],
-          allergies: allergies,
-          categoryName: 'Sauces & Condiments',
-        ),
-        isTrue,
-      );
-      expect(
-        DietaryFilter.isBlocked(
           itemName: 'Sausages',
           dietary: const [],
           allergies: allergies,
@@ -281,6 +296,25 @@ void main() {
         ),
         isTrue,
       );
+    });
+
+    test('does NOT block Worcestershire or pastries (relabel pattern)', () {
+      for (final name in [
+        'Worcestershire sauce',
+        'Puff pastry',
+        'Shortcrust pastry',
+      ]) {
+        expect(
+          DietaryFilter.isBlocked(
+            itemName: name,
+            dietary: const [],
+            allergies: allergies,
+            categoryName: 'Frozen Staples',
+          ),
+          isFalse,
+          reason: '$name should be relabel-not-block for gluten allergy',
+        );
+      }
     });
 
     test('does NOT block Rice, Quinoa, Tinned tomatoes', () {
