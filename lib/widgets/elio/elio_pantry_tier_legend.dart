@@ -46,19 +46,21 @@ class ElioPantryTierLegend extends StatelessWidget {
     return ElioPantryTierLegend(
       key: key,
       entries: const [
+        // Background tints unified with Pantry-tab palette (Kate
+        // 2026-05-18, Option B).
         ElioPantryTierLegendEntry(
           label: 'Fresh',
-          background: Color(0x1F3D9970),
+          background: Color(0x1F7A876D),
           borderColor: ElioColors.freshGreen,
         ),
         ElioPantryTierLegendEntry(
           label: 'This week',
-          background: Color(0x1FF08C14),
+          background: Color(0x1FFE9D00),
           borderColor: ElioColors.perishThisWeek,
         ),
         ElioPantryTierLegendEntry(
           label: 'Today',
-          background: Color(0x1FE06C5E),
+          background: Color(0x1FA43D09),
           borderColor: ElioColors.perishToday,
         ),
       ],
