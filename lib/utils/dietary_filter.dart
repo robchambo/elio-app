@@ -231,12 +231,16 @@ class DietaryFilter {
       _BlockFlag.vegetarian,
       _BlockFlag.gluten,
     },
-    'worcestershire sauce': {
-      // Contains anchovies → vegan + veggie block. Malt vinegar → gluten.
-      _BlockFlag.vegan,
-      _BlockFlag.vegetarian,
-      _BlockFlag.gluten,
-    },
+    // 2026-05-19 Kate flag pass (in-cell comment, Sauces & Condiments):
+    // "I think vegan and gluten free variants are easy to find. Allow
+    // these. But are we able to label it as vegan or gluten free as the
+    // soy sauce?" — dropping the vegan/vegetarian/gluten flags so the
+    // user can add Worcestershire to their pantry; the GLUTEN-FREE SWAPS
+    // prompt block in gemini_service.dart now also relabels it as
+    // "gluten-free worcestershire sauce" for gluten-allergic users.
+    // Vegan relabel deferred — would need a new VEGAN SWAPS prompt block
+    // and Worcestershire is rare in vegan cooking; not worth the work.
+    // 'worcestershire sauce': flags intentionally removed — see comment above.
     'frozen prawns': {_BlockFlag.shellfish, _BlockFlag.vegan, _BlockFlag.vegetarian},
     'prawns': {_BlockFlag.shellfish}, // perishables
     'salmon': {_BlockFlag.fish}, // pescatarian fine; veggie/vegan blocked via cat
@@ -259,8 +263,13 @@ class DietaryFilter {
     'strong bread flour': {_BlockFlag.gluten},
     // Note: 'sausages' carries gluten too — combined with meat in the
     // perishable meat block below to keep one entry per item.
-    'frozen pastry (puff)': {_BlockFlag.gluten, _BlockFlag.dairy},
-    'frozen pastry (shortcrust)': {_BlockFlag.gluten, _BlockFlag.dairy},
+    // 2026-05-19 Kate flag pass (in-cell comment, Frozen Staples):
+    // "Can we re-label gluten free pastry? As with the other items, we
+    // do not want to add complicated problems. Trying to keep it simple."
+    // → drop flags; GF + dairy-free pastry variants exist; user trusted
+    // to have the right one. Prompt swap relabels it at recipe time.
+    // 'frozen pastry (puff)': flags intentionally removed — see above.
+    // 'frozen pastry (shortcrust)': flags intentionally removed — see above.
 
     // ─── Soy (item-level) ────────────────────────────────────────
     'tofu': {_BlockFlag.soy},
@@ -282,6 +291,11 @@ class DietaryFilter {
     'tahini': {_BlockFlag.sesame},
     // 2026-05-19 Kate flag pass: hummus always contains tahini.
     'hummus': {_BlockFlag.sesame},
+    // 2026-05-19 Kate flag pass (in-cell comment, Baking Essentials):
+    // "I think keep milk chocolate strict. dark is ok. Risk of mix up
+    // acceptable." → strict default treats chocolate chips as milk
+    // chocolate (most common shopping shape).
+    'chocolate chips': {_BlockFlag.vegan, _BlockFlag.dairy},
 
     // ─── Perishable dairy & herbs (mixed category) ───────────────
     // 2026-05-19 Kate flag pass: filled in the rest of the Dairy &

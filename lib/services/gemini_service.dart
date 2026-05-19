@@ -1111,7 +1111,7 @@ class GeminiService {
           a.toLowerCase().trim() == 'gluten' ||
           a.toLowerCase().contains('wheat'))) {
         buffer.writeln(
-            'GLUTEN-FREE SWAPS: when a recipe calls for soy sauce, write it as "gluten-free soy sauce" (or "tamari") so a gluten-allergic user can use their naturally-gluten-free version. Same shape for hoisin → "gluten-free hoisin", oyster sauce → "gluten-free oyster sauce". Do NOT swap the ingredient out — keep the dish intact; just label the variant.');
+            'GLUTEN-FREE SWAPS: when a recipe calls for soy sauce, write it as "gluten-free soy sauce" (or "tamari") so a gluten-allergic user can use their naturally-gluten-free version. Same shape for: hoisin → "gluten-free hoisin", oyster sauce → "gluten-free oyster sauce", Worcestershire sauce → "gluten-free Worcestershire sauce", puff pastry → "gluten-free puff pastry", shortcrust pastry → "gluten-free shortcrust pastry". Do NOT swap the ingredient out — keep the dish intact; just label the variant.');
       }
     }
 
