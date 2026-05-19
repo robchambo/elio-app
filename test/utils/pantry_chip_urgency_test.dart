@@ -27,12 +27,17 @@ void main() {
       expect(style.dotColor, isNull);
     });
 
+    // Background-tint hexes updated 2026-05-18 (commit 3fb72ea, Kate
+    // Option B): unified onboarding tile palette with the Pantry-tab
+    // dot palette. Borders/dots still resolve via the ElioColors
+    // tokens, so they're stable across the swap; the tinted fills are
+    // re-derived from the new colour family.
     test('returns today styling when expiry is in the past', () {
       final style = PantryChipUrgency.forExpiry(
         daysFromFixed(-3),
         now: fixedNow,
       );
-      expect(style.background, const Color(0x1FE06C5E));
+      expect(style.background, const Color(0x1FA43D09));
       expect(style.border, ElioColors.perishToday);
       expect(style.dotColor, ElioColors.perishToday);
     });
@@ -43,7 +48,7 @@ void main() {
         daysFromFixed(0),
         now: fixedNow,
       );
-      expect(style.background, const Color(0x1FE06C5E));
+      expect(style.background, const Color(0x1FA43D09));
       expect(style.border, ElioColors.perishToday);
       expect(style.dotColor, ElioColors.perishToday);
     });
@@ -53,7 +58,7 @@ void main() {
         daysFromFixed(1),
         now: fixedNow,
       );
-      expect(style.background, const Color(0x1FF08C14));
+      expect(style.background, const Color(0x1FFE9D00));
       expect(style.border, ElioColors.perishThisWeek);
       expect(style.dotColor, ElioColors.perishThisWeek);
     });
@@ -63,7 +68,7 @@ void main() {
         daysFromFixed(6),
         now: fixedNow,
       );
-      expect(style.background, const Color(0x1FF08C14));
+      expect(style.background, const Color(0x1FFE9D00));
       expect(style.border, ElioColors.perishThisWeek);
       expect(style.dotColor, ElioColors.perishThisWeek);
     });
@@ -74,7 +79,7 @@ void main() {
         daysFromFixed(7),
         now: fixedNow,
       );
-      expect(style.background, const Color(0x1F3D9970));
+      expect(style.background, const Color(0x1F7A876D));
       expect(style.border, ElioColors.freshGreen);
       expect(style.dotColor, ElioColors.freshGreen);
     });
@@ -84,7 +89,7 @@ void main() {
         daysFromFixed(60),
         now: fixedNow,
       );
-      expect(style.background, const Color(0x1F3D9970));
+      expect(style.background, const Color(0x1F7A876D));
       expect(style.border, ElioColors.freshGreen);
       expect(style.dotColor, ElioColors.freshGreen);
     });
