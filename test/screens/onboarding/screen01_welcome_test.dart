@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:elio_app/controllers/onboarding_controller.dart';
 import 'package:elio_app/screens/onboarding/screen01_welcome.dart';
-import 'package:elio_app/widgets/elio/phone_mockup_recipe_card.dart';
 import 'package:elio_app/widgets/elio/elio_page_title.dart';
 import 'package:elio_app/widgets/elio/elio_big_button.dart';
 import 'package:elio_app/widgets/elio/elio_onboarding_progress_bar.dart';
@@ -10,14 +9,23 @@ import 'package:elio_app/widgets/elio/elio_onboarding_progress_bar.dart';
 void main() {
   Widget wrap(Widget child) => MaterialApp(home: child);
 
-  testWidgets('renders phone mockup, heading, CTA, and sign-in link',
+  testWidgets('renders hero image, heading, CTA, and sign-in link',
       (t) async {
     await t.pumpWidget(wrap(Screen01Welcome(
       controller: OnboardingController(),
       onContinue: () {},
       onSignInTap: () {},
     )));
-    expect(find.byType(PhoneMockupRecipeCard), findsOneWidget);
+    // 18 May 2026: PhoneMockupRecipeCard widget retired in favour of
+    // Kate's marketing hero asset at assets/images/onboarding/welcome_hero.png.
+    final heroImage = find.byWidgetPredicate(
+      (w) =>
+          w is Image &&
+          w.image is AssetImage &&
+          (w.image as AssetImage).assetName ==
+              'assets/images/onboarding/welcome_hero.png',
+    );
+    expect(heroImage, findsOneWidget);
     expect(find.byType(ElioPageTitle), findsOneWidget);
     expect(find.byType(ElioBigButton), findsOneWidget);
     expect(find.text('Get started'), findsOneWidget);
