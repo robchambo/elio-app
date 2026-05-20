@@ -68,7 +68,15 @@ class _PerishablesPickerScreenState extends State<PerishablesPickerScreen> {
   @override
   void initState() {
     super.initState();
-    _allItems = List<String>.from(widget.perishableInventory);
+    // 19 May 2026 — defensive case-insensitive dedup of the inventory
+    // names. The Home loader already dedupes by lowercase, but the
+    // picker is also reachable from tests / other call sites that may
+    // not. Without this, legacy duplicate Firestore inventory docs
+    // (pre-Sprint 15.9.1 InventoryWriter dedup, or anything that
+    // bypasses the auto-dedup on Pantry-tab open) show up as
+    // duplicate chips. Preserves caller order (already sorted by
+    // expiry urgency).
+    _allItems = _dedupPreservingOrder(widget.perishableInventory);
     _selected = {...widget.initialSelection};
     // Surface any prior selections that aren't in inventory as custom chips.
     for (final item in widget.initialSelection) {
@@ -80,12 +88,27 @@ class _PerishablesPickerScreenState extends State<PerishablesPickerScreen> {
     // the top-N most urgent perishables (caller-sorted by expiry). The
     // user can immediately tap Generate without having to think about it,
     // and can still untick / add more if they want.
+    //
+    // 19 May 2026: pre-tick from the deduped list (`_allItems`), not the
+    // raw `widget.perishableInventory`. Otherwise on a duplicated
+    // inventory the auto-select could pick the same item twice.
     if (widget.initialSelection.isEmpty && widget.autoSelectCount > 0) {
-      final take = widget.perishableInventory
-          .take(widget.autoSelectCount)
-          .toList();
+      final take = _allItems.take(widget.autoSelectCount).toList();
       _selected.addAll(take);
     }
+  }
+
+  /// Case-insensitive dedup that keeps the first occurrence so the
+  /// caller-supplied ordering (typically by expiry urgency) survives.
+  static List<String> _dedupPreservingOrder(List<String> items) {
+    final seen = <String>{};
+    final out = <String>[];
+    for (final item in items) {
+      final key = item.trim().toLowerCase();
+      if (key.isEmpty) continue;
+      if (seen.add(key)) out.add(item);
+    }
+    return out;
   }
 
   @override
