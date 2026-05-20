@@ -698,6 +698,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   // ── Speech recognition ─────────────────────────────────────────────────────────
   Future<void> _initVoiceControl() async {
+    // 19 May 2026 (19may-d) — Rob: "tapping the mic doesn't pause TTS".
+    // Pre-19may-a TTS only fired AFTER mic was enabled, so this couldn't
+    // happen. Now TTS auto-plays on Cook Mode entry, so the user can
+    // (and does) tap mic mid-utterance to talk over the directions —
+    // that's the voice-assistant convention (Siri / Alexa / Google all
+    // cancel their response when interrupted). Cancel any in-progress
+    // speech up-front so the listener can take the audio session.
+    try {
+      await _tts.stop();
+    } catch (_) {}
+    if (mounted && _isSpeaking) {
+      setState(() => _isSpeaking = false);
+    }
     try {
       _speechAvailable = await _speech.initialize(
         onError: (error) {
@@ -744,16 +757,17 @@ class _RecipeScreenState extends State<RecipeScreen> {
         // Mute beep streams for entire voice session
         try { await _audioChannel.invokeMethod('muteBeep'); } catch (_) {}
         if (!_voiceHelpShown) {
-          // Show help first — TTS + listening start after "Got It"
+          // Show help first — listening starts after "Got It"
           _showVoiceHelpOverlay();
           _voiceHelpShown = true;
         } else {
-          // 19 May 2026 follow-up: drop the parallel `_startListening()`
-          // + `_speakText()` pair. They raced — listening would start,
-          // then `_speakText` immediately stopped it to speak. The TTS
-          // completion handler restarts listening once speech ends, so
-          // calling `_speakText` alone is correct.
-          _speakText(_currentRecipe.steps[_currentStep]);
+          // 19 May 2026 (19may-d): just start listening. The previous
+          // path called `_speakText(currentStep)` here, which re-spoke
+          // the step every time the user toggled the mic on — annoying,
+          // and on Cook Mode entry the step has already been read once.
+          // Worse, before the muteBeep fix in MainActivity.kt this also
+          // played silently because STREAM_MUSIC had just been zeroed.
+          _startListening();
         }
       }
     } catch (e) {
@@ -958,12 +972,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(dialogContext).pop();
-                    // 19 May 2026 follow-up: only call `_speakText`.
-                    // The TTS completion handler starts the STT listener
-                    // 200ms after speech ends. Calling `_startListening`
-                    // here in parallel raced — the listener was started
-                    // and then immediately stopped inside `_speakText`.
-                    _speakText(_currentRecipe.steps[_currentStep]);
+                    // 19 May 2026 (19may-d): just start listening. The
+                    // step has already been spoken on Cook Mode entry
+                    // (and was being re-spoken silently here pre-19may-d
+                    // because STREAM_MUSIC had been muted by the
+                    // `muteBeep` call in `_initVoiceControl`).
+                    _startListening();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ElioColors.terracotta,
