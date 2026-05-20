@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:elio_app/controllers/onboarding_controller.dart';
 import 'package:elio_app/models/elio_models.dart';
 import 'package:elio_app/screens/onboarding/screen13_first_recipe.dart';
+import 'package:elio_app/widgets/elio/elio_hero_heading.dart';
 import 'package:elio_app/widgets/elio/elio_pantry_tag_pill.dart';
 
 import '../../fakes/fake_gemini_service.dart';
@@ -173,10 +174,38 @@ void main() {
     expect(find.text('Lemon & Garlic Chicken Traybake'), findsOneWidget);
     expect(find.text('Cook this tonight'), findsOneWidget);
     expect(find.text('Show me another'), findsOneWidget);
-    expect(
-      find.text('Made just for you. Built from your kitchen.'),
-      findsOneWidget,
-    );
+    // 19 May 2026 — the complete-state heading is now split across an
+    // ElioHeroHeading ("Made just for you.") + a smaller subtitle
+    // ("Built from your kitchen.") so the visual hierarchy doesn't
+    // collapse on the reveal. Pre-fix both lines lived in a single
+    // bodySmall Text widget, which made the screen look "completely
+    // different" once streaming finished.
+    expect(find.text('Made just for you.'), findsOneWidget);
+    expect(find.text('Built from your kitchen.'), findsOneWidget);
+
+    await fake.closeAll();
+  });
+
+  testWidgets(
+      'complete state keeps a hero heading at top (no hierarchy collapse)',
+      (t) async {
+    // Regression: pre-19 May 2026 the complete state replaced the
+    // streaming-state ElioHeroHeading with a small bodySmall Text, so
+    // the screen visually collapsed the moment the recipe arrived.
+    // Assert the hero heading is present in the complete state too.
+    useTallViewport(t);
+    final controller = OnboardingController();
+    final fake = FakeGeminiService();
+
+    await t.pumpWidget(wrap(controller: controller, fake: fake));
+    await t.pump();
+
+    fake.emitComplete(buildFakeRecipe());
+    await t.pump();
+    await t.pump();
+
+    final hero = t.widget<ElioHeroHeading>(find.byType(ElioHeroHeading));
+    expect(hero.lines, ['Made just for you.']);
 
     await fake.closeAll();
   });

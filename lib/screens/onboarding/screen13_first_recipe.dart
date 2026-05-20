@@ -351,12 +351,22 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 19 May 2026 — keep the hero heading after generation completes so
+          // the visual hierarchy doesn't collapse on the reveal. The streaming
+          // state already uses ElioHeroHeading ("Tonight's dinner, coming up…");
+          // pre-this-fix, the complete state dropped to a small bodySmall
+          // subtitle, which felt like the page had rendered incorrectly.
+          const ElioHeroHeading(
+            lines: ['Made just for you.'],
+            amberLastLine: false,
+          ),
+          const SizedBox(height: ElioSpacing.xs),
           Text(
-            'Made just for you. Built from your kitchen.',
-            style: ElioTextStyles.bodySmall
+            'Built from your kitchen.',
+            style: ElioTextStyles.body
                 .copyWith(color: ElioColors.mocha),
           ),
-          const SizedBox(height: ElioSpacing.md),
+          const SizedBox(height: ElioSpacing.lg),
           Container(
             padding: const EdgeInsets.all(ElioSpacing.lg),
             decoration: BoxDecoration(
