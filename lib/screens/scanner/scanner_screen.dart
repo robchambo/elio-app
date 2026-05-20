@@ -311,135 +311,95 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   // ─── Receipt Tab ────────────────────────────────────────────────
-
+  //
+  // 19 May 2026 — restructured to mirror the Recipe Import "Photo tab"
+  // (`recipe_import_screen.dart::_buildPhotoTab`). Previously this was
+  // a dark/black panel with white-on-black supporting copy that read
+  // poorly and looked inconsistent with the sibling Import surface.
+  //
+  // New shape: cream background, centred terracotta-tinted hero square
+  // (100×100, radius 24, 48pt glyph), `headingMedium` headline, bodyMedium
+  // explainer + bodySmall helper note, then the standard Camera /
+  // Gallery button row at the bottom. Identical visual ramp to
+  // Recipe Import → Photo so the two scan surfaces feel like
+  // siblings.
   Widget _buildReceiptTab() {
-    return Column(
-      children: [
-        // Visual area with receipt icon.
-        //
-        // 19 May 2026 — Rob: the supporting copy below the headline
-        // looked broken. Root cause was style-bucket misuse:
-        //   - "Tip: Lay receipt flat…" was rendered in `eyebrowStyle`
-        //     (DM Mono, letter-spacing 2.4) which is the tracked-out
-        //     small-caps eyebrow treatment used for category labels
-        //     like "FROM YOUR PANTRY". It made the line look like
-        //     monospaced terminal output.
-        //   - "Receipt quality varies…" was rendered in `tabLabelStyle`
-        //     (DM Sans, letter-spacing 1.98 at 11pt) which is for
-        //     tab-button labels, not body copy. Same tracked-out feel.
-        //   - Both colours were too faint (white38 / white24) so they
-        //     read as broken / unfinished.
-        // Restyled to a proper editorial body ramp in DM Sans with
-        // normal letter-spacing and higher opacities. Tip line uses a
-        // small inline info glyph for affordance.
-        Container(
-          height: 320,
-          width: double.infinity,
-          color: const Color(0xFF111111),
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.receipt_long_rounded,
-                    size: 56,
-                    color: Colors.white70,
-                  ),
-                  const SizedBox(height: 14),
-                  Text(
-                    'Capture your receipt',
-                    style: ElioTextStyles.sectionHeadingStyle.copyWith(
-                      fontSize: 20,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    "Hold steady — we'll extract the items",
-                    textAlign: TextAlign.center,
-                    style: ElioTextStyles.bodySmallStyle.copyWith(
-                      color: Colors.white.withValues(alpha: 0.78),
-                      fontSize: 13,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.info_outline_rounded,
-                        size: 14,
-                        color: Colors.white.withValues(alpha: 0.7),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Lay receipt flat for best results',
-                        style: ElioTextStyles.bodySmallStyle.copyWith(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 12.5,
-                          fontStyle: FontStyle.italic,
-                          letterSpacing: 0,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Receipt quality varies — Elio may not extract every '
-                    'item. You can always add missing items manually.',
-                    textAlign: TextAlign.center,
-                    style: ElioTextStyles.bodySmallStyle.copyWith(
-                      color: Colors.white.withValues(alpha: 0.55),
-                      fontSize: 11.5,
-                      height: 1.45,
-                      letterSpacing: 0,
-                    ),
-                  ),
-                ],
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          const Spacer(),
+          // Icon area — matches `recipe_import_screen` hero block.
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: ElioColors.terracotta.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Icon(
+              Icons.receipt_long_rounded,
+              size: 48,
+              color: ElioColors.terracotta,
             ),
           ),
-        ),
-        // Buttons
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: _amberButton(
-                  'Camera',
-                  Icons.camera_alt_rounded,
-                  _captureReceipt,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _outlineButton(
-                  'Gallery',
-                  Icons.photo_library_rounded,
-                  _pickFromGallery,
-                ),
-              ),
-            ],
+          const SizedBox(height: 20),
+          Text(
+            'Capture your receipt',
+            style: ElioText.headingMedium,
           ),
-        ),
-        // Loading indicator when processing
-        if (_isProcessing)
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
+          const SizedBox(height: 8),
+          Text(
+            'Snap a photo of your grocery receipt — Elio will extract '
+            'the items and suggest pantry tiers.',
+            textAlign: TextAlign.center,
+            style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Works best with the receipt laid flat in good light. '
+            'Receipts shorten item names — you can edit each line '
+            'before adding.',
+            textAlign: TextAlign.center,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
+              fontSize: 12,
+              color: ElioColors.mocha,
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Buttons — identical shape to Recipe Import → Photo so the
+          // two scan surfaces feel like the same family.
+          if (_isProcessing) ...[
+            const CircularProgressIndicator(color: ElioColors.terracotta),
+            const SizedBox(height: 12),
+            Text(
+              'Analysing receipt...',
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
+            ),
+          ] else ...[
+            Row(
               children: [
-                const CircularProgressIndicator(color: ElioColors.terracotta),
-                const SizedBox(height: 12),
-                Text('Analysing receipt...', style: ElioText.bodyMedium),
+                Expanded(
+                  child: _amberButton(
+                    'Camera',
+                    Icons.camera_alt_rounded,
+                    _captureReceipt,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _outlineButton(
+                    'Gallery',
+                    Icons.photo_library_rounded,
+                    _pickFromGallery,
+                  ),
+                ),
               ],
             ),
-          ),
-      ],
+          ],
+          const Spacer(flex: 2),
+        ],
+      ),
     );
   }
 
