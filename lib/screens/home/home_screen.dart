@@ -216,8 +216,20 @@ class _HomeScreenState extends State<HomeScreen> {
           if (b.expiry == null) return -1;
           return a.expiry!.compareTo(b.expiry!);
         });
-        final perishableNames =
-            perishablesWithExpiry.map((p) => p.name).toList();
+        // 19 May 2026: dedup case-insensitively, preserving first
+        // occurrence (which is the most-urgent thanks to the sort
+        // above). The Sprint 15.9.1 InventoryWriter dedup + the
+        // Pantry-tab auto-dedup catch most cases, but legacy
+        // Firestore docs that predate either can still produce
+        // duplicate names here — and the Home tab doesn't run the
+        // Pantry-tab dedup migration before reading.
+        final seen = <String>{};
+        final perishableNames = <String>[];
+        for (final p in perishablesWithExpiry) {
+          final key = p.name.trim().toLowerCase();
+          if (key.isEmpty) continue;
+          if (seen.add(key)) perishableNames.add(p.name);
+        }
 
         setState(() {
           _alwaysHave = List<String>.from(data['alwaysHave'] ?? []);

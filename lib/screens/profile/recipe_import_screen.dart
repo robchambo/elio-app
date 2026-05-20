@@ -34,26 +34,19 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
   bool _isImportingUrl = false;
 
   // ── URL import ────────────────────────────────────────────────────
+  // 19 May 2026 — dropped the implicit `_clipboardUrl` auto-detection
+  // pattern in favour of an always-visible Paste button (`_PasteButton`
+  // below) that the user controls. The auto-check fired clipboard reads
+  // on every Manual tap, which on Android 13+ triggers the "X pasted
+  // from clipboard" system toast and is also prone to silent permission
+  // failure. User-driven paste is the conventional fallback.
   final _urlController = TextEditingController();
-  String? _clipboardUrl;
 
   // ── Manual entry controllers ──────────────────────────────────────
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _instructionsController = TextEditingController();
   final List<_IngredientRow> _ingredientRows = [_IngredientRow()];
-
-  @override
-  void initState() {
-    super.initState();
-    if (_activeTab == 1) {
-      // Land on Manual? Pre-check clipboard for a recipe URL just like
-      // tapping the Manual tab does later.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _checkClipboardForUrl();
-      });
-    }
-  }
 
   @override
   void dispose() {
@@ -67,18 +60,52 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
     super.dispose();
   }
 
-  /// Check clipboard for a URL when switching to the Manual tab.
-  Future<void> _checkClipboardForUrl() async {
+  /// Handler for the always-visible Paste button next to the URL field.
+  /// Reads clipboard; if it looks like a URL, fills the field. If empty
+  /// or non-URL, surfaces a small snackbar so the user isn't left
+  /// guessing. Differs from the implicit `_checkClipboardForUrl` in
+  /// that it's user-triggered (no surprise reads) and always responds.
+  Future<void> _onPasteUrl() async {
     try {
       final data = await Clipboard.getData('text/plain');
       final text = data?.text?.trim() ?? '';
-      if (text.isNotEmpty && (text.startsWith('http://') || text.startsWith('https://'))) {
-        if (mounted) setState(() => _clipboardUrl = text);
-      } else {
-        if (mounted) setState(() => _clipboardUrl = null);
+      if (text.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Clipboard is empty.'),
+              backgroundColor: ElioColors.espresso,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
       }
+      if (!text.startsWith('http://') && !text.startsWith('https://')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("That doesn't look like a URL."),
+              backgroundColor: ElioColors.espresso,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+        return;
+      }
+      setState(() {
+        _urlController.text = text;
+      });
     } catch (_) {
-      // Clipboard access may fail — not critical
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Couldn't read clipboard."),
+            backgroundColor: ElioColors.espresso,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -195,7 +222,6 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
       child: GestureDetector(
         onTap: () {
           setState(() => _activeTab = index);
-          if (index == 1) _checkClipboardForUrl();
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
@@ -387,39 +413,25 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
           // ── URL import section ──────────────────────────────────────
           Text('Import from URL', style: ElioText.label.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
-          _buildTextField(_urlController, 'Paste a recipe URL'),
-          if (_clipboardUrl != null && _urlController.text.isEmpty) ...[
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: () {
-                setState(() {
-                  _urlController.text = _clipboardUrl!;
-                  _clipboardUrl = null;
-                });
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: ElioColors.peach.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: ElioColors.mocha.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.content_paste_rounded, size: 14, color: ElioColors.mocha),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'Paste from clipboard',
-                        style: ElioTextStyles.bodySmallStyle.copyWith(fontSize: 12, fontWeight: FontWeight.w600, color: ElioColors.mocha),
-                      ),
-                    ),
-                  ],
-                ),
+          // 19 May 2026 — replace the conditional "paste pill" with an
+          // always-visible Paste button next to the field. The old
+          // pill only rendered when `_checkClipboardForUrl` had auto-
+          // detected a URL on tab switch; on Android 13+ the clipboard
+          // read can be silently denied (the system "X pasted from
+          // clipboard" toast is paired with stricter permission
+          // gating), and even when it works, users who copy a URL
+          // *after* opening this screen never see the pill at all.
+          // Manual paste is the conventional fallback.
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: _buildTextField(_urlController, 'Paste a recipe URL'),
               ),
-            ),
-          ],
+              const SizedBox(width: 8),
+              _PasteButton(onPasted: _onPasteUrl),
+            ],
+          ),
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -708,6 +720,38 @@ class _RecipeImportScreenState extends State<RecipeImportScreen> {
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => RecipeScreen(recipe: recipe, savedAt: saved.savedAt),
+      ),
+    );
+  }
+}
+
+// ─── Paste button next to the Import URL field ────────────────────────────
+//
+// Square terracotta-outline button matching the field height. Tapping
+// reads the clipboard via [onPasted]; the parent owns the snackbar /
+// validation so this widget stays presentational.
+
+class _PasteButton extends StatelessWidget {
+  final Future<void> Function() onPasted;
+  const _PasteButton({required this.onPasted});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 56,
+      height: 56,
+      child: OutlinedButton(
+        onPressed: onPasted,
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.zero,
+          side: const BorderSide(color: ElioColors.terracotta),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+        child: const Icon(
+          Icons.content_paste_rounded,
+          size: 22,
+          color: ElioColors.terracotta,
+        ),
       ),
     );
   }
