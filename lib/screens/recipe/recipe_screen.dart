@@ -714,11 +714,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
     try {
       _speechAvailable = await _speech.initialize(
         onError: (error) {
+          // 19 May 2026 (19may-d) — surface the actual error to the
+          // diagnostic strip so we can see what the engine is failing
+          // with. Pre-fix this was silent — just a restart attempt
+          // that hid the underlying problem.
+          if (mounted) {
+            setState(() => _lastHeardWords = 'STT error: ${error.errorMsg}');
+          }
+          ErrorService.log('voice_stt_error', error.errorMsg);
           // On error, attempt restart if voice is still enabled —
           // but not mid-utterance (TTS completion handler owns that).
           if (_voiceEnabled && mounted && !_isSpeaking) {
             _restartTimer?.cancel();
-            _restartTimer = Timer(const Duration(milliseconds: 500), () {
+            _restartTimer = Timer(const Duration(milliseconds: 800), () {
               if (_voiceEnabled && mounted && !_isSpeaking) {
                 _startListening();
               }
@@ -726,9 +734,17 @@ class _RecipeScreenState extends State<RecipeScreen> {
           }
         },
         onStatus: (status) {
-          if (status == 'done' || status == 'notListening') {
-            // Skip auto-restart while TTS is speaking — the TTS
-            // completion handler owns the restart in that case.
+          // 19 May 2026 (19may-d) — ONLY restart on `done` (terminal
+          // session state). The previous code also restarted on
+          // `notListening`, but on Android `notListening` fires
+          // *transiently* between captures inside a single session
+          // (during silence-detection processing). Restarting on that
+          // killed the in-progress recognition before any words were
+          // returned — which is the most likely reason voice commands
+          // appeared to never work at all. Trust the engine to manage
+          // its own in-session state; only restart when the session
+          // truly ends.
+          if (status == 'done') {
             if (_voiceEnabled && mounted && !_isSpeaking) {
               _restartTimer?.cancel();
               _restartTimer = Timer(const Duration(milliseconds: 300), () {
@@ -797,30 +813,33 @@ class _RecipeScreenState extends State<RecipeScreen> {
       await _speech.listen(
         onResult: (result) {
           final words = result.recognizedWords.toLowerCase();
-          // 19may-b: send recognised words to Crashlytics as non-fatals
-          // so we can see what the STT engine is actually hearing on
-          // device. Logged on `finalResult` to avoid spam from
-          // partial-result dribbles.
           if (result.finalResult && words.isNotEmpty) {
             ErrorService.log('voice_stt_heard', 'words="$words"');
           }
-          // 19may-c: also surface to the on-screen diagnostic strip so
-          // Rob can see at a glance whether STT is delivering anything
-          // at all. Captures partials too — that's the most diagnostic
-          // signal (proves the engine is actively transcribing).
           if (words.isNotEmpty && mounted) {
             setState(() => _lastHeardWords = words);
           }
           _processVoiceCommand(words);
         },
+        // 19 May 2026 (19may-d) — `pauseFor: 1500ms` was too aggressive.
+        // If the user took more than 1.5s of silence before / between
+        // words, the engine ended the session and the restart loop
+        // fired 300ms later, plausibly clipping the start of the user's
+        // utterance. Bumped to 4 seconds: still snappy for short
+        // commands ("next" / "back") but tolerant of normal-cadence
+        // speech.
         listenFor: const Duration(seconds: 30),
-        // Tighter pause window — 5s was long enough that command
-        // partials regularly got dropped before processing. 1.5s
-        // matches typical command cadence ("next", "repeat") and
-        // lets the auto-restart loop refresh the buffer quickly.
-        pauseFor: const Duration(milliseconds: 1500),
+        pauseFor: const Duration(seconds: 4),
         listenOptions: stt.SpeechListenOptions(
-          listenMode: stt.ListenMode.dictation,
+          // 19may-d — explicit `partialResults: true` (defaults to true
+          // but be explicit). `ListenMode.dictation` was iOS-only per
+          // the plugin docs — dropped, it did nothing on Android and
+          // misled the reader into thinking we'd configured the engine
+          // for long-form on Android. `cancelOnError: false` so a
+          // transient error doesn't kill the whole session (the
+          // onError handler restarts manually instead).
+          partialResults: true,
+          cancelOnError: false,
         ),
       );
       if (mounted) setState(() => _isListening = true);
