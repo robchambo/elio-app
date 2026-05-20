@@ -315,50 +315,92 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Widget _buildReceiptTab() {
     return Column(
       children: [
-        // Visual area with receipt icon
+        // Visual area with receipt icon.
+        //
+        // 19 May 2026 — Rob: the supporting copy below the headline
+        // looked broken. Root cause was style-bucket misuse:
+        //   - "Tip: Lay receipt flat…" was rendered in `eyebrowStyle`
+        //     (DM Mono, letter-spacing 2.4) which is the tracked-out
+        //     small-caps eyebrow treatment used for category labels
+        //     like "FROM YOUR PANTRY". It made the line look like
+        //     monospaced terminal output.
+        //   - "Receipt quality varies…" was rendered in `tabLabelStyle`
+        //     (DM Sans, letter-spacing 1.98 at 11pt) which is for
+        //     tab-button labels, not body copy. Same tracked-out feel.
+        //   - Both colours were too faint (white38 / white24) so they
+        //     read as broken / unfinished.
+        // Restyled to a proper editorial body ramp in DM Sans with
+        // normal letter-spacing and higher opacities. Tip line uses a
+        // small inline info glyph for affordance.
         Container(
           height: 320,
           width: double.infinity,
           color: const Color(0xFF111111),
           child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.receipt_long_rounded, size: 56, color: Colors.white54),
-                const SizedBox(height: 12),
-                Text(
-                  'Capture your receipt',
-                  style: ElioTextStyles.sectionHeadingStyle.copyWith(
-                    fontSize: 18,
-                    color: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.receipt_long_rounded,
+                    size: 56,
+                    color: Colors.white70,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  "Hold steady — we'll extract the items",
-                  style: ElioTextStyles.bodySmallStyle.copyWith(
-                    color: Colors.white54,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Tip: Lay receipt flat for best results',
-                  style: ElioTextStyles.eyebrowStyle.copyWith(
-                    color: Colors.white38,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    'Receipt quality varies — Elio may not extract every item. You can always add missing items manually.',
-                    textAlign: TextAlign.center,
-                    style: ElioTextStyles.tabLabelStyle.copyWith(
-                      color: Colors.white24,
+                  const SizedBox(height: 14),
+                  Text(
+                    'Capture your receipt',
+                    style: ElioTextStyles.sectionHeadingStyle.copyWith(
+                      fontSize: 20,
+                      color: Colors.white,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    "Hold steady — we'll extract the items",
+                    textAlign: TextAlign.center,
+                    style: ElioTextStyles.bodySmallStyle.copyWith(
+                      color: Colors.white.withValues(alpha: 0.78),
+                      fontSize: 13,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.7),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Lay receipt flat for best results',
+                        style: ElioTextStyles.bodySmallStyle.copyWith(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 12.5,
+                          fontStyle: FontStyle.italic,
+                          letterSpacing: 0,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Receipt quality varies — Elio may not extract every '
+                    'item. You can always add missing items manually.',
+                    textAlign: TextAlign.center,
+                    style: ElioTextStyles.bodySmallStyle.copyWith(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      fontSize: 11.5,
+                      height: 1.45,
+                      letterSpacing: 0,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
