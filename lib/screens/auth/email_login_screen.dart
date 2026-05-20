@@ -1,15 +1,29 @@
+import 'dart:io' show Platform;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../../services/analytics_service.dart';
+import '../../services/error_service.dart';
+import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../widgets/elio/elio_provider_signin_button.dart';
 import '../shell/app_shell.dart';
 import 'email_register_screen.dart';
 
 // ─────────────────────────────────────────────
 // EmailLoginScreen
-// Email + password sign-in for Elio.
+//
+// "I already have an account" landing surface. Despite the class name,
+// this is the multi-provider sign-in screen — Google primary, Apple on
+// iOS (coming-soon toast until Sprint 19), and the email + password form
+// below an "or sign in with email" divider.
+//
+// Pre-19 May 2026 this was email-only. Rob's on-device feedback was
+// that real users tap "I already have an account" expecting Google
+// because that's what they used to create the account on screen 15.
+// File / class name kept to avoid churn at the screen 01 call site.
 // ─────────────────────────────────────────────
 
 class EmailLoginScreen extends StatefulWidget {
@@ -35,6 +49,52 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // ─── Provider sign-in: Google ────────────────────────────────────
+  //
+  // Mirrors screen 15's Google path. On success we land in AppShell —
+  // existing-user flow, no onboarding migration.
+  Future<void> _handleGoogleSignIn() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    _analytics.logEvent('sign_in_method', {'method': 'google'});
+
+    try {
+      final credential = await _auth.signInWithGoogle();
+      if (credential?.user == null) {
+        // User cancelled the Google account picker — silent return.
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
+    } catch (e) {
+      ErrorService.log('signin_google', e);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError("Couldn't sign in with Google. Check your connection and try again.");
+      }
+    }
+  }
+
+  // Apple Sign-In proper lands Sprint 19 (matches screen 15's "coming
+  // soon" treatment — keeps the tap as a demand signal but doesn't
+  // advertise a broken button).
+  void _handleAppleSignIn() {
+    _analytics.logEvent('sign_in_method', {'method': 'apple'});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Sign in with Apple is coming soon — use Google for now.',
+          style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.white, fontSize: 14),
+        ),
+        backgroundColor: ElioColors.espresso,
+      ),
+    );
   }
 
   Future<void> _handleSignIn() async {
@@ -168,7 +228,51 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     color: ElioColors.mocha,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
+
+                // ── Provider sign-in ────────────────────────────
+                // Google first — it's what most existing users created
+                // their account with on screen 15.
+                if (Platform.isIOS) ...[
+                  ElioProviderSignInButton(
+                    kind: ProviderButtonKind.apple,
+                    onPressed: _isLoading ? () {} : _handleAppleSignIn,
+                  ),
+                  const SizedBox(height: ElioSpacing.sm + 2),
+                ],
+                ElioProviderSignInButton(
+                  kind: ProviderButtonKind.google,
+                  onPressed: _isLoading ? () {} : _handleGoogleSignIn,
+                ),
+                const SizedBox(height: 24),
+
+                // ── Divider ─────────────────────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        color: ElioColors.rule,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'or sign in with email',
+                        style: ElioTextStyles.bodySmallStyle.copyWith(
+                          color: ElioColors.mocha,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        color: ElioColors.rule,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
 
                 // ── Email field ─────────────────────────────────
                 Text('Email', style: ElioText.label),
