@@ -265,7 +265,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
   String _voiceFeedback = '';
   Timer? _feedbackTimer;
   Timer? _restartTimer;
-  String _recognisedWords = '';
 
   // ── Cooking timer state (Sprint 16.6) ─────────────────────────────────────
   /// Multi-timer service driving the sticky timer bar + inline pill taps.
@@ -648,10 +647,42 @@ class _RecipeScreenState extends State<RecipeScreen> {
         if (mounted) setState(() => _isListening = false);
       }
       // Cancel any in-flight utterance — prevents queuing two steps if
-      // the user mashes Next.
+      // the user mashes Next. The completion handler may or may not fire
+      // for a cancelled utterance (engine-dependent on Android), so we
+      // also defensively reset `_isSpeaking` here. Otherwise a stuck
+      // `true` would block the STT auto-restart loop forever.
       await _tts.stop();
+      if (mounted && _isSpeaking) {
+        setState(() => _isSpeaking = false);
+      }
       await _tts.speak(text);
+      // `awaitSpeakCompletion(true)` means the future resolves only when
+      // the utterance ends, so by the time we get here the user has
+      // heard the whole step. Belt-and-braces: also clear `_isSpeaking`
+      // here in case the completion handler missed (race between the
+      // platform fire and our setState bind).
+      if (mounted && _isSpeaking) {
+        setState(() => _isSpeaking = false);
+      }
+      // Belt-and-braces: also kick the listener restart here. The
+      // completion handler should have done this on its own, but if it
+      // didn't fire (cancelled utterance, engine quirk) the user would
+      // be stuck — TTS done but mic never resumed. Idempotent against
+      // the handler's own restart attempt thanks to the
+      // `if (_voiceEnabled && !_isSpeaking && !_isListening)` gate
+      // inside `_startListening`.
+      if (mounted && _voiceEnabled && !_isListening) {
+        _restartTimer?.cancel();
+        _restartTimer = Timer(const Duration(milliseconds: 200), () {
+          if (_voiceEnabled && mounted && !_isSpeaking && !_isListening) {
+            _startListening();
+          }
+        });
+      }
     } catch (e) {
+      if (mounted && _isSpeaking) {
+        setState(() => _isSpeaking = false);
+      }
       ErrorService.log('voice_tts_speak', e);
     }
   }
@@ -708,7 +739,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
           _showVoiceHelpOverlay();
           _voiceHelpShown = true;
         } else {
-          _startListening();
+          // 19 May 2026 follow-up: drop the parallel `_startListening()`
+          // + `_speakText()` pair. They raced — listening would start,
+          // then `_speakText` immediately stopped it to speak. The TTS
+          // completion handler restarts listening once speech ends, so
+          // calling `_speakText` alone is correct.
           _speakText(_currentRecipe.steps[_currentStep]);
         }
       }
@@ -730,11 +765,25 @@ class _RecipeScreenState extends State<RecipeScreen> {
     // completion handler will re-arm us. Without this guard the STT
     // auto-restart loop fights the speech output for the audio session.
     if (_isSpeaking) return;
+    // Don't redundantly start a session that's already running. Both
+    // the completion handler AND the belt-and-braces tail of
+    // `_speakText` schedule a 200ms restart; without this guard they'd
+    // both fire and the second `_speech.listen(...)` would throw.
+    if (_isListening) return;
     try {
       await _speech.listen(
         onResult: (result) {
-          _recognisedWords = result.recognizedWords.toLowerCase();
-          _processVoiceCommand(_recognisedWords);
+          final words = result.recognizedWords.toLowerCase();
+          // 19may-b: send recognised words to Crashlytics as non-fatals
+          // so we can see what the STT engine is actually hearing on
+          // device. Rob reported "None work" on 19may-a; we don't have
+          // a way to repro this on desktop so observability is the only
+          // way to diagnose. Logged on `finalResult` to avoid spam from
+          // partial-result dribbles.
+          if (result.finalResult && words.isNotEmpty) {
+            ErrorService.log('voice_stt_heard', 'words="$words"');
+          }
+          _processVoiceCommand(words);
         },
         listenFor: const Duration(seconds: 30),
         // Tighter pause window — 5s was long enough that command
@@ -819,7 +868,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
     } else {
       _showVoiceFeedback('Already on the last step');
     }
-    _recognisedWords = '';
   }
 
   void _onVoiceBack() {
@@ -830,13 +878,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
     } else {
       _showVoiceFeedback('Already on the first step');
     }
-    _recognisedWords = '';
   }
 
   void _onVoiceRepeat() {
     _showVoiceFeedback('Reading step aloud');
     _speakText(_currentRecipe.steps[_currentStep]);
-    _recognisedWords = '';
   }
 
   void _onVoiceDone() {
@@ -852,7 +898,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
       'total_steps': _currentRecipe.steps.length,
       'exit_method': 'voice',
     });
-    _recognisedWords = '';
   }
 
   void _showVoiceHelpOverlay() {
@@ -899,8 +944,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(dialogContext).pop();
-                    // Start listening + read step 1 after dialog closes
-                    _startListening();
+                    // 19 May 2026 follow-up: only call `_speakText`.
+                    // The TTS completion handler starts the STT listener
+                    // 200ms after speech ends. Calling `_startListening`
+                    // here in parallel raced — the listener was started
+                    // and then immediately stopped inside `_speakText`.
                     _speakText(_currentRecipe.steps[_currentStep]);
                   },
                   style: ElevatedButton.styleFrom(
