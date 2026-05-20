@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 15 May 2026 (Flash-Lite streaming swap on `fix/flash-lite-streaming` at `c58c924`, on-device verified, awaiting merge into `sprint/16-integration`.)
+**Last updated:** 19 May 2026 (added v1.2 row: cloud-sync saved recipes — local-only `HistoryService` doesn't survive reinstall / clear-data / new device.)
 
 **Active branch:** `sprint/16-integration` — main integration line. Topic branch `fix/flash-lite-streaming` (1 commit ahead) ready to merge.
 **Pushed to origin:** through `041a915` on `sprint/16-integration`; `c58c924` pushed on `fix/flash-lite-streaming` after on-device sign-off.
@@ -619,6 +619,7 @@ Capture here so they don't keep resurfacing in planning.
 
 | Priority | Feature | Notes |
 |----------|---------|-------|
+| **P1** | **Cloud-sync saved recipes** | Saved recipes currently live in SharedPreferences only (`HistoryService`, key `elio_recipe_history`) — device-local, no Firestore mirror. Sign in on a fresh device and your history is gone; clear-data wipes it; reinstall wipes it. Mirror to `users/{uid}/savedRecipes/{savedAt}` (or include in household sharing in 16.7b). Likely also explains some "where did my recipes go?" feedback during on-device testing. |
 | P2 | **Multiple lists** (groceries, Costco, hardware) | AnyList + Bring! + OurGroceries + Plan to Eat all support. Generalize shopping-list model. After household sharing lands. |
 | P2 | **Recurring lists / templates** | "Weekly staples" template that clones to active list. AnyList + OurGroceries have. |
 | P2 | **Family pricing tier** ($X/yr household, AnyList-style at $14.99/yr) | After Sprint 16.7 household sharing proves out. Match AnyList structure. |
