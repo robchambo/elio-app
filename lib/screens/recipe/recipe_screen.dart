@@ -263,6 +263,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
   bool _speechAvailable = false;
   bool _voiceHelpShown = false;
   String _voiceFeedback = '';
+  // 19 May 2026 (19may-c) — on-screen diagnostic strip for the Cook
+  // Mode voice path. Rob's 19may-b feedback was "still not working"
+  // and the Crashlytics `voice_stt_heard` non-fatal route depends on
+  // dashboard access. The strip surfaces what the STT engine is
+  // actually delivering, in one screenshot, so we can disambiguate
+  // (a) mic / engine not running at all, (b) running but not
+  // transcribing the user's voice, (c) transcribing fine but the
+  // matcher isn't firing.
+  String _lastHeardWords = '';
   Timer? _feedbackTimer;
   Timer? _restartTimer;
 
@@ -776,12 +785,17 @@ class _RecipeScreenState extends State<RecipeScreen> {
           final words = result.recognizedWords.toLowerCase();
           // 19may-b: send recognised words to Crashlytics as non-fatals
           // so we can see what the STT engine is actually hearing on
-          // device. Rob reported "None work" on 19may-a; we don't have
-          // a way to repro this on desktop so observability is the only
-          // way to diagnose. Logged on `finalResult` to avoid spam from
+          // device. Logged on `finalResult` to avoid spam from
           // partial-result dribbles.
           if (result.finalResult && words.isNotEmpty) {
             ErrorService.log('voice_stt_heard', 'words="$words"');
+          }
+          // 19may-c: also surface to the on-screen diagnostic strip so
+          // Rob can see at a glance whether STT is delivering anything
+          // at all. Captures partials too — that's the most diagnostic
+          // signal (proves the engine is actively transcribing).
+          if (words.isNotEmpty && mounted) {
+            setState(() => _lastHeardWords = words);
           }
           _processVoiceCommand(words);
         },
@@ -2644,6 +2658,79 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+            // 19may-c diagnostic strip — visible only while voice control
+            // is enabled in Cook Mode. Shows the current STT state +
+            // the last words the engine delivered. Lets Rob/Kate (or
+            // me, via screenshot) see at a glance whether the engine
+            // is delivering anything at all, without needing
+            // Crashlytics dashboard access. Will be hidden by a
+            // settings toggle in Sprint 17 once the path is stable.
+            if (_voiceEnabled)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ElioColors.cream,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: ElioColors.rule.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _isSpeaking
+                                ? Icons.volume_up_rounded
+                                : _isListening
+                                    ? Icons.mic_rounded
+                                    : Icons.mic_off_rounded,
+                            size: 14,
+                            color: _isListening
+                                ? ElioColors.terracotta
+                                : ElioColors.mocha,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _isSpeaking
+                                ? 'Speaking…'
+                                : _isListening
+                                    ? 'Listening — say next / back / repeat / done'
+                                    : 'Mic idle',
+                            style: ElioTextStyles.bodySmallStyle.copyWith(
+                              color: ElioColors.mocha,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_lastHeardWords.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          "Last heard: '$_lastHeardWords'",
+                          style: ElioTextStyles.bodySmallStyle.copyWith(
+                            color: ElioColors.mocha,
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            letterSpacing: 0,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
                   ),
                 ),
