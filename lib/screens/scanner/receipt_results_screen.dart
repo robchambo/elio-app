@@ -111,6 +111,16 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
+                // 19 May 2026 — Rob: receipts shorten item names
+                // ("ORG PNAPPLE", "KS COAST CHI") and the OCR + Gemini
+                // pass can only do so much. Set expectations up-front
+                // that the user should sweep each line before
+                // confirming. Sits above the smart-memory banner so
+                // first-time scanners see it on every receipt; once
+                // dismissed (Sprint 17 polish), only first-time users
+                // would see it.
+                _buildEditPromptBanner(),
+                const SizedBox(height: 10),
                 // Smart memory banner
                 if (_tierMemoryCount > 0) _buildMemoryBanner(),
                 const SizedBox(height: 12),
@@ -126,6 +136,60 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
             ),
           ),
           _buildConfirmButton(),
+        ],
+      ),
+    );
+  }
+
+  // ─── Edit-prompt Banner ─────────────────────────────────────────
+  //
+  // Receipt OCR + Gemini parsing can't always rescue truncated names
+  // ("ORG PNAPPLE", "KS COAST CHI") or correct mis-categorised tiers.
+  // This banner sets expectations so the user knows to sweep each
+  // line before confirming, rather than feeling like the import is
+  // broken when names look weird.
+
+  Widget _buildEditPromptBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: ElioColors.terracotta.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.edit_note_rounded,
+            color: ElioColors.terracotta,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Check each line before adding',
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: ElioColors.espresso,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Supermarkets shorten item names on receipts. Tap a row "
+                  "to rename it, fix the tier, or remove it — every store's "
+                  "receipt is different and a quick sweep is normal.",
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
+                    color: ElioColors.mocha,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -341,10 +405,22 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
   }
 
   Widget _buildTierBadge(String tier) {
+    // 19 May 2026 — Rob's on-device screenshot showed badges rendering
+    // as `almostAlwaysHave` (the raw enum value tracked-out in
+    // tabLabelStyle, looked like terminal text and overflowed the row).
+    // Root cause: scanner_service writes the canonical inventory tier
+    // `'almostAlwaysHave'` (with the `Have` suffix — matches
+    // `InventoryItem.tier` everywhere else in the app), but this
+    // switch only matched the legacy `'almostAlways'` form. Items
+    // suggested with the canonical tier fell through to the `_`
+    // fallback and rendered the raw string. Match both for safety.
     final (Color bg, Color fg, String label) = switch (tier) {
-      'alwaysHave' => (const Color(0xFFE8F5E9), ElioColors.success, 'Always Have'),
-      'almostAlways' => (const Color(0xFFE3F2FD), ElioColors.mocha, 'Almost Always'),
-      'perishable' => (const Color(0xFFFFF3E0), ElioColors.terracotta, 'Perishable'),
+      'alwaysHave' =>
+        (const Color(0xFFE8F5E9), ElioColors.success, 'Always Have'),
+      'almostAlwaysHave' || 'almostAlways' =>
+        (const Color(0xFFE3F2FD), ElioColors.mocha, 'Almost Always'),
+      'perishable' =>
+        (const Color(0xFFFFF3E0), ElioColors.terracotta, 'Perishable'),
       _ => (ElioColors.cream, ElioColors.mocha, tier),
     };
 
@@ -373,12 +449,20 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
   // ─── Tier Selector Chips ────────────────────────────────────────
 
   Widget _buildTierSelector(int index) {
+    // 19 May 2026 — canonical inventory tiers (match InventoryItem.tier).
+    // The legacy `'almostAlways'` form was a receipt-screen local; it
+    // wrote out values that didn't round-trip cleanly with the rest of
+    // the app's pantry data. Use the same strings every other surface
+    // does.
     const tiers = [
       ('alwaysHave', 'Always Have'),
-      ('almostAlways', 'Almost Always'),
+      ('almostAlwaysHave', 'Almost Always'),
       ('perishable', 'Perishable'),
     ];
-    final current = _items[index].suggestedTier;
+    final currentRaw = _items[index].suggestedTier;
+    // Treat legacy `'almostAlways'` as `'almostAlwaysHave'` so a tile
+    // built before this commit still shows the chip as selected.
+    final current = currentRaw == 'almostAlways' ? 'almostAlwaysHave' : currentRaw;
 
     return Wrap(
       spacing: 8,
