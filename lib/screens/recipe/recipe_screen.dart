@@ -259,6 +259,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   final FlutterTts _tts = FlutterTts();
   bool _voiceEnabled = false;
   bool _isListening = false;
+  bool _isSpeaking = false; // TTS is mid-utterance — gates STT restart
   bool _speechAvailable = false;
   bool _voiceHelpShown = false;
   String _voiceFeedback = '';
@@ -568,8 +569,65 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   // ── TTS setup ──────────────────────────────────────────────────────────────────
+  //
+  // Sprint 16 cook-mode audit (19 May 2026) fixed three classes of bug here:
+  //
+  //   1. **First-word clipping** — flutter_tts grabs the audio session
+  //      lazily on the first `speak()`, which swallows ~300 ms on iOS.
+  //      `setSharedInstance(true)` + `setIosAudioCategory(playback, ...)`
+  //      pre-allocates the session, so utterances start cleanly.
+  //
+  //   2. **TTS / STT collisions mid-utterance** — the STT listener was
+  //      running while TTS spoke, ducking the speech output. We now
+  //      serialise: `_speakText` stops listening, marks `_isSpeaking`,
+  //      and only the completion handler restarts the listener (and
+  //      only if voice control is still enabled).
+  //
+  //   3. **TTS never fires on step entry / Next/Back** — the screen used
+  //      to call `_speakText` only from voice-command callbacks, so
+  //      tapping Next never read the new step aloud. The Cook-Mode
+  //      entry point (`_startHandsFree`) and the Next/Back buttons now
+  //      call `_speakText` directly, independent of mic state.
   Future<void> _initTts() async {
     try {
+      // iOS audio session — silently no-op on Android.
+      await _tts.setSharedInstance(true);
+      await _tts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+        ],
+        IosTextToSpeechAudioMode.spokenAudio,
+      );
+
+      // `awaitSpeakCompletion(true)` makes the future returned by
+      // `_tts.speak(...)` resolve only when the utterance finishes —
+      // we use that to bracket the STT pause/resume reliably.
+      await _tts.awaitSpeakCompletion(true);
+
+      // Lifecycle handlers — `_isSpeaking` is the gate that prevents
+      // the STT auto-restart loop from clawing the mic back while we
+      // talk. The completion handler restarts listening once we're done.
+      _tts.setStartHandler(() {
+        if (mounted) setState(() => _isSpeaking = true);
+      });
+      _tts.setCompletionHandler(() {
+        if (mounted) setState(() => _isSpeaking = false);
+        // Resume listening if voice control is still on. Small delay
+        // gives the audio session time to release before STT re-acquires.
+        if (_voiceEnabled && mounted) {
+          _restartTimer?.cancel();
+          _restartTimer = Timer(const Duration(milliseconds: 200), () {
+            if (_voiceEnabled && mounted && !_isSpeaking) _startListening();
+          });
+        }
+      });
+      _tts.setErrorHandler((msg) {
+        if (mounted) setState(() => _isSpeaking = false);
+        ErrorService.log('voice_tts_runtime', msg);
+      });
+
       await _tts.setLanguage('en-US');
       await _tts.setSpeechRate(0.45);
       await _tts.setVolume(1.0);
@@ -579,7 +637,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   Future<void> _speakText(String text) async {
+    if (text.trim().isEmpty) return;
     try {
+      // Stop listening BEFORE we speak so the mic doesn't duck our own
+      // output (and so we don't recognise our own voice as a command).
+      // The completion handler in `_initTts` re-arms the listener.
+      if (_isListening) {
+        _restartTimer?.cancel();
+        await _speech.stop();
+        if (mounted) setState(() => _isListening = false);
+      }
+      // Cancel any in-flight utterance — prevents queuing two steps if
+      // the user mashes Next.
+      await _tts.stop();
       await _tts.speak(text);
     } catch (e) {
       ErrorService.log('voice_tts_speak', e);
@@ -591,20 +661,27 @@ class _RecipeScreenState extends State<RecipeScreen> {
     try {
       _speechAvailable = await _speech.initialize(
         onError: (error) {
-          // On error, attempt restart if voice is still enabled
-          if (_voiceEnabled && mounted) {
+          // On error, attempt restart if voice is still enabled —
+          // but not mid-utterance (TTS completion handler owns that).
+          if (_voiceEnabled && mounted && !_isSpeaking) {
             _restartTimer?.cancel();
             _restartTimer = Timer(const Duration(milliseconds: 500), () {
-              if (_voiceEnabled && mounted) _startListening();
+              if (_voiceEnabled && mounted && !_isSpeaking) {
+                _startListening();
+              }
             });
           }
         },
         onStatus: (status) {
           if (status == 'done' || status == 'notListening') {
-            if (_voiceEnabled && mounted) {
+            // Skip auto-restart while TTS is speaking — the TTS
+            // completion handler owns the restart in that case.
+            if (_voiceEnabled && mounted && !_isSpeaking) {
               _restartTimer?.cancel();
               _restartTimer = Timer(const Duration(milliseconds: 300), () {
-                if (_voiceEnabled && mounted) _startListening();
+                if (_voiceEnabled && mounted && !_isSpeaking) {
+                  _startListening();
+                }
               });
             }
           }
@@ -649,6 +726,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   Future<void> _startListening() async {
     if (!_speechAvailable || !_voiceEnabled || !mounted) return;
+    // Don't claw the mic back while TTS is mid-utterance — the
+    // completion handler will re-arm us. Without this guard the STT
+    // auto-restart loop fights the speech output for the audio session.
+    if (_isSpeaking) return;
     try {
       await _speech.listen(
         onResult: (result) {
@@ -656,7 +737,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
           _processVoiceCommand(_recognisedWords);
         },
         listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 5),
+        // Tighter pause window — 5s was long enough that command
+        // partials regularly got dropped before processing. 1.5s
+        // matches typical command cadence ("next", "repeat") and
+        // lets the auto-restart loop refresh the buffer quickly.
+        pauseFor: const Duration(milliseconds: 1500),
         listenOptions: stt.SpeechListenOptions(
           listenMode: stt.ListenMode.dictation,
         ),
@@ -688,20 +773,32 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   void _processVoiceCommand(String words) {
-    // Look for "hey elio" wake word followed by a command
-    final wakeIndex = words.lastIndexOf('hey elio');
-    if (wakeIndex == -1) return;
+    // Sprint 16 cook-mode audit (19 May 2026): we used to require the
+    // literal substring "hey elio" before any command would fire, which
+    // never worked reliably — `speech_to_text` doesn't keep partials
+    // across a 5s silence and there's no real wake-word engine bundled.
+    //
+    // Option (b) from the audit: drop the wake-word fiction. While
+    // Cook Mode is open the user has unambiguously asked for voice
+    // control, so we accept bare commands ("next", "back", "repeat",
+    // "done"). TTS↔STT is now serialised, so we don't recognise our
+    // own utterance — the only words in the buffer come from the user.
+    //
+    // Word-boundary matching so we don't fire on substrings inside
+    // longer words (e.g. "context" → not "next"). Also short-circuit
+    // when speaking, in case a stale partial sneaks through.
+    if (_isSpeaking) return;
+    if (words.isEmpty) return;
 
-    final afterWake = words.substring(wakeIndex + 8).trim();
-    if (afterWake.isEmpty) return;
+    bool hasWord(String w) => RegExp(r'\b' + w + r'\b').hasMatch(words);
 
-    if (afterWake.contains('next')) {
+    if (hasWord('next')) {
       _onVoiceNext();
-    } else if (afterWake.contains('back') || afterWake.contains('previous')) {
+    } else if (hasWord('back') || hasWord('previous')) {
       _onVoiceBack();
-    } else if (afterWake.contains('repeat') || afterWake.contains('read')) {
+    } else if (hasWord('repeat') || hasWord('read')) {
       _onVoiceRepeat();
-    } else if (afterWake.contains('done') || afterWake.contains('exit') || afterWake.contains('stop')) {
+    } else if (hasWord('done') || hasWord('exit') || hasWord('stop')) {
       _onVoiceDone();
     }
   }
@@ -776,17 +873,17 @@ class _RecipeScreenState extends State<RecipeScreen> {
               Text('Voice commands', style: ElioText.headingMedium),
               const SizedBox(height: 16),
               Text(
-                "Say 'Hey Elio' followed by:",
+                'Just say:',
                 style: ElioText.bodyLarge.copyWith(color: ElioColors.mocha),
               ),
               const SizedBox(height: 16),
-              _buildVoiceHelpRow('"Hey Elio, next"', 'Go to the next step'),
+              _buildVoiceHelpRow('"Next"', 'Go to the next step'),
               const SizedBox(height: 10),
-              _buildVoiceHelpRow('"Hey Elio, back"', 'Go to the previous step'),
+              _buildVoiceHelpRow('"Back"', 'Go to the previous step'),
               const SizedBox(height: 10),
-              _buildVoiceHelpRow('"Hey Elio, repeat"', 'Read the current step aloud'),
+              _buildVoiceHelpRow('"Repeat"', 'Read the current step aloud'),
               const SizedBox(height: 10),
-              _buildVoiceHelpRow('"Hey Elio, done"', 'Turn off voice control'),
+              _buildVoiceHelpRow('"Done"', 'Turn off voice control'),
               const SizedBox(height: 20),
               Text(
                 'Tap the mic button to turn voice control on/off',
@@ -2208,6 +2305,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
       'step_count': _currentRecipe.steps.length,
     });
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // Read the first step aloud immediately — TTS no longer waits for
+    // the user to engage voice control. The mic stays off by default;
+    // voice commands are opt-in via the mic toggle.
+    _speakText(_currentRecipe.steps[_currentStep]);
   }
 
   // Shimmer-style placeholder for streaming state.
@@ -2432,7 +2533,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     icon: Icons.arrow_back,
                     onTap: isFirst
                         ? null
-                        : () => setState(() => _currentStep--),
+                        : () {
+                            setState(() => _currentStep--);
+                            _speakText(_currentRecipe.steps[_currentStep]);
+                          },
                   ),
                   const Spacer(),
                   Flexible(
@@ -2571,7 +2675,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         SystemChrome.setEnabledSystemUIMode(
                             SystemUiMode.edgeToEdge);
                       }
-                    : () => setState(() => _currentStep++),
+                    : () {
+                        setState(() => _currentStep++);
+                        _speakText(_currentRecipe.steps[_currentStep]);
+                      },
               ),
             ),
             Padding(
