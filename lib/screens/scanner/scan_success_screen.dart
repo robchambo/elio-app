@@ -3,13 +3,25 @@ import 'package:flutter/material.dart';
 import '../../services/scanner_service.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
-import '../home/home_screen.dart';
-import '../pantry/pantry_screen.dart';
 
 // ─────────────────────────────────────────────
 // ScanSuccessScreen
 // Confirmation screen shown after items have been
 // successfully added to the user's pantry.
+//
+// 19 May 2026 — both CTAs used to push naked PantryScreen / HomeScreen
+// onto the Navigator via MaterialPageRoute. Both screens are tab body
+// widgets that depend on AppShell's Scaffold (cream background, top
+// app bar, bottom nav). Pushed in isolation they rendered with no
+// Material chrome — the default Scaffold-less background is black —
+// which gave the "black background with stark yellow underlines"
+// screen Rob caught on 19may-b. Both CTAs now just popUntil the
+// Navigator's root, returning the user to AppShell with whatever tab
+// they were on (Pantry tab, in the receipt-scan flow).
+//
+// Generate-with-these-items auto-generation is lost here as a side
+// effect. Restoring it requires threading scannedItems into AppShell's
+// HomeScreen — Sprint 17 follow-up.
 // ─────────────────────────────────────────────
 
 class ScanSuccessScreen extends StatelessWidget {
@@ -169,17 +181,14 @@ class ScanSuccessScreen extends StatelessWidget {
           height: 54,
           child: ElevatedButton.icon(
             onPressed: () {
-              // Pop to root and push HomeScreen with scanned items for auto-generation
-              final perishableNames = items
-                  .where((i) => i.suggestedTier == 'perishable')
-                  .map((i) => i.name)
-                  .toList();
-              final allNames = items.map((i) => i.name).toList();
-              final itemsToGenerate = perishableNames.isNotEmpty ? perishableNames : allNames;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => HomeScreen(scannedItems: itemsToGenerate)),
-                (route) => false,
-              );
+              // 19 May 2026 — used to `pushAndRemoveUntil` a naked
+              // HomeScreen with `scannedItems`. HomeScreen is an
+              // AppShell tab body (no own Scaffold) so it rendered
+              // chrome-less on a black background. Pop to root
+              // instead; the auto-generation feature is the casualty
+              // — restore via an AppShell `initialScannedItems`
+              // mechanism in Sprint 17.
+              Navigator.of(context).popUntil((route) => route.isFirst);
             },
             icon: const Icon(Icons.auto_awesome_rounded, size: 20),
             label: const Text('Generate Recipe with These'),
@@ -201,11 +210,12 @@ class ScanSuccessScreen extends StatelessWidget {
           height: 54,
           child: OutlinedButton.icon(
             onPressed: () {
-              // Pop scanner stack and navigate to pantry tab
+              // 19 May 2026 — used to popUntil-first then push a naked
+              // PantryScreen, which renders chrome-less on a black
+              // background (no AppShell Scaffold). The user reached
+              // this flow from the Pantry tab, so popping to root
+              // lands them there with no extra navigation needed.
               Navigator.of(context).popUntil((route) => route.isFirst);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PantryScreen()),
-              );
             },
             icon: const Icon(Icons.inventory_2_outlined, size: 20),
             label: const Text('Back to Pantry'),
