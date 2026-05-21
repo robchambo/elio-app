@@ -279,12 +279,29 @@ class _RecipeScreenState extends State<RecipeScreen> {
   // the heard path writes to `_lastHeardWords`. Both can be shown,
   // visually distinct.
   String _lastSttError = '';
+  // 20 May 2026 (20may-b) — last raw STT status event from the plugin
+  // (e.g. 'listening', 'notListening', 'done'). Surfaced in the
+  // diagnostic strip so we can see which terminal events the Android
+  // engine on Kate's device actually fires. Different OEM
+  // implementations send different status names; this lets us confirm
+  // rather than guess.
+  String _lastSttStatus = '';
   Timer? _feedbackTimer;
   Timer? _restartTimer;
   // 21 May 2026 (19may-g) — auto-clear the error display after a brief
   // delay so transient `error_speech_timeout` / `error_no_match` events
   // don't pile up in the strip and look like the engine is broken.
   Timer? _errorClearTimer;
+  // 20 May 2026 (20may-b) — Rob: Android's green mic-in-use dot
+  // disappears after ~4s and the auto-restart isn't firing. The
+  // status-name-based restart only fires on `'done'`, but on Kate's
+  // device the session-end may fire as `'notListening'` (engine
+  // dependent — varies by OEM). The heartbeat sidesteps the status
+  // name entirely: every 2s, if we think we should be listening
+  // (`_voiceEnabled && !_isSpeaking`) but the plugin says we aren't
+  // (`!_speech.isListening`), restart. Belt-and-braces against any
+  // engine that doesn't fire the status we expect.
+  Timer? _heartbeatTimer;
 
   // ── Cooking timer state (Sprint 16.6) ─────────────────────────────────────
   /// Multi-timer service driving the sticky timer bar + inline pill taps.
@@ -339,6 +356,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _feedbackTimer?.cancel();
     _restartTimer?.cancel();
     _errorClearTimer?.cancel();
+    _heartbeatTimer?.cancel();
     _tts.stop();
     // Always restore audio in case voice was active
     try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
@@ -804,6 +822,37 @@ class _RecipeScreenState extends State<RecipeScreen> {
     return _MicPermissionResult.denied;
   }
 
+  /// Bulletproof "are we still actually listening?" check.
+  ///
+  /// Status-name-based restarts (`'done'`) only catch session-ends on
+  /// engines that fire that specific event. On Kate's 20may-a test the
+  /// Android mic-in-use dot disappeared after ~4s and the auto-restart
+  /// didn't fire — almost certainly because her engine sends
+  /// `'notListening'` (or similar) as terminal. Different OEM
+  /// implementations send different status names.
+  ///
+  /// The heartbeat sidesteps the issue entirely by asking the plugin
+  /// directly. Every 2s while voice is enabled, if `_speech.isListening`
+  /// is false but we expected it to be true, restart.
+  void _startVoiceHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      if (!_voiceEnabled) return;
+      if (_isSpeaking) return; // TTS owns the session right now
+      if (!_speech.isListening) {
+        // We think voice is on but the plugin says we're not actually
+        // listening. Kick a restart.
+        _startListening();
+      }
+    });
+  }
+
+  void _stopVoiceHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+  }
+
   Future<void> _initVoiceControl() async {
     // 19 May 2026 (19may-d) — Rob: "tapping the mic doesn't pause TTS".
     // Pre-19may-a TTS only fired AFTER mic was enabled, so this couldn't
@@ -888,6 +937,17 @@ class _RecipeScreenState extends State<RecipeScreen> {
           }
         },
         onStatus: (status) {
+          // 20 May 2026 (20may-b) — surface the raw status name to the
+          // strip + log to Crashlytics. Different Android engines send
+          // different terminal status names ('done' on Pixel, often
+          // 'notListening' on Samsung), and the status-name-based
+          // restart was missing whichever name Kate's device uses.
+          // The heartbeat (below) catches the gap regardless, but the
+          // visibility helps confirm the cause.
+          if (mounted) {
+            setState(() => _lastSttStatus = status);
+          }
+          ErrorService.log('voice_stt_status', status);
           // 19 May 2026 (19may-d) — ONLY restart on `done` (terminal
           // session state). The previous code also restarted on
           // `notListening`, but on Android `notListening` fires
@@ -904,6 +964,11 @@ class _RecipeScreenState extends State<RecipeScreen> {
           // platform errors but in practice 100ms is fine and shortens
           // the perceptible gap between sessions to near-zero, which
           // is what makes "always listening" actually feel always-on.
+          //
+          // 20 May 2026 (20may-b) — the status-name restart stays as
+          // the fast path, but the heartbeat is now the bulletproof
+          // safety net for engines that fire something other than
+          // 'done'.
           if (status == 'done') {
             if (_voiceEnabled && mounted && !_isSpeaking) {
               _restartTimer?.cancel();
@@ -932,6 +997,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
         setState(() => _voiceEnabled = true);
         // Mute beep streams for entire voice session
         try { await _audioChannel.invokeMethod('muteBeep'); } catch (_) {}
+        // Start the heartbeat — restarts the listener if the engine
+        // silently ends a session without firing a status name we
+        // handle. See `_startVoiceHeartbeat` for the rationale.
+        _startVoiceHeartbeat();
         if (!_voiceHelpShown) {
           // Show help first — listening starts after "Got It"
           _showVoiceHelpOverlay();
@@ -1038,6 +1107,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   void _toggleVoiceControl() {
     if (_voiceEnabled) {
       _stopListening();
+      _stopVoiceHeartbeat();
       setState(() => _voiceEnabled = false);
       // Restore audio streams when voice control is turned off
       try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
@@ -1113,6 +1183,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   void _onVoiceDone() {
     _showVoiceFeedback('Voice control off');
     _stopListening();
+    _stopVoiceHeartbeat();
     setState(() {
       _voiceEnabled = false;
     });
@@ -2954,6 +3025,24 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           style: ElioTextStyles.bodySmallStyle.copyWith(
                             color: ElioColors.mocha.withValues(alpha: 0.6),
                             fontSize: 10.5,
+                            letterSpacing: 0,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      // 20 May 2026 (20may-b) — raw last STT status
+                      // event. Confirms which terminal name the
+                      // engine on this device uses ('done' vs
+                      // 'notListening'). The heartbeat catches both;
+                      // this is for visibility only.
+                      if (_lastSttStatus.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'STT status: $_lastSttStatus',
+                          style: ElioTextStyles.bodySmallStyle.copyWith(
+                            color: ElioColors.mocha.withValues(alpha: 0.45),
+                            fontSize: 10,
                             letterSpacing: 0,
                           ),
                           maxLines: 1,
