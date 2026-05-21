@@ -78,6 +78,19 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
 
+# 20 May 2026 — Patched fork of speech_to_text 7.3.0 with extended
+# Android silence-length intent extras (EXTRA_SPEECH_INPUT_COMPLETE_
+# SILENCE_LENGTH_MILLIS = 15s, vs upstream's unset → engine default
+# ~1.5–4s). Vendored in `third_party/speech_to_text-patched/`.
+# Without this, Cook Mode voice cycled session-end every 4s on Rob's
+# device — restart loop worked but created dead-zones where mid-
+# restart speech got dropped. See the patch comment in
+# `third_party/speech_to_text-patched/android/src/main/kotlin/.../
+# SpeechToTextPlugin.kt`.
+dependency_overrides:
+  speech_to_text:
+    path: third_party/speech_to_text-patched
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
