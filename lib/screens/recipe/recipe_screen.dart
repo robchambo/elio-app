@@ -840,6 +840,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
       if (!mounted) return;
       if (!_voiceEnabled) return;
       if (_isSpeaking) return; // TTS owns the session right now
+      // 20 May 2026 (20may-d) — skip if a restart is already
+      // scheduled. The status handler (on 'done') and the error
+      // handler both queue `_restartTimer` with sensible backoffs
+      // (400ms / 800ms / 1000ms depending on cause); having the
+      // heartbeat fire a SECOND restart on top of that means we
+      // hammer the engine and provoke `error_busy`. Defer to whoever
+      // queued first.
+      if (_restartTimer?.isActive ?? false) return;
       if (!_speech.isListening) {
         // 20 May 2026 (20may-c) — reset the local flag too so the
         // diagnostic strip's top line stops claiming "Listening"
@@ -848,7 +856,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
         if (_isListening) {
           setState(() => _isListening = false);
         }
-        // Plugin says we're not listening. Kick a restart.
+        // Plugin says we're not listening, no other restart is
+        // pending. Kick one.
         _startListening();
       }
     });
@@ -913,10 +922,35 @@ class _RecipeScreenState extends State<RecipeScreen> {
           // `_lastHeardWords`) so the strip can show both states
           // distinctly + auto-clear the error after a short delay so
           // the user isn't permanently staring at "STT error".
-          final isTransient = error.errorMsg == 'error_speech_timeout' ||
-              error.errorMsg == 'error_no_match';
+          // 20 May 2026 (20may-d) — three buckets, not two. Rob's
+          // 20may-c screenshots showed the engine cycling through
+          // `error_busy` and `error_client` after we restarted too
+          // fast — Android STT was rejecting our 100ms restart
+          // because the previous session hadn't finished releasing.
+          //
+          //   - **Transient** (50ms retry): `error_speech_timeout`,
+          //     `error_no_match`. These aren't really errors — engine
+          //     just didn't hear / couldn't match. Safe to restart
+          //     immediately.
+          //   - **Busy** (1000ms retry): `error_busy`,
+          //     `error_recognizer_busy`. Engine is literally telling
+          //     us "I'm not ready yet — back off." Hammering it with
+          //     a fast retry just gets another busy error.
+          //   - **Hard** (800ms retry): anything else
+          //     (`error_client`, `error_network`, `error_audio`, …).
+          //     Real failure, give the system a beat to recover.
+          final code = error.errorMsg;
+          final isTransient =
+              code == 'error_speech_timeout' || code == 'error_no_match';
+          final isBusy =
+              code == 'error_busy' || code == 'error_recognizer_busy';
+          final restartDelayMs = isTransient
+              ? 50
+              : isBusy
+                  ? 1000
+                  : 800;
           if (mounted) {
-            setState(() => _lastSttError = error.errorMsg);
+            setState(() => _lastSttError = code);
             _errorClearTimer?.cancel();
             _errorClearTimer = Timer(
               Duration(seconds: isTransient ? 2 : 5),
@@ -925,15 +959,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
               },
             );
           }
-          ErrorService.log('voice_stt_error', error.errorMsg);
+          ErrorService.log('voice_stt_error', code);
           // On error, attempt restart if voice is still enabled — but
           // not mid-utterance (TTS completion handler owns that).
-          // Transient errors restart fast (50ms) because they aren't
-          // really errors, just "no speech yet"; hard errors back off.
           if (_voiceEnabled && mounted && !_isSpeaking) {
             _restartTimer?.cancel();
             _restartTimer = Timer(
-              Duration(milliseconds: isTransient ? 50 : 800),
+              Duration(milliseconds: restartDelayMs),
               () {
                 if (_voiceEnabled && mounted && !_isSpeaking) {
                   _startListening();
@@ -993,7 +1025,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
           if (status == 'done') {
             if (_voiceEnabled && mounted && !_isSpeaking) {
               _restartTimer?.cancel();
-              _restartTimer = Timer(const Duration(milliseconds: 100), () {
+              // 20 May 2026 (20may-d) — bumped from 100ms to 400ms.
+              // 100ms was firing the restart before the engine had
+              // finished releasing the previous session, which
+              // triggered `error_busy` ("recognizer is already in
+              // use") on Rob's device. 400ms gives Android STT room
+              // to clean up. Still imperceptible to the user vs.
+              // the 8s `pauseFor` window.
+              _restartTimer = Timer(const Duration(milliseconds: 400), () {
                 if (_voiceEnabled && mounted && !_isSpeaking) {
                   _startListening();
                 }
