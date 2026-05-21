@@ -71,7 +71,15 @@ class _AccountScreenState extends State<AccountScreen> {
 
   bool _loading = true;
   String _measurementUnits = 'metric';
-  String _region = 'US';
+  // 21 May 2026 — canonical region value is lowercase ('uk' / 'us' /
+  // 'other'), matching what onboarding screen 09 writes via
+  // `_RegionOption.value`. Settings used to default to 'US'
+  // (uppercase) and offer `('US', 'US') / ('UK', 'UK')` toggle
+  // options, so the value read back from Firestore (lowercase) never
+  // matched either option → nothing selected on settings open. Plus
+  // 'other' was missing from settings entirely despite being a valid
+  // onboarding choice.
+  String _region = 'us';
   bool _saverModeDefault = false;
   String _appVersion = '';
 
@@ -109,7 +117,11 @@ class _AccountScreenState extends State<AccountScreen> {
       setState(() {
         _measurementUnits =
             (settings['measurementUnits'] as String?) ?? 'metric';
-        _region = (settings['region'] as String?) ?? 'US';
+        // Canonicalise to lowercase. Older accounts may have a stored
+        // 'US' / 'UK' value from before the case was normalised — accept
+        // either and re-emit as the canonical form so subsequent writes
+        // clean up the underlying Firestore doc.
+        _region = ((settings['region'] as String?) ?? 'us').toLowerCase();
         _saverModeDefault =
             (settings['saverModeDefault'] as bool?) ?? false;
         _appVersion = version;
@@ -134,8 +146,11 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Future<void> _setRegion(String region) async {
     setState(() => _region = region);
-    RegionUtils.setRegion(region == 'UK' ? AppRegion.uk : AppRegion.us);
-    await _firestore.updateSettings(region: region);
+    // RegionUtils only has uk/us (no 'other'). Map 'other' to us as a
+    // default — same fallback the country-code resolver uses.
+    final canonical = region.toLowerCase();
+    RegionUtils.setRegion(canonical == 'uk' ? AppRegion.uk : AppRegion.us);
+    await _firestore.updateSettings(region: canonical);
   }
 
   Future<void> _setSaverMode(bool value) async {
@@ -638,7 +653,14 @@ class _AccountScreenState extends State<AccountScreen> {
                     ),
                     _SegmentedRow(
                       label: 'Region',
-                      options: const [('US', 'US'), ('UK', 'UK')],
+                      // 21 May 2026 — match the canonical lowercase
+                      // values from onboarding screen 09 and include
+                      // 'other' (was missing entirely from settings).
+                      options: const [
+                        ('uk', 'UK'),
+                        ('us', 'US'),
+                        ('other', 'Other'),
+                      ],
                       value: _region,
                       onChanged: _setRegion,
                     ),
