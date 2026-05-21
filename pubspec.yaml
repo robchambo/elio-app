@@ -77,6 +77,9 @@ dev_dependencies:
   firebase_core_platform_interface: ^6.0.0
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
+# Launcher-icon config lives in `flutter_launcher_icons.yaml`, not here.
+# Run `flutter pub run flutter_launcher_icons` after editing the source
+# PNG at `assets/icon/app_icon.png` to regenerate platform mipmaps.
 
 # 20 May 2026 — Patched fork of speech_to_text 7.3.0 with extended
 # Android silence-length intent extras (EXTRA_SPEECH_INPUT_COMPLETE_
