@@ -64,13 +64,15 @@ class _AppShellState extends State<AppShell> {
     try {
       final settings = await FirestoreService().getSettings();
       final units = settings['measurementUnits'] as String?;
-      final region = settings['region'] as String?;
+      final region = (settings['region'] as String?)?.toLowerCase();
       if (units == 'metric' || units == 'imperial') {
         RegionUtils.setMeasurementUnits(units!);
       }
-      if (region == 'UK') {
+      if (region == 'uk') {
         RegionUtils.setRegion(AppRegion.uk);
-      } else if (region == 'US') {
+      } else if (region == 'us' || region == 'other') {
+        // 'other' has no dedicated AppRegion yet — fall back to US for
+        // currency/cost formatting, matching account_screen._setRegion.
         RegionUtils.setRegion(AppRegion.us);
       }
     } catch (_) {
