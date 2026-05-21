@@ -382,25 +382,20 @@ class _RecipeScreenState extends State<RecipeScreen> {
   void _onTimerStateChange() {
     if (!mounted) return;
     setState(() {});
-    _updateWakelock();
-  }
 
-  /// 21 May 2026 — Hold the wakelock if **either** Cook Mode is active
-  /// (hands-free voice-controlled cooking — the user is actively
-  /// reading / listening to steps and shouldn't have the screen drop
-  /// out from under them) **or** a recipe timer is running / paused
-  /// (Sprint 16.6 original reason). Edge-triggered so we don't burn
-  /// platform-channel cycles on every 1-second timer tick. Call this
-  /// from every place that toggles `_handsFreeMode` or where timer
-  /// state changes.
-  ///
-  /// Pre-fix the wakelock was only held when a timer was active, so a
-  /// user in Cook Mode without an active timer (e.g. just listening to
-  /// step instructions hands-free, no time-stamped step) would hit
-  /// their OS screen timeout. Rob's 21 May test caught this at his
-  /// 2-minute timeout setting.
-  void _updateWakelock() {
-    final shouldHold = _handsFreeMode || _timerService.hasActiveTimers;
+    // Sprint 16.6: hold the wakelock while at least one timer is
+    // running or paused. Drop it the moment everything is done /
+    // cancelled / dismissed. Edge-triggered so we don't re-call the
+    // platform channel on every 1-second tick.
+    //
+    // 21 May 2026 — 21may-a tried OR-combining `_handsFreeMode ||
+    // _timerService.hasActiveTimers` so the wakelock would also be
+    // held for the duration of Cook Mode. That shipped a white-
+    // screen-on-Cook-Mode-entry regression that we couldn't root-
+    // cause inline. Reverted to the original timer-only logic
+    // pending a safer approach. The Cook-Mode-screen-timeout fix is
+    // re-queued as a Sprint 17 row.
+    final shouldHold = _timerService.hasActiveTimers;
     if (shouldHold == _wakelockHeld) return;
     _wakelockHeld = shouldHold;
     // Fire-and-forget; errors are non-fatal (e.g. unsupported
@@ -2729,9 +2724,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
       'step_count': _currentRecipe.steps.length,
     });
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-    // Keep the screen on for the duration of Cook Mode (no timer
-    // required) — see `_updateWakelock` docstring.
-    _updateWakelock();
     // Read the first step aloud immediately — TTS no longer waits for
     // the user to engage voice control. The mic stays off by default;
     // voice commands are opt-in via the mic toggle.
@@ -2938,9 +2930,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
       _voiceEnabled = false;
     });
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    // Drop the wakelock now Cook Mode is closed (unless a timer is
-    // still running — `_updateWakelock` keeps it on in that case).
-    _updateWakelock();
   }
 
   Widget _buildHandsFreeMode() {
@@ -3213,10 +3202,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         });
                         SystemChrome.setEnabledSystemUIMode(
                             SystemUiMode.edgeToEdge);
-                        // Drop the wakelock now that Cook Mode is
-                        // done — `_updateWakelock` keeps it on if a
-                        // timer is still active.
-                        _updateWakelock();
                       }
                     : () {
                         setState(() => _currentStep++);
