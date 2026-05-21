@@ -1428,7 +1428,18 @@ class GeminiService {
 
     buffer.writeln();
     buffer.writeln('## JSON SCHEMA (return exactly this structure):');
-    buffer.writeln('Include estimated per-serving nutritional values in the "nutrition" field.');
+    // 21 May 2026 — strengthened from a single "per-serving" mention to
+    // an explicit, unambiguous instruction. On-device feedback suggested
+    // Gemini was sometimes returning total-for-the-recipe values
+    // instead. The renderer now also displays a "per serving" label
+    // for the user, but the underlying number has to be correct.
+    buffer.writeln(
+      'CRITICAL: All values in the "nutrition" field are PER SERVING, '
+      'NOT total for the recipe. For a recipe with `servings: 4` and a '
+      'total of 1600 kcal across the whole pot, return `calories: 400`. '
+      'Same for proteinG / carbsG / fatG / fibreG — divide by servings '
+      'before returning.',
+    );
     buffer.writeln('Set "category" to the single best fit for this recipe; use exactly one of the listed values.');
     // Sprint 16.6 (Notion XX-2 nutrition+cost, 13 May 2026) — field
     // order matters under maxOutputTokens.
