@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Elio · Pantry icon review · 21 May 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+  <style>
+    :root {
+      --cream: #F4E5D0;
+      --cream-deep: #ECDABE;
+      --espresso: #1F1B16;
+      --mocha: #6B5B4A;
+      --terracotta: #C45A1F;
+      --rule: #D9C9AF;
+      --peach: #F5C7A1;
+      --success: #4F7A5B;
+      --warning: #B47120;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--cream);
+      color: var(--espresso);
+      font-family: 'DM Sans', system-ui, sans-serif;
+      line-height: 1.5;
+    }
+    .wrap {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 48px 28px 96px;
+    }
+    h1 {
+      font-family: 'Bricolage Grotesque', serif;
+      font-weight: 800;
+      font-size: 44px;
+      line-height: 1.1;
+      margin: 0 0 12px;
+      letter-spacing: -0.5px;
+    }
+    h1 .accent { color: var(--terracotta); }
+    h2 {
+      font-family: 'Bricolage Grotesque', serif;
+      font-weight: 700;
+      font-size: 26px;
+      line-height: 1.2;
+      margin: 48px 0 16px;
+      letter-spacing: -0.3px;
+    }
+    h3 {
+      font-family: 'DM Sans', sans-serif;
+      font-weight: 700;
+      font-size: 17px;
+      margin: 24px 0 8px;
+      color: var(--espresso);
+    }
+    .meta {
+      color: var(--mocha);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    p { margin: 0 0 14px; max-width: 70ch; }
+    .lede { font-size: 17px; max-width: 70ch; color: var(--espresso); }
+    .rule {
+      border: 0;
+      border-top: 1px solid var(--rule);
+      margin: 32px 0;
+    }
+    /* Category cards */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    .cat {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 14px;
+      background: #fff7ea;
+      border: 1px solid var(--rule);
+      border-radius: 14px;
+    }
+    .cat .iconwrap {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      background: var(--peach);
+      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cat .iconwrap .material-icons-outlined {
+      color: var(--espresso);
+      font-size: 22px;
+    }
+    .cat .label {
+      font-weight: 700;
+      font-size: 14.5px;
+      line-height: 1.2;
+    }
+    .cat .label .codename {
+      display: block;
+      font-weight: 500;
+      font-size: 11.5px;
+      color: var(--mocha);
+      letter-spacing: 0;
+      margin-top: 2px;
+    }
+    .cat.flagged {
+      border-color: var(--terracotta);
+      border-width: 2px;
+      background: #fdf2e8;
+    }
+    /* Swap table */
+    .swap {
+      display: grid;
+      grid-template-columns: 1fr 60px 1fr;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 16px;
+      background: #fff7ea;
+      border: 1px solid var(--rule);
+      border-radius: 14px;
+      margin-bottom: 12px;
+    }
+    .swap .side {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .swap .side .iconwrap {
+      width: 52px; height: 52px;
+      background: var(--peach);
+      border-radius: 999px;
+      display: flex; align-items: center; justify-content: center;
+      flex: 0 0 auto;
+    }
+    .swap .side .iconwrap .material-icons-outlined { font-size: 26px; color: var(--espresso); }
+    .swap .arrow {
+      text-align: center;
+      color: var(--terracotta);
+      font-weight: 700;
+      font-size: 22px;
+    }
+    .swap .label-block .name {
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .swap .label-block .icon-code {
+      font-size: 11.5px;
+      color: var(--mocha);
+      margin-top: 2px;
+      font-family: 'Courier New', monospace;
+    }
+    .why {
+      margin: 8px 0 18px 0;
+      color: var(--mocha);
+      font-size: 13.5px;
+      line-height: 1.5;
+      max-width: 70ch;
+    }
+    .why strong { color: var(--espresso); }
+    .alts {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .alt {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border: 1px solid var(--rule);
+      border-radius: 999px;
+      background: #fff;
+      font-size: 12px;
+    }
+    .alt .material-icons-outlined { font-size: 16px; color: var(--mocha); }
+    code {
+      font-family: 'Courier New', monospace;
+      background: #fff;
+      border: 1px solid var(--rule);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: 12.5px;
+    }
+    .legend {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin: 6px 0 24px;
+      font-size: 13px;
+      color: var(--mocha);
+    }
+    .legend .swatch {
+      width: 14px; height: 14px;
+      border-radius: 4px;
+      border: 2px solid var(--terracotta);
+      background: #fdf2e8;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Pantry icon <span class="accent">review.</span></h1>
+    <div class="meta">21 May 2026 · Elio · for Rob &amp; Kate sign-off</div>
+
+    <p class="lede">
+      Six of the twelve pantry-category icons on the Pantry tab are flagged
+      for replacement (Rob, 21 May screenshot). Material Icons stock-set —
+      no asset shipping required, same family as every other icon in the
+      app. Proposed swaps in §2; alternatives I considered in §3.
+    </p>
+
+    <hr class="rule">
+
+    <!-- ────────────────────────────────────────────────────────────── -->
+    <h2>1 · Current state (all 12 categories)</h2>
+    <div class="legend">
+      <span class="swatch"></span> Flagged for replacement
+    </div>
+    <div class="grid">
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">star</span></div>
+        <div class="label">Your usuals<span class="codename">star_outlined · meta-row</span></div>
+      </div>
+      <div class="cat flagged">
+        <div class="iconwrap"><span class="material-icons-outlined">local_fire_department</span></div>
+        <div class="label">Spices &amp; Seasonings<span class="codename">local_fire_department_outlined</span></div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">ramen_dining</span></div>
+        <div class="label">Asian Pantry<span class="codename">ramen_dining_outlined</span></div>
+      </div>
+      <div class="cat flagged">
+        <div class="iconwrap"><span class="material-icons-outlined">rice_bowl</span></div>
+        <div class="label">Indian Pantry<span class="codename">rice_bowl_outlined</span></div>
+      </div>
+      <div class="cat flagged">
+        <div class="iconwrap"><span class="material-icons-outlined">lunch_dining</span></div>
+        <div class="label">Mexican &amp; Latin<span class="codename">lunch_dining_outlined</span></div>
+      </div>
+      <div class="cat flagged">
+        <div class="iconwrap"><span class="material-icons-outlined">eco</span></div>
+        <div class="label">Mediterranean<span class="codename">eco_outlined</span></div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">water_drop</span></div>
+        <div class="label">Oils &amp; Vinegars<span class="codename">water_drop_outlined</span></div>
+      </div>
+      <div class="cat flagged">
+        <div class="iconwrap"><span class="material-icons-outlined">egg</span></div>
+        <div class="label">Dairy &amp; Eggs<span class="codename">egg_outlined</span></div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">inventory_2</span></div>
+        <div class="label">Canned &amp; Jarred<span class="codename">inventory_2_outlined</span></div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">dinner_dining</span></div>
+        <div class="label">Grains &amp; Pasta<span class="codename">dinner_dining_outlined</span></div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">cake</span></div>
+        <div class="label">Baking Essentials<span class="codename">cake_outlined</span></div>
+      </div>
+      <div class="cat flagged">
+        <div class="iconwrap"><span class="material-icons-outlined">opacity</span></div>
+        <div class="label">Sauces &amp; Condiments<span class="codename">opacity_outlined</span></div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">ac_unit</span></div>
+        <div class="label">Frozen Staples<span class="codename">ac_unit_outlined</span></div>
+      </div>
+    </div>
+
+    <hr class="rule">
+
+    <!-- ────────────────────────────────────────────────────────────── -->
+    <h2>2 · Proposed swaps</h2>
+
+    <!-- Spices ─────────────────────────────────────── -->
+    <h3>Spices &amp; Seasonings</h3>
+    <div class="swap">
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">local_fire_department</span></div>
+        <div class="label-block">
+          <div class="name">Current — flame</div>
+          <div class="icon-code">local_fire_department_outlined</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">grass</span></div>
+        <div class="label-block">
+          <div class="name">Proposed — herb sprigs</div>
+          <div class="icon-code">grass_outlined</div>
+        </div>
+      </div>
+    </div>
+    <p class="why">
+      <strong>Why:</strong> the flame reads as <em>spicy/heat</em> rather than
+      <em>spice cupboard</em> (which is mostly herbs, dry rubs, salt &amp; pepper —
+      not chillies). <code>grass</code> reads instantly as fresh herbs and
+      generalises to dried herbs and seasonings without being literal about
+      any one shape.
+    </p>
+
+    <!-- Indian ─────────────────────────────────────── -->
+    <h3>Indian Pantry</h3>
+    <div class="swap">
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">rice_bowl</span></div>
+        <div class="label-block">
+          <div class="name">Current — bowl &amp; chopsticks</div>
+          <div class="icon-code">rice_bowl_outlined</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">kebab_dining</span></div>
+        <div class="label-block">
+          <div class="name">Proposed — skewer</div>
+          <div class="icon-code">kebab_dining_outlined</div>
+        </div>
+      </div>
+    </div>
+    <p class="why">
+      <strong>Why:</strong> the chopsticks-on-bowl visual is unambiguously Asian
+      and clashes with the Asian Pantry tile right above it. <code>kebab_dining</code>
+      reads as a tandoor skewer (chicken tikka, seekh kebab) — distinctly
+      South-Asian without leaning on a stereotype.
+    </p>
+
+    <!-- Mexican ─────────────────────────────────────── -->
+    <h3>Mexican &amp; Latin</h3>
+    <div class="swap">
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">lunch_dining</span></div>
+        <div class="label-block">
+          <div class="name">Current — hamburger</div>
+          <div class="icon-code">lunch_dining_outlined</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">local_fire_department</span></div>
+        <div class="label-block">
+          <div class="name">Proposed — flame</div>
+          <div class="icon-code">local_fire_department_outlined</div>
+        </div>
+      </div>
+    </div>
+    <p class="why">
+      <strong>Why:</strong> the burger is North-American fast-food and reads
+      wrong for Mexican &amp; Latin. <code>local_fire_department</code> (freed up by
+      the Spices swap above) maps cleanly onto chillies, tacos al pastor,
+      and the general "heat" association of Mexican / Caribbean / Brazilian
+      cuisines. Material has no chilli-pepper icon in the stock set.
+    </p>
+
+    <!-- Mediterranean ─────────────────────────────────── -->
+    <h3>Mediterranean</h3>
+    <div class="swap">
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">eco</span></div>
+        <div class="label-block">
+          <div class="name">Current — leaf</div>
+          <div class="icon-code">eco_outlined</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">wine_bar</span></div>
+        <div class="label-block">
+          <div class="name">Proposed — wine glass</div>
+          <div class="icon-code">wine_bar_outlined</div>
+        </div>
+      </div>
+    </div>
+    <p class="why">
+      <strong>Why:</strong> a leaf is too generic — could be any plant-forward
+      cuisine. <code>wine_bar</code> evokes the Mediterranean dining culture
+      (Italy/Greece/Spain/France) and pairs nicely with the existing
+      <code>local_bar</code>-family iconography elsewhere in the app. If a
+      wine glass feels off (e.g. dry / non-alcohol users), see alternative
+      below.
+    </p>
+
+    <!-- Dairy ─────────────────────────────────────── -->
+    <h3>Dairy &amp; Eggs</h3>
+    <div class="swap">
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">egg</span></div>
+        <div class="label-block">
+          <div class="name">Current — teardrop</div>
+          <div class="icon-code">egg_outlined</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">egg_alt</span></div>
+        <div class="label-block">
+          <div class="name">Proposed — egg silhouette</div>
+          <div class="icon-code">egg_alt_outlined</div>
+        </div>
+      </div>
+    </div>
+    <p class="why">
+      <strong>Why:</strong> Material's <code>egg_outlined</code> draws an
+      asymmetric teardrop that gets confused with the
+      <code>water_drop</code> (Oils &amp; Vinegars) and <code>opacity</code>
+      (current Sauces) tiles next to it. <code>egg_alt</code> is the
+      rounder, more egg-shaped variant — instantly readable, no shape
+      collision with the liquid tiles.
+    </p>
+
+    <!-- Sauces ─────────────────────────────────────── -->
+    <h3>Sauces &amp; Condiments</h3>
+    <div class="swap">
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">opacity</span></div>
+        <div class="label-block">
+          <div class="name">Current — drop (≈ Oils)</div>
+          <div class="icon-code">opacity_outlined</div>
+        </div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="side">
+        <div class="iconwrap"><span class="material-icons-outlined">liquor</span></div>
+        <div class="label-block">
+          <div class="name">Proposed — bottle</div>
+          <div class="icon-code">liquor_outlined</div>
+        </div>
+      </div>
+    </div>
+    <p class="why">
+      <strong>Why:</strong> <code>opacity</code> is a generic droplet — visually
+      identical to <code>water_drop</code> used for Oils &amp; Vinegars right
+      above it. <code>liquor</code> draws a bottle silhouette (soy sauce,
+      ketchup, hot sauce, Worcestershire all live in bottles), differentiates
+      cleanly from the oil drop, and stays in the same monochrome family.
+    </p>
+
+    <hr class="rule">
+
+    <!-- ────────────────────────────────────────────────────────────── -->
+    <h2>3 · Alternatives I considered</h2>
+    <p>
+      Where the choice felt closer to 50/50, here are the runners-up. All
+      stock Material Icons (Outlined variant) — same as the proposed set.
+    </p>
+
+    <h3>Spices &amp; Seasonings</h3>
+    <div class="alts">
+      <div class="alt"><span class="material-icons-outlined">spa</span><code>spa_outlined</code></div>
+      <div class="alt"><span class="material-icons-outlined">local_florist</span><code>local_florist_outlined</code></div>
+      <div class="alt"><span class="material-icons-outlined">whatshot</span><code>whatshot_outlined</code></div>
+    </div>
+
+    <h3>Indian Pantry</h3>
+    <div class="alts">
+      <div class="alt"><span class="material-icons-outlined">set_meal</span><code>set_meal_outlined</code></div>
+      <div class="alt"><span class="material-icons-outlined">tapas</span><code>tapas_outlined</code></div>
+      <div class="alt"><span class="material-icons-outlined">restaurant</span><code>restaurant_outlined</code></div>
+    </div>
+
+    <h3>Mexican &amp; Latin</h3>
+    <div class="alts">
+      <div class="alt"><span class="material-icons-outlined">whatshot</span><code>whatshot_outlined</code></div>
+      <div class="alt"><span class="material-icons-outlined">tapas</span><code>tapas_outlined</code></div>
+    </div>
+
+    <h3>Mediterranean</h3>
+    <div class="alts">
+      <div class="alt"><span class="material-icons-outlined">local_pizza</span><code>local_pizza_outlined</code></div>
+      <div class="alt"><span class="material-icons-outlined">spa</span><code>spa_outlined</code></div>
+      <div class="alt"><span class="material-icons-outlined">local_florist</span><code>local_florist_outlined (olive branch feel)</code></div>
+    </div>
+
+    <h3>Dairy &amp; Eggs</h3>
+    <div class="alts">
+      <div class="alt"><span class="material-icons-outlined">icecream</span><code>icecream_outlined</code></div>
+    </div>
+
+    <h3>Sauces &amp; Condiments</h3>
+    <div class="alts">
+      <div class="alt"><span class="material-icons-outlined">restaurant_menu</span><code>restaurant_menu_outlined</code></div>
+      <div class="alt"><span class="material-icons-outlined">lunch_dining</span><code>lunch_dining_outlined</code></div>
+    </div>
+
+    <hr class="rule">
+
+    <!-- ────────────────────────────────────────────────────────────── -->
+    <h2>4 · After the swap (visual sanity check)</h2>
+    <p>Same 12 tiles, with the six proposed swaps applied. Mock of how the Pantry tab would look after sign-off.</p>
+    <div class="grid">
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">star</span></div>
+        <div class="label">Your usuals</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">grass</span></div>
+        <div class="label">Spices &amp; Seasonings</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">ramen_dining</span></div>
+        <div class="label">Asian Pantry</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">kebab_dining</span></div>
+        <div class="label">Indian Pantry</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">local_fire_department</span></div>
+        <div class="label">Mexican &amp; Latin</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">wine_bar</span></div>
+        <div class="label">Mediterranean</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">water_drop</span></div>
+        <div class="label">Oils &amp; Vinegars</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">egg_alt</span></div>
+        <div class="label">Dairy &amp; Eggs</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">inventory_2</span></div>
+        <div class="label">Canned &amp; Jarred</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">dinner_dining</span></div>
+        <div class="label">Grains &amp; Pasta</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">cake</span></div>
+        <div class="label">Baking Essentials</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">liquor</span></div>
+        <div class="label">Sauces &amp; Condiments</div>
+      </div>
+      <div class="cat">
+        <div class="iconwrap"><span class="material-icons-outlined">ac_unit</span></div>
+        <div class="label">Frozen Staples</div>
+      </div>
+    </div>
+
+    <hr class="rule">
+
+    <h2>5 · Implementation</h2>
+    <p>
+      Single-file change — <code>lib/widgets/pantry_builder_sheet.dart</code> →
+      <code>_iconFor(String)</code> switch (lines 139–168). Six case-arm
+      updates. No asset bundling, no migration, no Firestore touch. The
+      Pantry tab tile, the "+ Add" sheet tile, and the onboarding screens
+      11/12 category grids all read from the same function so the swap
+      lands in every place icons are rendered.
+    </p>
+  </div>
+</body>
+</html>
