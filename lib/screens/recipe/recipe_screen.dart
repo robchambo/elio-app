@@ -273,8 +273,18 @@ class _RecipeScreenState extends State<RecipeScreen> {
   // transcribing the user's voice, (c) transcribing fine but the
   // matcher isn't firing.
   String _lastHeardWords = '';
+  // 21 May 2026 (19may-g) — separated from `_lastHeardWords` so the
+  // diagnostic strip doesn't render "Last heard: 'STT error: …'"
+  // (Kate's 19may-f screenshots). The error path now writes here;
+  // the heard path writes to `_lastHeardWords`. Both can be shown,
+  // visually distinct.
+  String _lastSttError = '';
   Timer? _feedbackTimer;
   Timer? _restartTimer;
+  // 21 May 2026 (19may-g) — auto-clear the error display after a brief
+  // delay so transient `error_speech_timeout` / `error_no_match` events
+  // don't pile up in the strip and look like the engine is broken.
+  Timer? _errorClearTimer;
 
   // ── Cooking timer state (Sprint 16.6) ─────────────────────────────────────
   /// Multi-timer service driving the sticky timer bar + inline pill taps.
@@ -328,6 +338,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _stopListening();
     _feedbackTimer?.cancel();
     _restartTimer?.cancel();
+    _errorClearTimer?.cancel();
     _tts.stop();
     // Always restore audio in case voice was active
     try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
@@ -699,6 +710,33 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   // ── Speech recognition ─────────────────────────────────────────────────────────
 
+  /// Map raw Android STT error codes to human-readable diagnostic
+  /// text. `error_speech_timeout` and `error_no_match` are the two
+  /// most common transient ones and we surface them in soft language
+  /// so users don't think the engine is broken.
+  String _friendlySttError(String code) {
+    switch (code) {
+      case 'error_speech_timeout':
+        return 'Didn\'t hear anything — try saying it again.';
+      case 'error_no_match':
+        return 'Didn\'t catch that — try saying it again.';
+      case 'error_network':
+        return 'Speech recognition needs a network connection.';
+      case 'error_network_timeout':
+        return 'Network timed out — check connection.';
+      case 'error_audio':
+        return 'Audio error — check the microphone.';
+      case 'error_server':
+        return 'Speech-recognition server error — try again.';
+      case 'error_client':
+        return 'Speech-recognition client error — try again.';
+      case 'error_insufficient_permissions':
+        return 'Microphone permission missing.';
+      default:
+        return 'STT: $code';
+    }
+  }
+
   /// Explicit RECORD_AUDIO permission check + recovery flow. Returns
   /// the resolved state. Side-effects: surfaces the right UI for
   /// denied / permanently-denied cases (snackbar with retry, snackbar
@@ -805,23 +843,48 @@ class _RecipeScreenState extends State<RecipeScreen> {
     try {
       _speechAvailable = await _speech.initialize(
         onError: (error) {
-          // 19 May 2026 (19may-d) — surface the actual error to the
-          // diagnostic strip so we can see what the engine is failing
-          // with. Pre-fix this was silent — just a restart attempt
-          // that hid the underlying problem.
+          // 21 May 2026 (19may-g) — Kate's 19may-f screenshots showed
+          // `error_speech_timeout` and `error_no_match` rendering as
+          // "Last heard: 'STT error: …'" which made it look like the
+          // engine was completely broken. They're actually expected
+          // transient events:
+          //   - `error_speech_timeout`: engine listened, heard no
+          //     speech within the pauseFor window. Restart immediately.
+          //   - `error_no_match`: engine heard audio but couldn't
+          //     transcribe it. Restart immediately; user can try again.
+          //   - Other errors: still worth surfacing, restart with a
+          //     small backoff.
+          // The error now writes to `_lastSttError` (separate from
+          // `_lastHeardWords`) so the strip can show both states
+          // distinctly + auto-clear the error after a short delay so
+          // the user isn't permanently staring at "STT error".
+          final isTransient = error.errorMsg == 'error_speech_timeout' ||
+              error.errorMsg == 'error_no_match';
           if (mounted) {
-            setState(() => _lastHeardWords = 'STT error: ${error.errorMsg}');
+            setState(() => _lastSttError = error.errorMsg);
+            _errorClearTimer?.cancel();
+            _errorClearTimer = Timer(
+              Duration(seconds: isTransient ? 2 : 5),
+              () {
+                if (mounted) setState(() => _lastSttError = '');
+              },
+            );
           }
           ErrorService.log('voice_stt_error', error.errorMsg);
-          // On error, attempt restart if voice is still enabled —
-          // but not mid-utterance (TTS completion handler owns that).
+          // On error, attempt restart if voice is still enabled — but
+          // not mid-utterance (TTS completion handler owns that).
+          // Transient errors restart fast (50ms) because they aren't
+          // really errors, just "no speech yet"; hard errors back off.
           if (_voiceEnabled && mounted && !_isSpeaking) {
             _restartTimer?.cancel();
-            _restartTimer = Timer(const Duration(milliseconds: 800), () {
-              if (_voiceEnabled && mounted && !_isSpeaking) {
-                _startListening();
-              }
-            });
+            _restartTimer = Timer(
+              Duration(milliseconds: isTransient ? 50 : 800),
+              () {
+                if (_voiceEnabled && mounted && !_isSpeaking) {
+                  _startListening();
+                }
+              },
+            );
           }
         },
         onStatus: (status) {
@@ -908,19 +971,35 @@ class _RecipeScreenState extends State<RecipeScreen> {
             ErrorService.log('voice_stt_heard', 'words="$words"');
           }
           if (words.isNotEmpty && mounted) {
-            setState(() => _lastHeardWords = words);
+            setState(() {
+              _lastHeardWords = words;
+              // 19may-g — clear any stale error once we get a real
+              // recognition; otherwise the dimmer error line lingers
+              // alongside the new "Last heard:" line.
+              _lastSttError = '';
+            });
+            _errorClearTimer?.cancel();
           }
           _processVoiceCommand(words);
         },
-        // 19 May 2026 (19may-d) — `pauseFor: 1500ms` was too aggressive.
-        // If the user took more than 1.5s of silence before / between
-        // words, the engine ended the session and the restart loop
-        // fired 300ms later, plausibly clipping the start of the user's
-        // utterance. Bumped to 4 seconds: still snappy for short
-        // commands ("next" / "back") but tolerant of normal-cadence
-        // speech.
+        // 21 May 2026 (19may-g) — Kate's hypothesis from 19may-f
+        // diagnostic screenshots: "it is only listening for five
+        // seconds after the step has been said out loud by the TTS."
+        // She was right — `pauseFor: 4s` was too short. After TTS
+        // finishes describing a step the user often takes a beat to
+        // process before speaking; 4s ran out, engine fired
+        // `error_speech_timeout`, and even though the auto-restart
+        // worked, the strip showed an error and the user thought it
+        // was broken. Bumped to 8s. Listener still terminates after
+        // `listenFor: 30s` total, but the silence-detection window is
+        // now a more forgiving ~8s.
+        //
+        // Combined with the 50ms restart on `error_speech_timeout`
+        // (above) the effective listening cadence is now: 8s of
+        // silence-tolerance, brief gap, 8s again — feels continuous
+        // without burning STT engine cycles.
         listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 4),
+        pauseFor: const Duration(seconds: 8),
         listenOptions: stt.SpeechListenOptions(
           // 19may-d — explicit `partialResults: true` (defaults to true
           // but be explicit). `ListenMode.dictation` was iOS-only per
@@ -2852,6 +2931,24 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             letterSpacing: 0,
                           ),
                           maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      // 21 May 2026 (19may-g) — error path renders
+                      // separately, dimmer, so transient
+                      // `error_speech_timeout` / `error_no_match`
+                      // events don't stomp the actual recognition
+                      // line and don't look like permanent failure.
+                      if (_lastSttError.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          _friendlySttError(_lastSttError),
+                          style: ElioTextStyles.bodySmallStyle.copyWith(
+                            color: ElioColors.mocha.withValues(alpha: 0.6),
+                            fontSize: 10.5,
+                            letterSpacing: 0,
+                          ),
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
