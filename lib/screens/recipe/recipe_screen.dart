@@ -841,8 +841,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
       if (!_voiceEnabled) return;
       if (_isSpeaking) return; // TTS owns the session right now
       if (!_speech.isListening) {
-        // We think voice is on but the plugin says we're not actually
-        // listening. Kick a restart.
+        // 20 May 2026 (20may-c) — reset the local flag too so the
+        // diagnostic strip's top line stops claiming "Listening"
+        // when the engine has actually ended the session. The plugin
+        // is the source of truth; this catches up our mirror.
+        if (_isListening) {
+          setState(() => _isListening = false);
+        }
+        // Plugin says we're not listening. Kick a restart.
         _startListening();
       }
     });
@@ -969,6 +975,21 @@ class _RecipeScreenState extends State<RecipeScreen> {
           // the fast path, but the heartbeat is now the bulletproof
           // safety net for engines that fire something other than
           // 'done'.
+          //
+          // 20 May 2026 (20may-c) — CRITICAL: reset our `_isListening`
+          // flag here. The engine ended the session, the plugin's
+          // `isListening` is false, but we never cleared our own
+          // tracking flag — which meant `_startListening`'s
+          // `if (_isListening) return;` early-return blocked every
+          // subsequent restart attempt (both this one AND the
+          // heartbeat). Rob's 20may-b screenshot: "STT status: done"
+          // visible on the strip, top line still says "Listening",
+          // and the green mic-dot is gone. The flag was stale.
+          if (status == 'done' || status == 'notListening') {
+            if (mounted && _isListening) {
+              setState(() => _isListening = false);
+            }
+          }
           if (status == 'done') {
             if (_voiceEnabled && mounted && !_isSpeaking) {
               _restartTimer?.cancel();
@@ -1037,7 +1058,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
     // the completion handler AND the belt-and-braces tail of
     // `_speakText` schedule a 200ms restart; without this guard they'd
     // both fire and the second `_speech.listen(...)` would throw.
-    if (_isListening) return;
+    //
+    // 20 May 2026 (20may-c) — trust the plugin's `isListening` getter
+    // (source of truth) instead of our local `_isListening` flag.
+    // The flag was getting stuck `true` after engine-side session-ends
+    // that didn't reset it, which blocked every restart attempt — see
+    // the onStatus handler comment for the full story. Asking the
+    // plugin directly removes that whole class of state-drift bug.
+    if (_speech.isListening) return;
     try {
       await _speech.listen(
         onResult: (result) {
