@@ -1,9 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
+import '../models/elio_models.dart';
+import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
+import '../utils/friendly_error.dart';
+import '../utils/pantry_string_match.dart';
 import '../utils/region_utils.dart';
 import 'error_service.dart';
 import 'remote_config_service.dart';
@@ -21,7 +25,11 @@ import 'remote_config_service.dart';
 
 class GeminiService {
   static String get _apiKey => RemoteConfigService.instance.geminiApiKey;
-  static const String _model = 'gemini-2.5-flash';
+  // Sprint 15.9 eval (15 May 2026, tool/eval/run.dart × 5 fixtures):
+  // gemini-2.5-flash-lite matched 2.5-flash on TTFT (683 vs 689 ms) and
+  // beat it on total stream time (~1 s faster), cost (~83% cheaper), and
+  // structural pass rate. Same SSE shape + SDK contract, drop-in swap.
+  static const String _model = 'gemini-2.5-flash-lite';
   static const String _streamUrl =
       'https://generativelanguage.googleapis.com/v1beta/models/$_model:streamGenerateContent';
   static final _httpClient = http.Client();
@@ -66,15 +74,418 @@ class GeminiService {
 
   /// Streaming recipe generation — yields status updates as chunks arrive.
   /// Subscribe to this from the home screen for skeleton/shimmer UI.
+  ///
+  /// Token cap history:
+  ///   1024 → 2048 (2026-04-30) — elaborate recipes truncating at 1024.
+  ///   2048 → 3072 (Sprint 15.9.3) — Rob hit MAX_TOKENS at 2048 on the
+  ///   first post-onboarding generation when the prompt was rich
+  ///   (full pantry, household profile, taste profile, recent titles).
+  ///   3072 matches the onboarding screen 13 cap that's been stable.
+  ///   Belt-and-braces: MAX_TOKENS now also routes through the
+  ///   truncation-repair path in `_extractJson` and is retryable.
   static Stream<RecipeGenerationStatus> generateRecipeStream(RecipeGenerationRequest request) async* {
-    yield* _streamFromPrompt(_buildPrompt(request), maxOutputTokens: 1024);
+    await for (final event in _streamFromPrompt(
+      _buildPrompt(request),
+      maxOutputTokens: 3072,
+      responseSchema: _recipeResponseSchema,
+      // Sprint 15.9.3 SAFETY: defense-in-depth post-gen filter.
+      // Even with the ALLERGENS prompt block, Gemini sometimes ignores
+      // allergens when the user's craving (e.g. "pad thai") has
+      // canonical peanut content. The filter scans every text field
+      // of the parsed recipe; if any allergen string appears, the
+      // attempt is retried (different sample → likely different recipe).
+      allergenGuard: request.customAllergens,
+    )) {
+      // Sprint 16.1: make the recipe-screen "Vegetarian" pill an honest
+      // reflection of the binding constraint. The pill renders from
+      // `recipe.dietaryTags.first`, which Gemini sometimes leaves as
+      // `[]` even when the prompt specified Vegetarian — leaving the
+      // user (Rob) unable to tell whether dietary plumbing is working
+      // or whether the recipe just happened to be safe by luck.
+      //
+      // Merge the request's dietary requirements in front of whatever
+      // Gemini emitted: request constraints first (so the pill is
+      // deterministic), Gemini-volunteered tags appended de-duped.
+      // Custom allergens are NOT included — those are negative
+      // constraints ("avoid peanut") and shouldn't render as positive
+      // pills.
+      if (event is RecipeComplete &&
+          request.dietaryRequirements.isNotEmpty) {
+        final merged = <String>[
+          ...request.dietaryRequirements,
+          ...event.recipe.dietaryTags
+              .where((t) => !request.dietaryRequirements.contains(t)),
+        ];
+        yield RecipeComplete(
+          recipe: event.recipe.copyWith(dietaryTags: merged),
+        );
+      } else {
+        yield event;
+      }
+    }
   }
 
-  /// Shared streaming logic — sends prompt to Gemini SSE endpoint,
-  /// parses chunks, and yields status updates.
+  /// Fire-and-forget connection pre-warm. Called from screen 12 on
+  /// onboarding so the TLS handshake + Gemini's first-request warmup
+  /// finishes before the real generation kicks off.
+  ///
+  /// Per memory note `feedback_gemini_api.md`: "Gemini first-attempt
+  /// reliability — Rob reports streaming generation commonly fails on
+  /// the first attempt after app launch and succeeds on retry." This
+  /// burns the cold-start on a throwaway tiny call so the user-facing
+  /// call inherits a warm path.
+  ///
+  /// **Sprint 15.9.2 reliability pass:** previously hit `flash-lite`
+  /// with 8 tokens. Switched to use the same model as the production
+  /// streaming path with 32 tokens — TLS handshake reuse alone wasn't
+  /// warming Google's per-model pool. Sprint 15.9 (May 2026) swapped
+  /// streaming → 2.5-flash-lite, so prewarm follows. Cost is negligible
+  /// (~$0.0001 per app launch).
+  ///
+  /// Errors are swallowed silently — this is best-effort, never blocks.
+  static Future<void> prewarmConnection() async {
+    const prewarmModel = 'gemini-2.5-flash-lite';
+    const prewarmEndpoint =
+        'https://generativelanguage.googleapis.com/v1beta/models/$prewarmModel:generateContent';
+    try {
+      await _httpClient
+          .post(
+            Uri.parse('$prewarmEndpoint?key=$_apiKey'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'contents': [
+                {
+                  'parts': [
+                    {'text': 'ok'}
+                  ]
+                }
+              ],
+              'generationConfig': {
+                'maxOutputTokens': 32,
+                'temperature': 0.0,
+                'thinkingConfig': {'thinkingBudget': 0},
+              },
+            }),
+          )
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {
+      // Best-effort warmup — never surface to UI.
+    }
+  }
+
+  /// Gemini JSON Schema for the recipe contract. Passed alongside
+  /// `responseMimeType: application/json` to make the model's output
+  /// structurally guaranteed — eliminates "no JSON object found" /
+  /// prose-leak failure modes. Keep the required[] list minimal so the
+  /// model can omit optional fields without rejection.
+  static const Map<String, dynamic> _recipeResponseSchema = {
+    'type': 'OBJECT',
+    'properties': {
+      'title': {'type': 'STRING'},
+      'description': {'type': 'STRING'},
+      'prepTimeMinutes': {'type': 'INTEGER'},
+      'cookTimeMinutes': {'type': 'INTEGER'},
+      'servings': {'type': 'INTEGER'},
+      'dietaryTags': {
+        'type': 'ARRAY',
+        'items': {'type': 'STRING'},
+      },
+      'category': {'type': 'STRING'},
+      'ingredients': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'properties': {
+            'name': {'type': 'STRING'},
+            'quantity': {'type': 'STRING'},
+            'unit': {'type': 'STRING'},
+            'fromInventory': {'type': 'BOOLEAN'},
+          },
+          'required': ['name'],
+        },
+      },
+      'steps': {
+        'type': 'ARRAY',
+        'items': {'type': 'STRING'},
+      },
+      'substitutions': {
+        'type': 'ARRAY',
+        'items': {
+          'type': 'OBJECT',
+          'properties': {
+            'original': {'type': 'STRING'},
+            'substitute': {'type': 'STRING'},
+            'tradeOff': {'type': 'STRING'},
+          },
+        },
+      },
+      'tips': {'type': 'STRING'},
+      // 16 May 2026 (Notion Tier-2 chips row, on-device retest): on
+      // build/sprint-15.9-personalized-pantry these were emitted
+      // reliably with `gemini-2.5-flash`; on the post-c58c924 build
+      // with `gemini-2.5-flash-lite` they disappeared. The chip-
+      // rendering code is byte-identical across both builds — the
+      // regression is data, not UI. The previous schema omitted these
+      // properties entirely, which on Flash worked because Flash treats
+      // the schema as a hint and still serialises unlisted prompt-
+      // mentioned fields. Flash-Lite enforces the schema more strictly
+      // and drops anything unlisted, so the nutrition / cost-per-
+      // serving lines we prompt for never made it into the streamed
+      // JSON. Adding them to the schema unblocks the field on Flash-
+      // Lite without touching the prompt or model selection.
+      //
+      // 17 May 2026 update: previously marked optional ("Tier 2 is
+      // best-effort"). On-device retest after the schema-fields fix
+      // got chip-row coverage from 0% → 50%; the model treats unlisted-
+      // required fields as discretionary and omits them ~half the time
+      // under flash-lite. Promoting to required forces emission every
+      // time. Trade-off: for genuinely hard-to-estimate recipes the
+      // model may fabricate values rather than omit; mitigation is
+      // that the UI conditional-render paths still tolerate null /
+      // zero gracefully (region_utils.formatCost guards on the
+      // null-or-non-positive case, kcal pill renders only when
+      // nutrition.calories > 0).
+      //
+      // Keys mirror GeneratedRecipe / NutritionInfo property names
+      // exactly so fromJson lines 332-336 wire through unchanged.
+      'nutrition': {
+        'type': 'OBJECT',
+        'properties': {
+          'calories': {'type': 'INTEGER'},
+          'proteinG': {'type': 'NUMBER'},
+          'carbsG': {'type': 'NUMBER'},
+          'fatG': {'type': 'NUMBER'},
+          'fibreG': {'type': 'NUMBER'},
+        },
+        'required': ['calories', 'proteinG', 'carbsG', 'fatG', 'fibreG'],
+      },
+      'estimatedCostPerServingUSD': {'type': 'NUMBER'},
+      'estimatedCostPerServingGBP': {'type': 'NUMBER'},
+    },
+    'required': [
+      'title',
+      'ingredients',
+      'steps',
+      'nutrition',
+      'estimatedCostPerServingUSD',
+      'estimatedCostPerServingGBP',
+    ],
+  };
+
+  // ── Onboarding ephemeral entry point (Task 5.0) ─────────────────────────────
+  //
+  // Screen 13 of the onboarding rebuild needs to stream a recipe *before*
+  // the user has signed in, so no Firestore reads are possible. This entry
+  // point accepts an in-memory [pantry] + [prefs] ([OnboardingState]) and
+  // funnels them through the existing `_buildPrompt` / `_streamFromPrompt`
+  // plumbing.
+  //
+  // Critical: the dietary block is populated from `prefs.effectiveDietary`
+  // (the Option-B household-union getter), NOT `prefs.dietary`.
+  //
+  // [heroIngredientName] is the client-side hero cascade result
+  // (today > thisWeek > fresh > meat > veg — computed on screen 13) and
+  // lands in the REQUIRED list so Gemini is forced to use it.
+  //
+  static Stream<RecipeGenerationStatus> streamGenerateContentEphemeral({
+    required List<InventoryItem> pantry,
+    required OnboardingState prefs,
+    String? heroIngredientName,
+    List<String> recentTitles = const [],
+  }) async* {
+    final request = _buildEphemeralRequest(
+      pantry: pantry,
+      prefs: prefs,
+      heroIngredientName: heroIngredientName,
+      recentTitles: recentTitles,
+    );
+    // Onboarding screen 13 uses a tighter temperature (0.5 vs 0.8) so
+    // the model follows the schema strictly during the make-or-break
+    // first-recipe demo, and a bigger token cap (3072 vs 2048) as
+    // belt-and-braces against truncation. Regular Generate keeps the
+    // creative defaults.
+    //
+    // TODO(onboarding-pantry-floor): consider a pre-flight check that
+    // refuses to call Gemini when the onboarding pantry has fewer than
+    // ~3 staples / 1 perishable, since starvation prompts produce weird
+    // outputs that even the schema can't fully tame. Threshold + copy
+    // ("pick a couple more staples first") need a UX call before
+    // landing.
+    yield* _streamFromPrompt(
+      _buildPrompt(request),
+      maxOutputTokens: 3072,
+      temperature: 0.5,
+      responseSchema: _recipeResponseSchema,
+      // Sprint 15.9.3 SAFETY: post-gen allergen filter. See comment
+      // on generateRecipeStream above for the reasoning.
+      allergenGuard: request.customAllergens,
+    );
+  }
+
+  /// Build the [RecipeGenerationRequest] for an ephemeral onboarding call.
+  ///
+  /// Pantry split by tier:
+  ///   - `alwaysHave`       → request.alwaysHave
+  ///   - `almostAlwaysHave` → request.almostAlwaysHave
+  ///   - `perishable`       → inventory descriptions (+ REQUIRED hero)
+  ///
+  /// Dietary pulled from `prefs.effectiveDietary` so Option-B household
+  /// union is honoured when the toggle is on.
+  static RecipeGenerationRequest _buildEphemeralRequest({
+    required List<InventoryItem> pantry,
+    required OnboardingState prefs,
+    String? heroIngredientName,
+    List<String> recentTitles = const [],
+  }) {
+    final alwaysHave = <String>[];
+    final almostAlwaysHave = <String>[];
+    final perishableDescs = <String>[];
+    final runningLow = <String>[];
+
+    for (final item in pantry) {
+      switch (item.tier) {
+        case 'alwaysHave':
+          alwaysHave.add(item.name);
+        case 'almostAlwaysHave':
+          almostAlwaysHave.add(item.name);
+        case 'perishable':
+          perishableDescs.add(item.geminiDescription);
+      }
+      if (item.isRunningLow) runningLow.add(item.name);
+    }
+
+    final perishables = <String>[
+      if (heroIngredientName != null && heroIngredientName.isNotEmpty)
+        heroIngredientName,
+    ];
+
+    // Map maxCookTime int → the informal time preference strings
+    // the prompt builder already understands.
+    String? timePref;
+    final t = prefs.maxCookTime;
+    if (t != null) {
+      if (t <= 15) {
+        timePref = 'Quick (under 20 min)';
+      } else if (t <= 30) {
+        timePref = 'Around 30 minutes';
+      } else if (t <= 45) {
+        timePref = 'Around 45 minutes';
+      } else {
+        timePref = 'No rush';
+      }
+    }
+
+    return RecipeGenerationRequest(
+      perishables: perishables,
+      alwaysHave: alwaysHave,
+      almostAlwaysHave: almostAlwaysHave,
+      dietaryRequirements: prefs.effectiveDietary,
+      timePreference: timePref,
+      servings: prefs.householdCount,
+      appliances: prefs.appliances,
+      excludedIngredients: prefs.dislikes,
+      runningLowItems: runningLow,
+      perishableInventoryDescriptions: perishableDescs,
+      recentTitles: recentTitles,
+      // Sprint 15.9.3 SAFETY: ephemeral (onboarding screen 13) was
+      // omitting allergens entirely. A peanut-allergy user typing
+      // "pad thai" in onboarding could have been served peanut butter
+      // on their first-ever generation.
+      customAllergens: prefs.allergies,
+    );
+  }
+
+  /// Visible-for-testing hook so Task 5.0's unit tests can inspect the
+  /// compiled prompt without hitting the network.
+  @visibleForTesting
+  static String buildEphemeralPromptForTest({
+    required List<InventoryItem> pantry,
+    required OnboardingState prefs,
+    String? heroIngredientName,
+    List<String> recentTitles = const [],
+  }) =>
+      _buildPrompt(_buildEphemeralRequest(
+        pantry: pantry,
+        prefs: prefs,
+        heroIngredientName: heroIngredientName,
+        recentTitles: recentTitles,
+      ));
+
+  /// Visible-for-testing hook for direct prompt assertions on a fully-
+  /// constructed [RecipeGenerationRequest]. Used by Sprint 16.6 row 5b
+  /// tests to verify the meal-type hard constraint line is emitted
+  /// (and omitted when [mealType] is null).
+  @visibleForTesting
+  static String buildPromptForTest(RecipeGenerationRequest request) =>
+      _buildPrompt(request);
+
+  /// Public streaming entry point — wraps [_streamAttemptOnce] in a
+  /// retry loop so transient failures (5xx, network blip, truncated SSE
+  /// stream, JSON parse failure) are retried silently before the user
+  /// ever sees an error. Backoff: 500ms after attempt 1, 1500ms after
+  /// attempt 2. Non-retryable errors (auth, rate-limit, bad request,
+  /// MAX_TOKENS) short-circuit immediately.
   static Stream<RecipeGenerationStatus> _streamFromPrompt(
     String prompt, {
     required int maxOutputTokens,
+    double temperature = 0.8,
+    Map<String, dynamic>? responseSchema,
+    // Sprint 15.9.3 SAFETY: when set, the parsed recipe is scanned for
+    // any of these allergen strings (case-insensitive substring match
+    // across title, description, ingredient names, steps, tips, and
+    // substitutions). A hit triggers a retryable error so the silent
+    // retry loop has another go. Empty / null → no filter.
+    List<String> allergenGuard = const [],
+  }) async* {
+    const int maxAttempts = 3;
+    RecipeError? lastError;
+
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      RecipeError? attemptError;
+
+      await for (final event in _streamAttemptOnce(
+        prompt: prompt,
+        maxOutputTokens: maxOutputTokens,
+        temperature: temperature,
+        responseSchema: responseSchema,
+        allergenGuard: allergenGuard,
+      )) {
+        if (event is RecipeGenerating) {
+          yield event;
+        } else if (event is RecipeComplete) {
+          yield event;
+          return;
+        } else if (event is RecipeError) {
+          attemptError = event;
+        }
+      }
+
+      if (attemptError == null) return; // shouldn't happen; nothing to do
+      lastError = attemptError;
+
+      // Retryable + attempts remaining → silent retry. Otherwise yield.
+      if (!attemptError.retryable || attempt == maxAttempts) {
+        yield attemptError;
+        return;
+      }
+      final delayMs = attempt == 1 ? 500 : 1500;
+      await Future.delayed(Duration(milliseconds: delayMs));
+    }
+
+    // Defensive — loop should always return inside.
+    if (lastError != null) yield lastError;
+  }
+
+  /// Single attempt at the SSE stream. Yields progress events plus a
+  /// final terminal event ([RecipeComplete] on success or
+  /// [RecipeError] on failure). The wrapper [_streamFromPrompt] decides
+  /// whether to retry based on the [RecipeError.retryable] flag.
+  static Stream<RecipeGenerationStatus> _streamAttemptOnce({
+    required String prompt,
+    required int maxOutputTokens,
+    required double temperature,
+    Map<String, dynamic>? responseSchema,
+    List<String> allergenGuard = const [],
   }) async* {
     final client = _httpClient;
 
@@ -84,6 +495,31 @@ class GeminiService {
         Uri.parse('$_streamUrl?alt=sse&key=$_apiKey'),
       );
       httpRequest.headers['Content-Type'] = 'application/json';
+      final generationConfig = <String, dynamic>{
+        'temperature': temperature,
+        'topK': 40,
+        'topP': 0.95,
+        'maxOutputTokens': maxOutputTokens,
+        'responseMimeType': 'application/json',
+        // Sprint 16.7 Tier 2 (14 May 2026): thinkingBudget 0 → 1024.
+        // Rationale: with no scratch space, gemini-2.5-flash was
+        // deliberating INSIDE JSON values under stacked hard
+        // constraints (dietary + perishables REQUIRED + meal type +
+        // VARIATION), producing wall-of-text quantities and missing
+        // nutrition / cost tail fields (token-budget exhaustion).
+        // Tier 1 (prompt restructure + observability, commits
+        // 2fa4cb0 et al.) reduced but did not eliminate the bleed —
+        // nutrition + cost pills still missing intermittently. 1024
+        // gives the model room to plan structured output without
+        // serialising deliberation. Pairs with the thought-part
+        // filter in the SSE parse loop below (parts marked
+        // `thought: true` must be skipped — they're scratch).
+        // Cost impact: ~2× output tokens on a successful generation;
+        // acceptable trade for completeness + cleanliness. Latency
+        // impact: +200–400ms; still well under the 6s budget.
+        'thinkingConfig': {'thinkingBudget': 1024},
+        if (responseSchema != null) 'responseSchema': responseSchema,
+      };
       httpRequest.body = jsonEncode({
         'contents': [
           {
@@ -92,14 +528,7 @@ class GeminiService {
             ]
           }
         ],
-        'generationConfig': {
-          'temperature': 0.8,
-          'topK': 40,
-          'topP': 0.95,
-          'maxOutputTokens': maxOutputTokens,
-          'responseMimeType': 'application/json',
-          'thinkingConfig': {'thinkingBudget': 0},
-        },
+        'generationConfig': generationConfig,
       });
 
       final streamedResponse = await client.send(httpRequest).timeout(
@@ -107,25 +536,33 @@ class GeminiService {
         onTimeout: () => throw Exception('Recipe generation timed out. Please try again.'),
       );
 
-      // Check HTTP status before reading the stream
-      if (streamedResponse.statusCode == 429) {
-        yield RecipeError(message: 'Recipe generation is temporarily unavailable (rate limit reached). Please wait a minute and try again.');
+      // Check HTTP status before reading the stream. Retryability is
+      // driven by whether a re-attempt could plausibly succeed — auth /
+      // bad-request / rate-limit won't recover; 5xx and unknowns might.
+      final status = streamedResponse.statusCode;
+      if (status == 429) {
+        yield RecipeError(
+          message: 'Recipe generation is temporarily unavailable (rate limit reached). Please wait a minute and try again.',
+        );
         return;
       }
-      if (streamedResponse.statusCode == 400) {
+      if (status == 400) {
         yield RecipeError(message: 'Invalid request to recipe service (400). Please try again.');
         return;
       }
-      if (streamedResponse.statusCode == 403) {
+      if (status == 401 || status == 403) {
         yield RecipeError(message: 'Recipe service access denied. Please check your API key.');
         return;
       }
-      if (streamedResponse.statusCode == 404) {
+      if (status == 404) {
         yield RecipeError(message: 'Recipe service unavailable (model not found). Please try again.');
         return;
       }
-      if (streamedResponse.statusCode != 200) {
-        yield RecipeError(message: 'Recipe service error (${streamedResponse.statusCode}). Please try again.');
+      if (status != 200) {
+        yield RecipeError(
+          message: 'Recipe service error ($status). Please try again.',
+          retryable: status >= 500,
+        );
         return;
       }
 
@@ -159,6 +596,19 @@ class GeminiService {
             if (parts == null) continue;
 
             for (final part in parts) {
+              // Sprint 16.7 Tier 2 (14 May 2026): RE-INSTATED the
+              // thought-part filter. Reverted in a1ba7cd (12 May)
+              // when nutrition + cost fields disappeared after
+              // 43b34ac, but that was the WRONG diagnosis — the real
+              // cause was deliberation-bleed under thinkingBudget: 0
+              // (Tier 1 prompt restructure helped but didn't fully
+              // fix it). With thinkingBudget: 1024 now on, the API
+              // emits parts with `thought: true` that contain
+              // model scratch — concatenating those into the JSON
+              // buffer corrupts the response. Skip them.
+              // Mirrors the same filter on substitution / URL
+              // import / side dish paths (lines ~1389, 1517, 1631).
+              if (part is Map && part['thought'] == true) continue;
               final text = part['text'] as String?;
               if (text != null) buffer.write(text);
             }
@@ -168,26 +618,293 @@ class GeminiService {
         }
       }
 
-      // Stream complete — check finish reason and parse
-      if (finishReason == 'MAX_TOKENS') {
-        yield RecipeError(message: 'Response was too long and got cut off. Please try again.');
-        return;
-      }
+      // Stream complete — check finish reason and parse.
+      //
+      // Sprint 15.9.3 fix: MAX_TOKENS used to early-return here, which
+      // bypassed `_extractJson`'s truncation-repair branch and left the
+      // user staring at an error even though we had usable JSON in the
+      // buffer. Fall through to the same parse path the success branch
+      // uses; the repair walker closes any unfinished string/array/object
+      // and produces a syntactically valid (partial) recipe. Recipe model
+      // fields are nullable / list-defaulting so the partial renders.
+      // If repair still fails, the retryable flag below lets the silent
+      // retry loop have another go — Gemini at temp 0.8 often produces
+      // a shorter recipe on the second try.
+      final maxTokensHit = finishReason == 'MAX_TOKENS';
 
       final rawText = buffer.toString().trim();
+
+      // Sprint 16.6 (deliberation-bleed plan, Phase 0.1, 13 May 2026)
+      // — log any finish reason other than STOP as a Crashlytics
+      // non-fatal so we can dashboard MAX_TOKENS frequency without
+      // server-side logging. Includes prompt-shape booleans so we can
+      // correlate which feature combinations are most prone to
+      // truncation. No PII (no ingredient names, no recipe titles).
+      if (finishReason != null && finishReason != 'STOP') {
+        // Substring-detect the request-shape flags from the prompt
+        // itself — keeps the signature of _streamAttemptOnce stable
+        // and avoids plumbing a request-context Map through callers.
+        // The substrings are emitted by stable section headers in
+        // _buildPrompt, so the detection is reliable.
+        final hasPerishables = prompt.contains('Perishables to prioritise') ||
+            prompt.contains('Items the user has specifically chosen') ||
+            // Legacy pre-Step-2.1 prompt shape (in case of mid-build):
+            prompt.contains('PERISHABLE ITEMS') ||
+            prompt.contains('REQUIRED ingredients');
+        final hasMealType = prompt.contains('Meal type:') ||
+            prompt.contains('make a Breakfast recipe') ||
+            prompt.contains('make a Lunch recipe') ||
+            prompt.contains('make a Dinner recipe');
+        final hasVariation = prompt.contains('## VARIATION');
+        final hasAllergens = prompt.contains('ALLERGENS —');
+        ErrorService.log(
+          'recipe_finish_reason',
+          '$finishReason | bufLen=${rawText.length} | '
+              'perishables=$hasPerishables | mealType=$hasMealType | '
+              'variation=$hasVariation | allergens=$hasAllergens',
+        );
+      }
+
       if (rawText.isEmpty) {
-        yield RecipeError(message: 'Empty response from AI. Please try again.');
+        // Empty stream — usually a network blip or transient upstream
+        // issue; worth retrying.
+        yield RecipeError(
+          message: 'Empty response from AI. Please try again.',
+          retryable: true,
+        );
         return;
       }
 
-      final recipeJson = _extractJson(rawText);
-      yield RecipeComplete(recipe: GeneratedRecipe.fromJson(recipeJson));
+      try {
+        final recipeJson = _extractJson(rawText);
+        final recipe = _parseGeneratedRecipe(recipeJson);
+        // Sprint 15.9.3 SAFETY: post-gen allergen scan. Even with the
+        // ALLERGENS prompt block, Gemini occasionally serves canonical-
+        // dish ingredients (e.g. peanuts in pad thai). The filter
+        // rejects any recipe that mentions an allergen in any text
+        // field, returning a retryable error so the silent retry loop
+        // can roll a different recipe.
+        final violation = _findAllergenViolation(recipe, allergenGuard);
+        if (violation != null) {
+          ErrorService.log(
+              'recipe_allergen_violation',
+              'Recipe contained allergen "$violation"; retrying.');
+          yield RecipeError(
+            message:
+                'That recipe included $violation, which is on your allergen list. Trying a safer alternative…',
+            retryable: true,
+          );
+          return;
+        }
+        yield RecipeComplete(recipe: recipe);
+      } catch (parseErr) {
+        // Could be truncation (most common — repaired in _extractJson),
+        // model-emitted prose, or a malformed payload. Retryable lets
+        // Gemini re-roll a (likely shorter) recipe. MAX_TOKENS where the
+        // repair couldn't produce a renderable recipe surfaces a more
+        // specific message; everything else uses the parse error.
+        ErrorService.log('recipe_generation_parse', parseErr);
+        yield RecipeError(
+          message: maxTokensHit
+              ? 'Recipe got a bit long. Trying again with a tighter version…'
+              : parseErr is Exception
+                  ? parseErr.toString().replaceFirst('Exception: ', '')
+                  : 'Recipe generation failed. Please try again.',
+          retryable: true,
+        );
+      }
     } catch (e) {
-      ErrorService.log('recipe_generation_stream', e);
+      // 14 May 2026 (Notion XX-2 #2/#3): SocketException / ClientException
+      // from `client.send()` includes the full request URI in its
+      // `toString()`, and that URI carries `?key=AIzaSy...`. Both the
+      // ErrorService.log line AND the user-visible RecipeError message
+      // need scrubbing. Use scrubApiKey on what we log to Crashlytics;
+      // the UI yield path goes through callers which now route through
+      // friendlyError → also scrubs. Belt and braces.
+      ErrorService.log(
+          'recipe_generation_stream', scrubApiKey(e.toString()));
+      // Network / timeout / decoder failures are all worth retrying.
       yield RecipeError(
-        message: e is Exception ? e.toString().replaceFirst('Exception: ', '') : 'Recipe generation failed. Please try again.',
+        message: e is Exception
+            ? scrubApiKey(e.toString().replaceFirst('Exception: ', ''))
+            : 'Recipe generation failed. Please try again.',
+        retryable: true,
       );
     }
+  }
+
+  /// Sprint 15.9.3 SAFETY-CRITICAL preamble. When the user has any
+  /// allergens, this block is emitted at position #1 of the prompt
+  /// (before "You are Elio"). LLMs weight earlier text most heavily —
+  /// putting allergens here makes the entire generation task framed
+  /// around the exclusion rather than the craving / canonical recipe
+  /// shape. Used by [_buildPrompt] and [_buildSingleMealPrompt] (via
+  /// the public companion in meal_plan_service.dart).
+  ///
+  /// Worked example for peanuts is included because Rob's pad-thai
+  /// test surfaced that Gemini's prior associations
+  /// ("pad thai" → peanut sauce) override generic "STRICTLY EXCLUDE"
+  /// language. Spelling out the failure modes in the prompt itself
+  /// (peanut butter, satay paste, arachis oil, groundnut) gives the
+  /// model concrete things to refuse rather than a vague "peanut-
+  /// derived" category.
+  /// Public version of [_writeAllergenPreamble] so other prompt
+  /// builders (meal plan single-meal, side dish, etc.) can prepend
+  /// the same safety frame. Returns the rendered string ready to
+  /// concatenate at the very top of the prompt.
+  static String allergenPreambleFor(List<String> allergens) {
+    if (allergens.isEmpty) return '';
+    final buf = StringBuffer();
+    _writeAllergenPreamble(buf, allergens);
+    return buf.toString();
+  }
+
+  static void _writeAllergenPreamble(
+    StringBuffer buffer,
+    List<String> allergens,
+  ) {
+    if (allergens.isEmpty) return;
+    buffer.writeln('═══════════════════════════════════════════════════════');
+    buffer.writeln('SAFETY-CRITICAL ALLERGEN EXCLUSION — READ FIRST');
+    buffer.writeln('═══════════════════════════════════════════════════════');
+    buffer.writeln('The user has the following MEDICAL ALLERGIES:');
+    for (final a in allergens) {
+      buffer.writeln('  • $a');
+    }
+    buffer.writeln();
+    buffer.writeln(
+        'The recipe MUST contain ZERO mention of these allergens or anything derived from them — in title, description, ingredient names, ingredient quantities, steps, substitutions, or tips.');
+    buffer.writeln();
+    buffer.writeln(
+        'For each allergen, exclude obvious AND non-obvious forms. For example:');
+    buffer.writeln(
+        '  • peanuts → also exclude peanut butter, peanut oil, peanut paste, peanut sauce, satay (paste/sauce), groundnut, groundnut oil, arachis oil, Reese\'s, "PB", any nut-based Thai sauce that traditionally uses peanuts.');
+    buffer.writeln(
+        '  • sesame → also exclude tahini, sesame oil, sesame seeds, gomashio, halva.');
+    buffer.writeln(
+        '  • shellfish → also exclude shrimp, prawn, crab, lobster, scallop, langoustine, crayfish, fish sauce/oyster sauce that contain shellfish.');
+    buffer.writeln(
+        'Apply the same logic to other listed allergens — exclude derivatives and ingredients that traditionally contain them.');
+    buffer.writeln();
+    buffer.writeln(
+        'If the user\'s craving, pantry, or your training data implies a recipe that traditionally requires any of these allergens (e.g. "pad thai" with a peanut allergy, "satay" with a peanut allergy, "carbonara" with a dairy allergy), DO NOT FORCE the recipe. Pick a different dish that has ZERO risk of containing the allergen — even if it\'s less canonical to the craving.');
+    buffer.writeln();
+    buffer.writeln(
+        'BEFORE returning your JSON: read every ingredient name, every step, every substitution. If you see ANY mention of any listed allergen or its derivatives, regenerate the recipe with a different dish entirely. Treat this like a final gate, not a suggestion.');
+    buffer.writeln('═══════════════════════════════════════════════════════');
+    buffer.writeln();
+  }
+
+  /// Sprint 15.9.3 SAFETY filter. Returns the first allergen string
+  /// that appears anywhere in the recipe's text fields, or null if the
+  /// recipe is clean.
+  ///
+  /// Match strategy: case-insensitive substring against BOTH the raw
+  /// lowercased allergen AND its singularised form (via
+  /// PantryStringMatch.matchKey). The singularised form is critical:
+  /// users type "peanuts" but recipes write "peanut butter", and a
+  /// raw substring match misses that ("peanut butter" doesn't contain
+  /// "peanuts"). Singularising the needle to "peanut" catches both
+  /// "peanut" and "peanuts" in any haystack.
+  ///
+  /// False positives possible (e.g. a description containing
+  /// Sprint 16.6 — single funnel for every Gemini parse path that turns
+  /// raw JSON into a [GeneratedRecipe]. Threads a truncation sink through
+  /// [GeneratedRecipe.fromJson] so any over-cap ingredient string fields
+  /// surface as ONE aggregated `ErrorService.log` per recipe instead of
+  /// one log per field (Crashlytics non-fatals would otherwise flood the
+  /// dashboard). History read-back (SavedRecipe.fromJson) doesn't go
+  /// through here, so old already-truncated recipes from Firestore stay
+  /// silent.
+  ///
+  /// Two failure shapes seen in production motivated this:
+  ///   * Wall-of-text deliberation (chickpeas: ~1500 chars in `quantity`)
+  ///   * Prompt-echo + repetition collapse (red peppers: "DO NOT REMOVE
+  ///     THIS." repeated dozens of times)
+  /// Both root-caused in `thinkingBudget: 0` removing Gemini's scratch
+  /// space so it deliberates *inside* the JSON value.
+  static GeneratedRecipe _parseGeneratedRecipe(Map<String, dynamic> json) {
+    final truncated = <String>[];
+    final recipe = GeneratedRecipe.fromJson(json, ingredientTruncations: truncated);
+    if (truncated.isNotEmpty) {
+      final summary = _summariseTruncations(truncated);
+      ErrorService.log(
+        'recipe_ingredient_truncations',
+        '${truncated.length} ingredient field(s) capped: $summary',
+      );
+    }
+    return recipe;
+  }
+
+  /// Compresses ['quantity:bleed', 'quantity:long', 'name:long']
+  /// -> 'quantity:bleed×1, quantity:long×1, name:long×1' for the
+  /// aggregated truncation log. Order is name → quantity → unit
+  /// (the sanitizer call order in [RecipeIngredient.fromJson]),
+  /// then by classifier within each field, giving stable summaries
+  /// for Crashlytics grouping.
+  ///
+  /// Sprint 16.6 (deliberation-bleed plan, Phase 0.2, 13 May 2026):
+  /// sink entries now carry a shape classifier (`bleed` or `long`)
+  /// after a colon. `bleed` signals Gemini paraphrased prompt
+  /// instructions into a value — the Phase 2 prompt restructure
+  /// should drive this to near zero.
+  static String _summariseTruncations(List<String> fields) {
+    final counts = <String, int>{};
+    for (final f in fields) {
+      counts[f] = (counts[f] ?? 0) + 1;
+    }
+    // Stable ordering: by field, then by classifier within the field.
+    const fieldOrder = ['name', 'quantity', 'unit'];
+    // 14 May 2026 (Notion XX-2 #4): added `bleed-script` for non-
+    // Latin deliberation (Rob's Tamil-in-quantity screenshot).
+    const classifierOrder = ['bleed', 'bleed-script', 'long'];
+    final keys = <String>[];
+    for (final field in fieldOrder) {
+      for (final classifier in classifierOrder) {
+        final key = '$field:$classifier';
+        if (counts.containsKey(key)) keys.add(key);
+      }
+      // Legacy un-classified entries (pre-Phase-0.2 callers): still
+      // surface them so older saved-data round-trips don't crash the
+      // summariser. Should never fire in production after this commit.
+      if (counts.containsKey(field)) keys.add(field);
+    }
+    return keys.map((k) => '$k×${counts[k]}').join(', ');
+  }
+
+  /// "peanut-free"). Cost is a retry — safer than letting a violation
+  /// through.
+  ///
+  /// We do NOT expand to free-form synonyms (groundnuts, arachis oil) —
+  /// the prompt's worked examples push Gemini toward producing
+  /// recognisable variants. If we see consistent miss patterns in the
+  /// wild, a small synonym table is the next lever.
+  static String? _findAllergenViolation(
+    GeneratedRecipe recipe,
+    List<String> allergens,
+  ) {
+    if (allergens.isEmpty) return null;
+    final haystacks = <String>[
+      recipe.title,
+      recipe.description,
+      ...recipe.ingredients.map((i) => i.name),
+      ...recipe.steps,
+      ...recipe.substitutions
+          .map((s) => '${s.original} ${s.substitute} ${s.tradeOff}'),
+    ].map((s) => s.toLowerCase()).toList();
+
+    for (final allergen in allergens) {
+      final raw = allergen.trim().toLowerCase();
+      if (raw.isEmpty) continue;
+      // Singularised form catches plural-vs-singular mismatches —
+      // "peanuts" (user) vs "peanut butter" (recipe) is the canonical
+      // failure case this fix addresses.
+      final singular = PantryStringMatch.matchKey(allergen);
+      for (final hay in haystacks) {
+        if (hay.contains(raw) || hay.contains(singular)) return allergen;
+      }
+    }
+    return null;
   }
 
   /// Robustly extract a JSON object from a string that may contain
@@ -218,23 +935,137 @@ class GeminiService {
       }
     }
 
-    // 3. Find outermost { ... } braces
+    // 3. Find outermost { ... } braces.
     final start = text.indexOf('{');
     final end = text.lastIndexOf('}');
     if (start != -1 && end != -1 && end > start) {
       final candidate = text.substring(start, end + 1);
       try {
         return jsonDecode(candidate) as Map<String, dynamic>;
-      } catch (e) {
-        throw Exception('Could not parse recipe JSON: ${e.toString().substring(0, 80)}');
+      } catch (_) {
+        // Fall through to truncation repair.
       }
     }
 
+    // 4. Truncation repair — common when SSE is cut mid-payload before
+    // the MAX_TOKENS finish-reason chunk arrives. Walk forward tracking
+    // string state + container nesting, then close any unfinished
+    // string / array / object so the result is at least syntactically
+    // valid. Recipe model fields are nullable / list-defaulting so a
+    // partial recipe usually still renders something.
+    if (start != -1) {
+      final repaired = _tryRepairTruncatedJson(text.substring(start));
+      if (repaired != null) {
+        try {
+          return jsonDecode(repaired) as Map<String, dynamic>;
+        } catch (_) {
+          // Repair didn't help — fall through to the throw below.
+        }
+      }
+    }
+
+    if (start != -1 && end != -1 && end > start) {
+      throw Exception('Could not parse recipe JSON (response was truncated).');
+    }
     throw Exception('No JSON object found in AI response. Please try again.');
+  }
+
+  /// Best-effort repair of a truncated JSON object. Walks the string
+  /// once, tracking string-literal state + container depth, then
+  /// appends the closing characters needed to balance the structure.
+  /// Returns null if there is no `{` to anchor to.
+  ///
+  /// This is deliberately permissive: a truncated string at the tail
+  /// is closed with `"`, an unfinished array with `]`, etc. The
+  /// resulting JSON may have an empty/short final field, but the rest
+  /// of the recipe (title, ingredients up to the cut, partial steps)
+  /// renders, which is far better than the user seeing a parse error.
+  static String? _tryRepairTruncatedJson(String text) {
+    if (!text.contains('{')) return null;
+    final stack = <String>[]; // '}' or ']' to append, in reverse open order
+    bool inString = false;
+    bool escape = false;
+    int lastSafeEnd = -1; // index just past the last well-formed value boundary
+
+    for (int i = 0; i < text.length; i++) {
+      final ch = text[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (inString) {
+        if (ch == '\\') {
+          escape = true;
+        } else if (ch == '"') {
+          inString = false;
+        }
+        continue;
+      }
+      switch (ch) {
+        case '"':
+          inString = true;
+          break;
+        case '{':
+          stack.add('}');
+          break;
+        case '[':
+          stack.add(']');
+          break;
+        case '}':
+        case ']':
+          if (stack.isNotEmpty) stack.removeLast();
+          if (stack.isEmpty) lastSafeEnd = i + 1;
+          break;
+      }
+    }
+
+    // If the stream landed exactly at a complete top-level object, no
+    // repair needed — caller should have parsed it already, but return
+    // anyway for safety.
+    if (stack.isEmpty && lastSafeEnd > 0) {
+      return text.substring(0, lastSafeEnd);
+    }
+
+    final buf = StringBuffer(text);
+    // Close any unfinished string first.
+    if (inString) buf.write('"');
+    // Trim a trailing comma before closing — `[1, 2,` → `[1, 2]`.
+    var tail = buf.toString();
+    final trimmed = tail.replaceFirst(RegExp(r'[,\s]+$'), '');
+    if (trimmed.length != tail.length) {
+      buf
+        ..clear()
+        ..write(trimmed);
+    }
+    // Likewise drop a trailing colon / partial key — `"steps":` → drop.
+    final tail2 = buf.toString();
+    final trimmed2 = tail2.replaceFirst(RegExp(r',\s*"[^"]*"\s*:\s*$'), '');
+    if (trimmed2.length != tail2.length) {
+      buf
+        ..clear()
+        ..write(trimmed2);
+    }
+    // Append closing chars in reverse order of opens.
+    for (var i = stack.length - 1; i >= 0; i--) {
+      buf.write(stack[i]);
+    }
+    return buf.toString();
   }
 
   static String _buildPrompt(RecipeGenerationRequest request) {
     final buffer = StringBuffer();
+
+    // Sprint 15.9.3 SAFETY: when allergens are present, lead the prompt
+    // with a maximum-strength safety preamble BEFORE the friendly Elio
+    // intro. LLMs weight earlier text most heavily — placing allergens
+    // at position #1 (rather than buried inside HARD CONSTRAINTS) makes
+    // them the primary frame the model reasons against, not an
+    // afterthought to the user's craving / training-data priors.
+    //
+    // The block also asks for an explicit verification step so the
+    // model self-checks before responding. The post-gen filter remains
+    // as defense-in-depth.
+    _writeAllergenPreamble(buffer, request.customAllergens);
 
     buffer.writeln('You are Elio, a friendly AI cooking assistant. Generate ONE recipe as valid JSON.');
     buffer.writeln();
@@ -262,9 +1093,68 @@ class GeminiService {
       buffer.writeln('No dietary restrictions.');
     }
 
+    // Sprint 15.9.3 SAFETY FIX: allergens get their own line with
+    // maximum-strength language. Kept distinct from dietary because
+    // these are concrete ingredients tied to medical safety (peanuts,
+    // sesame, shellfish), not high-level patterns. ALL CAPS on the
+    // action verb so Gemini doesn't soften "exclude" into "minimise".
+    if (request.customAllergens.isNotEmpty) {
+      buffer.writeln(
+          'ALLERGENS — STRICTLY EXCLUDE these ingredients and ANYTHING containing them: ${request.customAllergens.join(', ')}.');
+      buffer.writeln(
+          'Treat as medical safety, not preference. No exceptions. Do NOT include these in the recipe under any name (e.g. if "peanuts" is listed, never use peanuts, peanut butter, peanut oil, satay sauce, groundnuts, or anything else peanut-derived). If a recipe would normally call for one of these, choose a different recipe entirely.');
+      // 19 May 2026 — Rob, Pantry-flag-pass Asian Pantry comment.
+      // Naturally-gluten-free swaps for items where a gluten-allergic
+      // user already keeps both the regular and the gluten-free version
+      // at home. Cheaper than excluding the recipe entirely.
+      if (request.customAllergens.any((a) =>
+          a.toLowerCase().trim() == 'gluten' ||
+          a.toLowerCase().contains('wheat'))) {
+        buffer.writeln(
+            'GLUTEN-FREE SWAPS: when a recipe calls for soy sauce, write it as "gluten-free soy sauce" (or "tamari") so a gluten-allergic user can use their naturally-gluten-free version. Same shape for: hoisin → "gluten-free hoisin", oyster sauce → "gluten-free oyster sauce", Worcestershire sauce → "gluten-free Worcestershire sauce", puff pastry → "gluten-free puff pastry", shortcrust pastry → "gluten-free shortcrust pastry". Do NOT swap the ingredient out — keep the dish intact; just label the variant.');
+      }
+    }
+
     // Style as a hard constraint (unless "Surprise me")
     if (request.stylePreference != null && request.stylePreference != 'Surprise me') {
       buffer.writeln('You MUST make a ${request.stylePreference} recipe. This is a hard requirement — the recipe\'s cuisine/style must clearly be ${request.stylePreference}.');
+    }
+
+    // Sprint 16.6 row 5b — meal-type chip selection.
+    //
+    // 13 May 2026 (deliberation-bleed plan Step 1.2): downgraded from
+    // a third HARD `MUST` line to a soft hint. Stacking three HARD
+    // constraints (dietary/allergens + perishables REQUIRED + meal
+    // type MUST) on a model with `thinkingBudget: 0` was raising the
+    // cognitive load past a stability threshold and contributing to
+    // deliberation-bleed.
+    //
+    // 17 May 2026 — re-promoted to HARD. Rob reported (Notion comment
+    // 06:34Z) that mealType still drops on regen even after Cluster
+    // A's anchor wording: pick Breakfast on prefs, generate, tap
+    // Generate another, second recipe is not a breakfast. End-to-end
+    // trace confirms the threading IS correct — `_mealType` is read
+    // on prefs, flowed through `_buildRequest`, passed in
+    // `originalRequest`, carried forward by `debugBuildRegenRequest`,
+    // emitted to the prompt. So the gap is at the model layer, not
+    // the wiring. Two changes since the 13 May softening make HARD
+    // safe again: (a) `thinkingBudget` is now 1024 in streaming
+    // (commit d350736), giving Gemini scratch space so adding a third
+    // HARD constraint no longer pushes us back into deliberation-
+    // bleed territory; (b) the model is now gemini-2.5-flash-lite
+    // (c58c924), which has weaker meal-occasion training bias than
+    // flash had, so "Tailor the dish to that meal occasion" is no
+    // longer strong enough on its own. Promoted to MUST with
+    // dish-appropriateness language to match the style-preference
+    // hard line above.
+    //
+    // Bare assertion, no example list: positive examples ("eggs,
+    // toast, oatmeal") anchor the output and narrow regional/cultural
+    // breadth.
+    if (request.mealType != null) {
+      final lower = request.mealType!.toLowerCase();
+      buffer.writeln(
+          'Meal type: ${request.mealType}. The recipe MUST be appropriate to serve as $lower — this is a hard requirement, not a preference. Do not drift to a different meal occasion on regeneration.');
     }
 
     // ── Leftover mode: completely different framing ──────────────────
@@ -284,13 +1174,45 @@ class GeminiService {
       buffer.writeln();
       buffer.writeln('## INVENTORY:');
 
-      // Perishable inventory items with urgency (from pantry perishable tier)
+      // Sprint 16.6 (deliberation-bleed plan Step 2.1, 13 May 2026):
+      // restructured to put DATA and INSTRUCTIONS in separate
+      // surfaces. The previous version emitted inline parenthetical
+      // instructions next to the item names:
+      //
+      //   'PERISHABLE ITEMS (use these first): chicken breast (expires today)'
+      //   'REQUIRED ingredients — you MUST use ALL of these...: chicken breast.'
+      //
+      // With `thinkingBudget: 0`, Gemini paraphrased these inline
+      // instructions directly into ingredient `quantity` field values
+      // ("(use this first)", "(from inventory)", "(expires today)" —
+      // Rob's 13 May screenshot showed all three in a single quantity).
+      //
+      // New shape: bullet list of data, then a separate instruction
+      // sentence telling Gemini explicitly that quantities are
+      // numeric + unit only with positive examples. The
+      // anti-bleed instruction lives BELOW the data, not adjacent
+      // to it, so paraphrasing patterns don't pick it up.
+
+      // Perishable inventory items with urgency (from pantry perishable tier).
       if (request.perishableInventoryDescriptions.isNotEmpty) {
-        buffer.writeln('PERISHABLE ITEMS (use these first): ${request.perishableInventoryDescriptions.join(', ')}');
+        buffer.writeln('Perishables to prioritise:');
+        for (final desc in request.perishableInventoryDescriptions) {
+          buffer.writeln('- $desc');
+        }
       }
 
       if (request.perishables.isNotEmpty) {
-        buffer.writeln('REQUIRED ingredients — you MUST use ALL of these in the recipe (not just some of them): ${request.perishables.join(', ')}. Every single one of these must appear in the ingredients list and be used meaningfully in the cooking steps.');
+        buffer.writeln('Items the user has specifically chosen to use:');
+        for (final p in request.perishables) {
+          buffer.writeln('- $p');
+        }
+        buffer.writeln(
+            'Every item in the list above must appear in the recipe\'s '
+            '`ingredients` array and be used in the cooking steps. '
+            'Do NOT write instructions, reminders, or status notes '
+            'inside any ingredient `quantity` value — quantities are '
+            'numeric + optional unit only '
+            '(e.g. "0.5 lb", "200 g", "2 cloves", "1 cup").');
       } else if (request.perishableInventoryDescriptions.isEmpty) {
         buffer.writeln('No fresh items — use pantry staples.');
       }
@@ -305,9 +1227,35 @@ class GeminiService {
 
     buffer.writeln();
     buffer.writeln('## PREFERENCES:');
-    if (request.timePreference != null) buffer.writeln('Time: ${request.timePreference}');
-    if (request.stylePreference == 'Surprise me') {
-      buffer.writeln('Style: Be creative — any cuisine.');
+    // Free-text "craving" supplied by the user — high-priority soft signal.
+    // Honour it where possible without breaking dietary rules or required
+    // perishables. Sits at the top of preferences so it shapes the dish
+    // category before time / style / mood are layered on.
+    if (request.userRequest != null && request.userRequest!.trim().isNotEmpty) {
+      buffer.writeln(
+          'User request (high priority — try hard to honour this): "${request.userRequest!.trim()}". Make a recipe that clearly satisfies this craving.');
+      // Sprint 15.9.3 SAFETY: the craving line was getting interpreted
+      // as overriding allergens (e.g. "pad thai" → peanut butter for a
+      // peanut-allergy user). Explicit override: allergens beat
+      // craving, full stop. If the craving requires an allergen,
+      // pivot to a related-but-safe dish instead of forcing it.
+      if (request.customAllergens.isNotEmpty) {
+        buffer.writeln(
+            'IMPORTANT: if this craving traditionally requires any listed allergen, do NOT force it. Pick a related allergen-free dish instead (e.g. craving "pad thai" + peanut allergy → make a peanut-free Thai noodle dish, or a different Thai stir-fry; never include peanuts/peanut butter just because the craving normally calls for them). Allergens beat cravings — every time.');
+      }
+    }
+    if (request.timePreference != null) {
+      buffer.writeln('Time available: ${request.timePreference}');
+      final timeGuidance = _expandTimeGuidance(request.timePreference!);
+      if (timeGuidance.isNotEmpty) buffer.writeln(timeGuidance);
+    }
+    // Sprint 15.9.3: was 'Surprise me' only. When the user didn't pick a
+    // style at all (null), they got NO creativity push and recipes got
+    // repetitive. Default the unselected case to "be creative" too.
+    if (request.stylePreference == null ||
+        request.stylePreference == 'Surprise me') {
+      buffer.writeln(
+          'Style: No specific cuisine — be creative. Vary cuisine across recent recipes for variety.');
     }
     if (request.moodPreference != null) {
       buffer.writeln('Mood: ${request.moodPreference}');
@@ -317,8 +1265,12 @@ class GeminiService {
 
     if (request.runningLowItems.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('## RUNNING LOW (use sparingly or avoid — user is nearly out of these):');
+      // Sprint 15.9.3: strengthened from "use sparingly or avoid" — that
+      // soft language let Gemini still feature these items as the star.
+      buffer.writeln('## RUNNING LOW (user is nearly out — AVOID these):');
       buffer.writeln(request.runningLowItems.join(', '));
+      buffer.writeln(
+          'Do NOT make any of these the main feature. If you must include one, use a minimal quantity and treat it as optional.');
     }
 
     if (request.excludedIngredients.isNotEmpty) {
@@ -329,27 +1281,109 @@ class GeminiService {
 
     if (request.appliances.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('## AVAILABLE APPLIANCES:');
-      buffer.writeln('User has: ${request.appliances.join(', ')}. Where appropriate, suggest using these appliances to enhance the recipe.');
+      // Sprint 15.9.3: tighter constraint. Was a passive "where appropriate"
+      // suggestion that Gemini ignored AND it didn't prevent recipes
+      // requiring missing equipment (e.g. oven recipes for users without one).
+      buffer.writeln(
+          'Available appliances: ${request.appliances.join(', ')}. Recipe must work with these — don\'t require anything else.');
     }
 
     if (request.recentTitles.isNotEmpty) {
+      // Sprint 15.9.3: previously listed titles twice (RECENTLY GENERATED
+      // section + VARIETY section). Single combined section saves tokens
+      // and reads more clearly.
+      //
+      // 16 May 2026 (Notion regen cluster): when the user has supplied
+      // an explicit `userRequest` (craving) or `mealType`, those are
+      // load-bearing — they're the reason the user tapped Generate in
+      // the first place. The variety nudge below was winning over them
+      // on regen ("beef mince" craving → 1st recipe has beef mince →
+      // recentTitles names it → Gemini reads "DO NOT REPEAT" as "avoid
+      // beef mince" and pivots away). Anchor the non-negotiable
+      // dimensions explicitly so variety happens on style/method/
+      // cuisine, not on the user-stated intent.
+      final hasUserRequest =
+          request.userRequest != null && request.userRequest!.trim().isNotEmpty;
+      final hasMealType = request.mealType != null;
       buffer.writeln();
-      buffer.writeln('## RECENTLY GENERATED (do NOT repeat these recipes — generate something different):');
+      buffer.writeln('## RECENTLY GENERATED (do NOT repeat; vary against these):');
       for (final title in request.recentTitles) {
         buffer.writeln('- $title');
       }
+      if (hasUserRequest || hasMealType) {
+        final anchors = <String>[];
+        if (hasUserRequest) {
+          anchors.add(
+              'the user\'s stated craving ("${request.userRequest!.trim()}") — keep honouring it');
+        }
+        if (hasMealType) {
+          anchors.add(
+              'the chosen meal type (${request.mealType}) — stay in that meal-occasion shape');
+        }
+        buffer.writeln(
+            'Vary against the titles above by style, cooking method, region, OR primary cookware — but do NOT vary away from ${anchors.join(' or ')}. The repetition guard is for model bias, not for the user\'s explicit input.');
+      } else {
+        buffer.writeln(
+            'Generate something with a DIFFERENT base ingredient, cooking method, AND cuisine from the list above. '
+            'If they\'re pasta-heavy, avoid pasta. If Asian-leaning, try a different region. '
+            'If all oven-baked, try stovetop or no-cook. Variety is key.');
+      }
+    }
 
-      // Variety constraint — use last 5 to steer away from repetitive styles
-      final recentFive = request.recentTitles.length <= 5
-          ? request.recentTitles
-          : request.recentTitles.sublist(request.recentTitles.length - 5);
+    // Sprint 16.6 (Notion XX bug 3) — VARIATION memory.
+    //
+    // The RECENTLY GENERATED block above gives titles only; Gemini has
+    // to *infer* recent hero ingredients and cookware from those
+    // strings, which it does unreliably. Rob's complaint on 11 May was
+    // explicit: chickpeas appearing 3 in a row, "hearty" overused,
+    // "skillet" overused. Feeding the actual signal direct (extracted
+    // client-side via RecipeVariation.heroIngredient + .cookware on
+    // each recipe completion) makes the variety nudge actionable.
+    //
+    // Window of 3 recipes (per Rob) — short enough that a user with
+    // chicken in the fridge isn't locked out of chicken after one
+    // chicken recipe.
+    if (request.recentHeroIngredients.isNotEmpty ||
+        request.recentCookware.isNotEmpty) {
       buffer.writeln();
-      buffer.writeln('## VARIETY (important):');
-      buffer.writeln('Look at these recent recipes: ${recentFive.join(', ')}.');
-      buffer.writeln('Generate something with a DIFFERENT base ingredient, cooking method, AND cuisine.');
-      buffer.writeln('If recent recipes are pasta-heavy, avoid pasta. If they are Asian-leaning, try a different region. If they are all oven-baked, try stovetop or no-cook.');
-      buffer.writeln('Variety is key — surprise the user with something fresh.');
+      buffer.writeln('## VARIATION (last 3 recipes — pivot away from these):');
+      if (request.recentHeroIngredients.isNotEmpty) {
+        buffer.writeln(
+            'Hero ingredients in the user\'s last 3 recipes: ${request.recentHeroIngredients.join(', ')}.');
+      }
+      if (request.recentCookware.isNotEmpty) {
+        buffer.writeln(
+            'Cookware in the user\'s last 3 recipes: ${request.recentCookware.join(', ')}.');
+      }
+      // 14 May 2026 — tightened wording. The FIFO is now scrubbed
+      // upstream to exclude user-REQUIRED perishables (home_screen.
+      // dart `_isUserRequiredPerishable`), so anything appearing in
+      // these lists is genuinely a free-choice repeat from Gemini's
+      // priors. Stronger framing: "Do not use" instead of
+      // "pick a DIFFERENT", and explicit "even if it would otherwise
+      // be a natural fit" to anticipate Gemini's reasoning escape.
+      //
+      // 16 May 2026 (Notion regen cluster): same anchor-protection as
+      // the RECENTLY GENERATED block above. When the user has typed a
+      // craving, the hero list MIGHT contain something semantically
+      // close to that craving (1st regen pushed it in), and we don't
+      // want "do not use the above as protagonist" to override the
+      // user's explicit ask. Cookware variation is always safe to
+      // push.
+      final hasUserRequestForVariation =
+          request.userRequest != null && request.userRequest!.trim().isNotEmpty;
+      if (hasUserRequestForVariation) {
+        buffer.writeln(
+            'Pick a clearly different primary cookware from the above. For the hero ingredient, prioritise the user\'s craving ("${request.userRequest!.trim()}") even if it overlaps with a recent hero — the user\'s explicit input beats the variety nudge.');
+      } else {
+        buffer.writeln(
+            'Do not use any of the above as the primary protagonist of THIS recipe, '
+            'and pick a clearly different primary cookware. The user has been getting '
+            'too much repetition — they explicitly want variety this time, even if '
+            'the previous choices would otherwise feel like natural fits.');
+      }
+      buffer.writeln(
+          'Also vary your descriptive language — if recent recipes leaned on words like "hearty", "warming", or "comforting", reach for fresher vocabulary this time.');
     }
 
     // Taste profile is injected by caller via request fields
@@ -372,10 +1406,17 @@ class GeminiService {
 
     buffer.writeln();
     buffer.writeln('## RULES:');
+    buffer.writeln('- Assume the user always has water, salt, and basic cooking oil (olive / vegetable / sunflower / rapeseed / canola) — do NOT list these in the ingredients array, but you may reference them in the steps (e.g. "season with salt", "splash of oil", "boil 1 cup of water").');
     buffer.writeln('- Recipe title must sound like home cooking, NOT a pre-made product. E.g. "Lemon Herb Chicken with Roasted Vegetables", not "Cooked Mediterranean Chicken".');
     buffer.writeln('- Ingredients must be raw/purchasable items, NOT pre-prepared dishes. Never list a cooked dish as an ingredient.');
-    buffer.writeln('- Keep steps SHORT (1-2 sentences each). Max 8 steps total.');
-    buffer.writeln('- Max 10 ingredients.');
+    // Sprint 15.9.3: scale step/ingredient caps with the time the user
+    // told us they have. Previously these were universal, so even "No
+    // rush" got 8-step weeknight-shaped output. The caps below reward
+    // the user for telling us they have time.
+    final caps = _capsForTimePreference(request.timePreference);
+    buffer.writeln('- ${caps.stepLengthGuidance}');
+    buffer.writeln('- Max ${caps.maxSteps} steps total.');
+    buffer.writeln('- Max ${caps.maxIngredients} ingredients.');
     buffer.writeln('- substitutions array may be empty [].');
     buffer.writeln('- dietaryTags array may be empty [].');
     buffer.writeln('- estimatedCostPerServingUSD and estimatedCostPerServingGBP: estimate the cost per serving in USD and GBP respectively.');
@@ -388,20 +1429,49 @@ class GeminiService {
     buffer.writeln();
     buffer.writeln('## JSON SCHEMA (return exactly this structure):');
     buffer.writeln('Include estimated per-serving nutritional values in the "nutrition" field.');
+    buffer.writeln('Set "category" to the single best fit for this recipe; use exactly one of the listed values.');
+    // Sprint 16.6 (Notion XX-2 nutrition+cost, 13 May 2026) — field
+    // order matters under maxOutputTokens.
+    //
+    // Gemini emits the JSON in the order presented here. When the
+    // token cap hits mid-response, fields LATER in the schema are
+    // silently dropped — `_extractJson`'s truncation-repair closes
+    // the structure but cannot fabricate fields that were never
+    // written. Previously `nutrition` + cost were last, so a
+    // truncation inside the long ingredients[] or steps[] arrays
+    // wiped them and the RecipeScreen pills disappeared.
+    //
+    // Reordered by survival priority:
+    //   * tier 1 (tiny, always survive): title / category / description
+    //     / prep+cook times / servings
+    //   * tier 2 (short, MUST survive — drive UI conditional pills):
+    //     dietaryTags / nutrition / estimatedCostPerServing*
+    //   * tier 3 (short array, partial OK): substitutions
+    //   * tier 4 (long arrays, partial OK — _tryRepairTruncatedJson
+    //     handles the close): ingredients / steps
+    //
+    // Actual cap on the streaming path is 3072 tokens (see line ~84),
+    // not 1024 as an earlier comment on this block claimed; corrected
+    // on 13 May 2026.
+    //
+    // Sprint 16.6 (deliberation-bleed plan Step 2.2, 13 May 2026):
+    // quantity field in the example schema now shows a concrete
+    // numeric-string shape ("0.5") with a unit example instead of
+    // the previous `"string"`. The companion sentence reminds Gemini
+    // that quantities are numeric + unit only — never prose, never
+    // parentheticals. Reinforces the anti-bleed instruction from
+    // Step 2.1's INVENTORY block.
+    buffer.writeln(
+        'Quantities are numeric + optional unit only. Never write '
+        'parentheticals or reminders into a quantity value.');
     buffer.writeln('''{
   "title": "string",
+  "category": "<one of: Appetizer | Entrée | Side dish | Dessert | Breakfast | Brunch | Lunch | Snack | Soup | Salad | Drink>",
   "description": "string (1-2 sentences)",
   "prepTimeMinutes": 10,
   "cookTimeMinutes": 20,
   "servings": 2,
   "dietaryTags": ["string"],
-  "ingredients": [
-    {"name": "string", "quantity": "string", "unit": "string", "fromInventory": true}
-  ],
-  "steps": ["string"],
-  "substitutions": [
-    {"original": "string", "substitute": "string", "tradeOff": "string"}
-  ],
   "nutrition": {
     "calories": 450,
     "proteinG": 35.0,
@@ -410,7 +1480,14 @@ class GeminiService {
     "fibreG": 6.0
   },
   "estimatedCostPerServingUSD": 4.50,
-  "estimatedCostPerServingGBP": 3.50
+  "estimatedCostPerServingGBP": 3.50,
+  "substitutions": [
+    {"original": "string", "substitute": "string", "tradeOff": "string"}
+  ],
+  "ingredients": [
+    {"name": "Chicken breast", "quantity": "0.5", "unit": "lb", "fromInventory": true}
+  ],
+  "steps": ["string"]
 }''');
 
     return buffer.toString();
@@ -418,29 +1495,140 @@ class GeminiService {
 
   /// Expand a mood chip label into specific, actionable prompt guidance
   /// so Gemini generates recipes that actually match the mood.
+  /// Sprint 15.9.3: time-preference guidance. Was bare text
+  /// (`Time: No rush`) which Gemini largely ignored — combined with the
+  /// universal "Max 8 steps / 10 ingredients" rule, the user got
+  /// weeknight food regardless of what they told us in onboarding.
+  /// This expands the time pref into an active instruction so Gemini
+  /// matches recipe ambition to the time the user has.
+  static String _expandTimeGuidance(String timePref) {
+    switch (timePref) {
+      case 'Quick (under 20 min)':
+        return 'Speedy weeknight cooking. Total time under 20 minutes. '
+            'Simple techniques only — one-pan, sheet-pan, stir-fry, '
+            'no-bake, microwaveable. Few ingredients, short clear steps. '
+            'No long marinades, no slow simmering, no double-cooking.';
+      case 'Around 30 minutes':
+        return 'Standard weeknight cooking. Total time 25–35 minutes. '
+            'Familiar techniques. Balance of effort and ease.';
+      case 'Around 45 minutes':
+        return 'Relaxed midweek cooking. Total time 40–50 minutes. '
+            'Use the extra time for browning meat, reducing sauces, '
+            'and building layered flavours. Steps can include sensory '
+            'cues ("until deeply caramelised", "until just translucent", '
+            '"until the foam subsides"). Aim for genuine depth, not just '
+            'a longer weeknight dinner.';
+      case 'No rush':
+        return 'Weekend or unhurried cooking. 60–90 minutes is fine, '
+            'longer is welcome if the dish rewards it. Use techniques '
+            'that genuinely benefit from time: braising, slow-roasting, '
+            'marinating, multi-stage cooking, layered components. '
+            'Be ambitious — pick something with depth, technique, and '
+            'a sense of occasion. Steps can be 2–3 sentences with '
+            'sensory cues, timing notes, and chef voice. Avoid '
+            'weeknight-shaped recipes (basic stir-fries, simple pastas, '
+            'one-pan throw-togethers) unless the dish is genuinely '
+            'iconic in that form. The user told us they have time — '
+            'use it. Treat this as a meal worth cooking, not just '
+            'feeding.';
+      default:
+        return '';
+    }
+  }
+
+  /// Per-time-preference caps. Looser limits when the user has time,
+  /// tighter limits when they're cooking quick. Returned alongside step
+  /// length guidance so the rules block reads consistently.
+  static ({int maxSteps, int maxIngredients, String stepLengthGuidance})
+      _capsForTimePreference(String? timePref) {
+    switch (timePref) {
+      case 'No rush':
+        return (
+          maxSteps: 12,
+          maxIngredients: 14,
+          stepLengthGuidance:
+              'Steps can be 2–3 sentences each with sensory cues, '
+              'timing, and chef voice (e.g. "until the butter foams '
+              'and starts to smell nutty"). Avoid robotic, mechanical '
+              'phrasing.',
+        );
+      case 'Around 45 minutes':
+        return (
+          maxSteps: 10,
+          maxIngredients: 12,
+          stepLengthGuidance:
+              'Steps should be 1–2 sentences with sensory cues '
+              'where appropriate (e.g. "until the onions are deeply '
+              'caramelised").',
+        );
+      case 'Around 30 minutes':
+      case 'Quick (under 20 min)':
+      default:
+        return (
+          maxSteps: 8,
+          maxIngredients: 10,
+          stepLengthGuidance: 'Keep steps SHORT (1–2 sentences each).',
+        );
+    }
+  }
+
+  /// Sprint 15.9.3 fix: previously this function handled
+  /// 'Impress someone' / 'Something hearty' / 'Light bite' / 'Use everything
+  /// up' — none of which are options the UI actually offers. The
+  /// recipe_preferences_screen mood chips are: Easy, Impressive,
+  /// Kid-friendly, Date night, Meal prep, Any. Result: every mood the
+  /// user picked fell through to bare "Mood: X" text and Gemini ignored
+  /// it. This rewrite matches the actual options.
   static String _expandMoodGuidance(String mood) {
     switch (mood) {
-      case 'Impress someone':
-        return 'This meal is for a special occasion or to impress a guest. '
-            'Choose a dish that looks and tastes restaurant-quality. '
-            'Use at least one elevated technique (e.g. searing, reducing a sauce, '
-            'caramelising, layering flavours, making a dressing or glaze from scratch). '
-            'Avoid anything that looks like a basic weeknight dinner. '
-            'Include a brief plating or presentation tip in the final step. '
-            'The title should sound appealing and sophisticated.';
-      case 'Something hearty':
-        return 'Make this a filling, comforting, warming dish. '
-            'Think stews, braises, bakes, curries, hearty pastas, or one-pot meals. '
-            'Generous portions, rich flavours, the kind of meal that satisfies completely.';
-      case 'Light bite':
-        return 'Keep this light and fresh. Salads, wraps, grain bowls, broth-based soups, '
-            'or small plates. Lower calorie, not heavy or stodgy. '
-            'Prioritise vegetables, lean proteins, and bright flavours.';
-      case 'Use everything up':
-        return 'The goal is to use up as many of the available fresh/perishable ingredients '
-            'as possible in a single recipe. Prioritise ingredients that spoil fastest. '
-            'A stir-fry, frittata, soup, curry, or similar flexible dish works well.';
+      case 'Easy':
+        return 'Low-effort weeknight cooking. Few ingredients, simple '
+            'familiar techniques, minimal prep, low cognitive load. '
+            'Avoid multi-stage prep, exotic ingredients, or unfamiliar '
+            'techniques. The user wants something that comes together '
+            'with minimum fuss.';
+      case 'Impressive':
+        return 'A dish meant to impress — for guests, a special occasion, '
+            'or just to feel proud of cooking. Restaurant-quality look '
+            'and flavour. Use at least one elevated technique (searing, '
+            'reducing a sauce, caramelising, layering flavours, making '
+            'a dressing or glaze from scratch). Avoid anything that '
+            'looks like a basic weeknight dinner. Include a brief plating '
+            'or presentation tip in the final step. The title should '
+            'sound appealing and sophisticated, not utilitarian.';
+      case 'Kid-friendly':
+        return 'Appealing to children. Mild flavours (avoid spicy, '
+            'bitter, very pungent cheeses, strong herbs). Familiar '
+            'shapes and textures, finger-food-friendly where possible. '
+            'Hidden vegetables welcome. Sauces on the side rather than '
+            'smothered. Avoid challenging textures (mushrooms, oily fish, '
+            'anything slimy or strongly-flavoured). The dish should be '
+            'recognisable to kids, not adventurous.';
+      case 'Date night':
+        return 'An at-home date-night dinner — relaxed but special. '
+            'Two-portion focused (or scale appropriately). Pleasant '
+            'aromatics during cooking are a plus. Slightly indulgent '
+            'without being heavy or sleep-inducing. Wine-friendly. '
+            'A glossy sauce or gentle char beats a stew. Should feel '
+            'like an event, not a Tuesday. Include a small finishing '
+            'touch (sprinkle of herbs, drizzle of oil, flaky salt) '
+            'in the final step.';
+      case 'Meal prep':
+        return 'Optimised for batch cooking and storage. The dish must '
+            'hold well in the fridge for 3–5 days OR freeze cleanly. '
+            'Avoid fresh garnishes, raw greens, anything that wilts or '
+            'gets soggy on reheat. Components that can be mixed-and-'
+            'matched across the week are a plus (e.g. a sauce that '
+            'works on multiple bases). Include portioning and reheating '
+            'notes in the steps.';
+      case 'Any':
+        // Treat 'Any' as no mood preference — caller already wraps the
+        // moodPreference field in a null check, so this just suppresses
+        // the bare "Mood: Any" line by returning an empty string.
+        return '';
       default:
+        // Unknown / future mood — let the bare "Mood: X" line stand
+        // rather than silently dropping the user's signal.
         return '';
     }
   }
@@ -499,6 +1687,10 @@ class GeminiService {
         previousMealTitles: previousMealTitles,
       ),
       maxOutputTokens: 2048,
+      // Sprint 15.9.3 SAFETY: bulk prep also runs post-gen allergen
+      // filter. A peanut-allergy user's batch-cook recipe should
+      // never include peanut butter either.
+      allergenGuard: request.customAllergens,
     );
   }
 
@@ -617,7 +1809,7 @@ class GeminiService {
       throw Exception(json['error'] as String);
     }
 
-    return GeneratedRecipe.fromJson(json);
+    return _parseGeneratedRecipe(json);
   }
 
   /// Import a recipe from a URL by fetching the webpage, stripping HTML,
@@ -709,7 +1901,7 @@ class GeminiService {
       throw Exception(json['error'] as String);
     }
 
-    return GeneratedRecipe.fromJson(json);
+    return _parseGeneratedRecipe(json);
   }
 
   // ── Side dish generation ──────────────────────────────────────────────────────
@@ -731,6 +1923,8 @@ class GeminiService {
 
     final prompt = StringBuffer()
       ..writeln('You are Elio, a friendly AI cooking assistant.')
+      ..writeln()
+      ..writeln('IMPORTANT: Reply with ONLY a single valid JSON object. No prose, no markdown fences, nothing before or after the JSON.')
       ..writeln()
       ..writeln('The user has made "$mainRecipeTitle". Suggest ONE complementary side dish or accompaniment.')
       ..writeln()
@@ -759,54 +1953,76 @@ class GeminiService {
 
     const sideDishModel = 'gemini-2.5-flash-lite';
     const sideDishEndpoint = 'https://generativelanguage.googleapis.com/v1beta/models/$sideDishModel:generateContent';
+    const int maxAttempts = 2;
+    Object? lastError;
 
-    final response = await http.post(
-      Uri.parse('$sideDishEndpoint?key=$_apiKey'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'contents': [
-          {
-            'parts': [{'text': prompt.toString()}]
-          }
-        ],
-        'generationConfig': {
-          'temperature': 0.8,
-          'topK': 40,
-          'topP': 0.95,
-          'maxOutputTokens': 768,
-          'responseMimeType': 'application/json',
-        },
-      }),
-    ).timeout(const Duration(seconds: 20), onTimeout: () {
-      throw Exception('Side dish generation timed out. Please try again.');
-    });
+    for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await http.post(
+          Uri.parse('$sideDishEndpoint?key=$_apiKey'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'contents': [
+              {
+                'parts': [{'text': prompt.toString()}]
+              }
+            ],
+            'generationConfig': {
+              'temperature': 0.8,
+              'topK': 40,
+              'topP': 0.95,
+              'maxOutputTokens': 768,
+              'responseMimeType': 'application/json',
+            },
+          }),
+        ).timeout(const Duration(seconds: 20), onTimeout: () {
+          throw Exception('Side dish generation timed out. Please try again.');
+        });
 
-    if (response.statusCode != 200) {
-      throw Exception('Side dish generation failed (${response.statusCode}). Please try again.');
+        if (response.statusCode == 401 || response.statusCode == 403 ||
+            response.statusCode == 400 || response.statusCode == 429) {
+          // Auth / bad-request / rate-limit — retry won't help.
+          throw Exception('Side dish generation failed (${response.statusCode}). Please try again.');
+        }
+        if (response.statusCode != 200) {
+          // 5xx and other transient — retry path below.
+          throw Exception('Side dish generation failed (${response.statusCode}). Please try again.');
+        }
+
+        final responseData = jsonDecode(response.body) as Map<String, dynamic>;
+        final candidates = responseData['candidates'] as List<dynamic>?;
+        if (candidates == null || candidates.isEmpty) {
+          throw Exception('No side dish generated. Please try again.');
+        }
+
+        final content = candidates[0]['content'] as Map<String, dynamic>?;
+        final parts = content?['parts'] as List<dynamic>?;
+        if (parts == null || parts.isEmpty) {
+          throw Exception('Empty response. Please try again.');
+        }
+
+        final textParts = parts.where((p) => p['thought'] != true).toList();
+        final rawText = textParts.isNotEmpty
+            ? (textParts.last['text'] as String? ?? '')
+            : (parts.last['text'] as String? ?? '');
+
+        if (rawText.isEmpty) {
+          throw Exception('Empty side dish response.');
+        }
+
+        final json = _extractJson(rawText);
+        return _parseGeneratedRecipe(json);
+      } catch (e) {
+        lastError = e;
+        ErrorService.log('side_dish_attempt_$attempt', e);
+        if (attempt < maxAttempts) {
+          await Future.delayed(const Duration(milliseconds: 500));
+          continue;
+        }
+      }
     }
 
-    final responseData = jsonDecode(response.body) as Map<String, dynamic>;
-    final candidates = responseData['candidates'] as List<dynamic>?;
-    if (candidates == null || candidates.isEmpty) {
-      throw Exception('No side dish generated. Please try again.');
-    }
-
-    final content = candidates[0]['content'] as Map<String, dynamic>?;
-    final parts = content?['parts'] as List<dynamic>?;
-    if (parts == null || parts.isEmpty) {
-      throw Exception('Empty response. Please try again.');
-    }
-
-    final textParts = parts.where((p) => p['thought'] != true).toList();
-    final rawText = textParts.isNotEmpty
-        ? (textParts.last['text'] as String? ?? '')
-        : (parts.last['text'] as String? ?? '');
-
-    if (rawText.isEmpty) {
-      throw Exception('Empty side dish response.');
-    }
-
-    final json = _extractJson(rawText);
-    return GeneratedRecipe.fromJson(json);
+    if (lastError is Exception) throw lastError;
+    throw Exception('Side dish generation failed. Please try again.');
   }
 }

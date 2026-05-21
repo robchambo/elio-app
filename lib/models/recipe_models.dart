@@ -4,6 +4,97 @@
 // Mirrors the Firestore schema in the design document.
 // ─────────────────────────────────────────────
 
+// Sprint 16.6 — defensive cap on RecipeIngredient string fields. Gemini
+// occasionally writes deliberation text or echoes prompt instructions
+// into string-typed fields when `thinkingBudget: 0` removes its scratch
+// space. 80 chars covers every legitimate quantity observed; truncation
+// adds an ellipsis (single U+2026 char). Field names are pushed onto an
+// optional sink so the calling parse path (GeneratedRecipe.fromJson)
+// can fire one aggregated ErrorService.log per recipe instead of one
+// per field.
+//
+// Sprint 16.6 (deliberation-bleed plan, Phase 0.2, 13 May 2026):
+// the sink now carries a shape classifier (`fieldName:bleed` or
+// `fieldName:long`) instead of just the field name. Lets the
+// aggregated Crashlytics log distinguish "Gemini paraphrased prompt
+// instructions into a value" (bleed) from "Gemini was just verbose"
+// (long) — the bleed pattern is the one we're root-causing in Phase 2.
+//
+// TODO(observability): if Crashlytics shows tips/description/title/
+// steps suffer the same failure mode, extend the same defence to those
+// fields.
+const int _ingredientFieldCharCap = 80;
+
+/// Lowercase substrings that indicate Gemini paraphrased one of our
+/// prompt instructions into the ingredient field value rather than
+/// emitting a clean numeric quantity. The phrases are extracted from
+/// the prompt section in `_buildPrompt` at gemini_service.dart around
+/// lines 1010 + 1014 — when these reach the response unaltered, the
+/// model has clearly bled deliberation into the JSON value.
+const Set<String> _bleedMarkers = {
+  '(from inventory)',
+  '(use this first)',
+  '(expires today)',
+  '(expires',
+  'must use all',
+  'required',
+  'do not',
+  'use these first',
+};
+
+/// Sprint 16.6 (14 May 2026, Notion XX-2 #4): Rob's "Different
+/// language has appeared in recipe UI" screenshot showed a quantity
+/// field whose value started in English then switched to Tamil
+/// script mid-sentence. Same class of failure as the
+/// English-paraphrase bleed but with a non-Latin destination.
+///
+/// Match by Unicode block: if a field value contains any character
+/// outside the common-Latin / extended-Latin / punctuation ranges
+/// we'd expect in a quantity ("0.5 lb", "200 g", "2 cloves"), it's
+/// almost certainly model deliberation in another language. This is
+/// classified as `:bleed-script` to distinguish from `:bleed`
+/// (instruction paraphrase) in Crashlytics — the underlying cause
+/// is the same (deliberation inside JSON) but the fix surface differs.
+bool _containsNonLatinScript(String s) {
+  for (final cu in s.codeUnits) {
+    // Allow common ASCII (0x20-0x7E) + Latin-1 supplement (0xA0-0xFF
+    // — covers €, £, accented letters) + Latin Extended A+B
+    // (0x0100-0x024F) + General Punctuation (0x2000-0x206F — em-dash,
+    // en-dash, curly quotes, ellipsis we add ourselves). Anything
+    // else (CJK, Tamil, Devanagari, Arabic, Greek, Cyrillic, etc.)
+    // is foreign content that doesn't belong in an ingredient field.
+    if (cu < 0x20) continue; // control chars OK (whitespace etc.)
+    if (cu <= 0x7E) continue; // ASCII printable
+    if (cu >= 0xA0 && cu <= 0xFF) continue; // Latin-1 supplement
+    if (cu >= 0x0100 && cu <= 0x024F) continue; // Latin extended A+B
+    if (cu >= 0x2000 && cu <= 0x206F) continue; // General Punctuation
+    return true;
+  }
+  return false;
+}
+
+String _sanitizeIngredientField(
+  Object? raw, {
+  required String fieldName,
+  List<String>? sink,
+}) {
+  final asString = raw?.toString().trim() ?? '';
+  if (asString.length <= _ingredientFieldCharCap) return asString;
+  if (sink != null) {
+    final lower = asString.toLowerCase();
+    final String classifier;
+    if (_containsNonLatinScript(asString)) {
+      classifier = 'bleed-script';
+    } else if (_bleedMarkers.any(lower.contains)) {
+      classifier = 'bleed';
+    } else {
+      classifier = 'long';
+    }
+    sink.add('$fieldName:$classifier');
+  }
+  return '${asString.substring(0, _ingredientFieldCharCap)}…';
+}
+
 // ─── Generation request ───────────────────────────────────────────────────────
 
 class RecipeGenerationRequest {
@@ -28,6 +119,14 @@ class RecipeGenerationRequest {
   /// Mood chip selection (soft preference)
   final String? moodPreference; // e.g. "Something hearty", "Light bite"
 
+  /// Sprint 16.6 row 5b — meal-type hard constraint. One of 'Breakfast',
+  /// 'Lunch', 'Dinner', or null. Null = no preference. When set, emits a
+  /// hard constraint line under `## HARD CONSTRAINTS` in the prompt so
+  /// the recipe shape (breakfast vs lunch vs dinner) is locked. No
+  /// example list — Gemini's training priors handle the meal-shape
+  /// concept; positive example anchors would bias output.
+  final String? mealType;
+
   /// Number of servings to generate for
   final int servings;
 
@@ -36,6 +135,19 @@ class RecipeGenerationRequest {
 
   /// Titles of recently generated recipes — used to prevent duplicates
   final List<String> recentTitles;
+
+  /// Sprint 16.6 (Notion XX bug 3): hero ingredients from the last 3
+  /// recipes (window per Rob). Fed into a VARIATION prompt section so
+  /// Gemini sees the actual signal instead of having to infer it from
+  /// titles. Empty by default → VARIATION section is omitted entirely.
+  /// Length cap is enforced upstream (HomeScreen FIFO of 3).
+  final List<String> recentHeroIngredients;
+
+  /// Sprint 16.6 (Notion XX bug 3): cookware nouns from the last 3
+  /// recipes' steps. Same wiring as recentHeroIngredients — feeds the
+  /// VARIATION prompt section so "skillet × 3 in a row" stops
+  /// happening. Empty by default → omitted from prompt.
+  final List<String> recentCookware;
 
   /// Pantry items flagged as running low — Gemini will avoid or treat as optional
   final List<String> runningLowItems;
@@ -62,6 +174,20 @@ class RecipeGenerationRequest {
   /// e.g. "chicken breast (expires in 2d)", "spinach (expires today)"
   final List<String> perishableInventoryDescriptions;
 
+  /// Free-text "craving" supplied by the user on the prefs screen.
+  /// e.g. "soup", "something with mushrooms", "pizza".
+  /// Treated as a high-priority soft preference — Gemini should honour it
+  /// where possible but never break dietary or required-perishable rules.
+  final String? userRequest;
+
+  /// Sprint 15.9.3 SAFETY FIX: user-typed custom allergens or specific
+  /// ingredients to exclude on safety grounds. Distinct from
+  /// [dietaryRequirements] (high-level patterns like 'Vegetarian'):
+  /// these are concrete things like 'peanuts', 'sesame', 'shellfish'.
+  /// Surfaced as a SEPARATE prompt section with maximum-strength
+  /// language so Gemini doesn't conflate them with soft preferences.
+  final List<String> customAllergens;
+
   const RecipeGenerationRequest({
     required this.perishables,
     required this.alwaysHave,
@@ -70,9 +196,12 @@ class RecipeGenerationRequest {
     this.timePreference,
     this.stylePreference,
     this.moodPreference,
+    this.mealType,
     this.servings = 2,
     this.excludedIngredients = const [],
     this.recentTitles = const [],
+    this.recentHeroIngredients = const [],
+    this.recentCookware = const [],
     this.runningLowItems = const [],
     this.isLeftoverMode = false,
     this.leftoverItems = const [],
@@ -81,6 +210,8 @@ class RecipeGenerationRequest {
     this.appliances = const [],
     this.isSaverMode = false,
     this.perishableInventoryDescriptions = const [],
+    this.userRequest,
+    this.customAllergens = const [],
   });
 }
 
@@ -143,6 +274,11 @@ class GeneratedRecipe {
   /// Bulk prep info (freezing & storage instructions). Nullable — only present for bulk prep recipes.
   final BulkPrepInfo? bulkPrepInfo;
 
+  /// Recipe category (e.g. "Entrée", "Dessert"). Nullable for legacy
+  /// records generated before Task 8b wired Gemini to populate the field.
+  /// See `lib/data/recipe_categories.dart` for the canonical list.
+  final String? category;
+
   const GeneratedRecipe({
     required this.title,
     required this.prepTimeMinutes,
@@ -157,11 +293,21 @@ class GeneratedRecipe {
     this.estimatedCostPerServingUSD,
     this.estimatedCostPerServingGBP,
     this.bulkPrepInfo,
+    this.category,
   });
 
   int get totalTimeMinutes => prepTimeMinutes + cookTimeMinutes;
 
-  factory GeneratedRecipe.fromJson(Map<String, dynamic> json) {
+  /// Parse from JSON. When [ingredientTruncations] is non-null, it gets
+  /// populated with field names of any over-cap ingredient strings so the
+  /// caller (typically `gemini_service.dart:_parseGeneratedRecipe`) can
+  /// fire one aggregated `ErrorService.log` per recipe. History read-back
+  /// (SavedRecipe.fromJson) doesn't pass a sink — old already-truncated
+  /// recipes from Firestore stay quiet.
+  factory GeneratedRecipe.fromJson(
+    Map<String, dynamic> json, {
+    List<String>? ingredientTruncations,
+  }) {
     return GeneratedRecipe(
       title: json['title'] as String? ?? 'Recipe',
       prepTimeMinutes: (json['prepTimeMinutes'] as num?)?.toInt() ?? 10,
@@ -169,7 +315,10 @@ class GeneratedRecipe {
       servings: (json['servings'] as num?)?.toInt() ?? 2,
       description: json['description'] as String? ?? '',
       ingredients: (json['ingredients'] as List<dynamic>? ?? [])
-          .map((e) => RecipeIngredient.fromJson(e as Map<String, dynamic>))
+          .map((e) => RecipeIngredient.fromJson(
+                e as Map<String, dynamic>,
+                truncatedSink: ingredientTruncations,
+              ))
           .toList(),
       steps: (json['steps'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
@@ -186,6 +335,7 @@ class GeneratedRecipe {
       estimatedCostPerServingUSD: (json['estimatedCostPerServingUSD'] as num?)?.toDouble(),
       estimatedCostPerServingGBP: (json['estimatedCostPerServingGBP'] as num?)?.toDouble(),
       bulkPrepInfo: json['bulkPrepInfo'] != null ? BulkPrepInfo.fromJson(json['bulkPrepInfo'] as Map<String, dynamic>) : null,
+      category: json['category'] as String?,
     );
   }
 
@@ -204,12 +354,15 @@ class GeneratedRecipe {
     if (estimatedCostPerServingUSD != null) 'estimatedCostPerServingUSD': estimatedCostPerServingUSD,
     if (estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': estimatedCostPerServingGBP,
     if (bulkPrepInfo != null) 'bulkPrepInfo': bulkPrepInfo!.toMap(),
+    if (category != null) 'category': category,
   };
 
   GeneratedRecipe copyWith({
     List<RecipeIngredient>? ingredients,
     List<RecipeSubstitution>? substitutions,
     BulkPrepInfo? bulkPrepInfo,
+    String? category,
+    List<String>? dietaryTags,
   }) {
     return GeneratedRecipe(
       title: title,
@@ -220,11 +373,12 @@ class GeneratedRecipe {
       ingredients: ingredients ?? this.ingredients,
       steps: steps,
       substitutions: substitutions ?? this.substitutions,
-      dietaryTags: dietaryTags,
+      dietaryTags: dietaryTags ?? this.dietaryTags,
       nutrition: nutrition,
       estimatedCostPerServingUSD: estimatedCostPerServingUSD,
       estimatedCostPerServingGBP: estimatedCostPerServingGBP,
       bulkPrepInfo: bulkPrepInfo ?? this.bulkPrepInfo,
+      category: category ?? this.category,
     );
   }
 }
@@ -242,11 +396,24 @@ class RecipeIngredient {
     required this.fromInventory,
   });
 
-  factory RecipeIngredient.fromJson(Map<String, dynamic> json) {
+  /// Parse from JSON with defensive field caps. When [truncatedSink] is
+  /// non-null, field names of any truncated string fields get pushed onto
+  /// it so the caller (GeneratedRecipe.fromJson) can fire one aggregated
+  /// ErrorService.log per recipe instead of one log per field. When null
+  /// (e.g. SavedRecipe history read-back), capping still applies but no
+  /// observability event fires — old already-truncated recipes in
+  /// Firestore stay quiet.
+  factory RecipeIngredient.fromJson(
+    Map<String, dynamic> json, {
+    List<String>? truncatedSink,
+  }) {
     return RecipeIngredient(
-      name: json['name'] as String? ?? '',
-      quantity: json['quantity']?.toString() ?? '',
-      unit: json['unit'] as String? ?? '',
+      name: _sanitizeIngredientField(json['name'],
+          fieldName: 'name', sink: truncatedSink),
+      quantity: _sanitizeIngredientField(json['quantity'],
+          fieldName: 'quantity', sink: truncatedSink),
+      unit: _sanitizeIngredientField(json['unit'],
+          fieldName: 'unit', sink: truncatedSink),
       fromInventory: json['fromInventory'] as bool? ?? false,
     );
   }
@@ -304,6 +471,7 @@ class SavedRecipe {
       if (recipe.estimatedCostPerServingUSD != null) 'estimatedCostPerServingUSD': recipe.estimatedCostPerServingUSD,
       if (recipe.estimatedCostPerServingGBP != null) 'estimatedCostPerServingGBP': recipe.estimatedCostPerServingGBP,
       if (recipe.bulkPrepInfo != null) 'bulkPrepInfo': recipe.bulkPrepInfo!.toMap(),
+      if (recipe.category != null) 'category': recipe.category,
     },
     'savedAt': savedAt,
     'isBookmarked': isBookmarked,
@@ -375,7 +543,15 @@ class RecipeComplete extends RecipeGenerationStatus {
 
 class RecipeError extends RecipeGenerationStatus {
   final String message;
-  RecipeError({required this.message});
+
+  /// True when the failure is transient and worth retrying without user
+  /// intervention (5xx, network blip, truncated SSE stream, JSON parse
+  /// failure). False for definitive failures the retry can't recover —
+  /// auth (401/403), bad request (400), rate-limit (429), explicit
+  /// MAX_TOKENS finish, or a deliberate user-facing message.
+  final bool retryable;
+
+  RecipeError({required this.message, this.retryable = false});
 }
 
 // ─── Bulk prep info (freezing & storage) ────────────────────────────────────

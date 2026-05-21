@@ -91,7 +91,9 @@ class PantryCategories {
       icon: '🫗',
       subcategories: {
         '': [
-          'Olive oil', 'Extra virgin olive oil', 'Vegetable oil',
+          // Basic cooking oils (Olive, Extra virgin olive, Vegetable) removed
+          // in Sprint 16.3 Bug 10 — assumed everyone has one, mirrors the
+          // water/salt/oil assumption in Gemini's _buildPrompt.
           'Coconut oil', 'Sesame oil', 'Balsamic vinegar',
           'White wine vinegar', 'Red wine vinegar', 'Apple cider vinegar',
           'Spray oil',

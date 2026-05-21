@@ -43,11 +43,21 @@ Write-Host ""
 Write-Host "Building Elio - Sprint $sprint release APK..." -ForegroundColor Cyan
 Write-Host ""
 
+# Sprint 16.6.x — every build gets a unique BUILD_LABEL that the
+# Settings → App Version row reads back via String.fromEnvironment.
+# Lets Rob/Kate verify they're testing the right APK without
+# guessing from filename + manual bookkeeping. Format: 0.<sprint>+<shortHash>.
+$shortHash = (& git rev-parse --short HEAD 2>$null).Trim()
+if (-not $shortHash) { $shortHash = "nogit" }
+$buildLabel = "0.${sprint}+${shortHash}"
+Write-Host "Build label: $buildLabel" -ForegroundColor DarkGray
+
 # Build
 $buildArgs = @(
     "build", "apk", "--release", "--flavor", "prod",
     "-t", "lib/main.dart",
-    "--dart-define=GEMINI_API_KEY=$apiKey"
+    "--dart-define=GEMINI_API_KEY=$apiKey",
+    "--dart-define=BUILD_LABEL=$buildLabel"
 )
 if ($rcKey) {
     $buildArgs += "--dart-define=REVENUECAT_API_KEY=$rcKey"

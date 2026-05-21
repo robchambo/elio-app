@@ -1,10 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
 import '../../services/analytics_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
-import '../onboarding/onboarding_flow.dart';
+import '../shell/app_shell.dart';
 import 'email_login_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -66,15 +66,12 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
 
       if (!mounted) return;
 
-      // New user — start onboarding (same as Google Sign-In for new users)
-      _analytics.logEvent('onboarding_started');
+      // Sprint 16 rebuild: users who registered via the auth screens
+      // (reached from screen 01 "I already have an account" or the
+      // in-app sign-up) should land in the AppShell. The 15-screen
+      // onboarding flow handles its own sign-up on screen 15.
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => OnboardingFlow(
-            displayName: _nameController.text.trim(),
-            onComplete: () {},
-          ),
-        ),
+        MaterialPageRoute(builder: (_) => const AppShell()),
         (route) => false,
       );
     } on FirebaseAuthException catch (e) {
@@ -95,7 +92,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
       SnackBar(
         content: Text(
           message,
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+          style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.white, fontSize: 14),
         ),
         backgroundColor: ElioColors.error,
       ),
@@ -120,12 +117,12 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: ElioColors.navy),
+          icon: const Icon(Icons.arrow_back, color: ElioColors.espresso),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -143,7 +140,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                 Text(
                   'Get personalised recipes in seconds.',
                   style: ElioText.bodyLarge.copyWith(
-                    color: ElioColors.textSecondary,
+                    color: ElioColors.mocha,
                   ),
                 ),
                 const SizedBox(height: 32),
@@ -160,11 +157,11 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   decoration: InputDecoration(
                     hintText: 'Your name',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -190,11 +187,11 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   decoration: InputDecoration(
                     hintText: 'you@example.com',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -222,11 +219,11 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   decoration: InputDecoration(
                     hintText: 'At least 6 characters',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -235,7 +232,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                         _obscurePassword
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: ElioColors.textMuted,
+                        color: ElioColors.mocha,
                         size: 20,
                       ),
                       onPressed: () {
@@ -266,11 +263,11 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   decoration: InputDecoration(
                     hintText: 'Re-enter your password',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -279,7 +276,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                         _obscureConfirm
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: ElioColors.textMuted,
+                        color: ElioColors.mocha,
                         size: 20,
                       ),
                       onPressed: () {
@@ -307,10 +304,10 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleRegister,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: ElioColors.amber,
-                      foregroundColor: ElioColors.white,
+                      backgroundColor: ElioColors.terracotta,
+                      foregroundColor: Colors.white,
                       disabledBackgroundColor:
-                          ElioColors.amber.withValues(alpha: 0.5),
+                          ElioColors.terracotta.withValues(alpha: 0.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -322,15 +319,13 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                             height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              color: ElioColors.white,
+                              color: Colors.white,
                             ),
                           )
                         : Text(
                             'Create account',
-                            style: GoogleFonts.outfit(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: ElioColors.white,
+                            style: ElioTextStyles.uiLabelStyle.copyWith(
+                              color: Colors.white,
                             ),
                           ),
                   ),
@@ -345,7 +340,7 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                       Text(
                         'Already have an account? ',
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.textSecondary,
+                          color: ElioColors.mocha,
                         ),
                       ),
                       GestureDetector(
@@ -356,12 +351,17 @@ class _EmailRegisterScreenState extends State<EmailRegisterScreen> {
                             ),
                           );
                         },
-                        child: Text(
-                          'Sign in',
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: ElioColors.amber,
+                        // Sprint 16.2: 8-px pad so the hit-area clears
+                        // the ~44-px accessibility minimum. Raw Text
+                        // was ~20 px tall.
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            'Sign in',
+                            style: ElioTextStyles.uiLabelStyle.copyWith(
+                              fontSize: 14,
+                              color: ElioColors.terracotta,
+                            ),
                           ),
                         ),
                       ),

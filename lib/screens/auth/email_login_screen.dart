@@ -1,17 +1,29 @@
+import 'dart:io' show Platform;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../services/auth_service.dart';
-import '../../services/firestore_service.dart';
 import '../../services/analytics_service.dart';
+import '../../services/error_service.dart';
+import '../../theme/elio_spacing.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
-import '../onboarding/onboarding_flow.dart';
-import '../home/home_screen.dart';
+import '../../widgets/elio/elio_provider_signin_button.dart';
+import '../shell/app_shell.dart';
 import 'email_register_screen.dart';
 
 // ─────────────────────────────────────────────
 // EmailLoginScreen
-// Email + password sign-in for Elio.
+//
+// "I already have an account" landing surface. Despite the class name,
+// this is the multi-provider sign-in screen — Google primary, Apple on
+// iOS (coming-soon toast until Sprint 19), and the email + password form
+// below an "or sign in with email" divider.
+//
+// Pre-19 May 2026 this was email-only. Rob's on-device feedback was
+// that real users tap "I already have an account" expecting Google
+// because that's what they used to create the account on screen 15.
+// File / class name kept to avoid churn at the screen 01 call site.
 // ─────────────────────────────────────────────
 
 class EmailLoginScreen extends StatefulWidget {
@@ -23,7 +35,6 @@ class EmailLoginScreen extends StatefulWidget {
 
 class _EmailLoginScreenState extends State<EmailLoginScreen> {
   final AuthService _auth = AuthService();
-  final FirestoreService _firestore = FirestoreService();
   final AnalyticsService _analytics = AnalyticsService.instance;
 
   final _formKey = GlobalKey<FormState>();
@@ -38,6 +49,52 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  // ─── Provider sign-in: Google ────────────────────────────────────
+  //
+  // Mirrors screen 15's Google path. On success we land in AppShell —
+  // existing-user flow, no onboarding migration.
+  Future<void> _handleGoogleSignIn() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    _analytics.logEvent('sign_in_method', {'method': 'google'});
+
+    try {
+      final credential = await _auth.signInWithGoogle();
+      if (credential?.user == null) {
+        // User cancelled the Google account picker — silent return.
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+      if (!mounted) return;
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
+    } catch (e) {
+      ErrorService.log('signin_google', e);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _showError("Couldn't sign in with Google. Check your connection and try again.");
+      }
+    }
+  }
+
+  // Apple Sign-In proper lands Sprint 19 (matches screen 15's "coming
+  // soon" treatment — keeps the tap as a demand signal but doesn't
+  // advertise a broken button).
+  void _handleAppleSignIn() {
+    _analytics.logEvent('sign_in_method', {'method': 'apple'});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Sign in with Apple is coming soon — use Google for now.',
+          style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.white, fontSize: 14),
+        ),
+        backgroundColor: ElioColors.espresso,
+      ),
+    );
   }
 
   Future<void> _handleSignIn() async {
@@ -61,26 +118,16 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
         return;
       }
 
-      final isComplete = await _firestore.isOnboardingComplete();
+      // Sprint 16 rebuild: sign-in from AuthGate's login path is reserved
+      // for existing users. If a user reaches the login flow, we treat them
+      // as onboarded and land them in the AppShell. First-time users are
+      // routed through the new 15-screen onboarding flow which terminates
+      // at its own account screen.
       if (!mounted) return;
-
-      if (isComplete) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
-          (route) => false,
-        );
-      } else {
-        _analytics.logEvent('onboarding_started');
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => OnboardingFlow(
-              displayName: user.displayName ?? 'there',
-              onComplete: () {},
-            ),
-          ),
-          (route) => false,
-        );
-      }
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+        (route) => false,
+      );
     } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -108,7 +155,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
           SnackBar(
             content: Text(
               'Password reset email sent to $email',
-              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+              style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.white, fontSize: 14),
             ),
             backgroundColor: ElioColors.success,
           ),
@@ -126,7 +173,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
       SnackBar(
         content: Text(
           message,
-          style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+          style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.white, fontSize: 14),
         ),
         backgroundColor: ElioColors.error,
       ),
@@ -155,12 +202,12 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: ElioColors.navy),
+          icon: const Icon(Icons.arrow_back, color: ElioColors.espresso),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -178,10 +225,54 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                 Text(
                   'Sign in to your Elio account.',
                   style: ElioText.bodyLarge.copyWith(
-                    color: ElioColors.textSecondary,
+                    color: ElioColors.mocha,
                   ),
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 28),
+
+                // ── Provider sign-in ────────────────────────────
+                // Google first — it's what most existing users created
+                // their account with on screen 15.
+                if (Platform.isIOS) ...[
+                  ElioProviderSignInButton(
+                    kind: ProviderButtonKind.apple,
+                    onPressed: _isLoading ? () {} : _handleAppleSignIn,
+                  ),
+                  const SizedBox(height: ElioSpacing.sm + 2),
+                ],
+                ElioProviderSignInButton(
+                  kind: ProviderButtonKind.google,
+                  onPressed: _isLoading ? () {} : _handleGoogleSignIn,
+                ),
+                const SizedBox(height: 24),
+
+                // ── Divider ─────────────────────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        color: ElioColors.rule,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text(
+                        'or sign in with email',
+                        style: ElioTextStyles.bodySmallStyle.copyWith(
+                          color: ElioColors.mocha,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        height: 1,
+                        color: ElioColors.rule,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
 
                 // ── Email field ─────────────────────────────────
                 Text('Email', style: ElioText.label),
@@ -195,11 +286,11 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                   decoration: InputDecoration(
                     hintText: 'you@example.com',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -227,11 +318,11 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                   decoration: InputDecoration(
                     hintText: 'Your password',
                     filled: true,
-                    fillColor: ElioColors.offWhite,
+                    fillColor: ElioColors.cream,
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: const BorderSide(
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                         width: 1.5,
                       ),
                     ),
@@ -240,7 +331,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                         _obscurePassword
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
-                        color: ElioColors.textMuted,
+                        color: ElioColors.mocha,
                         size: 20,
                       ),
                       onPressed: () {
@@ -270,10 +361,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     ),
                     child: Text(
                       'Forgot password?',
-                      style: GoogleFonts.outfit(
+                      style: ElioTextStyles.uiLabelStyle.copyWith(
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: ElioColors.amber,
+                        color: ElioColors.terracotta,
                       ),
                     ),
                   ),
@@ -287,10 +377,10 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _handleSignIn,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: ElioColors.amber,
-                      foregroundColor: ElioColors.white,
+                      backgroundColor: ElioColors.terracotta,
+                      foregroundColor: Colors.white,
                       disabledBackgroundColor:
-                          ElioColors.amber.withValues(alpha: 0.5),
+                          ElioColors.terracotta.withValues(alpha: 0.5),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -302,15 +392,13 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                             height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              color: ElioColors.white,
+                              color: Colors.white,
                             ),
                           )
                         : Text(
                             'Sign in',
-                            style: GoogleFonts.outfit(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: ElioColors.white,
+                            style: ElioTextStyles.uiLabelStyle.copyWith(
+                              color: Colors.white,
                             ),
                           ),
                   ),
@@ -325,7 +413,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                       Text(
                         "Don't have an account? ",
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.textSecondary,
+                          color: ElioColors.mocha,
                         ),
                       ),
                       GestureDetector(
@@ -336,12 +424,17 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                             ),
                           );
                         },
-                        child: Text(
-                          'Register',
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: ElioColors.amber,
+                        // Sprint 16.2: 8-px pad so the hit-area clears
+                        // the ~44-px accessibility minimum. Raw Text
+                        // was ~20 px tall.
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            'Register',
+                            style: ElioTextStyles.uiLabelStyle.copyWith(
+                              fontSize: 14,
+                              color: ElioColors.terracotta,
+                            ),
                           ),
                         ),
                       ),

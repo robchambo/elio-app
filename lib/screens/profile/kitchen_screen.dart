@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
 import '../../services/firestore_service.dart';
+import '../../services/user_settings_service.dart';
 
 // ─────────────────────────────────────────────
 // KitchenScreen
@@ -46,7 +47,17 @@ class _KitchenScreenState extends State<KitchenScreen> {
       final data = await _firestore.getUserData();
       if (mounted) {
         setState(() {
-          _appliances = List<String>.from(data['appliances'] ?? []);
+          // Sprint 16.1: legacy onboarding wrote opaque IDs
+          // ('airfryer', 'pressure', 'bbq'). Settings chip IDs are
+          // full display labels ('Air fryer', 'Instant Pot / Pressure
+          // cooker', 'Grill / BBQ'), and `.contains` is case-sensitive
+          // — without normalising, an onboarding-set air fryer never
+          // appears selected here. Subsequent toggles write the
+          // display-label form back to Firestore, organically
+          // migrating legacy data forward.
+          _appliances = UserSettingsService.canonicaliseApplianceList(
+            List<String>.from(data['appliances'] ?? const <String>[]),
+          );
           _isLoading = false;
         });
       }
@@ -77,7 +88,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           children: [
@@ -89,7 +100,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
                     onTap: () => Navigator.of(context).pop(),
                     child: const Padding(
                       padding: EdgeInsets.all(8),
-                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+                      child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -99,7 +110,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
             ),
             const SizedBox(height: 16),
             if (_isLoading)
-              const Expanded(child: Center(child: CircularProgressIndicator(color: ElioColors.amber)))
+              const Expanded(child: Center(child: CircularProgressIndicator(color: ElioColors.terracotta)))
             else
               Expanded(
                 child: ListView(
@@ -107,7 +118,7 @@ class _KitchenScreenState extends State<KitchenScreen> {
                   children: [
                     Text(
                       "Select the appliances you own and we'll tailor recipes to make the most of them.",
-                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                      style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                     ),
                     const SizedBox(height: 20),
                     Wrap(
@@ -121,17 +132,17 @@ class _KitchenScreenState extends State<KitchenScreen> {
                             duration: const Duration(milliseconds: 150),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                             decoration: BoxDecoration(
-                              color: isSelected ? ElioColors.amber : ElioColors.offWhite,
+                              color: isSelected ? ElioColors.terracotta : ElioColors.cream,
                               borderRadius: BorderRadius.circular(24),
                               border: Border.all(
-                                color: isSelected ? ElioColors.amber : ElioColors.border,
+                                color: isSelected ? ElioColors.terracotta : ElioColors.rule,
                                 width: isSelected ? 1.5 : 1,
                               ),
                             ),
                             child: Text(
                               appliance,
                               style: ElioText.label.copyWith(
-                                color: isSelected ? Colors.white : ElioColors.textPrimary,
+                                color: isSelected ? Colors.white : ElioColors.espresso,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),

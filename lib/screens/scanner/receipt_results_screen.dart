@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/scanner_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 
 // ─────────────────────────────────────────────
@@ -33,25 +33,23 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        title: Text('Edit Name', style: GoogleFonts.outfit(
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
-          color: ElioColors.navy,
+        title: Text('Edit Name', style: ElioTextStyles.uiLabelStyle.copyWith(
+          color: ElioColors.espresso,
         )),
         content: TextField(
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.words,
-          style: GoogleFonts.outfit(fontSize: 14, color: ElioColors.navy),
+          style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso),
           decoration: InputDecoration(
             isDense: true,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: ElioColors.amber, width: 1.5),
+              borderSide: const BorderSide(color: ElioColors.terracotta, width: 1.5),
             ),
           ),
           onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
@@ -59,13 +57,12 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: GoogleFonts.outfit(color: ElioColors.textSecondary)),
+            child: Text('Cancel', style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.mocha)),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-            child: Text('Save', style: GoogleFonts.outfit(
-              fontWeight: FontWeight.w700,
-              color: ElioColors.amber,
+            child: Text('Save', style: ElioTextStyles.uiLabelStyle.copyWith(
+              color: ElioColors.terracotta,
             )),
           ),
         ],
@@ -99,7 +96,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
@@ -114,6 +111,16 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
+                // 19 May 2026 — Rob: receipts shorten item names
+                // ("ORG PNAPPLE", "KS COAST CHI") and the OCR + Gemini
+                // pass can only do so much. Set expectations up-front
+                // that the user should sweep each line before
+                // confirming. Sits above the smart-memory banner so
+                // first-time scanners see it on every receipt; once
+                // dismissed (Sprint 17 polish), only first-time users
+                // would see it.
+                _buildEditPromptBanner(),
+                const SizedBox(height: 10),
                 // Smart memory banner
                 if (_tierMemoryCount > 0) _buildMemoryBanner(),
                 const SizedBox(height: 12),
@@ -134,27 +141,79 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
     );
   }
 
+  // ─── Edit-prompt Banner ─────────────────────────────────────────
+  //
+  // Receipt OCR + Gemini parsing can't always rescue truncated names
+  // ("ORG PNAPPLE", "KS COAST CHI") or correct mis-categorised tiers.
+  // This banner sets expectations so the user knows to sweep each
+  // line before confirming, rather than feeling like the import is
+  // broken when names look weird.
+
+  Widget _buildEditPromptBanner() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: ElioColors.terracotta.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.edit_note_rounded,
+            color: ElioColors.terracotta,
+            size: 22,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Check each line before adding',
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: ElioColors.espresso,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "Supermarkets shorten item names on receipts. Tap a row "
+                  "to rename it, fix the tier, or remove it — every store's "
+                  "receipt is different and a quick sweep is normal.",
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
+                    color: ElioColors.mocha,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── Smart Memory Banner ────────────────────────────────────────
 
   Widget _buildMemoryBanner() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: ElioColors.sky.withValues(alpha: 0.1),
+        color: ElioColors.peach.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ElioColors.sky.withValues(alpha: 0.25)),
+        border: Border.all(color: ElioColors.mocha.withValues(alpha: 0.25)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.psychology_rounded, color: ElioColors.sky, size: 22),
+          const Icon(Icons.psychology_rounded, color: ElioColors.mocha, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               'Elio remembered tier preferences for $_tierMemoryCount item${_tierMemoryCount == 1 ? '' : 's'} from previous receipts',
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: ElioColors.sky,
+              style: ElioTextStyles.bodySmallStyle.copyWith(
+                color: ElioColors.mocha,
               ),
             ),
           ),
@@ -179,9 +238,8 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
               ),
             Text(
               '${_foodItems.length} food item${_foodItems.length == 1 ? '' : 's'} found',
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                color: ElioColors.textSecondary,
+              style: ElioTextStyles.bodySmallStyle.copyWith(
+                color: ElioColors.mocha,
               ),
             ),
           ],
@@ -190,15 +248,14 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: ElioColors.amber.withValues(alpha: 0.12),
+            color: ElioColors.terracotta.withValues(alpha: 0.12),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
             '${_items.length} total',
-            style: GoogleFonts.outfit(
-              fontSize: 12,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
               fontWeight: FontWeight.w700,
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
             ),
           ),
         ),
@@ -211,9 +268,9 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
   Widget _buildReceiptContainer() {
     return Container(
       decoration: BoxDecoration(
-        color: ElioColors.white,
+        color: ElioColors.cream,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
+        border: Border.all(color: ElioColors.rule),
       ),
       child: Column(
         children: List.generate(_items.length, (index) {
@@ -229,7 +286,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: CustomPaint(
                     size: const Size(double.infinity, 1),
-                    painter: _DottedLinePainter(color: ElioColors.border),
+                    painter: _DottedLinePainter(color: ElioColors.rule),
                   ),
                 ),
             ],
@@ -266,24 +323,22 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                               Flexible(
                                 child: Text(
                                   item.name,
-                                  style: GoogleFonts.outfit(
+                                  style: ElioTextStyles.uiLabelStyle.copyWith(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: ElioColors.textPrimary,
+                                    color: ElioColors.espresso,
                                   ),
                                 ),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.edit_rounded, size: 14, color: ElioColors.amber),
+                              const Icon(Icons.edit_rounded, size: 14, color: ElioColors.terracotta),
                             ],
                           ),
                         )
                       : Text(
                           item.name,
-                          style: GoogleFonts.outfit(
+                          style: ElioTextStyles.uiLabelStyle.copyWith(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: item.isNonFood ? ElioColors.textMuted : ElioColors.textPrimary,
+                            color: item.isNonFood ? ElioColors.mocha : ElioColors.espresso,
                             decoration: item.isNonFood ? TextDecoration.lineThrough : null,
                           ),
                         ),
@@ -303,9 +358,8 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                   const SizedBox(width: 10),
                   Text(
                     '\$${item.price!}',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      color: ElioColors.textSecondary,
+                    style: ElioTextStyles.bodySmallStyle.copyWith(
+                      color: ElioColors.mocha,
                     ),
                   ),
                 ],
@@ -319,7 +373,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                         _expandedIndex = _expandedIndex! - 1;
                       }
                     }),
-                    child: const Icon(Icons.close_rounded, size: 18, color: ElioColors.textMuted),
+                    child: const Icon(Icons.close_rounded, size: 18, color: ElioColors.mocha),
                   ),
                 ],
               ],
@@ -330,9 +384,8 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
                   'Tap tier badge to change category',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    color: ElioColors.textMuted,
+                  style: ElioTextStyles.tabLabelStyle.copyWith(
+                    color: ElioColors.mocha,
                   ),
                 ),
               ),
@@ -352,11 +405,23 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
   }
 
   Widget _buildTierBadge(String tier) {
+    // 19 May 2026 — Rob's on-device screenshot showed badges rendering
+    // as `almostAlwaysHave` (the raw enum value tracked-out in
+    // tabLabelStyle, looked like terminal text and overflowed the row).
+    // Root cause: scanner_service writes the canonical inventory tier
+    // `'almostAlwaysHave'` (with the `Have` suffix — matches
+    // `InventoryItem.tier` everywhere else in the app), but this
+    // switch only matched the legacy `'almostAlways'` form. Items
+    // suggested with the canonical tier fell through to the `_`
+    // fallback and rendered the raw string. Match both for safety.
     final (Color bg, Color fg, String label) = switch (tier) {
-      'alwaysHave' => (const Color(0xFFE8F5E9), ElioColors.success, 'Always Have'),
-      'almostAlways' => (const Color(0xFFE3F2FD), ElioColors.sky, 'Almost Always'),
-      'perishable' => (const Color(0xFFFFF3E0), ElioColors.amber, 'Perishable'),
-      _ => (ElioColors.offWhite, ElioColors.textSecondary, tier),
+      'alwaysHave' =>
+        (const Color(0xFFE8F5E9), ElioColors.success, 'Always Have'),
+      'almostAlwaysHave' || 'almostAlways' =>
+        (const Color(0xFFE3F2FD), ElioColors.mocha, 'Almost Always'),
+      'perishable' =>
+        (const Color(0xFFFFF3E0), ElioColors.terracotta, 'Perishable'),
+      _ => (ElioColors.cream, ElioColors.mocha, tier),
     };
 
     return Container(
@@ -370,8 +435,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
         children: [
           Text(
             label,
-            style: GoogleFonts.outfit(
-              fontSize: 10,
+            style: ElioTextStyles.tabLabelStyle.copyWith(
               fontWeight: FontWeight.w700,
               color: fg,
             ),
@@ -385,12 +449,20 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
   // ─── Tier Selector Chips ────────────────────────────────────────
 
   Widget _buildTierSelector(int index) {
+    // 19 May 2026 — canonical inventory tiers (match InventoryItem.tier).
+    // The legacy `'almostAlways'` form was a receipt-screen local; it
+    // wrote out values that didn't round-trip cleanly with the rest of
+    // the app's pantry data. Use the same strings every other surface
+    // does.
     const tiers = [
       ('alwaysHave', 'Always Have'),
-      ('almostAlways', 'Almost Always'),
+      ('almostAlwaysHave', 'Almost Always'),
       ('perishable', 'Perishable'),
     ];
-    final current = _items[index].suggestedTier;
+    final currentRaw = _items[index].suggestedTier;
+    // Treat legacy `'almostAlways'` as `'almostAlwaysHave'` so a tile
+    // built before this commit still shows the chip as selected.
+    final current = currentRaw == 'almostAlways' ? 'almostAlwaysHave' : currentRaw;
 
     return Wrap(
       spacing: 8,
@@ -406,19 +478,18 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: isSelected ? ElioColors.amber.withValues(alpha: 0.12) : ElioColors.offWhite,
+              color: isSelected ? ElioColors.terracotta.withValues(alpha: 0.12) : ElioColors.cream,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: isSelected ? ElioColors.amber : ElioColors.border,
+                color: isSelected ? ElioColors.terracotta : ElioColors.rule,
                 width: isSelected ? 1.5 : 1,
               ),
             ),
             child: Text(
               tier.$2,
-              style: GoogleFonts.outfit(
-                fontSize: 12,
+              style: ElioTextStyles.bodySmallStyle.copyWith(
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                color: isSelected ? ElioColors.amber : ElioColors.textSecondary,
+                color: isSelected ? ElioColors.terracotta : ElioColors.mocha,
               ),
             ),
           ),
@@ -438,10 +509,9 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
       children: [
         Text(
           'Expires in:',
-          style: GoogleFonts.outfit(
-            fontSize: 11,
+          style: ElioTextStyles.tabLabelStyle.copyWith(
             fontWeight: FontWeight.w600,
-            color: ElioColors.textSecondary,
+            color: ElioColors.mocha,
           ),
         ),
         const SizedBox(height: 4),
@@ -458,18 +528,17 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: isSelected ? ElioColors.amber.withValues(alpha: 0.12) : Colors.transparent,
+                  color: isSelected ? ElioColors.terracotta.withValues(alpha: 0.12) : Colors.transparent,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: isSelected ? ElioColors.amber : ElioColors.border,
+                    color: isSelected ? ElioColors.terracotta : ElioColors.rule,
                   ),
                 ),
                 child: Text(
                   preset,
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
+                  style: ElioTextStyles.tabLabelStyle.copyWith(
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? ElioColors.amber : ElioColors.textSecondary,
+                    color: isSelected ? ElioColors.terracotta : ElioColors.mocha,
                   ),
                 ),
               ),
@@ -487,13 +556,12 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
       padding: const EdgeInsets.only(top: 10),
       child: Row(
         children: [
-          Icon(Icons.info_outline_rounded, size: 16, color: ElioColors.textMuted),
+          Icon(Icons.info_outline_rounded, size: 16, color: ElioColors.mocha),
           const SizedBox(width: 6),
           Text(
             '$_nonFoodCount non-food item${_nonFoodCount == 1 ? '' : 's'} filtered',
-            style: GoogleFonts.outfit(
-              fontSize: 12,
-              color: ElioColors.textMuted,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
+              color: ElioColors.mocha,
             ),
           ),
         ],
@@ -510,7 +578,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       decoration: BoxDecoration(
-        color: ElioColors.white,
+        color: ElioColors.cream,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -526,7 +594,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
           child: ElevatedButton(
             onPressed: () => Navigator.of(context).pop(_foodItems),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.amber,
+              backgroundColor: ElioColors.terracotta,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -534,9 +602,7 @@ class _ReceiptResultsScreenState extends State<ReceiptResultsScreen> {
             ),
             child: Text(
               'Add $count Item${count == 1 ? '' : 's'} to Pantry',
-              style: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
+              style: ElioTextStyles.uiLabelStyle.copyWith(
                 color: Colors.white,
               ),
             ),

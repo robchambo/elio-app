@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elio — Launch Readiness · 3 May 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,700;12..96,800&family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream:        #F4ECE0;
+    --cream-deep:   #EFE3D2;
+    --terracotta:   #E37B53;
+    --terracotta-d: #C26642;
+    --peach:        #F2C9A8;
+    --espresso:     #2A1F1A;
+    --mocha:        #6B5A4F;
+    --rule:         #D7C5B0;
+    --green:        #7A876D;
+    --amber:        #F5C26B;
+    --red:          #A43D09;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--espresso);
+    font-family: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 56px 32px 96px;
+  }
+
+  /* ─── Type ─────────────────────────────────────────── */
+
+  h1, h2, h3, h4 { font-family: 'Bricolage Grotesque', serif; color: var(--espresso); margin: 0; line-height: 1.1; }
+  h1 { font-size: 56px; font-weight: 800; letter-spacing: -0.02em; }
+  h1 .dot { color: var(--terracotta); }
+  h2 { font-size: 32px; font-weight: 700; letter-spacing: -0.015em; margin-top: 64px; margin-bottom: 16px; }
+  h3 { font-size: 22px; font-weight: 700; margin-top: 28px; margin-bottom: 8px; }
+  h4 { font-size: 17px; font-weight: 600; margin: 0 0 6px; }
+
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--mocha);
+  }
+
+  .lede {
+    font-size: 20px;
+    color: var(--mocha);
+    margin: 12px 0 0;
+    max-width: 680px;
+  }
+
+  p { margin: 0 0 12px; }
+  a { color: var(--terracotta-d); }
+
+  /* ─── Header card ──────────────────────────────────── */
+
+  .hero {
+    margin-top: 24px;
+    background: var(--cream-deep);
+    border-radius: 16px;
+    padding: 32px;
+    border: 1px solid var(--rule);
+  }
+
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 32px;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+  }
+
+  .meta-cell .label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--mocha);
+    margin-bottom: 4px;
+  }
+
+  .meta-cell .value {
+    font-family: 'Bricolage Grotesque', serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--espresso);
+  }
+
+  /* ─── Progress bar ─────────────────────────────────── */
+
+  .progress {
+    margin-top: 20px;
+    background: var(--rule);
+    height: 12px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress > span {
+    display: block;
+    height: 100%;
+    background: var(--terracotta);
+    border-radius: 999px;
+  }
+  .progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 24px;
+  }
+  .progress-row .pct {
+    font-family: 'Bricolage Grotesque', serif;
+    font-weight: 800;
+    font-size: 28px;
+  }
+
+  /* ─── Stat strip ───────────────────────────────────── */
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 32px;
+  }
+  .stat {
+    background: var(--cream-deep);
+    border-radius: 14px;
+    padding: 20px;
+    border: 1px solid var(--rule);
+  }
+  .stat .num {
+    font-family: 'Bricolage Grotesque', serif;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--terracotta);
+    line-height: 1;
+  }
+  .stat .num small { font-size: 18px; color: var(--mocha); margin-left: 4px; }
+  .stat .lab { font-size: 13px; color: var(--mocha); margin-top: 8px; }
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+  /* ─── Track cards ──────────────────────────────────── */
+
+  .track {
+    background: var(--cream-deep);
+    border-radius: 16px;
+    padding: 28px;
+    border: 1px solid var(--rule);
+    margin-top: 20px;
+  }
+  .track-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .track-head .est {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--mocha);
+    background: var(--cream);
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+
+  /* ─── Pills ────────────────────────────────────────── */
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--rule);
+    background: var(--cream);
+    color: var(--mocha);
+  }
+  .pill::before { content: ""; width: 6px; height: 6px; border-radius: 999px; background: var(--mocha); }
+  .pill.done       { color: var(--green); border-color: rgba(122,135,109,0.4); }
+  .pill.done::before     { background: var(--green); }
+  .pill.partial    { color: #936300; border-color: rgba(245,194,107,0.5); background: rgba(245,194,107,0.18); }
+  .pill.partial::before  { background: var(--amber); }
+  .pill.todo       { color: var(--red); border-color: rgba(164,61,9,0.4); background: rgba(164,61,9,0.08); }
+  .pill.todo::before     { background: var(--red); }
+
+  /* ─── Tasks table ──────────────────────────────────── */
+
+  table.tasks {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    background: var(--cream);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  table.tasks th, table.tasks td {
+    text-align: left;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+  }
+  table.tasks th {
+    background: var(--cream-deep);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-weight: 500;
+    color: var(--mocha);
+  }
+  table.tasks tr:last-child td { border-bottom: none; }
+  table.tasks td .name { font-weight: 600; color: var(--espresso); }
+  table.tasks td .note { font-size: 13px; color: var(--mocha); margin-top: 4px; }
+  table.tasks td.col-est { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--mocha); white-space: nowrap; }
+  table.tasks td.col-status { white-space: nowrap; }
+
+  /* ─── Done sprints accordion ───────────────────────── */
+
+  details.done-list {
+    margin-top: 12px;
+    background: var(--cream-deep);
+    border-radius: 14px;
+    border: 1px solid var(--rule);
+    padding: 16px 20px;
+  }
+  details.done-list summary {
+    cursor: pointer;
+    font-family: 'Bricolage Grotesque', serif;
+    font-weight: 600;
+    font-size: 17px;
+    list-style: none;
+  }
+  details.done-list summary::-webkit-details-marker { display: none; }
+  details.done-list summary::after {
+    content: "+";
+    float: right;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    color: var(--terracotta);
+  }
+  details.done-list[open] summary::after { content: "−"; }
+  details.done-list ul { margin: 12px 0 0; padding-left: 20px; }
+  details.done-list li { color: var(--mocha); margin-bottom: 6px; font-size: 14px; }
+  details.done-list li b { color: var(--espresso); }
+
+  /* ─── Risk strip ───────────────────────────────────── */
+
+  .risks {
+    margin-top: 20px;
+    background: var(--cream-deep);
+    border-radius: 16px;
+    padding: 24px 28px;
+    border: 1px solid var(--rule);
+  }
+  .risks ul { margin: 12px 0 0; padding-left: 20px; }
+  .risks li { margin-bottom: 8px; font-size: 14px; }
+  .risks li b { font-family: 'Bricolage Grotesque', serif; font-weight: 700; }
+
+  /* ─── Backlog ──────────────────────────────────────── */
+
+  .backlog {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .backlog .item {
+    background: var(--cream-deep);
+    padding: 16px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--rule);
+    font-size: 14px;
+  }
+  .backlog .item .pri {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--terracotta);
+    font-weight: 500;
+    letter-spacing: 0.1em;
+  }
+  .backlog .item .name { display: block; font-weight: 600; margin: 4px 0 4px; }
+  .backlog .item .note { color: var(--mocha); }
+  @media (max-width: 720px) { .backlog { grid-template-columns: 1fr; } }
+
+  /* ─── Footer ───────────────────────────────────────── */
+
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    color: var(--mocha);
+    font-size: 13px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* ─── TOC ──────────────────────────────────────────── */
+
+  nav.toc {
+    margin-top: 36px;
+    background: var(--cream-deep);
+    padding: 18px 22px;
+    border-radius: 12px;
+    border: 1px solid var(--rule);
+  }
+  nav.toc ol { margin: 8px 0 0; padding-left: 24px; }
+  nav.toc li { margin: 4px 0; font-size: 14px; }
+  nav.toc a { color: var(--espresso); text-decoration: none; }
+  nav.toc a:hover { color: var(--terracotta); }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <p class="eyebrow">Project Elio · Launch Readiness Snapshot</p>
+  <h1>What's left before we ship<span class="dot">.</span></h1>
+  <p class="lede">A realistic look at where Elio sits on the road to a coordinated Android + iOS launch — what's done, what's pending, and how many hours of work it represents.</p>
+
+  <section class="hero">
+    <div class="progress-row">
+      <h3 style="margin:0;">Overall progress to launch</h3>
+      <span class="pct">~78%</span>
+    </div>
+    <div class="progress" aria-label="78 percent complete"><span style="width:78%"></span></div>
+
+    <div class="hero-meta">
+      <div class="meta-cell">
+        <div class="label">Latest branch</div>
+        <div class="value">sprint/15.9.1</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Latest milestone</div>
+        <div class="value">Inventory dedup ✓</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Tests</div>
+        <div class="value">420 / 420 ✓</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">Analyze</div>
+        <div class="value">0 warnings ✓</div>
+      </div>
+      <div class="meta-cell">
+        <div class="label">APK build</div>
+        <div class="value">72.3 MB · prod</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="num">36–55<small>h</small></div>
+      <div class="lab">Engineering remaining across Sprints 17 → 19</div>
+    </div>
+    <div class="stat">
+      <div class="num">3</div>
+      <div class="lab">Sprints between here and store submission</div>
+    </div>
+    <div class="stat">
+      <div class="num">2</div>
+      <div class="lab">Stores to submit (Play + App Store)</div>
+    </div>
+    <div class="stat">
+      <div class="num">~6<small>wk</small></div>
+      <div class="lab">Realistic part-time runway to public release</div>
+    </div>
+  </div>
+
+  <nav class="toc">
+    <p class="eyebrow" style="margin:0;">Contents</p>
+    <ol>
+      <li><a href="#done">What's already done</a></li>
+      <li><a href="#now">Right-now blockers (this week)</a></li>
+      <li><a href="#sprint-17">Sprint 17 — Shared launch prep</a></li>
+      <li><a href="#sprint-18">Sprint 18 — Android track</a></li>
+      <li><a href="#sprint-19">Sprint 19 — iOS track</a></li>
+      <li><a href="#risks">Risks &amp; known issues</a></li>
+      <li><a href="#backlog">Post-launch backlog</a></li>
+    </ol>
+  </nav>
+
+  <!-- ─── DONE ──────────────────────────────────────── -->
+
+  <h2 id="done">1. What's already done</h2>
+  <p>Roughly 19 sprints of feature work. App is functionally complete on Android — every consumer feature on the public roadmap is built, tested, and merged. The remaining work is launch hardening, stores, and iOS parity.</p>
+
+  <details class="done-list">
+    <summary>Shipped sprints (click to expand)</summary>
+    <ul>
+      <li><b>Sprint 1–8 · Foundation</b> — Flutter scaffold, Firebase, onboarding, Gemini recipes, 3-tier pantry, auth.</li>
+      <li><b>Sprint 9–11 · Monetisation</b> — Paywall, RevenueCat, entitlements, push notifications.</li>
+      <li><b>Sprint 12–13 · Engagement</b> — Meal planner, shopping list, notification prefs, analytics, Crashlytics.</li>
+      <li><b>Sprint 14 · Advanced</b> — Voice cooking, saver mode, expiry tracking, pantry packs, units &amp; region.</li>
+      <li><b>Sprint 14.1 · Scanning</b> — Barcode + receipt OCR, tier memory, save recipes, add to shopping list.</li>
+      <li><b>Sprint 14.2–14.5 · Polish</b> — Substitutions, regenerate, household management, two-phase meal plans.</li>
+      <li><b>Sprint 15.2 · Pantry &amp; Profile overhaul</b> — Collapsible tiers, builder, Recipe Book, settings restructure.</li>
+      <li><b>Sprint 15.3 · Recipe Import + UX polish</b> — Streaming generation, photo/manual recipe import, Bulk Prep, performance pass.</li>
+      <li><b>Sprint 15.4 · Recipe Book + Shopping</b> — Collections, makeable-now, quantity consolidation, aisle grouping, URL import.</li>
+      <li><b>Sprint 15.5–15.8 · Bug fixes</b> — Notifications, RevenueCat wiring, side dishes, share button, unit abbreviations, touch targets.</li>
+      <li><b>Sprint 15.9 · Personalised Pantry Builder</b> — Memory-driven usuals, dietary greying, custom items.</li>
+      <li><b>Sprint 15.9.1 · Inventory Dedup</b> ✓ <em>(just merged today)</em> — No more duplicate Firestore docs on re-scan; tier sticks; expiry refreshes.</li>
+      <li><b>Sprint 16 · UI overhaul</b> — Full design system, Bricolage + DM Sans + DM Mono, kale-leaf backdrop, every screen rebranded.</li>
+      <li><b>Sprint 16.1 · Onboarding rebuild</b> — 15-screen sell-to-self flow, sign-in deferred, guest pantry persistence.</li>
+      <li><b>Sprint 16.2–16.4 · Polish rounds</b> — Copy walkthrough, "+ Add something" dedup tile, perishable picker, Home recent recipes peek.</li>
+    </ul>
+  </details>
+
+  <!-- ─── RIGHT NOW ─────────────────────────────────── -->
+
+  <h2 id="now">2. Right-now (this week)</h2>
+  <p>Two micro-tasks gating the launch-prep sprint.</p>
+
+  <table class="tasks">
+    <thead><tr><th>Task</th><th>Status</th><th class="col-est">Effort</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>
+          <div class="name">On-device review of Sprint 15.9 personalized pantry</div>
+          <div class="note">Smoke-test the "Your usuals" section on a real device — indicator soup, tier defaulting, staple block UX, custom persistence across reopens.</div>
+        </td>
+        <td class="col-status"><span class="pill todo">Pending</span></td>
+        <td class="col-est">~30 min</td>
+      </tr>
+      <tr>
+        <td>
+          <div class="name">Tag <code>v0.16.0-ui-overhaul</code></div>
+          <div class="note">Sprint 16 UI overhaul + 4 polish rounds passed on-device. Tag fires the milestone. Roughly the moment Elio looks "shipped".</div>
+        </td>
+        <td class="col-status"><span class="pill todo">Pending</span></td>
+        <td class="col-est">5 min</td>
+      </tr>
+      <tr>
+        <td>
+          <div class="name">Bulk Prep — Kate design pass on prefs screen</div>
+          <div class="note">Decide single-recipe-batchable vs mini multi-meal flow. Currently a TODO comment; Saver/Leftover restored without it.</div>
+        </td>
+        <td class="col-status"><span class="pill partial">Design needed</span></td>
+        <td class="col-est">~3h</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ─── SPRINT 17 ─────────────────────────────────── -->
+
+  <h2 id="sprint-17">3. Sprint 17 — Shared launch preparation</h2>
+  <p class="lede" style="font-size:16px;">Everything that has to be true before either store will accept a submission. Partially started on the <code>sprint-17</code> and <code>sprint/17-gdpr</code> branches.</p>
+
+  <div class="track">
+    <div class="track-head">
+      <h3>Sprint 17 task list</h3>
+      <span class="est">Est. 13–21h · ~50% complete</span>
+    </div>
+    <table class="tasks">
+      <thead><tr><th>#</th><th>Task</th><th class="col-status">Status</th><th class="col-est">Effort</th></tr></thead>
+      <tbody>
+        <tr><td>1</td>
+          <td><div class="name">Performance audit (DevTools profiling, list optimisation, cold start)</div></td>
+          <td class="col-status"><span class="pill done">Done</span></td>
+          <td class="col-est">3–4h</td>
+        </tr>
+        <tr><td>2</td>
+          <td>
+            <div class="name">Firestore security rules + entitlement hardening</div>
+            <div class="note">Rules + entitlement keys client-locked (commits <code>8a17e8c</code>, <code>8c9e318</code>). Still to do: deploy, emulator rule tests, Cloud Functions backend so <code>weeklyGenerations</code> can be locked, GCP budget caps.</div>
+          </td>
+          <td class="col-status"><span class="pill partial">In progress</span></td>
+          <td class="col-est">2–3h</td>
+        </tr>
+        <tr><td>3</td>
+          <td>
+            <div class="name">GDPR — data export, account deletion, consent tracking</div>
+            <div class="note"><code>DataExportService</code> + <code>AccountService.deleteAccount()</code> scaffolding landed on <code>sprint/17-gdpr</code>. Consent capture + UI screens still to do.</div>
+          </td>
+          <td class="col-status"><span class="pill partial">In progress</span></td>
+          <td class="col-est">2–3h</td>
+        </tr>
+        <tr><td>4</td>
+          <td><div class="name">Privacy Policy + Terms of Service</div>
+          <div class="note">Hosted URLs + in-app screens. Dual-regime US/UK legal docs added on <code>sprint/17-gdpr</code> branch.</div></td>
+          <td class="col-status"><span class="pill partial">In progress</span></td>
+          <td class="col-est">2–3h</td>
+        </tr>
+        <tr><td>5</td>
+          <td><div class="name">Remove temporary debug messages from <code>home_screen.dart</code></div></td>
+          <td class="col-status"><span class="pill todo">Not started</span></td>
+          <td class="col-est">30 min</td>
+        </tr>
+        <tr><td>6</td>
+          <td><div class="name">Crashlytics → Slack/Discord webhook</div>
+          <div class="note">Cloud Function for real-time error alerts. Defines our "we got pinged" loop.</div></td>
+          <td class="col-status"><span class="pill todo">Not started</span></td>
+          <td class="col-est">1–2h</td>
+        </tr>
+        <tr><td>7</td>
+          <td><div class="name">RevenueCat — wire <code>REVENUECAT_API_KEY</code> + configure live SKUs</div>
+          <div class="note">Build pipeline already passes the key via <code>--dart-define</code>. Real key still missing from <code>.env.local</code>; SKUs still to set up in Play / App Store consoles with 7-day trial.</div></td>
+          <td class="col-status"><span class="pill partial">Partially done</span></td>
+          <td class="col-est">2–3h</td>
+        </tr>
+        <tr><td>8</td>
+          <td><div class="name">ErrorService coverage expansion</div></td>
+          <td class="col-status"><span class="pill done">Done (15.5)</span></td>
+          <td class="col-est">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── SPRINT 18 ─────────────────────────────────── -->
+
+  <h2 id="sprint-18">4. Sprint 18 — Android track</h2>
+  <p class="lede" style="font-size:16px;">Play Store submission and staged rollout. Runs in parallel with iOS work.</p>
+
+  <div class="track">
+    <div class="track-head">
+      <h3>Sprint 18 task list</h3>
+      <span class="est">Est. 9–13h · 0% complete</span>
+    </div>
+    <table class="tasks">
+      <thead><tr><th>#</th><th>Task</th><th class="col-status">Status</th><th class="col-est">Effort</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><div class="name">Full regression on Android physical device</div><div class="note">End-to-end walk: onboarding → first recipe → save → meal plan → shopping → voice cooking.</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">3–4h</td></tr>
+        <tr><td>2</td><td><div class="name">Play Store assets — screenshots, feature graphic, listing copy</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">2–3h</td></tr>
+        <tr><td>3</td><td><div class="name">Submit to Play Console — internal testing track</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">1–2h</td></tr>
+        <tr><td>4</td><td><div class="name">Closed beta with pro testers</div><div class="note">Email allowlist already wired via <code>config/proTesters</code> Firestore doc.</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">2–3h</td></tr>
+        <tr><td>5</td><td><div class="name">Production staged rollout (10% → 50% → 100%)</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">1h</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── SPRINT 19 ─────────────────────────────────── -->
+
+  <h2 id="sprint-19">5. Sprint 19 — iOS track</h2>
+  <p class="lede" style="font-size:16px;">App Store submission. Heavier than Android because Apple Sign-In, Siri Shortcuts and a platform-channel rewrite are all net-new.</p>
+
+  <div class="track">
+    <div class="track-head">
+      <h3>Sprint 19 task list</h3>
+      <span class="est">Est. 18.5–26.5h · 0% complete</span>
+    </div>
+    <table class="tasks">
+      <thead><tr><th>#</th><th>Task</th><th class="col-status">Status</th><th class="col-est">Effort</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><div class="name">iOS build config + signing</div><div class="note">Xcode setup, provisioning profiles, bundle ID, URL scheme placeholder fill.</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">2–3h</td></tr>
+        <tr><td>2</td><td><div class="name">Apple Sign-In integration</div><div class="note">Required by App Store when Google Sign-In is present.</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">3–4h</td></tr>
+        <tr><td>3</td><td><div class="name">iOS UI adjustments — safe areas, haptics, keyboard behaviour</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">2–3h</td></tr>
+        <tr><td>4</td><td><div class="name">Replace <code>com.elio/audio</code> platform channel for iOS</div><div class="note">AVAudioSession equivalent OR gate voice-beep suppression to Android only.</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">1–2h</td></tr>
+        <tr><td>5</td><td><div class="name">Siri Shortcuts via <code>NSUserActivity</code></div><div class="note">"Generate a recipe", "Open my shopping list", "What's in my pantry", "Start cooking last recipe". Day-one differentiator on iOS.</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">3–4h</td></tr>
+        <tr><td>6</td><td><div class="name">iOS permissions plist</div><div class="note">NSMicrophone / NSCamera / NSSpeechRecognition usage descriptions.</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">30 min</td></tr>
+        <tr><td>7</td><td><div class="name">Full regression on iOS physical device</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">3–4h</td></tr>
+        <tr><td>8</td><td><div class="name">App Store assets at required sizes</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">2–3h</td></tr>
+        <tr><td>9</td><td><div class="name">Submit to TestFlight</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">1–2h</td></tr>
+        <tr><td>10</td><td><div class="name">App Store review submission</div></td><td class="col-status"><span class="pill todo">Not started</span></td><td class="col-est">1h</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── RISKS ────────────────────────────────────── -->
+
+  <h2 id="risks">6. Risks &amp; known issues</h2>
+  <div class="risks">
+    <ul>
+      <li><b>Gemini first-attempt reliability</b> — streaming sometimes fails on the first call after app launch and succeeds on retry. Hardened with multi-attempt retry, prewarm, JSON-truncation repair, lower temperature for onboarding. Not blocking, but a dedicated reliability pass is flagged.</li>
+      <li><b>APK size 72.3 MB</b> — driven by mobile_scanner ML Kit. Likely needs Android App Bundles for Play Store distribution.</li>
+      <li><b>Cloud Functions backend not built</b> — <code>weeklyGenerations</code> still client-writable. RevenueCat webhook and Gemini proxy with server-side rate limits are deferred. Acceptable for launch; revisit before scale.</li>
+      <li><b>iOS not built or tested yet</b> — URL scheme placeholder must be filled, signing certificates set up. The biggest unknown unknowns sit here.</li>
+      <li><b>Hero illustration on onboarding screen 10</b> — placeholder pending Kate. Not a hard blocker, but worth landing before assets are submitted.</li>
+      <li><b>Palette tokens for freshness chips</b> (<code>freshGreen</code> / <code>perishThisWeek</code> / <code>perishToday</code>) — placeholder hex pending Kate ratification.</li>
+    </ul>
+  </div>
+
+  <!-- ─── BACKLOG ──────────────────────────────────── -->
+
+  <h2 id="backlog">7. Post-launch backlog</h2>
+  <p>Deliberately deferred — none of these block the launch window.</p>
+
+  <div class="backlog">
+    <div class="item"><span class="pri">P1</span><span class="name">Accurate cost estimation</span><span class="note">Supermarket API integration for real pricing on shopping list items.</span></div>
+    <div class="item"><span class="pri">P1</span><span class="name">Regional language localisation</span><span class="note">courgette/zucchini, coriander/cilantro, bell pepper/capsicum.</span></div>
+    <div class="item"><span class="pri">P2</span><span class="name">Grocery affiliate integration</span><span class="note">Shopping list → Tesco / Instacart / Amazon Fresh delivery.</span></div>
+    <div class="item"><span class="pri">P2</span><span class="name">Linked accounts — shared household shopping list</span><span class="note">True multi-account households with invite codes and per-user dietary needs.</span></div>
+    <div class="item"><span class="pri">P2</span><span class="name">Social sharing</span><span class="note">Recipe card as shareable image (Instagram-friendly).</span></div>
+    <div class="item"><span class="pri">P2</span><span class="name">Recipe ratings &amp; feedback loop</span><span class="note">Like/dislike feeds future generation taste profile.</span></div>
+    <div class="item"><span class="pri">P3</span><span class="name">Multilingual support</span><span class="note">Full UI translation. Currently EN-only.</span></div>
+    <div class="item"><span class="pri">P3</span><span class="name">Tablet / web layout</span><span class="note">Responsive layouts for larger screens.</span></div>
+    <div class="item"><span class="pri">P3</span><span class="name">Offline mode</span><span class="note">Cache recent recipes, local-first pantry for poor-signal cooking.</span></div>
+  </div>
+
+  <footer>
+    <span>Elio · launch readiness · 3 May 2026</span>
+    <span>Built from <code>docs/roadmap.md</code> + <code>CLAUDE.md</code></span>
+  </footer>
+
+</main>
+</body>
+</html>

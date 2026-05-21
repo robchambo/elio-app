@@ -1,27 +1,42 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import '../../models/onboarding_state.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_radii.dart';
+import '../../theme/elio_text_styles.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_big_button.dart';
 import '../../services/analytics_service.dart';
 import '../../services/purchase_service.dart';
 import '../../services/entitlement_service.dart';
 
 // ─────────────────────────────────────────────
-// PaywallScreen
+// PaywallScreen — Sprint 16 editorial restyle.
+//
 // Lead with a 7-day free trial when the user is eligible.
 // RevenueCat manages trial eligibility server-side via the
 // StoreProduct introductoryPrice — the app does not track trial state.
 //
 // Two visual states:
-//   1. Trial-eligible:    "Start Your 7-Day Free Trial"
+//   1. Trial-eligible:    "Start your 7-day free trial"
 //   2. Already used trial: "Upgrade to Pro" (direct purchase)
 //
-// Both states share the same feature checklist and plan toggle.
+// IMPORTANT: The _showTrialState getter is load-bearing for dry mode.
+// When REVENUECAT_API_KEY isn't configured, getPackages() returns []
+// and _showTrialState returns true (we optimistically lead with trial).
+// It only returns false when packages have loaded AND none have an
+// introductory price. Do NOT refactor that getter.
 // ─────────────────────────────────────────────
 
 /// Legacy trigger enum — retained for backward compatibility with existing
 /// callers and integration tests. New callers should prefer [triggerContext].
-enum PaywallTrigger { onboarding, capReached, lockedFeature }
+///
+/// `first_recipe` is the onboarding screen-14 entry point added in Sprint
+/// 16; it drives per-goal headlines via [PaywallScreen.onboarding] and
+/// optionally renders a [PaywallScreen.recipeThumbnailUrl] above the hero.
+// ignore: constant_identifier_names
+enum PaywallTrigger { onboarding, capReached, lockedFeature, first_recipe }
 
 class PaywallScreen extends StatefulWidget {
   /// Optional context describing where the paywall was opened from.
@@ -36,11 +51,54 @@ class PaywallScreen extends StatefulWidget {
   /// Legacy locked-feature name — kept so older callers still compile.
   final String? lockedFeatureName;
 
+  /// Onboarding state — required when [trigger] is
+  /// [PaywallTrigger.first_recipe] so per-goal headlines can resolve.
+  /// Null for all other triggers.
+  final OnboardingState? onboarding;
+
+  /// Optional recipe thumbnail rendered above the hero heading. Only
+  /// used by the first-recipe trigger; ignored otherwise.
+  final String? recipeThumbnailUrl;
+
+  /// Test-only injection point for the PurchaseService. Production
+  /// callers leave null and the singleton is used.
+  final PurchaseService? purchaseService;
+
+  /// Optional callback invoked when the user taps "Continue with Free".
+  /// When null (legacy callers), this UI element is not rendered. When
+  /// non-null (onboarding screen 14), the link is shown and this is
+  /// fired in place of Navigator.pop.
+  final VoidCallback? onContinueWithFree;
+
+  /// Optional callback invoked on a successful trial/subscription start.
+  /// Legacy callers leave null — PaywallScreen falls back to
+  /// `Navigator.pop(true)` as before. Onboarding screen 14 uses this to
+  /// advance without popping the route.
+  final VoidCallback? onTrialStarted;
+
+  /// Optional override of the close (✕) handler. When null, defaults to
+  /// `Navigator.pop()`. Onboarding screen 14 injects this to return to
+  /// screen 13 non-destructively.
+  final VoidCallback? onClose;
+
+  /// Optional override for the primary "Start free trial / Subscribe"
+  /// CTA. When set, replaces the internal `_onSubscribe` flow — screen
+  /// 14 uses this to drive the purchase via an injected service and
+  /// advance the onboarding controller on success.
+  final VoidCallback? onStartTrial;
+
   const PaywallScreen({
     super.key,
     this.triggerContext,
     this.trigger = PaywallTrigger.lockedFeature,
     this.lockedFeatureName,
+    this.onboarding,
+    this.recipeThumbnailUrl,
+    this.purchaseService,
+    this.onContinueWithFree,
+    this.onTrialStarted,
+    this.onClose,
+    this.onStartTrial,
   });
 
   @override
@@ -49,7 +107,8 @@ class PaywallScreen extends StatefulWidget {
 
 class _PaywallScreenState extends State<PaywallScreen> {
   final AnalyticsService _analytics = AnalyticsService.instance;
-  final PurchaseService _purchases = PurchaseService.instance;
+  late final PurchaseService _purchases =
+      widget.purchaseService ?? PurchaseService.instance;
 
   bool _isAnnual = true; // Annual pre-selected (best value)
   bool _isLoading = false;
@@ -79,6 +138,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
     switch (widget.trigger) {
       case PaywallTrigger.capReached:
         return 'weekly_limit';
+      case PaywallTrigger.first_recipe:
+        return 'first_recipe';
       case PaywallTrigger.onboarding:
         return null;
       case PaywallTrigger.lockedFeature:
@@ -90,18 +151,71 @@ class _PaywallScreenState extends State<PaywallScreen> {
     }
   }
 
-  String get _contextHeadline {
-    switch (_resolvedContext) {
-      case 'weekly_limit':
-        return 'Unlock unlimited recipes';
-      case 'meal_planner':
-        return 'Plan your whole week';
-      case 'shopping_list':
-        return 'Shop smarter with one list';
+  /// Headline for [PaywallTrigger.first_recipe] — varies by the user's
+  /// onboarding goal. Falls back to a neutral trial CTA when the goal
+  /// is unset. Returned as a single-entry list so it composes with
+  /// [ElioHeroHeading] (the underline + amber-last-line treatment still
+  /// renders cleanly on one line).
+  List<String> get _firstRecipeHeadline {
+    // Per-goal headlines for the onboarding first-recipe paywall entry.
+    // Copy signed off Sprint 16.2 (docs/onboarding/14-paywall.md §Copy).
+    switch (widget.onboarding?.userGoal) {
+      case 'pantryFirst':
+        // Two-line editorial treatment — Rob's call for extra weight on
+        // the dominant pantry-first goal.
+        return ['Cook from your pantry.', 'Every night.'];
+      case 'wasteReduction':
+        return ['Cut your food waste from week one.'];
+      case 'decisionFatigue':
+        return ['No more 6pm panic.'];
       case 'household':
-        return 'Cook for your whole household';
+        return ['One plan for the whole house.'];
+      case 'takeawayEscape':
+        // Region-aware: US → "takeout", UK (or default) → "takeaway".
+        // Region comes from screen 09 (device locale + user override).
+        // US is the primary launch market.
+        return [
+          widget.onboarding?.region == 'us'
+              ? 'Skip the takeout.'
+              : 'Skip the takeaway.',
+        ];
       default:
-        return 'Go Pro with Elio';
+        return ['Unlimited Elio. Start with 7 days free.'];
+    }
+  }
+
+  /// Context-specific hero lines. Returns up to 3 lines for ElioHeroHeading.
+  List<String> get _heroLines {
+    switch (_resolvedContext) {
+      case 'first_recipe':
+        return _firstRecipeHeadline;
+      case 'weekly_limit':
+        return ["you've used", 'your free', 'recipes'];
+      case 'meal_planner':
+        return ['plan your', 'week with', 'pro'];
+      case 'shopping_list':
+        return ['unlock', 'smart', 'shopping'];
+      case 'household':
+        return ['cook for', 'everyone'];
+      default:
+        return ['go pro', 'with elio'];
+    }
+  }
+
+  String get _contextEyebrow {
+    switch (_resolvedContext) {
+      case 'first_recipe':
+        return 'unlock more like this';
+      case 'weekly_limit':
+        return 'unlock unlimited recipes';
+      case 'meal_planner':
+        return 'plan your whole week';
+      case 'shopping_list':
+        return 'shop smarter with one list';
+      case 'household':
+        return 'cook for your household';
+      default:
+        return 'upgrade to elio pro';
     }
   }
 
@@ -150,237 +264,275 @@ class _PaywallScreenState extends State<PaywallScreen> {
 
   String get _selectedPeriodString => _isAnnual ? 'year' : 'month';
 
+  String? get _annualPriceString {
+    for (final p in _packages) {
+      if (p.storeProduct.identifier == PurchaseService.annualProductId) {
+        return p.storeProduct.priceString;
+      }
+    }
+    return null;
+  }
+
+  String? get _monthlyPriceString {
+    for (final p in _packages) {
+      if (p.storeProduct.identifier == PurchaseService.monthlyProductId) {
+        return p.storeProduct.priceString;
+      }
+    }
+    return null;
+  }
+
   // ── Build ───────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final trial = _showTrialState;
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: ElioColors.espresso),
+          onPressed: () {
+            _analytics.logEvent('paywall_dismissed', {
+              'trigger_context': _resolvedContext ?? 'none',
+            });
+            if (widget.onClose != null) {
+              widget.onClose!();
+            } else {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+      ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // Close button (top-LEFT per spec)
-            Align(
-              alignment: Alignment.topLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 12, left: 16),
-                child: GestureDetector(
-                  onTap: () {
-                    _analytics.logEvent('paywall_dismissed', {
-                      'trigger_context': _resolvedContext ?? 'none',
-                    });
-                    Navigator.of(context).pop();
-                  },
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: ElioColors.offWhite,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: ElioColors.border),
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      size: 18,
-                      color: ElioColors.textSecondary,
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // ── Recipe thumbnail (first_recipe trigger only) ──
+              if (widget.recipeThumbnailUrl != null &&
+                  widget.recipeThumbnailUrl!.isNotEmpty) ...[
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(ElioRadii.card),
+                    child: Image.network(
+                      widget.recipeThumbnailUrl!,
+                      key: const Key('paywallRecipeThumbnail'),
+                      height: 80,
+                      width: 80,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+              ],
+
+              // ── Eyebrow ──────────────────────────────────────
+              ElioEyebrow(_contextEyebrow),
+              const SizedBox(height: 12),
+
+              // ── Hero heading ─────────────────────────────────
+              ElioHeroHeading(
+                lines: _heroLines,
+                amberLastLine: true,
+                showUnderline: true,
               ),
-            ),
+              const SizedBox(height: 20),
 
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // ── Context headline ────────────────────────
-                    Text(
-                      _contextHeadline,
-                      style: GoogleFonts.outfit(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: ElioColors.amber,
-                        letterSpacing: 0.4,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // ── Hero ────────────────────────────────────
-                    Text(
-                      _showTrialState
-                          ? 'Start Your $_trialDurationLabel Free Trial'
-                          : 'Upgrade to Pro',
-                      style: GoogleFonts.outfit(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w800,
-                        color: ElioColors.navy,
-                        height: 1.2,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      _showTrialState
-                          ? 'All Pro features. Cancel anytime. No charge for 7 days.'
-                          : 'All Pro features. Cancel anytime in Google Play.',
-                      style: ElioText.bodyLarge.copyWith(
-                        color: ElioColors.textSecondary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 28),
-
-                    // ── Feature checklist ───────────────────────
-                    ..._buildFeatureList(),
-                    const SizedBox(height: 24),
-
-                    // ── Plan toggle ─────────────────────────────
-                    _buildPlanCards(),
-                    const SizedBox(height: 20),
-
-                    // ── Primary CTA ─────────────────────────────
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _onSubscribe,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: ElioColors.amber,
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor:
-                              ElioColors.amber.withValues(alpha: 0.5),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : Text(
-                                _showTrialState
-                                    ? 'Start Free Trial'
-                                    : 'Subscribe — $_selectedPriceString/$_selectedPeriodString',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-
-                    // ── Fine print ──────────────────────────────
-                    Text(
-                      _showTrialState
-                          ? '7 days free, then $_selectedPriceString/$_selectedPeriodString. Cancel anytime in Google Play.'
-                          : '$_selectedPriceString billed every $_selectedPeriodString. Cancel anytime in Google Play.',
-                      style: ElioText.bodyMedium.copyWith(
-                        color: ElioColors.textMuted,
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // ── Restore purchases ───────────────────────
-                    TextButton(
-                      onPressed: _isLoading ? null : _onRestore,
-                      child: Text(
-                        'Restore purchases',
-                        style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.textSecondary,
-                          decoration: TextDecoration.underline,
-                        ),
-                      ),
-                    ),
-                  ],
+              if (trial) ...[
+                ElioEyebrow(
+                  '$_trialDurationLabel free trial · cancel anytime',
                 ),
+                const SizedBox(height: 24),
+              ] else ...[
+                const SizedBox(height: 8),
+              ],
+
+              // ── Feature cards ─────────────────────────────────
+              ..._buildFeatureCards(),
+              const SizedBox(height: 28),
+
+              // ── Pricing pills ────────────────────────────────
+              _buildPricingRow(),
+              const SizedBox(height: 28),
+
+              // ── Primary CTA ──────────────────────────────────
+              ElioBigButton(
+                key: const Key('paywallPrimaryCta'),
+                label: trial
+                    ? 'Start my $_trialDurationLabel free trial'
+                    : 'Subscribe — $_selectedPriceString/$_selectedPeriodString',
+                trailingIcon: Icons.chevron_right,
+                loading: _isLoading,
+                onTap: widget.onStartTrial ?? _onSubscribe,
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+
+              // ── Continue with Free (onboarding screen 14 only) ───
+              if (widget.onContinueWithFree != null) ...[
+                const SizedBox(height: 4),
+                Center(
+                  child: TextButton(
+                    onPressed: _isLoading
+                        ? null
+                        : () {
+                            _analytics.logEvent(
+                              'onboarding_paywall_free_continued',
+                            );
+                            widget.onContinueWithFree!();
+                          },
+                    child: Text(
+                      'Continue with Free',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.mocha,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+
+              // ── Footer links: Restore · Terms · Privacy ────────
+              //
+              // Single centred row. Terms + Privacy are required to be
+              // reachable from any purchase surface per Play / App Store
+              // review policy. Tap handlers currently show a SnackBar
+              // pointing to the launch URL — url_launcher + real legal
+              // docs land in Sprint 17 (launch prep).
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton(
+                    key: const Key('paywallRestoreLink'),
+                    onPressed: _isLoading ? null : _onRestore,
+                    child: Text(
+                      'Restore',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.mocha,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  const Text('·',
+                      style: TextStyle(color: ElioColors.mocha)),
+                  TextButton(
+                    key: const Key('paywallTermsLink'),
+                    onPressed: _isLoading ? null : () => _openLegal('terms'),
+                    child: Text(
+                      'Terms',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.mocha,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                  const Text('·',
+                      style: TextStyle(color: ElioColors.mocha)),
+                  TextButton(
+                    key: const Key('paywallPrivacyLink'),
+                    onPressed: _isLoading ? null : () => _openLegal('privacy'),
+                    child: Text(
+                      'Privacy',
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.mocha,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+
+              // ── Legal ────────────────────────────────────────
+              Text(
+                trial
+                    ? '7 days free, then $_selectedPriceString/$_selectedPeriodString. Cancel anytime in Google Play.'
+                    : '$_selectedPriceString billed every $_selectedPeriodString. Cancel anytime in Google Play.',
+                style: ElioTextStyles.bodySmallStyle.copyWith(
+                  fontSize: 11,
+                  color: ElioColors.mocha,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ── Feature checklist ────────────────────────────────────────────────
-  List<Widget> _buildFeatureList() {
-    const features = [
-      'Unlimited AI recipe generation',
-      'Weekly meal planner',
-      'Smart shopping list',
-      'Household sharing (up to 6 members)',
-      'Unlimited recipe history',
-      'Priority recipe regeneration',
+  // ── Feature cards ────────────────────────────────────────────────────
+  // Informational cream cards — no action button (so we build inline,
+  // not via ElioSecondaryCard which always renders a CTA).
+  List<Widget> _buildFeatureCards() {
+    const features = <Map<String, String>>[
+      {
+        'title': 'Unlimited recipes',
+        'subtitle': 'Generate as many meals as you like, every week.',
+      },
+      {
+        'title': 'Weekly meal planner',
+        'subtitle': 'Plan breakfast, lunch and dinner seven days ahead.',
+      },
+      {
+        'title': 'Smart shopping list',
+        'subtitle': 'Missing ingredients organised by grocery aisle.',
+      },
+      {
+        'title': 'Recipe import',
+        'subtitle': 'Paste any recipe URL — Elio reformats it for your pantry.',
+      },
+      {
+        'title': 'Barcode & receipt scanning',
+        'subtitle': 'Scan groceries to keep your pantry current in seconds.',
+      },
+      {
+        'title': 'Household of 6',
+        'subtitle': 'Share preferences with your whole household.',
+      },
+      {
+        'title': 'Recipe history',
+        'subtitle': 'Keep your favourites — revisit any time.',
+      },
     ];
 
-    return features
-        .map(
-          (f) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.check_circle_rounded,
-                  size: 22,
-                  color: ElioColors.success,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    f,
-                    style: ElioText.bodyLarge.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: ElioColors.navy,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        )
-        .toList();
+    return [
+      for (final f in features) ...[
+        _FeatureInfoCard(
+          title: f['title']!,
+          subtitle: f['subtitle']!,
+        ),
+        const SizedBox(height: 12),
+      ],
+    ];
   }
 
-  // ── Plan cards ───────────────────────────────────────────────────────
-  Widget _buildPlanCards() {
-    // Pull live prices from packages when available; fall back to defaults.
-    String? annualPrice;
-    String? monthlyPrice;
-    for (final p in _packages) {
-      if (p.storeProduct.identifier == PurchaseService.annualProductId) {
-        annualPrice = p.storeProduct.priceString;
-      } else if (p.storeProduct.identifier == PurchaseService.monthlyProductId) {
-        monthlyPrice = p.storeProduct.priceString;
-      }
-    }
+  // ── Pricing pills ────────────────────────────────────────────────────
+  Widget _buildPricingRow() {
+    final annualLabel = _annualPriceString ?? '£27.99/yr';
+    final monthlyLabel = _monthlyPriceString ?? '£4.49/mo';
 
     return Row(
       children: [
         Expanded(
-          child: _PlanCard(
-            label: 'Annual',
-            price: annualPrice ?? '£27.99/yr',
-            badge: 'Best value — save ~30%',
+          child: _PricingPill(
+            label: 'Yearly',
+            price: annualLabel,
+            badge: 'Best value',
             isSelected: _isAnnual,
             onTap: () => setState(() => _isAnnual = true),
           ),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _PlanCard(
+          child: _PricingPill(
             label: 'Monthly',
-            price: monthlyPrice ?? '£4.49/mo',
+            price: monthlyLabel,
             badge: null,
             isSelected: !_isAnnual,
             onTap: () => setState(() => _isAnnual = false),
@@ -410,7 +562,11 @@ class _PaywallScreenState extends State<PaywallScreen> {
     if (package == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No plans available. Please try again later.')),
+          const SnackBar(
+            content: Text(
+              "We couldn't load plans right now — check your connection and try again.",
+            ),
+          ),
         );
       }
       return;
@@ -429,8 +585,27 @@ class _PaywallScreenState extends State<PaywallScreen> {
         'plan': _isAnnual ? 'annual' : 'monthly',
         'is_trial': _showTrialState,
       });
-      if (mounted) Navigator.of(context).pop(true);
+      if (!mounted) return;
+      if (widget.onTrialStarted != null) {
+        widget.onTrialStarted!();
+      } else {
+        Navigator.of(context).pop(true);
+      }
     }
+  }
+
+  /// Legal-link handler — stub until Sprint 17 wires url_launcher + real
+  /// Terms / Privacy URLs. Fires an analytics event and shows a SnackBar
+  /// so the tap isn't silent. Play / App Store review requires these
+  /// links exist, not that they're live in pre-launch builds.
+  void _openLegal(String which) {
+    _analytics.logEvent('paywall_legal_tapped', {'doc': which});
+    final label = which == 'terms' ? 'Terms of Service' : 'Privacy Policy';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('$label — opens at elio.app/$which at launch.'),
+      ),
+    );
   }
 
   Future<void> _onRestore() async {
@@ -451,22 +626,73 @@ class _PaywallScreenState extends State<PaywallScreen> {
     } else {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No previous subscription found.')),
+          const SnackBar(
+            content: Text(
+              "No previous subscription found — you're still eligible for the free trial.",
+            ),
+          ),
         );
       }
     }
   }
 }
 
-// ─── Plan card widget ──────────────────────────────────────────────────
-class _PlanCard extends StatelessWidget {
+// ─── Feature info card (inline cream container) ───────────────────────
+class _FeatureInfoCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  const _FeatureInfoCard({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: ElioColors.cream,
+        borderRadius: BorderRadius.circular(ElioRadii.card),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: ElioColors.terracotta.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.check_rounded,
+              color: ElioColors.terracotta,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: ElioTextStyles.heading5),
+                const SizedBox(height: 2),
+                Text(subtitle, style: ElioTextStyles.bodySmall),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Pricing pill ──────────────────────────────────────────────────────
+class _PricingPill extends StatelessWidget {
   final String label;
   final String price;
   final String? badge;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _PlanCard({
+  const _PricingPill({
     required this.label,
     required this.price,
     required this.badge,
@@ -476,18 +702,17 @@ class _PlanCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 16),
         decoration: BoxDecoration(
-          color: isSelected
-              ? ElioColors.amber.withValues(alpha: 0.08)
-              : ElioColors.offWhite,
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? ElioColors.terracotta.withValues(alpha: 0.12) : Colors.white,
+          borderRadius: BorderRadius.circular(ElioRadii.card),
           border: Border.all(
-            color: isSelected ? ElioColors.amber : ElioColors.border,
+            color: isSelected ? ElioColors.terracotta : ElioColors.rule,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -495,18 +720,19 @@ class _PlanCard extends StatelessWidget {
           children: [
             if (badge != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
-                  color: ElioColors.amber,
-                  borderRadius: BorderRadius.circular(6),
+                  color: ElioColors.terracotta,
+                  borderRadius: BorderRadius.circular(ElioRadii.chip),
                 ),
                 child: Text(
                   badge!,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.eyebrowStyle.copyWith(
                     fontSize: 10,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
+                    letterSpacing: 0.4,
                   ),
                 ),
               ),
@@ -516,19 +742,16 @@ class _PlanCard extends StatelessWidget {
             ],
             Text(
               label,
-              style: GoogleFonts.outfit(
-                fontSize: 13,
+              style: ElioTextStyles.bodySmall.copyWith(
+                color: isSelected ? ElioColors.espresso : ElioColors.mocha,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? ElioColors.navy : ElioColors.textSecondary,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               price,
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: isSelected ? ElioColors.navy : ElioColors.textPrimary,
+              style: ElioTextStyles.heading4.copyWith(
+                color: isSelected ? ElioColors.espresso : ElioColors.espresso,
               ),
             ),
           ],

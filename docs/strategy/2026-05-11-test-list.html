@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elio — Test List</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream:        #F4ECE0;
+    --cream-deep:   #EFE3D2;
+    --terracotta:   #E37B53;
+    --terracotta-d: #C45F39;
+    --peach:        #F2C9A8;
+    --espresso:     #2A1F1A;
+    --mocha:        #6B5A4F;
+    --rule:         #D7C5B0;
+    --error:        #D94A4A;
+    --success:      #3D9970;
+    --perish-today: #E06C5E;
+    --perish-soon:  #FE9D00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--cream);
+    color: var(--espresso);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    line-height: 1.55;
+  }
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 28px 22px 80px;
+  }
+  @media (max-width: 600px) {
+    .wrap { padding: 18px 14px 80px; }
+  }
+  h1, h2, h3 {
+    font-family: 'Bricolage Grotesque', system-ui, sans-serif;
+    color: var(--espresso);
+    margin: 0;
+    letter-spacing: -0.015em;
+  }
+  h1 {
+    font-size: 44px;
+    font-weight: 800;
+    line-height: 1;
+    text-transform: lowercase;
+    letter-spacing: -0.03em;
+  }
+  h1 .dot { color: var(--terracotta); }
+  h2 {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 38px 0 10px;
+    text-transform: lowercase;
+  }
+  h3 {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--mocha);
+    margin: 22px 0 8px;
+  }
+  p { margin: 0 0 1em; }
+  code {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.9em;
+    background: rgba(42,31,26,0.06);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  a { color: var(--terracotta-d); }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    margin: 14px 0 26px;
+    padding: 14px 16px;
+    background: var(--cream-deep);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    font-size: 13px;
+    color: var(--mocha);
+  }
+  .meta .k {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mocha);
+    margin-right: 4px;
+  }
+  .meta .v {
+    color: var(--espresso);
+    font-weight: 500;
+  }
+  .progress-bar {
+    margin: 18px 0 10px;
+    background: var(--rule);
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-bar > span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--terracotta) 0%, var(--terracotta-d) 100%);
+    width: 0%;
+    transition: width 0.3s ease;
+  }
+  .progress-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--mocha);
+    text-align: right;
+    margin-bottom: 22px;
+  }
+  .progress-label .pct {
+    color: var(--terracotta-d);
+    font-weight: 500;
+  }
+  .reset {
+    float: right;
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--mocha);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .reset:hover { background: var(--cream-deep); }
+
+  section {
+    background: var(--cream-deep);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 16px 18px 12px;
+    margin-bottom: 12px;
+  }
+  section h2 {
+    margin-top: 0;
+    margin-bottom: 6px;
+  }
+  section .hint {
+    color: var(--mocha);
+    font-size: 13px;
+    margin: 0 0 12px;
+  }
+  ul.checklist {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  ul.checklist > li {
+    border-top: 1px solid var(--rule);
+    padding: 12px 0 10px 36px;
+    position: relative;
+    transition: opacity 0.25s ease;
+  }
+  ul.checklist > li:first-child { border-top: none; padding-top: 6px; }
+  ul.checklist > li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 13px;
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--rule);
+    border-radius: 6px;
+    background: white;
+    transition: all 0.15s ease;
+  }
+  ul.checklist > li::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 16px;
+    width: 12px;
+    height: 7px;
+    border-left: 2.5px solid white;
+    border-bottom: 2.5px solid white;
+    transform: rotate(-45deg) scale(0);
+    transition: transform 0.15s ease;
+  }
+  ul.checklist > li.done::before {
+    background: var(--success);
+    border-color: var(--success);
+  }
+  ul.checklist > li.done::after {
+    transform: rotate(-45deg) scale(1);
+  }
+  ul.checklist > li.done {
+    opacity: 0.55;
+  }
+  ul.checklist > li.done .label {
+    text-decoration: line-through;
+    text-decoration-color: var(--mocha);
+  }
+  ul.checklist > li.issue::before {
+    background: var(--perish-today);
+    border-color: var(--perish-today);
+  }
+  ul.checklist > li.issue::after {
+    content: '!';
+    transform: none;
+    border: none;
+    color: white;
+    font-family: 'Bricolage Grotesque', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    left: 8px;
+    top: 11px;
+    width: auto;
+    height: auto;
+  }
+  ul.checklist > li .label {
+    cursor: pointer;
+    display: block;
+  }
+  ul.checklist > li .label strong { color: var(--espresso); }
+  ul.checklist > li small {
+    display: block;
+    color: var(--mocha);
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  ul.checklist > li .actions {
+    display: inline-flex;
+    gap: 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  ul.checklist > li .flag-issue {
+    background: transparent;
+    border: 1px solid var(--rule);
+    color: var(--mocha);
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  ul.checklist > li .flag-issue:hover { background: var(--cream); }
+  ul.checklist > li.issue .flag-issue {
+    background: var(--perish-today);
+    color: white;
+    border-color: var(--perish-today);
+  }
+  .pill {
+    display: inline-block;
+    background: var(--terracotta);
+    color: white;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    margin-right: 4px;
+  }
+  .pill.peach { background: var(--peach); color: var(--terracotta-d); }
+  .pill.green { background: var(--success); }
+  .footer {
+    margin-top: 36px;
+    padding: 14px 16px;
+    color: var(--mocha);
+    font-size: 12px;
+    border-top: 1px solid var(--rule);
+  }
+  .footer code { font-size: 11px; }
+
+  @media print {
+    body { background: white; }
+    .wrap { max-width: 100%; padding: 12px; }
+    .reset, .flag-issue { display: none; }
+    section { break-inside: avoid; border: 1px solid #ccc; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>elio test list<span class="dot">.</span></h1>
+
+<div class="meta">
+  <span><span class="k">Branch</span><span class="v">sprint/16-integration</span></span>
+  <span><span class="k">APK</span><span class="v">releases/elio-sprint-integration.apk</span></span>
+  <span><span class="k">Updated</span><span class="v" id="updated-date">11 May 2026</span></span>
+  <button class="reset" onclick="resetAll()">Reset all</button>
+</div>
+
+<div class="progress-bar"><span id="progress-fill"></span></div>
+<div class="progress-label"><span class="pct" id="progress-pct">0%</span> · <span id="progress-counts">0 / 0 ticked</span></div>
+
+<p>
+  One APK, one list. Walk top-to-bottom. Tap a row to tick it. Tap the small <code>ISSUE</code> button if it failed — flag it red and we'll fix. Your progress lives in <code>localStorage</code> on this device so you can come back later.
+</p>
+
+<!-- A. Auth + onboarding ─────────────────────────────────────────── -->
+<section id="A">
+  <h2>A · auth + onboarding</h2>
+  <p class="hint">Bugs originally reported on the pre-merge APK were testing OLD auth code. The auth UX fix is now in this build (commit <code>8fbc553</code>, merged via <code>e23c0d4</code>).</p>
+  <ul class="checklist">
+    <li id="a1"><span class="label"><strong>Open the app cold.</strong> If you've completed onboarding before, land directly on AppShell — no 15-screen replay.</span></li>
+    <li id="a2"><span class="label"><strong>Sign In tile</strong> visible on AccountScreen when guest. Top of the Account section.</span></li>
+    <li id="a3"><span class="label"><strong>Tap Sign In tile</strong> → pushes EmailLoginScreen → log in → lands on AppShell signed in.</span></li>
+    <li id="a4"><span class="label"><strong>Sign Out from signed-in state</strong> → confirm dialog → user lands on AppShell <strong>still post-onboarding, as a guest</strong> (no 15-screen replay). Sign In tile visible again.</span></li>
+    <li id="a5"><span class="label"><strong>Restart Onboarding</strong> tile under About → confirm dialog → walks through onboarding from screen 1.</span></li>
+    <li id="a6"><span class="label"><strong>Delete Account flow unchanged</strong> — re-auth dialog works, account wipes correctly (Sprint 17 behaviour preserved).</span></li>
+  </ul>
+</section>
+
+<!-- B. Settings tree ─────────────────────────────────────────────── -->
+<section id="B">
+  <h2>B · settings tree (Sprint 16.1)</h2>
+  <p class="hint">The 4-section iOS-style Settings replaces the old single-list Account screen.</p>
+  <ul class="checklist">
+    <li id="b1"><span class="label"><strong>4-section tree renders:</strong> Household · Preferences · Account · About — expected tiles in each.</span></li>
+    <li id="b2"><span class="label"><strong>Measurement Units segmented control</strong> (Metric ↔ Imperial) toggles, persists, propagates to recipe display.</span></li>
+    <li id="b3"><span class="label"><strong>Region segmented control</strong> (US ↔ UK) toggles, persists.</span></li>
+    <li id="b4"><span class="label"><strong>Saver Mode default switch</strong> persists across app restart.</span></li>
+    <li id="b5"><span class="label"><strong>Manage Subscription</strong> tile → correct snackbar pointing to Play / App Store.</span></li>
+    <li id="b6"><span class="label"><strong>Privacy Policy + Terms of Service</strong> open in-app via LegalDocScreen (markdown render).</span></li>
+    <li id="b7"><span class="label"><strong>Export My Data</strong> — guest sees "Sign in to export" snackbar; signed-in user gets DataExportService share sheet.</span></li>
+    <li id="b8"><span class="label"><strong>Send Feedback dialog</strong> — support email shown, tap-to-copy works.</span></li>
+    <li id="b9"><span class="label"><strong>App Version row</strong> shows the build's semver.</span></li>
+  </ul>
+</section>
+
+<!-- C. Dietary + allergen safety ────────────────────────────────── -->
+<section id="C">
+  <h2>C · dietary + allergen safety</h2>
+  <p class="hint">Originally failing on the pre-merge APK. Four merged commits target this: <code>f8ce971</code> · <code>7f322ab</code> · <code>7c5b33f</code> · <code>616eb35</code>. Should now pass.</p>
+  <ul class="checklist">
+    <li id="c1"><span class="label"><strong>Dietary change reflects in the next generation immediately</strong> — toggle a new allergen on (e.g. Peanut-free) → back → generate. Position-1 allergen preamble must include the new constraint. No app kill needed.</span></li>
+    <li id="c2"><span class="label"><strong>Allergens stamped on recipe.dietaryTags</strong> (commit <code>a5570b6</code>) — the generated recipe data carries the tag.</span></li>
+    <li id="c3"><span class="label"><strong>Allergen pill displayed on the recipe.</strong> The stat-badge row currently shows <code>r.dietaryTags.first</code>. If peanut-free isn't index 0, the pill won't render. <strong>If missing, flag this as a UI fix needed.</strong></span></li>
+    <li id="c4"><span class="label"><strong>Position-1 allergen preamble</strong> in the Gemini prompt — run the protocol at <code>docs/strategy/2026-05-06-allergen-testing-procedure.html</code> separately. Tick here when it passes.</span></li>
+  </ul>
+</section>
+
+<!-- D. Household members ───────────────────────────────────────── -->
+<section id="D">
+  <h2>D · household members</h2>
+  <p class="hint">Originally reported as "can't add a family member" and "adds don't appear until I sign out and back in". The 16.1 dietary-plumbing rewrite touches this surface — could be fixed or could be a new regression. Retest from scratch.</p>
+  <ul class="checklist">
+    <li id="d1"><span class="label"><strong>Add a household member</strong> via Settings → Household → Add member. Member appears immediately in the list (no sign-out cycle required).</span></li>
+    <li id="d2"><span class="label"><strong>Remove a household member</strong> via the same flow. Member disappears immediately.</span></li>
+    <li id="d3"><span class="label"><strong>Member edits</strong> (name + dietary) save and reflect immediately.</span></li>
+    <li id="d4"><span class="label"><strong>Free-tier user</strong> tapping Add member sees the Pro paywall.</span></li>
+  </ul>
+</section>
+
+<!-- E. Pantry tab ───────────────────────────────────────────────── -->
+<section id="E">
+  <h2>E · pantry tab</h2>
+  <ul class="checklist">
+    <li id="e1"><span class="label"><strong>Pantry duplicates from legacy data</strong> → long-press <code>what did you pick up?</code> page title → snackbar reports "Cleaned up N duplicates" with N &gt; 0. Was zero on the old APK; fixed in <code>b7e1820</code>.</span></li>
+    <li id="e2"><span class="label"><strong>Perishable chip urgency colours.</strong> Past or today → tinted-red bg + saturated red border + red dot. 1–6 days → tinted-orange bg + terracotta border + orange dot. 7+ days → tinted-green bg + green border + green dot. No expiry → cream bg + rule border + no dot.</span></li>
+    <li id="e3"><span class="label"><strong>Existing 8×8 leading dot still renders</strong> on perishable chips alongside the new background (belt-and-braces signal).</span></li>
+    <li id="e4"><span class="label"><strong>Pantry Builder + Add chip</strong> per-tier still works. Custom items persist across reopens.</span></li>
+    <li id="e5"><span class="label"><strong>Per-tier + Add chip</strong> (the pill leading each tier section, Sprint 16.4) still works.</span></li>
+  </ul>
+</section>
+
+<!-- F. Cooking timers ──────────────────────────────────────────── -->
+<section id="F">
+  <h2>F · cooking timers <span class="pill">new in 16.6</span></h2>
+  <p class="hint">Paprika-style inline tappable times + sticky timer bar + multi-timer + wakelock. See mockup at <code>docs/strategy/2026-05-11-cooking-timer-mockup.html</code>.</p>
+  <ul class="checklist">
+    <li id="f1"><span class="label"><strong>Open a recipe with cookable times</strong> (e.g. "Bake for 25 minutes"). Inline time text renders as a small terracotta pill. Steps without parseable times render plain — no layout break.</span></li>
+    <li id="f2"><span class="label"><strong>Tap an inline time pill</strong> → bottom-sheet picker opens with the matched duration pre-selected.</span></li>
+    <li id="f3"><span class="label"><strong>Tap Start &lt;N&gt;-minute timer</strong> → sheet dismisses, sticky terracotta timer bar appears at top of body.</span></li>
+    <li id="f4"><span class="label"><strong>Timer counts down VISIBLY at 1-second cadence</strong> — chip text updates each second (mm:ss). Was frozen on the previous APK; fixed in <code>b7e1820</code>.</span></li>
+    <li id="f5"><span class="label"><strong>Tap the running chip</strong> → pauses (mocha-grey, dot disappears, freeze).</span></li>
+    <li id="f6"><span class="label"><strong>Tap the paused chip</strong> → resumes from the frozen remaining time (not a fresh start).</span></li>
+    <li id="f7"><span class="label"><strong>Long-press a chip</strong> → confirm → "Cancel timer" removes it; "Keep" leaves running.</span></li>
+    <li id="f8"><span class="label"><strong>Multi-timer</strong> — start two on different steps → both visible at top.</span></li>
+    <li id="f9"><span class="label"><strong>Max-concurrent cap</strong> — start 5 → 6th attempt → snackbar "You have the maximum number of timers running."</span></li>
+    <li id="f10"><span class="label"><strong>Expiry alert (foreground)</strong> — haptic buzz + TTS speaks "Step N timer done" + snackbar with OK → OK removes chip.</span></li>
+    <li id="f11"><span class="label"><strong>Custom duration</strong> — tap "custom…" chip → Material time picker (24h) → pick → returns to picker → Start works.</span></li>
+    <li id="f12"><span class="label"><strong>Range "2–3 minutes" deliberately skipped</strong> — no pill rendered for ambiguous ranges. By design.</span></li>
+    <li id="f13"><span class="label"><strong>No regressions:</strong> servings adjust, ingredient swap, side dish gen, hands-free voice, share, bookmark, generate-another, feedback bar — all still work.</span></li>
+  </ul>
+</section>
+
+<!-- G. Wakelock ────────────────────────────────────────────────── -->
+<section id="G">
+  <h2>G · wakelock while timers active</h2>
+  <ul class="checklist">
+    <li id="g1"><span class="label"><strong>Screen stays on while a timer is active.</strong> Start a timer → leave phone untouched past auto-lock threshold → screen does NOT lock.</span></li>
+    <li id="g2"><span class="label"><strong>Cancel last timer</strong> → wait past auto-lock → screen locks normally.</span></li>
+    <li id="g3"><span class="label"><strong>Navigate away from RecipeScreen</strong> while timer is running → wait past auto-lock → screen locks (wakelock dropped on screen leave).</span></li>
+  </ul>
+</section>
+
+<!-- H. Shopping list ───────────────────────────────────────────── -->
+<section id="H">
+  <h2>H · shopping list</h2>
+  <p class="hint">Originally reported as "snackbar persists across screens". Fixed in commit <code>c24ae94</code>.</p>
+  <ul class="checklist">
+    <li id="h1"><span class="label"><strong>"N items added" snackbar dismisses cleanly</strong> — auto-dismisses on its duration, dismisses on tapping View, doesn't survive screen navigation.</span></li>
+    <li id="h2"><span class="label"><strong>Aisle grouping</strong> of items still works.</span></li>
+    <li id="h3"><span class="label"><strong>Share</strong> button still works.</span></li>
+    <li id="h4"><span class="label"><strong>Restock</strong> button still works.</span></li>
+  </ul>
+</section>
+
+<!-- I. Scanner ─────────────────────────────────────────────────── -->
+<section id="I">
+  <h2>I · scanner</h2>
+  <ul class="checklist">
+    <li id="i1"><span class="label"><strong>Receipt scanning</strong> with a real grocery receipt — items extracted correctly with appropriate tier guesses.</span></li>
+    <li id="i2"><span class="label"><strong>Tax-form / non-receipt scan</strong> → returns "no food items found". Currently terse — flag if copy needs softening.</span></li>
+    <li id="i3"><span class="label"><strong>Barcode scanning</strong> of a food product → metadata pulled from Open Food Facts.</span></li>
+  </ul>
+</section>
+
+<!-- Feature requests ───────────────────────────────────────────── -->
+<section id="X">
+  <h2>x · feature requests <span class="pill peach">not bugs</span></h2>
+  <p class="hint">Things to track separately so the bug list stays a bug list.</p>
+  <ul class="checklist">
+    <li id="x1"><span class="label"><strong>Small X to delete pantry items.</strong> Add an explicit small X icon on each pantry chip. Different from the Sprint 16.4 single-tap-removed pattern — a small X is its own hit-target and doesn't conflict with long-press or chip-area gestures.</span></li>
+  </ul>
+</section>
+
+<div class="footer">
+  <p><strong>Branch state:</strong> <code>sprint/16-integration</code> · all Sprint 16.1 + 16.6 + dietary safety + bug fixes consolidated · pushed to origin on build day.</p>
+  <p><strong>If <code>adb install</code> wipes data:</strong> Auth UX fix can't help — that's a release-keystore + signing-consistency story handled in Sprint 17 launch prep. Don't blame the merge.</p>
+  <p>Mirror markdown: <code>docs/strategy/test-backlog.md</code> · Mockup reference: <code>docs/strategy/2026-05-11-cooking-timer-mockup.html</code></p>
+</div>
+
+</div>
+
+<script>
+  // localStorage key includes the file name so multiple test pages can coexist.
+  const STORAGE_KEY = 'elio-test-list-2026-05-11';
+
+  function loadState() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function saveState(state) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function applyState() {
+    const state = loadState();
+    document.querySelectorAll('ul.checklist > li').forEach(li => {
+      const s = state[li.id];
+      li.classList.toggle('done', s === 'done');
+      li.classList.toggle('issue', s === 'issue');
+      const btn = li.querySelector('.flag-issue');
+      if (btn) btn.textContent = s === 'issue' ? 'issue ✓' : 'issue';
+    });
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const items = document.querySelectorAll('ul.checklist > li');
+    const total = items.length;
+    let done = 0, issues = 0;
+    items.forEach(li => {
+      if (li.classList.contains('done')) done++;
+      if (li.classList.contains('issue')) issues++;
+    });
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    document.getElementById('progress-fill').style.width = pct + '%';
+    document.getElementById('progress-pct').textContent = pct + '%';
+    const counts = done + ' / ' + total + ' ticked';
+    const issuePart = issues > 0 ? ' · ' + issues + ' issue' + (issues > 1 ? 's' : '') + ' flagged' : '';
+    document.getElementById('progress-counts').textContent = counts + issuePart;
+  }
+
+  function toggle(li) {
+    const state = loadState();
+    if (li.classList.contains('done') || li.classList.contains('issue')) {
+      delete state[li.id];
+    } else {
+      state[li.id] = 'done';
+    }
+    saveState(state);
+    applyState();
+  }
+
+  function flagIssue(li, ev) {
+    ev.stopPropagation();
+    const state = loadState();
+    if (li.classList.contains('issue')) {
+      delete state[li.id];
+    } else {
+      state[li.id] = 'issue';
+    }
+    saveState(state);
+    applyState();
+  }
+
+  function resetAll() {
+    if (!confirm('Reset all test results? This wipes your progress on this device.')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    applyState();
+  }
+
+  // Wire up every list item: clicking the row toggles done; the ISSUE button toggles issue.
+  document.querySelectorAll('ul.checklist > li').forEach(li => {
+    const label = li.querySelector('.label');
+    if (label) label.addEventListener('click', () => toggle(li));
+
+    // Inject an ISSUE button into each item.
+    const btn = document.createElement('button');
+    btn.className = 'flag-issue';
+    btn.textContent = 'issue';
+    btn.addEventListener('click', (e) => flagIssue(li, e));
+    li.appendChild(btn);
+  });
+
+  applyState();
+</script>
+
+</body>
+</html>

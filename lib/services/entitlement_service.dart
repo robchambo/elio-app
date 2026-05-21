@@ -1,15 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'purchase_service.dart';
 
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────────────
 // EntitlementService
 // Central source of truth for what the user can do.
 //
 // Free tier:  7 recipes/week, 20 history, owner-only household,
 //             no meal planner generation, no shopping list.
 // Pro tier:   Unlimited everything.
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────────────
 
 class EntitlementService {
   static final EntitlementService instance = EntitlementService._();
@@ -17,18 +18,18 @@ class EntitlementService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ── Cached state (refreshed on each check) ─────────────────────────
+  // ── Cached state (refreshed on each check) ─────────────────
   String _tier = 'free';
   int _weeklyGenerations = 0;
   DateTime? _weekStartedAt;
 
-  // ── Constants ──────────────────────────────────────────────────────
+  // ── Constants ────────────────────────────────────────
   static const int freeWeeklyLimit = 7;
   static const int freeHistoryLimit = 20;
   static const int freeHouseholdLimit = 1; // owner only
   static const int proHouseholdLimit = 6;
 
-  // ── Getters ────────────────────────────────────────────────────────
+  // ── Getters ──────────────────────────────────────────
   bool get isPro => _tier != 'free';
   bool get isFree => _tier == 'free';
 
@@ -39,6 +40,18 @@ class EntitlementService {
 
   int get remainingGenerations =>
       isPro ? 999 : (freeWeeklyLimit - _weeklyGenerations).clamp(0, freeWeeklyLimit);
+
+  /// Whole days remaining until the free-tier weekly counter resets.
+  ///
+  /// Returns 7 when the user has never generated (no week start recorded
+  /// yet) and 0 once the 7-day window has elapsed. The auto-reset happens
+  /// on the next [refresh()] call, so a value of 0 here means "the next
+  /// generation will trigger a fresh week".
+  int get daysUntilReset {
+    if (_weekStartedAt == null) return 7;
+    final elapsed = DateTime.now().toUtc().difference(_weekStartedAt!).inDays;
+    return (7 - elapsed).clamp(0, 7);
+  }
 
   int get maxHouseholdMembers => isPro ? proHouseholdLimit : freeHouseholdLimit;
 
@@ -65,7 +78,7 @@ class EntitlementService {
     _proTestersLoaded = true;
   }
 
-  // ── Refresh from Firestore ─────────────────────────────────────────
+  // ── Refresh from Firestore ─────────────────────────────
   Future<void> refresh() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -79,17 +92,19 @@ class EntitlementService {
       return;
     }
 
+    // Tier is read from RevenueCat directly at runtime — not from Firestore.
+    // The user doc's `subscription.tier` field is locked by Firestore rules;
+    // RevenueCat is the single source of truth for billing entitlement.
+    final isProFromRc = await PurchaseService.instance.isPro();
+    _tier = isProFromRc ? 'pro' : 'free';
+
     final doc = await _db.collection('users').doc(user.uid).get();
     if (!doc.exists) return;
 
     final data = doc.data() as Map<String, dynamic>;
     final subscription = data['subscription'] as Map<String, dynamic>? ?? {};
 
-    // proOverride bypasses billing — set directly in Firestore for dev/test accounts
-    final proOverride = subscription['proOverride'] as bool? ?? false;
-    _tier = proOverride ? 'pro' : (subscription['tier'] as String? ?? 'free');
-
-    // Weekly generation tracking
+    // Weekly generation tracking (still owner-writable under current rules).
     _weeklyGenerations = (subscription['weeklyGenerations'] as num?)?.toInt() ?? 0;
     final weekStartTs = subscription['weekStartedAt'] as Timestamp?;
     _weekStartedAt = weekStartTs?.toDate();
@@ -111,7 +126,7 @@ class EntitlementService {
     return now.difference(_weekStartedAt!).inDays >= 7;
   }
 
-  // ── Increment generation count ─────────────────────────────────────
+  // ── Increment generation count ───────────────────────────
   Future<void> recordGeneration() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -122,7 +137,7 @@ class EntitlementService {
     });
   }
 
-  // ── Guest entitlements (device-local) ──────────────────────────────
+  // ── Guest entitlements (device-local) ──────────────────────
   static const int guestWeeklyLimit = 3;
 
   static Future<bool> canGuestGenerate() async {

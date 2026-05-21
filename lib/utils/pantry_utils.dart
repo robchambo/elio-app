@@ -128,7 +128,7 @@ class PantryUtils {
             : 'You already have similar items in your pantry:\n${matches.map((m) => '  \u2022 $m').join('\n')}\n\nAdd "$newItem" anyway?';
 
         return AlertDialog(
-          backgroundColor: ElioColors.white,
+          backgroundColor: ElioColors.cream,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Text('Similar item found', style: ElioText.headingMedium),
           content: Text(matchText, style: ElioText.bodyMedium),
@@ -137,20 +137,20 @@ class PantryUtils {
               onPressed: () => Navigator.of(ctx).pop(false),
               child: Text(
                 'Cancel',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
               ),
             ),
             OutlinedButton(
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: ElioColors.amber, width: 1.5),
-                foregroundColor: ElioColors.amber,
+                side: const BorderSide(color: ElioColors.terracotta, width: 1.5),
+                foregroundColor: ElioColors.terracotta,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () => Navigator.of(ctx).pop(true),
               child: Text(
                 'Add anyway',
                 style: ElioText.bodyMedium.copyWith(
-                  color: ElioColors.amber,
+                  color: ElioColors.terracotta,
                   fontWeight: FontWeight.w600,
                 ),
               ),

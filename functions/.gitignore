@@ -1,0 +1,16 @@
+# Compiled JavaScript files
+lib/**/*.js
+lib/**/*.js.map
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+firebase-debug.log
+ui-debug.log
+
+# Local env (never commit — Function secrets live in Firebase Secret Manager)
+.env
+.env.local
+.runtimeconfig.json

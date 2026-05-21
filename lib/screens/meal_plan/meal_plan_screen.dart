@@ -1,15 +1,22 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_text_styles.dart';
+import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_eyebrow.dart';
+import '../../widgets/elio/elio_big_button.dart';
 import '../../models/meal_plan_models.dart';
 import '../../services/meal_plan_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/user_settings_service.dart';
 import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/shopping_service.dart';
+import '../../utils/friendly_error.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../paywall/paywall_screen.dart';
-import '../profile/profile_screen.dart';
+import '../shopping/shopping_list_screen.dart';
 import '../../utils/quantity_utils.dart';
 
 // ─────────────────────────────────────────────
@@ -61,6 +68,13 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   List<String> _almostAlwaysHave = [];
   List<String> _runningLowItems = [];
   List<String> _stylePreferences = [];
+  // Sprint 15.9.3: appliances now threaded into single-meal regen so
+  // regenerated meals don't ask for equipment the user lacks.
+  List<String> _appliances = [];
+  // Sprint 15.9.3 SAFETY FIX: allergens MUST be threaded into the meal-
+  // plan single-meal regen prompt or a peanut-allergy user could be
+  // served peanut butter on regen.
+  List<String> _customAllergens = [];
   bool _dataLoaded = false;
 
   // ── Day tab controller ─────────────────────────────────────────────
@@ -96,6 +110,20 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _almostAlwaysHave = List<String>.from(data['almostAlwaysHave'] ?? []);
           _runningLowItems = List<String>.from(data['runningLowItems'] ?? []);
           _stylePreferences = List<String>.from(data['stylePreferences'] ?? []);
+          _appliances = List<String>.from(data['appliances'] ?? []);
+          // Sprint 15.9.3 SAFETY: union allergens across active profiles.
+          // getUserData populates `allergens` on each profile (with the
+          // legacy `customAllergens` key as a fallback).
+          final profiles = (data['householdProfiles'] as List?) ?? const [];
+          final allergenSet = <String>{};
+          for (final p in profiles) {
+            final profile = Map<String, dynamic>.from(p as Map);
+            final raw = (profile['allergens'] as List?) ??
+                (profile['customAllergens'] as List?) ??
+                const <dynamic>[];
+            allergenSet.addAll(raw.map((e) => e.toString().trim()).where((s) => s.isNotEmpty));
+          }
+          _customAllergens = allergenSet.toList();
           _plan = savedPlan;
           _dataLoaded = true;
         });
@@ -148,6 +176,12 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     });
 
     try {
+      // Sprint 16.1: refresh dietary/allergens before building a new
+      // weekly plan so it honours any Settings → Dietary edit made
+      // since this screen was opened.
+      await UserSettingsService.instance.refresh();
+      final settings = UserSettingsService.instance;
+
       final orderedDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
           .where((d) => _selectedDays.contains(d))
           .toList();
@@ -155,7 +189,9 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           .where((t) => _selectedMealTypes.contains(t))
           .toList();
       final plan = await MealPlanService.generateWeeklyPlan(
-        dietaryRequirements: _dietaryRequirements,
+        dietaryRequirements: settings.hydrated
+            ? settings.dietaryRequirements
+            : _dietaryRequirements,
         alwaysHave: _alwaysHave,
         almostAlwaysHave: _almostAlwaysHave,
         stylePreferences: _stylePreferences,
@@ -179,7 +215,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Meal plan took too long. Try fewer days or meal types.'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -190,8 +226,8 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: ElioColors.navy,
+            content: Text(friendlyError(e)),
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -206,10 +242,51 @@ class _MealPlanScreenState extends State<MealPlanScreen>
     }
   }
 
+  Future<void> _confirmRestartPlan() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.cream,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Restart meal plan?', style: ElioTextStyles.heading4),
+        content: Text(
+          'This will clear your current week. You can generate a fresh plan straight after.',
+          style: ElioTextStyles.body.copyWith(color: ElioColors.mocha),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel',
+                style: ElioTextStyles.body.copyWith(color: ElioColors.mocha)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Restart',
+                style: ElioTextStyles.body.copyWith(
+                  color: ElioColors.terracotta,
+                  fontWeight: FontWeight.w700,
+                )),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      setState(() => _plan = null);
+      _firestore.deleteMealPlan();
+    }
+  }
+
   Future<void> _regenerateMeal(int dayIndex, MealType mealType) async {
     if (_plan == null) return;
     final slotKey = '${dayIndex}_${mealType.name}';
     if (_regeneratingSlots.contains(slotKey)) return;
+
+    // dayIndex is the UI tab index (0=Mon..6=Sun); _plan.days is sparse
+    // (only populated days), so look up by name rather than indexing.
+    const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayName = fullDayNames[dayIndex];
+    final existingDayIndex = _plan!.days.indexWhere((d) => d.dayName == dayName);
+    final existingDay = existingDayIndex >= 0 ? _plan!.days[existingDayIndex] : null;
 
     setState(() => _regeneratingSlots.add(slotKey));
 
@@ -221,19 +298,41 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         }
       }
 
+      // Sprint 16.1: force-refresh dietary/allergens from server before
+      // regen so a Settings → Dietary edit since the meal plan was
+      // generated is honoured. Reads from UserSettingsService rather
+      // than the locally-cached _dietaryRequirements / _customAllergens
+      // — those are populated on screen load and would be stale.
+      await UserSettingsService.instance.refresh();
+      final settings = UserSettingsService.instance;
+
       final newMeal = await MealPlanService.regenerateMeal(
-        dayName: _plan!.days[dayIndex].dayName,
+        dayName: dayName,
         mealType: mealType,
-        dietaryRequirements: _dietaryRequirements,
+        dietaryRequirements: settings.hydrated
+            ? settings.dietaryRequirements
+            : _dietaryRequirements,
         alwaysHave: _alwaysHave,
         almostAlwaysHave: _almostAlwaysHave,
         existingTitles: existingTitles,
+        // Sprint 15.9.3: thread user prefs so regenerated meal honours
+        // their setup, not just dietary + pantry.
+        appliances: _appliances,
+        runningLowItems: _runningLowItems,
+        customAllergens: settings.hydrated ? settings.allergies : _customAllergens,
       );
 
       if (mounted) {
         setState(() {
-          final updatedDay = _plan!.days[dayIndex].copyWithMeal(mealType, newMeal);
-          _plan = _plan!.copyWithDay(dayIndex, updatedDay);
+          final base = existingDay ?? DayPlan(dayName: dayName, meals: const {});
+          final updatedDay = base.copyWithMeal(mealType, newMeal);
+          final newDays = List<DayPlan>.from(_plan!.days);
+          if (existingDayIndex >= 0) {
+            newDays[existingDayIndex] = updatedDay;
+          } else {
+            newDays.add(updatedDay);
+          }
+          _plan = MealPlan(days: newDays, generatedAt: _plan!.generatedAt);
         });
         _savePlan();
         _analytics.logEvent('meal_plan_meal_regenerated', {
@@ -244,8 +343,8 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: ElioColors.navy,
+            content: Text(friendlyError(e)),
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -339,18 +438,28 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         'total_available': items.length,
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Sprint 16.1: see recipe_screen.dart for the same fix —
+        // explicit duration + hide-current so the snackbar doesn't
+        // follow the user across navigation indefinitely.
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        // Sprint 16.7c — withTimer enforces the 3s dismiss even when
+        // accessibleNavigation is true (Flutter would otherwise leave
+        // the action snackbar on screen indefinitely).
+        messenger.showSnackBarWithTimer(
           SnackBar(
             content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             action: SnackBarAction(
               label: 'View',
-              textColor: ElioColors.amber,
+              textColor: ElioColors.terracotta,
               onPressed: () {
+                messenger.hideCurrentSnackBar();
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                  MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                 );
               },
             ),
@@ -388,9 +497,15 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       try {
         final detailed = await MealPlanService.generateMealDetail(meal);
         if (!mounted) return;
+        // Look up the populated day by name — _plan.days is sparse and the
+        // tab dayIndex (0=Mon..6=Sun) doesn't always match the array index.
+        const fullDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        final dayName = fullDayNames[dayIndex];
+        final existingDayIndex = _plan!.days.indexWhere((d) => d.dayName == dayName);
+        if (existingDayIndex < 0) return;
         setState(() {
-          final updatedDay = _plan!.days[dayIndex].copyWithMeal(mealType, detailed);
-          _plan = _plan!.copyWithDay(dayIndex, updatedDay);
+          final updatedDay = _plan!.days[existingDayIndex].copyWithMeal(mealType, detailed);
+          _plan = _plan!.copyWithDay(existingDayIndex, updatedDay);
         });
         _savePlan();
         Navigator.of(context).push(
@@ -402,8 +517,8 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(e.toString().replaceFirst('Exception: ', '')),
-              backgroundColor: ElioColors.navy,
+              content: Text(friendlyError(e)),
+              backgroundColor: ElioColors.espresso,
             ),
           );
         }
@@ -422,7 +537,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,7 +553,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
       floatingActionButton: _plan != null
           ? FloatingActionButton.extended(
               onPressed: _showAddToShoppingDialog,
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               foregroundColor: Colors.white,
               icon: const Icon(Icons.add_shopping_cart_rounded, size: 20),
               label: const Text(
@@ -451,7 +566,38 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   }
 
   // ─── Header ───────────────────────────────────────────────────────────────────
+  //
+  // 21 May 2026 — Kate's on-device feedback ("this screen could do with
+  // a tidy up — the top section ... why is there a mini Generate button
+  // at the top"). Pre-fix this row stacked two clashing patterns on top
+  // of each other on the empty state:
+  //
+  //   1. Material-style app bar look — back arrow + heading4 "Meal
+  //      planner" title + bodyMedium "Generate your week in one tap"
+  //      subtitle + a small terracotta "Generate" pill at the right.
+  //   2. Immediately below: the proper editorial hero ("PLAN AHEAD"
+  //      eyebrow + ElioHeroHeading "your week ahead" + terracotta
+  //      underline + body paragraph) that matches every other surface
+  //      in the app.
+  //
+  // The mini "Generate" pill was also redundant — `_buildEmptyState()`
+  // already renders the big terracotta "Generate N days" `ElioBigButton`
+  // at the bottom with the same handler. Pre-fix tapping either one
+  // started the same flow.
+  //
+  // Fix:
+  //   - Empty state (`_plan == null`): drop the title + subtitle +
+  //     generate pill entirely. Show only a back-arrow circle button
+  //     (matches the Cook Mode close-button pattern). The editorial
+  //     hero below IS the screen heading; the bottom big button is the
+  //     only Generate CTA.
+  //   - With-plan state (`_plan != null`): keep the back arrow but
+  //     swap heading4-title + subtitle for nothing — the day tabs + meal
+  //     cards make the context obvious. Keep "Restart plan" + "Redo
+  //     week" pills on the right since those are quick-actions the user
+  //     wants visible while viewing the plan.
   Widget _buildHeader() {
+    final isEmpty = _plan == null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -460,61 +606,41 @@ class _MealPlanScreenState extends State<MealPlanScreen>
             onTap: () => Navigator.of(context).pop(),
             child: const Padding(
               padding: EdgeInsets.all(8),
-              child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+              child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Meal Planner', style: ElioText.headingLarge, maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (_plan == null)
-                  Text(
-                    'Generate your week in one tap',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  )
-                else
-                  Text(
-                    'Tap a meal to view full recipe',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (_plan != null) ...[
-            // "New plan" — discard current and reconfigure
+          // Empty state: nothing else here — the editorial hero below is
+          // the screen heading. With-plan state: action pills on the
+          // right (no title text, no mini-Generate).
+          if (!isEmpty) ...[
+            const Spacer(),
+            // "Restart plan" — confirm, then discard current and reconfigure
             GestureDetector(
-              onTap: () {
-                setState(() => _plan = null);
-                _firestore.deleteMealPlan();
-              },
+              onTap: _confirmRestartPlan,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: ElioColors.offWhite,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: ElioColors.border),
+                  color: ElioColors.cream,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: ElioColors.rule),
                 ),
-                child: const Text(
-                  'New plan',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ElioColors.textSecondary),
+                child: Text(
+                  'Restart plan',
+                  style: ElioTextStyles.bodySmall.copyWith(
+                    color: ElioColors.mocha,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
             const SizedBox(width: 6),
+            _GenerateButton(
+              isGenerating: _isGenerating,
+              generatingMessage: _generatingMessage,
+              hasExistingPlan: true,
+              onTap: _generateWeeklyPlan,
+            ),
           ],
-          _GenerateButton(
-            isGenerating: _isGenerating,
-            generatingMessage: _generatingMessage,
-            hasExistingPlan: _plan != null,
-            onTap: _generateWeeklyPlan,
-          ),
         ],
       ),
     );
@@ -528,14 +654,14 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         controller: _tabController,
         isScrollable: false,
         labelPadding: EdgeInsets.zero,
-        indicatorColor: ElioColors.amber,
+        indicatorColor: ElioColors.terracotta,
         indicatorWeight: 2.5,
         indicatorSize: TabBarIndicatorSize.label,
-        labelColor: ElioColors.navy,
-        unselectedLabelColor: ElioColors.textMuted,
+        labelColor: ElioColors.espresso,
+        unselectedLabelColor: ElioColors.mocha,
         labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         unselectedLabelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        dividerColor: ElioColors.border,
+        dividerColor: ElioColors.rule,
         tabs: _dayAbbreviations.map((d) => Tab(text: d)).toList(),
       ),
     );
@@ -544,7 +670,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   // ─── Body ─────────────────────────────────────────────────────────────────────
   Widget _buildBody() {
     if (!_dataLoaded) {
-      return const Center(child: CircularProgressIndicator(color: ElioColors.amber));
+      return const Center(child: CircularProgressIndicator(color: ElioColors.terracotta));
     }
 
     if (_plan == null) {
@@ -600,12 +726,27 @@ class _MealPlanScreenState extends State<MealPlanScreen>
         : 'Elio will generate $totalMeals meals — $mealTypeLabel for $dayLabel — tailored to your pantry and dietary needs.';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Editorial hero ──────────────────────────────────────────
+          const ElioEyebrow('plan ahead'),
+          const SizedBox(height: 12),
+          const ElioHeroHeading(
+            lines: ['your week', 'ahead'],
+            amberLastLine: true,
+            showUnderline: true,
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Pick your days and meal types — Elio will plan the week around your pantry.',
+            style: ElioTextStyles.body.copyWith(color: ElioColors.mocha),
+          ),
+          const SizedBox(height: 28),
+
           // ── Meal types ──────────────────────────────────────────────
-          Text('Meal types', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
+          Text('Meal types', style: ElioText.label.copyWith(color: ElioColors.mocha, letterSpacing: 0.5)),
           const SizedBox(height: 10),
           Wrap(
             spacing: 10,
@@ -624,10 +765,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: isOn ? ElioColors.navy : ElioColors.offWhite,
+                    color: isOn ? ElioColors.espresso : ElioColors.cream,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isOn ? ElioColors.navy : ElioColors.border,
+                      color: isOn ? ElioColors.espresso : ElioColors.rule,
                       width: 1.5,
                     ),
                   ),
@@ -641,7 +782,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
-                          color: isOn ? Colors.white : ElioColors.textSecondary,
+                          color: isOn ? Colors.white : ElioColors.mocha,
                         ),
                       ),
                     ],
@@ -657,7 +798,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Days', style: ElioText.label.copyWith(color: ElioColors.textSecondary, letterSpacing: 0.5)),
+              Text('Days', style: ElioText.label.copyWith(color: ElioColors.mocha, letterSpacing: 0.5)),
               GestureDetector(
                 onTap: () => setState(() {
                   if (_selectedDays.length == 7) {
@@ -669,7 +810,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                 }),
                 child: Text(
                   _selectedDays.length == 7 ? 'Clear all' : 'Select all',
-                  style: ElioText.label.copyWith(color: ElioColors.sky, fontWeight: FontWeight.w600),
+                  style: ElioText.label.copyWith(color: ElioColors.mocha, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -696,10 +837,10 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: _selectedDays.contains(entry.$2) ? ElioColors.amber : ElioColors.offWhite,
+                      color: _selectedDays.contains(entry.$2) ? ElioColors.terracotta : ElioColors.cream,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                        color: _selectedDays.contains(entry.$2) ? ElioColors.amber : ElioColors.border,
+                        color: _selectedDays.contains(entry.$2) ? ElioColors.terracotta : ElioColors.rule,
                         width: 1.5,
                       ),
                     ),
@@ -709,7 +850,7 @@ class _MealPlanScreenState extends State<MealPlanScreen>
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: _selectedDays.contains(entry.$2) ? Colors.white : ElioColors.textSecondary,
+                          color: _selectedDays.contains(entry.$2) ? Colors.white : ElioColors.mocha,
                         ),
                       ),
                     ),
@@ -725,13 +866,13 @@ class _MealPlanScreenState extends State<MealPlanScreen>
             width: double.infinity,
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: ElioColors.offWhite,
+              color: ElioColors.cream,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: ElioColors.border),
+              border: Border.all(color: ElioColors.rule),
             ),
             child: Text(
               summaryText,
-              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
               textAlign: TextAlign.center,
             ),
           ),
@@ -739,38 +880,15 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           const SizedBox(height: 24),
 
           // ── Generate button ──────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: ElevatedButton(
-              onPressed: (_isGenerating || _selectedDays.isEmpty || _selectedMealTypes.isEmpty)
-                  ? null
-                  : _generateWeeklyPlan,
-              child: _isGenerating
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                        ),
-                        const SizedBox(width: 12),
-                        Flexible(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 400),
-                            child: Text(
-                              _generatingMessage,
-                              key: ValueKey(_generatingMessage),
-                              style: const TextStyle(fontSize: 14, color: Colors.white),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text('Generate ${_selectedDays.length == 7 ? 'My Week' : '${_selectedDays.length} Days'} →'),
-            ),
+          ElioBigButton(
+            label: _isGenerating
+                ? (_generatingMessage.isEmpty ? 'Planning your week…' : _generatingMessage)
+                : 'Generate ${_selectedDays.length == 7 ? 'my week' : '${_selectedDays.length} days'}',
+            trailingIcon: Icons.chevron_right,
+            loading: _isGenerating,
+            onTap: (_isGenerating || _selectedDays.isEmpty || _selectedMealTypes.isEmpty)
+                ? null
+                : _generateWeeklyPlan,
           ),
         ],
       ),
@@ -798,7 +916,7 @@ class _GenerateButton extends StatelessWidget {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: ElioColors.amber.withValues(alpha: 0.12),
+          color: ElioColors.terracotta.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -807,7 +925,7 @@ class _GenerateButton extends StatelessWidget {
             const SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(color: ElioColors.amber, strokeWidth: 2),
+              child: CircularProgressIndicator(color: ElioColors.terracotta, strokeWidth: 2),
             ),
             if (generatingMessage.isNotEmpty) ...[
               const SizedBox(width: 8),
@@ -818,7 +936,7 @@ class _GenerateButton extends StatelessWidget {
                   child: Text(
                     generatingMessage,
                     key: ValueKey(generatingMessage),
-                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ElioColors.amber),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ElioColors.terracotta),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -834,9 +952,9 @@ class _GenerateButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: hasExistingPlan ? ElioColors.offWhite : ElioColors.amber,
+          color: hasExistingPlan ? ElioColors.cream : ElioColors.terracotta,
           borderRadius: BorderRadius.circular(20),
-          border: hasExistingPlan ? Border.all(color: ElioColors.border) : null,
+          border: hasExistingPlan ? Border.all(color: ElioColors.rule) : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -844,7 +962,7 @@ class _GenerateButton extends StatelessWidget {
             Icon(
               hasExistingPlan ? Icons.refresh : Icons.auto_awesome,
               size: 14,
-              color: hasExistingPlan ? ElioColors.textSecondary : Colors.white,
+              color: hasExistingPlan ? ElioColors.mocha : Colors.white,
             ),
             const SizedBox(width: 4),
             Text(
@@ -852,7 +970,7 @@ class _GenerateButton extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: hasExistingPlan ? ElioColors.textSecondary : Colors.white,
+                color: hasExistingPlan ? ElioColors.mocha : Colors.white,
               ),
             ),
           ],
@@ -885,9 +1003,9 @@ class _MealCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),
         decoration: BoxDecoration(
-          color: ElioColors.offWhite,
+          color: ElioColors.cream,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: ElioColors.border),
+          border: Border.all(color: ElioColors.rule),
         ),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -902,7 +1020,7 @@ class _MealCard extends StatelessWidget {
                   Text(
                     mealType.displayName.toUpperCase(),
                     style: ElioText.label.copyWith(
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -911,7 +1029,7 @@ class _MealCard extends StatelessWidget {
                   if (meal != null && !isRegenerating)
                     const Padding(
                       padding: EdgeInsets.only(right: 8),
-                      child: Icon(Icons.chevron_right, size: 16, color: ElioColors.textMuted),
+                      child: Icon(Icons.chevron_right, size: 16, color: ElioColors.mocha),
                     ),
                   // Regenerate button
                   GestureDetector(
@@ -920,19 +1038,19 @@ class _MealCard extends StatelessWidget {
                       width: 32,
                       height: 32,
                       decoration: BoxDecoration(
-                        color: ElioColors.white,
+                        color: ElioColors.cream,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: ElioColors.border),
+                        border: Border.all(color: ElioColors.rule),
                       ),
                       child: isRegenerating
                           ? const Padding(
                               padding: EdgeInsets.all(7),
                               child: CircularProgressIndicator(
-                                color: ElioColors.amber,
+                                color: ElioColors.terracotta,
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Icon(Icons.refresh, size: 16, color: ElioColors.textSecondary),
+                          : const Icon(Icons.refresh, size: 16, color: ElioColors.mocha),
                     ),
                   ),
                 ],
@@ -961,7 +1079,7 @@ class _MealCard extends StatelessWidget {
           height: 18,
           width: 200,
           decoration: BoxDecoration(
-            color: ElioColors.border,
+            color: ElioColors.rule,
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -970,7 +1088,7 @@ class _MealCard extends StatelessWidget {
           height: 14,
           width: 140,
           decoration: BoxDecoration(
-            color: ElioColors.border.withValues(alpha: 0.6),
+            color: ElioColors.rule.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -981,7 +1099,7 @@ class _MealCard extends StatelessWidget {
   Widget _buildEmptySlot() {
     return Text(
       'Tap ↺ to generate',
-      style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+      style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
     );
   }
 
@@ -996,7 +1114,7 @@ class _MealCard extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           meal.description,
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
@@ -1028,20 +1146,20 @@ class _TimeBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: ElioColors.amber.withValues(alpha: 0.1),
+        color: ElioColors.terracotta.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.timer_outlined, size: 11, color: ElioColors.amber),
+          const Icon(Icons.timer_outlined, size: 11, color: ElioColors.terracotta),
           const SizedBox(width: 3),
           Text(
             '$minutes min',
             style: const TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
             ),
           ),
         ],
@@ -1059,7 +1177,7 @@ class _DietaryTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: ElioColors.navy.withValues(alpha: 0.07),
+        color: ElioColors.espresso.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -1067,7 +1185,7 @@ class _DietaryTag extends StatelessWidget {
         style: const TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: ElioColors.navy,
+          color: ElioColors.espresso,
         ),
       ),
     );
@@ -1128,7 +1246,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Edit item', style: ElioText.headingMedium),
         content: Column(
@@ -1151,7 +1269,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
           ),
           TextButton(
             onPressed: () {
@@ -1162,7 +1280,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
               Navigator.pop(ctx);
             },
             child: Text('Save', style: ElioText.bodyMedium.copyWith(
-              color: ElioColors.navy,
+              color: ElioColors.espresso,
               fontWeight: FontWeight.w600,
             )),
           ),
@@ -1177,7 +1295,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       child: ConstrainedBox(
@@ -1198,7 +1316,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                   const SizedBox(height: 4),
                   Text(
                     '$_includedCount of ${_items.length} items selected',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -1208,7 +1326,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                         child: Text(
                           'Select all',
                           style: ElioText.label.copyWith(
-                            color: ElioColors.sky,
+                            color: ElioColors.mocha,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1219,7 +1337,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                         child: Text(
                           'Deselect all',
                           style: ElioText.label.copyWith(
-                            color: ElioColors.textMuted,
+                            color: ElioColors.mocha,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -1239,7 +1357,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                       child: Center(
                         child: Text(
                           'All ingredients are already in your pantry!',
-                          style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
+                          style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -1256,7 +1374,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                             margin: const EdgeInsets.only(bottom: 4),
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                             decoration: BoxDecoration(
-                              color: item.included ? Colors.transparent : ElioColors.offWhite.withValues(alpha: 0.5),
+                              color: item.included ? Colors.transparent : ElioColors.cream.withValues(alpha: 0.5),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Row(
@@ -1267,10 +1385,10 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                                   width: 22,
                                   height: 22,
                                   decoration: BoxDecoration(
-                                    color: item.included ? ElioColors.navy : Colors.transparent,
+                                    color: item.included ? ElioColors.espresso : Colors.transparent,
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
-                                      color: item.included ? ElioColors.navy : ElioColors.border,
+                                      color: item.included ? ElioColors.espresso : ElioColors.rule,
                                       width: 1.5,
                                     ),
                                   ),
@@ -1290,19 +1408,19 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
                                           color: item.included
-                                              ? ElioColors.textPrimary
-                                              : ElioColors.textMuted,
+                                              ? ElioColors.espresso
+                                              : ElioColors.mocha,
                                           decoration: item.included
                                               ? null
                                               : TextDecoration.lineThrough,
-                                          decorationColor: ElioColors.textMuted,
+                                          decorationColor: ElioColors.mocha,
                                         ),
                                       ),
                                       if (item.quantity.isNotEmpty)
                                         Text(
                                           item.quantity,
                                           style: ElioText.label.copyWith(
-                                            color: ElioColors.textMuted,
+                                            color: ElioColors.mocha,
                                             fontSize: 12,
                                           ),
                                         ),
@@ -1315,14 +1433,14 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     margin: const EdgeInsets.only(right: 6),
                                     decoration: BoxDecoration(
-                                      color: ElioColors.amber.withValues(alpha: 0.15),
+                                      color: ElioColors.terracotta.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: ElioColors.amber.withValues(alpha: 0.4)),
+                                      border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.4)),
                                     ),
                                     child: Text(
                                       'Restock',
                                       style: ElioText.label.copyWith(
-                                        color: ElioColors.amber,
+                                        color: ElioColors.terracotta,
                                         fontWeight: FontWeight.w700,
                                         fontSize: 10,
                                       ),
@@ -1333,7 +1451,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                                   onTap: () => _editItem(i),
                                   child: const Padding(
                                     padding: EdgeInsets.all(4),
-                                    child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted),
+                                    child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.mocha),
                                   ),
                                 ),
                               ],
@@ -1357,9 +1475,9 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                           ? () => Navigator.pop(context, true)
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: ElioColors.amber,
+                        backgroundColor: ElioColors.terracotta,
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: ElioColors.border,
+                        disabledBackgroundColor: ElioColors.rule,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,
@@ -1378,7 +1496,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                     onTap: () {
                       Navigator.pop(context, false);
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                        MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                       );
                     },
                     child: Padding(
@@ -1386,7 +1504,7 @@ class _AddToShoppingDialogState extends State<_AddToShoppingDialog> {
                       child: Text(
                         'View shopping list',
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.sky,
+                          color: ElioColors.mocha,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

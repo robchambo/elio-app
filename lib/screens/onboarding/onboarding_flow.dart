@@ -1,34 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../models/onboarding_state.dart';
-import '../../services/firestore_service.dart';
-import '../../services/guest_pantry_service.dart';
-import '../../services/analytics_service.dart';
-import '../../utils/region_utils.dart';
-import 'screen8_complete.dart';
-import 'screen1_dietary.dart';
-import 'screen2_preset.dart';
-import 'screen3_pantry.dart';
-import 'screen4_household.dart';
-import 'screen5_style.dart';
-import 'screen6_appliances.dart';
-import 'screen7_units_region.dart';
+
+import '../../controllers/onboarding_controller.dart';
+import 'screen01_welcome.dart';
+import 'screen02_goal.dart';
+import 'screen03_household.dart';
+import 'screen04_dietary.dart';
+import 'screen05_allergies.dart';
+import 'screen06_time.dart';
+import 'screen07_confidence.dart';
+import 'screen08_appliances.dart';
+import 'screen09_region.dart';
+import 'screen10_pantry_intro.dart';
+import 'screen11_pantry_staples.dart';
+import 'screen12_pantry_perishables.dart';
+import 'screen13_first_recipe.dart';
+import 'screen14_paywall.dart';
+import 'screen15_account.dart';
 
 // ─────────────────────────────────────────────
-// OnboardingFlow
-// Coordinator widget that manages the seven-screen onboarding sequence.
-// Uses a PageView for smooth horizontal transitions.
-// Accumulates OnboardingState across screens.
-// Writes to Firestore on completion (skipped in guest mode).
+// OnboardingFlow — 15-screen coordinator (Sprint 16)
 //
-// Screen order:
-//   1. Dietary requirements (mandatory)
-//   2. Kitchen preset (mandatory)
-//   3. Pantry review (mandatory)
-//   4. Household members (optional)
-//   5. Style preferences (optional)
-//   6. Kitchen appliances (optional)
-//   7. Units & Region (optional)
+// Owns a single [OnboardingController] and a [PageController]. Each child
+// screen receives `onContinue` / `onBack` callbacks wired to page
+// navigation. Screens 02–14 advance via `nextPage`; screen 15 replaces
+// the route with the post-onboarding destination after flipping the
+// `onboardingComplete` pref (screen 15 owns that logic already).
+//
+// The legacy `{displayName, onComplete, isGuest}` constructor is kept
+// for backwards-compatibility with `AuthGate` in `lib/main.dart`, but
+// those fields are no longer read — onboarding completion is now signalled
+// via SharedPreferences and `AuthGate` re-resolves on app restart.
 // ─────────────────────────────────────────────
 
 class OnboardingFlow extends StatefulWidget {
@@ -36,191 +37,142 @@ class OnboardingFlow extends StatefulWidget {
   final VoidCallback onComplete;
   final bool isGuest;
 
+  /// Optional injected controller — tests pass a pre-configured instance
+  /// to seed state. Production callers let the coordinator construct a
+  /// fresh one per flow.
+  final OnboardingController? controller;
+
   const OnboardingFlow({
     super.key,
-    required this.displayName,
-    required this.onComplete,
+    this.displayName = 'there',
+    this.onComplete = _noop,
     this.isGuest = false,
+    this.controller,
   });
 
   @override
   State<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
-class _OnboardingFlowState extends State<OnboardingFlow> {
-  final PageController _pageController = PageController();
-  final FirestoreService _firestore = FirestoreService();
-  final AnalyticsService _analytics = AnalyticsService.instance;
-  OnboardingState _state = OnboardingState();
-  bool _isSaving = false;
+void _noop() {}
 
-  static const List<String> _stepNames = [
-    'dietary', 'kitchen_preset', 'pantry_review', 'household', 'style', 'appliances', 'units_region',
-  ];
+class _OnboardingFlowState extends State<OnboardingFlow> {
+  late final PageController _pageController;
+  late final OnboardingController _controller;
+  late final bool _ownsController;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    if (widget.controller != null) {
+      _controller = widget.controller!;
+      _ownsController = false;
+    } else {
+      _controller = OnboardingController();
+      _ownsController = true;
+    }
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
+    if (_ownsController) _controller.dispose();
     super.dispose();
   }
 
-  void _goToPage(int page) {
-    // Dismiss keyboard before transitioning to next page
-    FocusScope.of(context).unfocus();
-    _pageController.animateToPage(
-      page,
-      duration: const Duration(milliseconds: 350),
+  Future<void> _next() async {
+    await _pageController.nextPage(
+      duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
   }
 
-  void _onDietaryNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[0]});
-    _goToPage(1);
-  }
-
-  void _onPresetNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[1]});
-    _goToPage(2);
-  }
-
-  void _onPantryNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[2]});
-    _goToPage(3);
-  }
-
-  void _onHouseholdNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[3]});
-    _goToPage(4);
-  }
-
-  void _onStyleComplete(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[4]});
-    _goToPage(5);
-  }
-
-  void _onAppliancesNext(OnboardingState updated) {
-    setState(() => _state = updated);
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[5]});
-    _goToPage(6);
-  }
-
-  Future<void> _onUnitsRegionComplete(OnboardingState updated) async {
-    _analytics.logEvent('onboarding_step_completed', {'step': _stepNames[6]});
-    setState(() { _state = updated; _isSaving = true; });
-
-    // Apply region and units overrides to RegionUtils
-    RegionUtils.setRegion(updated.region == 'UK' ? AppRegion.uk : AppRegion.us);
-    RegionUtils.setMeasurementUnits(updated.measurementUnits);
-
-    // Guest mode: persist pantry data locally then route to completion screen
-    if (widget.isGuest) {
-      await GuestPantryService.save(_state);
-      _analytics.logEvent('onboarding_completed', {'auth_method': 'guest'});
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const OnboardingCompleteScreen(isGuest: true),
-          ),
-          (route) => false,
-        );
-      }
-      return;
-    }
-
-    // Signed-in mode: save to Firestore then route to completion screen
-    try {
-      await _firestore.completeOnboarding(_state, widget.displayName);
-      _analytics.logEvent('onboarding_completed', {'auth_method': 'google'});
-      _analytics.setDietaryProfile(_state.dietaryRequirements.map((d) => d.label).toList());
-      _analytics.setHouseholdSize(_state.additionalMembers.length + 1);
-      if (mounted) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const OnboardingCompleteScreen(),
-          ),
-          (route) => false,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Something went wrong: ${e.toString()}')),
-        );
-      }
-    }
+  Future<void> _back() async {
+    await _pageController.previousPage(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isSaving) {
-      return Scaffold(
-        backgroundColor: const Color(0xFFFFFFFF),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(color: Color(0xFFF08C14)),
-              const SizedBox(height: 20),
-              Text(
-                widget.isGuest ? 'Getting Elio ready...' : 'Setting up your kitchen...',
-                style: GoogleFonts.outfit(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF6B6B6B),
-                ),
-              ),
-            ],
+    return Scaffold(
+      body: PageView(
+        controller: _pageController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          Screen01Welcome(controller: _controller, onContinue: _next),
+          Screen02Goal(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
           ),
-        ),
-      );
-    }
-
-    return PageView(
-      controller: _pageController,
-      physics: const NeverScrollableScrollPhysics(),
-      children: [
-        DietaryScreen(
-          state: _state,
-          onNext: _onDietaryNext,
-        ),
-        KitchenPresetScreen(
-          state: _state,
-          onNext: _onPresetNext,
-          onBack: () => _goToPage(0),
-        ),
-        PantryReviewScreen(
-          state: _state,
-          onNext: _onPantryNext,
-          onBack: () => _goToPage(1),
-        ),
-        HouseholdScreen(
-          state: _state,
-          onComplete: _onHouseholdNext,
-          onBack: () => _goToPage(2),
-        ),
-        StylePreferencesScreen(
-          state: _state,
-          onComplete: _onStyleComplete,
-          onBack: () => _goToPage(3),
-        ),
-        KitchenAppliancesScreen(
-          state: _state,
-          onComplete: _onAppliancesNext,
-          onBack: () => _goToPage(4),
-        ),
-        UnitsRegionScreen(
-          state: _state,
-          onComplete: _onUnitsRegionComplete,
-          onBack: () => _goToPage(5),
-        ),
-      ],
+          Screen03Household(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen04Dietary(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen05Allergies(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen06Time(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen07Confidence(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen08Appliances(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen09Region(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen10PantryIntro(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen11PantryStaples(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen12PantryPerishables(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen13FirstRecipe(
+            controller: _controller,
+            onContinue: _next,
+          ),
+          Screen14Paywall(
+            controller: _controller,
+            onContinue: _next,
+            onBack: _back,
+          ),
+          Screen15Account(
+            controller: _controller,
+            onBack: _back,
+          ),
+        ],
+      ),
     );
   }
 }

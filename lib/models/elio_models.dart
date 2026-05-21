@@ -4,6 +4,8 @@
 // These mirror the Firestore schema defined in the design document.
 // ─────────────────────────────────────────────
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 // ─── Dietary requirements ─────────────────────────────────────────────────────
 
 enum DietaryRequirement {
@@ -125,7 +127,11 @@ class InventoryItem {
       'runningLow': isRunningLow,
     };
     if (expiryDate != null) {
-      map['expiryDate'] = expiryDate!.toIso8601String();
+      // Sprint 15.9.3: write as Firestore Timestamp, not ISO 8601
+      // String. Previously String, which forced the dedup migration to
+      // tolerate two shapes (see InventoryWriter._readTimestamp). Going
+      // forward every Firestore-bound write produces a Timestamp.
+      map['expiryDate'] = Timestamp.fromDate(expiryDate!);
     }
     if (category != null) {
       map['category'] = category;
@@ -136,11 +142,13 @@ class InventoryItem {
   factory InventoryItem.fromFirestore(Map<String, dynamic> data) {
     DateTime? expiry;
     final rawExpiry = data['expiryDate'];
-    if (rawExpiry != null) {
-      if (rawExpiry is String) {
-        expiry = DateTime.tryParse(rawExpiry);
-      }
-      // Firestore Timestamp is handled in the service layer
+    // Sprint 15.9.3: tolerant read — Timestamp is the canonical shape
+    // post-migration, but legacy rows may still have ISO 8601 Strings
+    // until they're touched by the dedup migration's collapse pass.
+    if (rawExpiry is Timestamp) {
+      expiry = rawExpiry.toDate();
+    } else if (rawExpiry is String) {
+      expiry = DateTime.tryParse(rawExpiry);
     }
     return InventoryItem(
       name: data['name'] as String? ?? '',

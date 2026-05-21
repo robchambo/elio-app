@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../services/analytics_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/scanner_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import 'receipt_results_screen.dart';
 import 'scan_success_screen.dart';
@@ -80,7 +80,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
@@ -111,7 +111,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       child: Container(
         height: 44,
         decoration: BoxDecoration(
-          color: ElioColors.offWhite,
+          color: ElioColors.cream,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -133,7 +133,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: isActive ? ElioColors.white : Colors.transparent,
+            color: isActive ? ElioColors.cream : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
             boxShadow: isActive
                 ? [
@@ -148,10 +148,10 @@ class _ScannerScreenState extends State<ScannerScreen> {
           alignment: Alignment.center,
           child: Text(
             label,
-            style: GoogleFonts.outfit(
+            style: ElioTextStyles.uiLabelStyle.copyWith(
               fontSize: 14,
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              color: isActive ? ElioColors.navy : ElioColors.textSecondary,
+              color: isActive ? ElioColors.espresso : ElioColors.mocha,
             ),
           ),
         ),
@@ -240,10 +240,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
           ),
           child: Text(
             text,
-            style: GoogleFonts.outfit(
-              fontSize: 13,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
               color: Colors.white70,
-              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -260,7 +258,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
             width: 32,
             height: 32,
             child: CircularProgressIndicator(
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
               strokeWidth: 3,
             ),
           ),
@@ -313,112 +311,114 @@ class _ScannerScreenState extends State<ScannerScreen> {
   }
 
   // ─── Receipt Tab ────────────────────────────────────────────────
-
+  //
+  // 19 May 2026 — restructured to mirror the Recipe Import "Photo tab"
+  // (`recipe_import_screen.dart::_buildPhotoTab`). Previously this was
+  // a dark/black panel with white-on-black supporting copy that read
+  // poorly and looked inconsistent with the sibling Import surface.
+  //
+  // New shape: cream background, centred terracotta-tinted hero square
+  // (100×100, radius 24, 48pt glyph), `headingMedium` headline, bodyMedium
+  // explainer + bodySmall helper note, then the standard Camera /
+  // Gallery button row at the bottom. Identical visual ramp to
+  // Recipe Import → Photo so the two scan surfaces feel like
+  // siblings.
   Widget _buildReceiptTab() {
-    return Column(
-      children: [
-        // Visual area with receipt icon
-        Container(
-          height: 320,
-          width: double.infinity,
-          color: const Color(0xFF111111),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          const Spacer(),
+          // Icon area — matches `recipe_import_screen` hero block.
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: ElioColors.terracotta.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: const Icon(
+              Icons.receipt_long_rounded,
+              size: 48,
+              color: ElioColors.terracotta,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Capture your receipt',
+            style: ElioText.headingMedium,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Snap a photo of your grocery receipt — Elio will extract '
+            'the items and suggest pantry tiers.',
+            textAlign: TextAlign.center,
+            style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Works best with the receipt laid flat in good light. '
+            'Receipts shorten item names — you can edit each line '
+            'before adding.',
+            textAlign: TextAlign.center,
+            style: ElioTextStyles.bodySmallStyle.copyWith(
+              fontSize: 12,
+              color: ElioColors.mocha,
+            ),
+          ),
+          const SizedBox(height: 32),
+          // Buttons — identical shape to Recipe Import → Photo so the
+          // two scan surfaces feel like the same family.
+          if (_isProcessing) ...[
+            const CircularProgressIndicator(color: ElioColors.terracotta),
+            const SizedBox(height: 12),
+            Text(
+              'Analysing receipt...',
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
+            ),
+          ] else ...[
+            Row(
               children: [
-                const Icon(Icons.receipt_long_rounded, size: 56, color: Colors.white54),
-                const SizedBox(height: 12),
-                Text(
-                  'Capture your receipt',
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                Expanded(
+                  child: _amberButton(
+                    'Camera',
+                    Icons.camera_alt_rounded,
+                    _captureReceipt,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  "Hold steady — we'll extract the items",
-                  style: GoogleFonts.outfit(
-                    fontSize: 14,
-                    color: Colors.white54,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Tip: Lay receipt flat for best results',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: Colors.white38,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    'Receipt quality varies — Elio may not extract every item. You can always add missing items manually.',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      color: Colors.white24,
-                    ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _outlineButton(
+                    'Gallery',
+                    Icons.photo_library_rounded,
+                    _pickFromGallery,
                   ),
                 ),
               ],
             ),
-          ),
-        ),
-        // Buttons
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Expanded(
-                child: _amberButton(
-                  'Take Photo',
-                  Icons.camera_alt_rounded,
-                  _captureReceipt,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _outlineButton(
-                  'Gallery',
-                  Icons.photo_library_rounded,
-                  _pickFromGallery,
-                ),
-              ),
-            ],
-          ),
-        ),
-        // Loading indicator when processing
-        if (_isProcessing)
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                const CircularProgressIndicator(color: ElioColors.amber),
-                const SizedBox(height: 12),
-                Text('Analysing receipt...', style: ElioText.bodyMedium),
-              ],
-            ),
-          ),
-      ],
+          ],
+          const Spacer(flex: 2),
+        ],
+      ),
     );
   }
 
+  // 17 May 2026: height 50 → 56 + `maxLines: 1` on the label so
+  // glyph descenders don't clip vertically and long labels don't
+  // wrap to a second clipped line. Mirrors the recipe_import_screen
+  // fix in 3892d9b.
   Widget _amberButton(String label, IconData icon, VoidCallback onPressed) {
     return SizedBox(
-      height: 50,
+      height: 56,
       child: ElevatedButton.icon(
         onPressed: _isProcessing ? null : onPressed,
         icon: Icon(icon, size: 20),
-        label: Text(label),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         style: ElevatedButton.styleFrom(
-          backgroundColor: ElioColors.amber,
-          foregroundColor: ElioColors.white,
+          backgroundColor: ElioColors.terracotta,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700),
+          textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15),
           elevation: 0,
         ),
       ),
@@ -427,16 +427,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
   Widget _outlineButton(String label, IconData icon, VoidCallback onPressed) {
     return SizedBox(
-      height: 50,
+      height: 56,
       child: OutlinedButton.icon(
         onPressed: _isProcessing ? null : onPressed,
         icon: Icon(icon, size: 20),
-        label: Text(label),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         style: OutlinedButton.styleFrom(
-          foregroundColor: ElioColors.navy,
-          side: const BorderSide(color: ElioColors.border, width: 1.5),
+          foregroundColor: ElioColors.espresso,
+          side: const BorderSide(color: ElioColors.rule, width: 1.5),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          textStyle: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 14),
         ),
       ),
     );
@@ -483,11 +483,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Sprint 16.1: explicit duration so error toast doesn't follow
+        // the user across navigation.
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           SnackBar(
             content: const Text('Could not read receipt. Try again with better lighting.'),
             backgroundColor: ElioColors.error,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
@@ -519,10 +524,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
                 onTap: _editAllItems,
                 child: Text(
                   'Edit all',
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: ElioColors.amber,
+                    color: ElioColors.terracotta,
                   ),
                 ),
               ),
@@ -558,8 +562,8 @@ class _ScannerScreenState extends State<ScannerScreen> {
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       margin: const EdgeInsets.only(bottom: 4),
       decoration: BoxDecoration(
-        color: item.isNonFood ? ElioColors.offWhite.withValues(alpha: 0.5) : ElioColors.white,
-        border: Border(bottom: BorderSide(color: ElioColors.border.withValues(alpha: 0.5))),
+        color: item.isNonFood ? ElioColors.cream.withValues(alpha: 0.5) : ElioColors.cream,
+        border: Border(bottom: BorderSide(color: ElioColors.rule.withValues(alpha: 0.5))),
       ),
       child: Row(
         children: [
@@ -570,19 +574,17 @@ class _ScannerScreenState extends State<ScannerScreen> {
               children: [
                 Text(
                   item.name,
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: item.isNonFood ? ElioColors.textMuted : ElioColors.textPrimary,
+                    color: item.isNonFood ? ElioColors.mocha : ElioColors.espresso,
                     decoration: item.isNonFood ? TextDecoration.lineThrough : null,
                   ),
                 ),
                 if (item.brand != null && item.brand!.isNotEmpty)
                   Text(
                     item.brand!,
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: ElioColors.textSecondary,
+                    style: ElioTextStyles.bodySmallStyle.copyWith(
+                      color: ElioColors.mocha,
                     ),
                   ),
               ],
@@ -602,9 +604,9 @@ class _ScannerScreenState extends State<ScannerScreen> {
   Widget _buildTierBadge(String tier) {
     final (Color bg, Color fg, String label) = switch (tier) {
       'alwaysHave' => (const Color(0xFFE8F5E9), ElioColors.success, 'Always Have'),
-      'almostAlways' => (const Color(0xFFE3F2FD), ElioColors.sky, 'Almost Always'),
-      'perishable' => (const Color(0xFFFFF3E0), ElioColors.amber, 'Perishable'),
-      _ => (ElioColors.offWhite, ElioColors.textSecondary, tier),
+      'almostAlways' => (const Color(0xFFE3F2FD), ElioColors.mocha, 'Almost Always'),
+      'perishable' => (const Color(0xFFFFF3E0), ElioColors.terracotta, 'Perishable'),
+      _ => (ElioColors.cream, ElioColors.mocha, tier),
     };
 
     return Container(
@@ -615,8 +617,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
       ),
       child: Text(
         label,
-        style: GoogleFonts.outfit(
-          fontSize: 11,
+        style: ElioTextStyles.tabLabelStyle.copyWith(
           fontWeight: FontWeight.w700,
           color: fg,
         ),
@@ -667,7 +668,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
           child: ElevatedButton(
             onPressed: _isAddingToPantry ? null : () => _addToPantry(foodItems),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.amber,
+              backgroundColor: ElioColors.terracotta,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -684,9 +685,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
                   )
                 : Text(
                     'Add ${foodItems.length} Item${foodItems.length == 1 ? '' : 's'} to Pantry',
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                    style: ElioTextStyles.uiLabelStyle.copyWith(
                       color: Colors.white,
                     ),
                   ),
@@ -773,11 +772,16 @@ class _ScannerScreenState extends State<ScannerScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        // Sprint 16.1: explicit duration so error toast doesn't follow
+        // the user across navigation.
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           SnackBar(
             content: const Text('Failed to add items. Please try again.'),
             backgroundColor: ElioColors.error,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 3),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
@@ -797,7 +801,7 @@ class _ScanFramePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = ElioColors.amber
+      ..color = ElioColors.terracotta
       ..strokeWidth = 3.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/meal_plan_models.dart';
+import '../utils/pantry_staples.dart';
+import '../utils/pantry_string_match.dart';
 import '../utils/quantity_utils.dart';
 
 // ─────────────────────────────────────────────
@@ -21,52 +23,11 @@ class ShoppingService {
 
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ── Staple exclusions ──────────────────────────────────────────────
-  // Each entry is matched as a WHOLE WORD inside the normalised name
-  // (e.g. "salt" matches "sea salt" and "table salt" but NOT "salted butter").
-  // This avoids false positives on compound words while still catching variants.
-  static const _stapleWords = <String>{
-    'water',  // cold water, warm water, tap water, …
-    'salt',   // sea salt, table salt, kosher salt, … but NOT salted butter
-    'pepper', // black pepper, ground pepper, white pepper, …
-    'sugar',  // caster sugar, granulated sugar, brown sugar, …
-  };
-
-  // Generic cooking oils — exact match only so sesame oil / chilli oil / truffle
-  // oil / olive oil are NOT excluded (they are specific, flavour-defining
-  // ingredients).  Only truly neutral / interchangeable oils are excluded.
-  static const _genericOilsExact = <String>{
-    'oil',
-    'cooking oil',
-    'vegetable oil',
-    'sunflower oil',
-    'canola oil',
-    'rapeseed oil',
-    'neutral oil',
-    'generic oil',
-  };
-
   /// Returns true when [normalisedName] is a common household staple that
-  /// should never be added to a shopping list automatically.
-  /// Public accessor for use in UI filtering (e.g. meal plan shopping dialog).
-  bool isStaplePublic(String normalisedName) => _isStaple(normalisedName);
-
-  bool _isStaple(String normalisedName) {
-    // Exact-match generic oils first.
-    if (_genericOilsExact.contains(normalisedName)) return true;
-    // Word-boundary check: the staple term must appear as a complete word so
-    // "salt" matches "sea salt" but not "salted butter".
-    return _stapleWords.any((term) => _containsWord(normalisedName, term));
-  }
-
-  /// True when [word] appears as a whole word inside [text].
-  /// Treats space as the only word separator (consistent with ingredient names).
-  static bool _containsWord(String text, String word) {
-    if (text == word) return true;
-    return text.startsWith('$word ') ||
-        text.endsWith(' $word') ||
-        text.contains(' $word ');
-  }
+  /// should never be added to a shopping list automatically. Public
+  /// accessor for use in UI filtering (e.g. meal plan shopping dialog).
+  bool isStaplePublic(String normalisedName) =>
+      PantryStaples.isStaple(normalisedName);
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
@@ -84,7 +45,7 @@ class ShoppingService {
     for (final doc in snapshot.docs) {
       final name = (doc.data()['nameLower'] as String?) ??
           (doc.data()['name'] as String? ?? '').toLowerCase().trim();
-      if (_isStaple(name)) {
+      if (PantryStaples.isStaple(name)) {
         batch.delete(doc.reference);
         purged++;
       }
@@ -109,6 +70,13 @@ class ShoppingService {
     }).toList();
   }
 
+  // ── Match-key normalisation ─────────────────────────────────────────
+  // Storage `nameLower` is the lowercase trimmed name (kept for backwards
+  // compatibility + readability). Lookups go through `PantryStringMatch.matchKey`
+  // which also strips simple English plurals so "Carrots" and "Carrot" resolve
+  // to the same item. Without this, recipes that use "Carrot" + "Carrots"
+  // produce two separate rows (Sprint 16.3 bug from Rob's screenshot).
+
   // ── Add a single item ──────────────────────────────────────────────
   // Returns null (silently) when [name] is a common household staple.
   Future<PersistentShoppingItem?> addItem({
@@ -117,21 +85,31 @@ class ShoppingService {
     ShoppingSource source = ShoppingSource.manual,
   }) async {
     final normalised = name.trim().toLowerCase();
+    final matchKey = PantryStringMatch.matchKey(normalised);
 
     // Silently drop universal staples — they're always in the kitchen.
-    if (_isStaple(normalised)) return null;
+    if (PantryStaples.isStaple(normalised)) return null;
 
-    // Check for existing item with same name — update instead of duplicate
-    final existing = await _collection
-        .where('nameLower', isEqualTo: normalised)
+    // Check for existing item with same singularised key — update instead of
+    // duplicating ("Carrot" + "Carrots" should merge into one row). Fall back
+    // to nameLower for items written before matchKey existed.
+    var existing = await _collection
+        .where('matchKey', isEqualTo: matchKey)
         .limit(1)
         .get();
+    if (existing.docs.isEmpty) {
+      existing = await _collection
+          .where('nameLower', isEqualTo: normalised)
+          .limit(1)
+          .get();
+    }
 
     if (existing.docs.isNotEmpty) {
       final doc = existing.docs.first;
       // If it was checked, uncheck it (user is re-adding)
       await doc.reference.update({
         'isChecked': false,
+        'matchKey': matchKey, // backfill for legacy rows
         if (quantity.isNotEmpty) 'quantity': quantity,
       });
       final data = doc.data();
@@ -150,6 +128,7 @@ class ShoppingService {
     await ref.set({
       'name': name.trim(),
       'nameLower': normalised,
+      'matchKey': matchKey,
       'quantity': quantity,
       'source': source.name,
       'isChecked': false,
@@ -175,9 +154,11 @@ class ShoppingService {
   // ── Update name and quantity ────────────────────────────────────────
   Future<void> updateItem(String itemId, {required String name, required String quantity}) async {
     if (_uid == null) return;
+    final lower = name.trim().toLowerCase();
     await _collection.doc(itemId).update({
       'name': name.trim(),
-      'nameLower': name.trim().toLowerCase(),
+      'nameLower': lower,
+      'matchKey': PantryStringMatch.matchKey(lower),
       'quantity': quantity.trim(),
     });
   }
@@ -210,49 +191,60 @@ class ShoppingService {
 
     final haveSet = alreadyHave.map((s) => s.toLowerCase().trim()).toSet();
 
-    // Aggregate ingredients from all meals, consolidating quantities per ingredient
+    // Aggregate ingredients from all meals, consolidating quantities per
+    // ingredient. The grouping key is the singularised lowercase name so that
+    // "Carrot" + "Carrots" merge into one entry.
     final quantities = <String, List<ParsedQuantity>>{};
     final displayNames = <String, String>{}; // first display name wins
+    final lowerNames = <String, String>{}; // first lower name wins (for nameLower)
     for (final day in plan.days) {
       for (final meal in day.meals.values) {
         if (meal == null) continue;
         for (final ingredient in meal.ingredients) {
           final cleanName = cleanForShopping(ingredient.name);
-          final key = cleanName.toLowerCase().trim();
+          final lower = cleanName.toLowerCase().trim();
+          final key = PantryStringMatch.matchKey(lower);
           if (haveSet.any((h) => key.contains(h) || h.contains(key))) continue;
-          if (_isStaple(key)) continue;
+          if (PantryStaples.isStaple(lower)) continue;
           displayNames.putIfAbsent(key, () => cleanName);
+          lowerNames.putIfAbsent(key, () => lower);
           final parsed = QuantityUtils.parse(ingredient.quantity, ingredient.unit);
           quantities.putIfAbsent(key, () => []).add(parsed);
         }
       }
     }
 
-    // Batch upsert
+    // Batch upsert — look up by match key, falling back to nameLower for any
+    // legacy items written before [matchKey] existed.
     final existing = await _collection.get();
-    final existingByName = <String, DocumentReference>{};
+    final existingByKey = <String, DocumentReference>{};
     for (final doc in existing.docs) {
-      final name = (doc.data()['nameLower'] as String?) ??
-          (doc.data()['name'] as String? ?? '').toLowerCase().trim();
-      existingByName[name] = doc.reference;
+      final data = doc.data();
+      final stored = (data['matchKey'] as String?) ??
+          PantryStringMatch.matchKey(((data['nameLower'] as String?) ??
+                  (data['name'] as String? ?? '').toLowerCase())
+              .trim());
+      existingByKey[stored] = doc.reference;
     }
 
     final batch = _db.batch();
     for (final key in quantities.keys) {
       final combinedQty = QuantityUtils.combine(quantities[key]!);
       final displayName = displayNames[key] ?? key;
-      if (existingByName.containsKey(key)) {
-        // Update quantity, uncheck if it was checked
-        batch.update(existingByName[key]!, {
+      final lower = lowerNames[key] ?? key;
+      if (existingByKey.containsKey(key)) {
+        batch.update(existingByKey[key]!, {
           'quantity': combinedQty,
           'source': ShoppingSource.mealPlan.name,
           'isChecked': false,
+          'matchKey': key, // backfill for legacy rows
         });
       } else {
         final ref = _collection.doc();
         batch.set(ref, {
           'name': displayName,
-          'nameLower': key,
+          'nameLower': lower,
+          'matchKey': key,
           'quantity': combinedQty,
           'source': ShoppingSource.mealPlan.name,
           'isChecked': false,
@@ -317,10 +309,27 @@ class ShoppingService {
   /// "Shrimp (raw, peeled and deveined)" → "Shrimp"
   /// "Large Eggs" → "Eggs"
   /// "Butter, melted" → "Butter"
+  /// "Diced onion" → "Onion" (Sprint 16.6 — leading prep prefix)
   static String cleanForShopping(String name) {
     var cleaned = name.trim();
 
-    // 1. Strip comma-clauses that contain prep words
+    // 1. Strip parentheticals that contain prep words — must run BEFORE
+    //    the comma-clause strip because a comma INSIDE the parens would
+    //    otherwise trigger step 2 prematurely. e.g. "Shrimp (raw, peeled
+    //    and deveined)" — the comma at index 11 sits inside the parens;
+    //    without step-1-first the comma split would yield "Shrimp (raw"
+    //    and the parens-strip would then never fire on the empty tail.
+    //    But keep "(white)", "(brown)", "(basmati)" — product variants.
+    //    Sprint 16.6 reorder (Notion XX bug 2).
+    final parenMatch = RegExp(r'\s*\([^)]+\)\s*$').firstMatch(cleaned);
+    if (parenMatch != null) {
+      final parenContent = parenMatch.group(0)!.toLowerCase();
+      if (_prepWords.any((w) => parenContent.contains(w))) {
+        cleaned = cleaned.substring(0, parenMatch.start).trim();
+      }
+    }
+
+    // 2. Strip comma-clauses that contain prep words
     //    "Ham, cut into cubes" → "Ham"
     //    "Butter, melted" → "Butter"
     //    But keep "Rice, white" style commas that are product descriptors
@@ -329,17 +338,6 @@ class ShoppingService {
       final afterComma = cleaned.substring(commaIdx + 1).toLowerCase().trim();
       if (_prepWords.any((w) => afterComma.contains(w))) {
         cleaned = cleaned.substring(0, commaIdx).trim();
-      }
-    }
-
-    // 2. Strip parentheticals that contain prep words
-    //    "Shrimp (raw, peeled and deveined)" → "Shrimp"
-    //    But keep "(white)", "(brown)", "(basmati)" — product variants
-    final parenMatch = RegExp(r'\s*\([^)]+\)\s*$').firstMatch(cleaned);
-    if (parenMatch != null) {
-      final parenContent = parenMatch.group(0)!.toLowerCase();
-      if (_prepWords.any((w) => parenContent.contains(w))) {
-        cleaned = cleaned.substring(0, parenMatch.start).trim();
       }
     }
 
@@ -353,7 +351,34 @@ class ShoppingService {
       }
     }
 
-    // 4. Capitalise first letter
+    // 4. Strip leading prep adjectives ("Diced onion" → "onion").
+    //    Sprint 16.6 (Notion XX bug 2): prep words were only stripped
+    //    inside parentheticals / comma-clauses, leaving "Diced onion"
+    //    intact. That broke pantry dedup on the recipe → shopping list
+    //    flow (recipe has "Diced onion", pantry has "Onion", names
+    //    didn't match → item piled into shopping list anyway).
+    //
+    //    Iterative because adverb+prep combinations are common
+    //    ("Thinly sliced onion" → "Thinly sliced onion" → "sliced
+    //    onion" → "onion"). Three loops max in practice — bounded
+    //    upper safety cap on the while.
+    var loops = 0;
+    var prepChanged = true;
+    while (prepChanged && loops < 5) {
+      prepChanged = false;
+      loops++;
+      final lowerNow = cleaned.toLowerCase();
+      for (final adj in _prepWords) {
+        final prefix = '$adj ';
+        if (lowerNow.startsWith(prefix)) {
+          cleaned = cleaned.substring(adj.length).trim();
+          prepChanged = true;
+          break;
+        }
+      }
+    }
+
+    // 5. Capitalise first letter
     if (cleaned.isNotEmpty) {
       cleaned = cleaned[0].toUpperCase() + cleaned.substring(1);
     }

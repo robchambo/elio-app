@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../services/notification_service.dart';
 
@@ -43,25 +43,25 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.navy),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text('Notifications', style: ElioText.headingLarge),
         centerTitle: false,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: ElioColors.amber))
+          ? const Center(child: CircularProgressIndicator(color: ElioColors.terracotta))
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
                 Text(
                   'Choose which notifications you receive.',
-                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                 ),
                 const SizedBox(height: 24),
 
@@ -105,13 +105,13 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: ElioColors.offWhite,
+        color: ElioColors.cream,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
+        border: Border.all(color: ElioColors.rule),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 22, color: ElioColors.amber),
+          Icon(icon, size: 22, color: ElioColors.terracotta),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -119,16 +119,15 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: ElioColors.textPrimary,
+                    color: ElioColors.espresso,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary, fontSize: 12),
+                  style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha, fontSize: 12),
                 ),
               ],
             ),
@@ -136,7 +135,7 @@ class _NotificationPrefsScreenState extends State<NotificationPrefsScreen> {
           const SizedBox(width: 8),
           Switch.adaptive(
             value: value,
-            activeTrackColor: ElioColors.amber,
+            activeTrackColor: ElioColors.terracotta,
             onChanged: onChanged,
           ),
         ],

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/meal_plan_models.dart';
 import '../models/recipe_models.dart';
+import '../utils/pantry_string_match.dart';
+import 'gemini_service.dart';
 import 'remote_config_service.dart';
 
 // ─────────────────────────────────────────────
@@ -147,6 +149,13 @@ class MealPlanService {
     required List<String> almostAlwaysHave,
     required List<String> existingTitles,
     int servings = 2,
+    // Sprint 15.9.3: pass user prefs through so single-meal regen
+    // reflects the user's setup (appliances, what they're running low on).
+    List<String> appliances = const [],
+    List<String> runningLowItems = const [],
+    // Sprint 15.9.3 SAFETY: allergens must reach the prompt or a
+    // peanut-allergy user could be served peanut butter on regen.
+    List<String> customAllergens = const [],
   }) async {
     Exception? lastError;
 
@@ -160,6 +169,9 @@ class MealPlanService {
           almostAlwaysHave: almostAlwaysHave,
           existingTitles: existingTitles,
           servings: servings,
+          appliances: appliances,
+          runningLowItems: runningLowItems,
+          customAllergens: customAllergens,
         );
       } catch (e) {
         lastError = e is Exception ? e : Exception(e.toString());
@@ -184,6 +196,9 @@ class MealPlanService {
     required List<String> almostAlwaysHave,
     required List<String> existingTitles,
     required int servings,
+    List<String> appliances = const [],
+    List<String> runningLowItems = const [],
+    List<String> customAllergens = const [],
   }) async {
     final prompt = _buildSingleMealPrompt(
       dayName: dayName,
@@ -193,6 +208,9 @@ class MealPlanService {
       almostAlwaysHave: almostAlwaysHave,
       existingTitles: existingTitles,
       servings: servings,
+      appliances: appliances,
+      runningLowItems: runningLowItems,
+      customAllergens: customAllergens,
     );
 
     final response = await http.post(
@@ -230,7 +248,47 @@ class MealPlanService {
 
     final rawText = parts.last['text'] as String? ?? '';
     final mealJson = _extractJson(rawText);
-    return MealSlot.fromJson(mealJson);
+    final meal = MealSlot.fromJson(mealJson);
+
+    // Sprint 15.9.3 SAFETY: post-gen allergen filter. Same logic as
+    // the streaming path — case-insensitive substring match across all
+    // text fields. Throw a retryable exception so the regenerateMeal
+    // caller's 2-attempt loop has another go.
+    final violation = _findAllergenViolation(meal, customAllergens);
+    if (violation != null) {
+      throw Exception(
+          'Meal contained allergen "$violation" — retrying with a safer pick.');
+    }
+    return meal;
+  }
+
+  /// See gemini_service.dart `_findAllergenViolation` — same idea,
+  /// scoped to a [MealSlot]. Duplicated rather than imported because
+  /// MealSlot and GeneratedRecipe have different field shapes.
+  ///
+  /// Match is against BOTH the raw allergen and its singularised form
+  /// (PantryStringMatch.matchKey) so "peanuts" catches "peanut butter".
+  static String? _findAllergenViolation(
+    MealSlot meal,
+    List<String> allergens,
+  ) {
+    if (allergens.isEmpty) return null;
+    final haystacks = <String>[
+      meal.title,
+      meal.description,
+      ...meal.ingredients.map((i) => i.name),
+      ...meal.steps,
+    ].map((s) => s.toLowerCase()).toList();
+
+    for (final allergen in allergens) {
+      final raw = allergen.trim().toLowerCase();
+      if (raw.isEmpty) continue;
+      final singular = PantryStringMatch.matchKey(allergen);
+      for (final hay in haystacks) {
+        if (hay.contains(raw) || hay.contains(singular)) return allergen;
+      }
+    }
+    return null;
   }
 
   // ── Phase 2: on-demand detail for a single meal ────────────────────────────────
@@ -373,6 +431,11 @@ class MealPlanService {
     return buffer.toString();
   }
 
+  /// Sprint 15.9.3: this prompt was missing user preferences — appliances
+  /// and runningLow especially. When the user taps "regenerate" on a
+  /// single meal, that meal should reflect their setup (no oven recipes
+  /// for users without one, AVOID running-low items as the star, etc.)
+  /// even though the weekly plan generation stays light.
   static String _buildSingleMealPrompt({
     required String dayName,
     required MealType mealType,
@@ -381,16 +444,38 @@ class MealPlanService {
     required List<String> almostAlwaysHave,
     required List<String> existingTitles,
     required int servings,
+    List<String> appliances = const [],
+    List<String> runningLowItems = const [],
+    List<String> customAllergens = const [],
   }) {
     final buffer = StringBuffer();
+
+    // Sprint 15.9.3 SAFETY preamble at position #1 — see
+    // gemini_service.dart#_writeAllergenPreamble for rationale.
+    buffer.write(GeminiService.allergenPreambleFor(customAllergens));
 
     buffer.writeln('Generate ONE ${mealType.displayName.toLowerCase()} for $dayName as JSON.');
 
     if (dietaryRequirements.isNotEmpty) {
       buffer.writeln('Dietary: ${dietaryRequirements.join(', ')} — strict.');
     }
+    // Sprint 15.9.3 SAFETY (continued): keep a one-line reinforcement
+    // here too. The preamble above is the primary frame; this line
+    // serves as a repetition cue inside the body of the prompt.
+    if (customAllergens.isNotEmpty) {
+      buffer.writeln(
+          'ALLERGENS (reminder): zero mention of ${customAllergens.join(', ')} or anything derived from them.');
+    }
     if (alwaysHave.isNotEmpty) buffer.writeln('Pantry: ${alwaysHave.join(', ')}');
     if (almostAlwaysHave.isNotEmpty) buffer.writeln('Usually have: ${almostAlwaysHave.join(', ')}');
+    if (runningLowItems.isNotEmpty) {
+      buffer.writeln(
+          'Running low (AVOID — do NOT make these the star, treat as optional): ${runningLowItems.join(', ')}.');
+    }
+    if (appliances.isNotEmpty) {
+      buffer.writeln(
+          'Available appliances: ${appliances.join(', ')}. Recipe must work with these — don\'t require anything else.');
+    }
     if (existingTitles.isNotEmpty) {
       buffer.writeln('Avoid repeats: ${existingTitles.join(', ')}');
     }

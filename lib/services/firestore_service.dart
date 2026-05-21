@@ -7,6 +7,8 @@ import '../models/onboarding_state.dart';
 import '../models/recipe_models.dart';
 import '../utils/pantry_utils.dart';
 import 'error_service.dart';
+import 'guest_pantry_service.dart';
+import 'inventory_writer.dart';
 
 // ─────────────────────────────────────────────
 // FirestoreService
@@ -36,20 +38,27 @@ class FirestoreService {
 
   // ─── Onboarding: write all data in a single batch ───────────────
 
+  /// Sprint 16.1: dietary requirements + custom allergens have ONE
+  /// canonical home: `users/{uid}/profiles/{ownerId}.dietaryRequirements`
+  /// and `.allergies`. Do NOT re-introduce user-doc copies — the
+  /// in-app dietary screen only writes the owner-profile copy, so any
+  /// user-doc value drifts the moment the user edits their settings.
+  /// `state.toFirestoreMap()` still emits `dietary` and `allergies`
+  /// keys; we strip them here to keep the user doc clean.
   Future<void> completeOnboarding(OnboardingState state, String displayName) async {
     final batch = _db.batch();
     final userRef = _db.collection('users').doc(_uid);
     final now = FieldValue.serverTimestamp();
 
-    // 1. Create the user document
-    batch.set(userRef, {
+    // 1. Create the user document. New Sprint 16 fields are written via
+    //    state.toFirestoreMap(); subscription/metadata keys are layered on top.
+    final userDocData = <String, dynamic>{
+      ...state.toFirestoreMap(),
       'uid': _uid,
       'email': _auth.currentUser?.email ?? '',
       'displayName': displayName,
       'createdAt': now,
       'onboardingComplete': true,
-      'stylePreferences': state.stylePreferences,
-      'appliances': state.appliances,
       'subscription': {
         'tier': 'free',
         'status': 'active',
@@ -60,19 +69,34 @@ class FirestoreService {
         'weeklyGenerations': 0,
         'weekStartedAt': now,
       },
-      'measurementUnits': state.measurementUnits,
-      'region': state.region,
       'activeProfileIds': ['owner'],
-    });
+    };
+    // Sprint 16.1: strip the dietary/allergen duplicates that
+    // toFirestoreMap puts in the user doc. Canonical source is the
+    // owner profile (see step 2 below).
+    userDocData.remove('dietary');
+    userDocData.remove('allergies');
+    batch.set(userRef, userDocData);
 
-    // 2. Create the owner's household profile
+    // 2. Create the owner's household profile. Allergies now live at the
+    //    user-doc level (written above via toFirestoreMap) — no per-profile
+    //    customAllergens anymore. Dietary requirements mirror state.dietary
+    //    on the owner profile for backwards compatibility with profile
+    //    screens that still read from /profiles/{ownerId}.
     final ownerProfileRef = userRef.collection('profiles').doc('owner');
     final ownerProfileData = HouseholdProfile(
       name: displayName,
-      dietaryRequirements: state.dietaryRequirements,
+      dietaryRequirements: const <DietaryRequirement>[],
       isOwner: true,
     ).toFirestore();
-    ownerProfileData['customAllergens'] = state.customAllergens;
+    // Overwrite the enum-encoded list with the new string-based dietary list.
+    ownerProfileData['dietaryRequirements'] = state.dietary;
+    // Sprint 15.9.3: also persist onboarding-set allergies onto the owner
+    // profile so the in-app dietary screen can read them AND so recipe
+    // generation can include them in the prompt. Previously only the user
+    // doc held allergies; the owner profile was the source of truth for
+    // the in-app screen, so allergies were effectively orphaned.
+    ownerProfileData['allergies'] = state.allergies;
     batch.set(ownerProfileRef, ownerProfileData);
 
     // 3. Write inventory items — only if inventory is empty (guards against
@@ -81,25 +105,17 @@ class FirestoreService {
     if (existingInventory.docs.isEmpty) {
       for (final item in state.inventory) {
         final itemRef = userRef.collection('inventory').doc();
-        final itemData = item.toFirestore();
-        // Convert ISO string expiryDate to Firestore Timestamp
-        if (itemData['expiryDate'] is String) {
-          final dt = DateTime.tryParse(itemData['expiryDate'] as String);
-          if (dt != null) {
-            itemData['expiryDate'] = Timestamp.fromDate(dt);
-          } else {
-            itemData.remove('expiryDate');
-          }
-        }
-        batch.set(itemRef, itemData);
+        // Sprint 15.9.3: InventoryItem.toFirestore now writes
+        // expiryDate as Timestamp directly, so the previous defensive
+        // String→Timestamp conversion here is redundant.
+        batch.set(itemRef, item.toFirestore());
       }
     }
 
-    // 4. Write additional household member profiles
-    for (final member in state.additionalMembers) {
-      final memberRef = userRef.collection('profiles').doc();
-      batch.set(memberRef, member.toFirestore());
-    }
+    // NOTE: additional household member profile writes removed in Sprint 16
+    // rebuild — the new 15-screen flow does not capture per-member profiles
+    // during onboarding. Task 6.4 (full MigrationService) will re-introduce
+    // any required household writes.
 
     try {
       await batch.commit();
@@ -143,17 +159,40 @@ class FirestoreService {
     final userData = userDoc.data() as Map<String, dynamic>? ?? {};
 
     // Build list of all household profiles with their dietary requirements
-    // Each entry: { 'id': String, 'name': String, 'dietaryRequirements': List<String>, 'isOwner': bool }
+    // and allergens. Each entry shape: { id, name, dietaryRequirements,
+    // allergens, isOwner }.
+    //
+    // Sprint 15.9.3 SAFETY FIX: this used to read `customAllergens` from
+    // profile docs, but the dietary_screen writes to `allergies`. Field
+    // name mismatch meant a user typing "peanuts" in the dietary screen
+    // saved the value but it was never read back — recipe generation
+    // ignored it and could suggest peanut butter to a peanut-allergy user.
+    // Now reads `allergies` (canonical field) with a `customAllergens`
+    // fallback for any docs written by the buggy old read path's mirror.
+    //
+    // TODO(sprint-17): remove the customAllergens fallback once
+    // telemetry confirms no reads in the wild. With Sprint 16.1's
+    // single-source-of-truth (UserSettingsService + canonical owner
+    // profile), no writer produces customAllergens any more — this
+    // is purely a back-compat read for users with stale data.
     final householdProfiles = <Map<String, dynamic>>[];
     for (final doc in profilesSnapshot.docs) {
       final data = doc.data() as Map<String, dynamic>;
+      final allergens = List<String>.from(
+        (data['allergies'] as List<dynamic>? ??
+                data['customAllergens'] as List<dynamic>? ??
+                const <dynamic>[]),
+      );
       householdProfiles.add({
         'id': doc.id,
         'name': data['name'] as String? ?? 'Member',
         'dietaryRequirements': (data['dietaryRequirements'] as List<dynamic>? ?? [])
             .map((d) => _decodeDietary(d.toString()))
             .toList(),
-        'customAllergens': List<String>.from(data['customAllergens'] ?? []),
+        'allergens': allergens,
+        // Keep the legacy key in the returned map too so any older
+        // caller still finds something — both point at the same list.
+        'customAllergens': allergens,
         'isOwner': data['isOwner'] as bool? ?? false,
       });
     }
@@ -205,6 +244,21 @@ class FirestoreService {
     // Owner's custom allergens
     final customAllergens = List<String>.from(ownerProfile['customAllergens'] ?? []);
 
+    // 17 May 2026: include householdCount in the returned map so
+    // home_screen._loadUserData can thread it into _buildRequest as
+    // `servings`. Pre-fix the field was missing here entirely; Home
+    // read `data['householdCount']` (always null), defaulted to 2,
+    // and the stepper in Settings → Household appeared to do
+    // nothing on signed-in accounts (Settings reads via the
+    // dedicated getHouseholdCount() path, so the stepper itself
+    // worked; the gap was here, in the bulk-read used by Home).
+    final hcRaw = userData['householdCount'];
+    final householdCount = hcRaw is int
+        ? hcRaw.clamp(1, 10)
+        : hcRaw is num
+            ? hcRaw.toInt().clamp(1, 10)
+            : 2;
+
     return {
       'stylePreferences': List<String>.from(userData['stylePreferences'] ?? []),
       'appliances': List<String>.from(userData['appliances'] ?? []),
@@ -215,6 +269,7 @@ class FirestoreService {
       'almostAlwaysHave': almostAlwaysHave,
       'runningLowItems': runningLowItems,
       'inventoryWithIds': inventoryWithIds,
+      'householdCount': householdCount,
       'subscription': userData['subscription'] as Map<String, dynamic>? ?? {},
     };
   }
@@ -225,24 +280,93 @@ class FirestoreService {
     await _db.collection('users').doc(_uid).update({'appliances': appliances});
   }
 
+  /// Update the user's household size. Drives default servings on
+  /// every generation (home_screen reads users/{uid}.householdCount
+  /// and threads into RecipeGenerationRequest.servings).
+  /// Onboarding initially sets this via toFirestoreMap(); the
+  /// Settings → Household stepper edits it in-session.
+  ///
+  /// Uses set+merge instead of update so the write succeeds even if
+  /// the user doc doesn't exist yet (defensive — happens if a
+  /// migrated guest hits the stepper before any other Firestore
+  /// write creates the doc).
+  Future<void> saveHouseholdCount(int count) async {
+    await _db
+        .collection('users')
+        .doc(_uid)
+        .set({'householdCount': count}, SetOptions(merge: true));
+    // 17 May 2026: notify in-process listeners (HomeScreen) so the
+    // next recipe generation picks up the fresh value without a
+    // restart. Mirror notifier on the guest save path.
+    GuestPantryService.notifyHouseholdCountChanged();
+  }
+
+  /// Read the user's stored household size, defaulting to 2 when the
+  /// doc is missing or the field hasn't been set (legacy account
+  /// pre-onboarding-v15).
+  Future<int> getHouseholdCount() async {
+    final doc = await _db.collection('users').doc(_uid).get();
+    if (!doc.exists) return 2;
+    final data = doc.data() as Map<String, dynamic>;
+    final raw = data['householdCount'];
+    if (raw is int) return raw.clamp(1, 10);
+    if (raw is num) return raw.toInt().clamp(1, 10);
+    return 2;
+  }
+
   // ─── Settings: get and update measurement units + region ─────────
 
-  Future<Map<String, String>> getSettings() async {
+  Future<Map<String, dynamic>> getSettings() async {
     final doc = await _db.collection('users').doc(_uid).get();
-    if (!doc.exists) return {'measurementUnits': 'metric', 'region': 'US'};
+    if (!doc.exists) {
+      return {
+        'measurementUnits': 'metric',
+        'region': 'US',
+        'saverModeDefault': false,
+      };
+    }
     final data = doc.data() as Map<String, dynamic>;
     return {
       'measurementUnits': data['measurementUnits'] as String? ?? 'metric',
       'region': data['region'] as String? ?? 'US',
+      // Sprint 16.1: global saver-mode default. Read by
+      // RecipePreferencesScreen on init so the toggle starts in the
+      // user's preferred state; per-recipe overrides still work.
+      'saverModeDefault': data['saverModeDefault'] as bool? ?? false,
     };
   }
 
-  Future<void> updateSettings({String? measurementUnits, String? region}) async {
+  Future<void> updateSettings({
+    String? measurementUnits,
+    String? region,
+    bool? saverModeDefault,
+  }) async {
     final updates = <String, dynamic>{};
     if (measurementUnits != null) updates['measurementUnits'] = measurementUnits;
     if (region != null) updates['region'] = region;
+    if (saverModeDefault != null) updates['saverModeDefault'] = saverModeDefault;
     if (updates.isEmpty) return;
     await _db.collection('users').doc(_uid).update(updates);
+  }
+
+  // ─── Sprint 16.7c: per-user shopping aisle ordering ──────────────
+
+  /// Reads the user's preferred aisle ordering. Returns null if the user
+  /// has never reordered (the shopping list falls back to the default
+  /// enum order in that case via [AisleUtils.orderedFor]).
+  Future<List<String>?> getAisleOrder() async {
+    final doc = await _db.collection('users').doc(_uid).get();
+    if (!doc.exists) return null;
+    final data = doc.data() as Map<String, dynamic>;
+    final raw = data['aisleOrder'];
+    if (raw is List) return raw.map((e) => e.toString()).toList();
+    return null;
+  }
+
+  /// Persists the user's preferred aisle ordering. Stored as a list of
+  /// [GroceryAisle.name] strings on the user doc.
+  Future<void> saveAisleOrder(List<String> order) async {
+    await _db.collection('users').doc(_uid).update({'aisleOrder': order});
   }
 
   // ─── Free tier: check if user can generate a recipe ─────────────
@@ -332,20 +456,23 @@ class FirestoreService {
 
   // ─── Add a new inventory item ────────────────────────────────────
 
-  Future<String> addInventoryItem(String name, String tier, {DateTime? expiryDate, String? category, String? price}) async {
-    final ref = _db.collection('users').doc(_uid).collection('inventory').doc();
-    final data = <String, dynamic>{'name': name, 'tier': tier, 'runningLow': false};
-    if (expiryDate != null) {
-      data['expiryDate'] = Timestamp.fromDate(expiryDate);
-    }
-    if (category != null) {
-      data['category'] = category;
-    }
-    if (price != null && price.isNotEmpty) {
-      data['price'] = price;
-    }
-    await ref.set(data);
-    return ref.id;
+  Future<String> addInventoryItem(
+    String name,
+    String tier, {
+    DateTime? expiryDate,
+    String? category,
+    String? price,
+  }) async {
+    // Sprint 15.9.1: dedup-aware add lives in InventoryWriter. The
+    // signature here is unchanged so callers (pantry tab, scanner,
+    // builder sheet) don't need to update.
+    return InventoryWriter.instance.addItem(
+      name: name,
+      tier: tier,
+      expiryDate: expiryDate,
+      category: category,
+      price: price,
+    );
   }
 
   // ─── Delete an inventory item ────────────────────────────────────

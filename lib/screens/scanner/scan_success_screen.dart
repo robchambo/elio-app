@@ -1,15 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/scanner_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
-import '../home/home_screen.dart';
-import '../profile/profile_screen.dart';
 
 // ─────────────────────────────────────────────
 // ScanSuccessScreen
 // Confirmation screen shown after items have been
 // successfully added to the user's pantry.
+//
+// 19 May 2026 — both CTAs used to push naked PantryScreen / HomeScreen
+// onto the Navigator via MaterialPageRoute. Both screens are tab body
+// widgets that depend on AppShell's Scaffold (cream background, top
+// app bar, bottom nav). Pushed in isolation they rendered with no
+// Material chrome — the default Scaffold-less background is black —
+// which gave the "black background with stark yellow underlines"
+// screen Rob caught on 19may-b. Both CTAs now just popUntil the
+// Navigator's root, returning the user to AppShell with whatever tab
+// they were on (Pantry tab, in the receipt-scan flow).
+//
+// Generate-with-these-items auto-generation is lost here as a side
+// effect. Restoring it requires threading scannedItems into AppShell's
+// HomeScreen — Sprint 17 follow-up.
 // ─────────────────────────────────────────────
 
 class ScanSuccessScreen extends StatelessWidget {
@@ -35,7 +47,7 @@ class ScanSuccessScreen extends StatelessWidget {
     final remainingCount = items.length - 1;
 
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -67,9 +79,8 @@ class ScanSuccessScreen extends StatelessWidget {
               // Subtitle breakdown
               Text(
                 _buildSubtitle(),
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: ElioColors.textSecondary,
+                style: ElioTextStyles.bodySmallStyle.copyWith(
+                  color: ElioColors.mocha,
                   height: 1.4,
                 ),
                 textAlign: TextAlign.center,
@@ -82,10 +93,8 @@ class ScanSuccessScreen extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   '+ $remainingCount more item${remainingCount == 1 ? '' : 's'}',
-                  style: GoogleFonts.outfit(
-                    fontSize: 13,
-                    color: ElioColors.textMuted,
-                    fontWeight: FontWeight.w500,
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
+                    color: ElioColors.mocha,
                   ),
                 ),
               ],
@@ -112,9 +121,9 @@ class ScanSuccessScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: ElioColors.offWhite,
+        color: ElioColors.cream,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
+        border: Border.all(color: ElioColors.rule),
       ),
       child: Row(
         children: [
@@ -128,7 +137,7 @@ class ScanSuccessScreen extends StatelessWidget {
             ),
             child: const Icon(
               Icons.kitchen_rounded,
-              color: ElioColors.amber,
+              color: ElioColors.terracotta,
               size: 22,
             ),
           ),
@@ -140,18 +149,16 @@ class ScanSuccessScreen extends StatelessWidget {
               children: [
                 Text(
                   item.name,
-                  style: GoogleFonts.outfit(
+                  style: ElioTextStyles.uiLabelStyle.copyWith(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: ElioColors.textPrimary,
+                    color: ElioColors.espresso,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Perishable',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: ElioColors.amber,
+                  style: ElioTextStyles.bodySmallStyle.copyWith(
+                    color: ElioColors.terracotta,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -174,30 +181,24 @@ class ScanSuccessScreen extends StatelessWidget {
           height: 54,
           child: ElevatedButton.icon(
             onPressed: () {
-              // Pop to root and push HomeScreen with scanned items for auto-generation
-              final perishableNames = items
-                  .where((i) => i.suggestedTier == 'perishable')
-                  .map((i) => i.name)
-                  .toList();
-              final allNames = items.map((i) => i.name).toList();
-              final itemsToGenerate = perishableNames.isNotEmpty ? perishableNames : allNames;
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => HomeScreen(scannedItems: itemsToGenerate)),
-                (route) => false,
-              );
+              // 19 May 2026 — used to `pushAndRemoveUntil` a naked
+              // HomeScreen with `scannedItems`. HomeScreen is an
+              // AppShell tab body (no own Scaffold) so it rendered
+              // chrome-less on a black background. Pop to root
+              // instead; the auto-generation feature is the casualty
+              // — restore via an AppShell `initialScannedItems`
+              // mechanism in Sprint 17.
+              Navigator.of(context).popUntil((route) => route.isFirst);
             },
             icon: const Icon(Icons.auto_awesome_rounded, size: 20),
             label: const Text('Generate Recipe with These'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.amber,
-              foregroundColor: ElioColors.white,
+              backgroundColor: ElioColors.terracotta,
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              textStyle: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
+              textStyle: ElioTextStyles.uiLabelStyle,
               elevation: 0,
             ),
           ),
@@ -209,24 +210,22 @@ class ScanSuccessScreen extends StatelessWidget {
           height: 54,
           child: OutlinedButton.icon(
             onPressed: () {
-              // Pop scanner stack and navigate to pantry tab
+              // 19 May 2026 — used to popUntil-first then push a naked
+              // PantryScreen, which renders chrome-less on a black
+              // background (no AppShell Scaffold). The user reached
+              // this flow from the Pantry tab, so popping to root
+              // lands them there with no extra navigation needed.
               Navigator.of(context).popUntil((route) => route.isFirst);
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 0)),
-              );
             },
             icon: const Icon(Icons.inventory_2_outlined, size: 20),
             label: const Text('Back to Pantry'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: ElioColors.navy,
-              side: const BorderSide(color: ElioColors.navy, width: 1.5),
+              foregroundColor: ElioColors.espresso,
+              side: const BorderSide(color: ElioColors.espresso, width: 1.5),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
-              textStyle: GoogleFonts.outfit(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+              textStyle: ElioTextStyles.uiLabelStyle,
             ),
           ),
         ),

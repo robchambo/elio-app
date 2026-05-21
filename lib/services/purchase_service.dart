@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'entitlement_service.dart';
 import 'error_service.dart';
 
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────────────
 // PurchaseService
 // Wraps RevenueCat for subscription management.
 //
@@ -26,7 +25,7 @@ import 'error_service.dart';
 //      - elio_pro_annual (£27.99/yr)
 //   5. Create an "Entitlement" called "pro" in RevenueCat
 //      and attach both products to it
-// ─────────────────────────────────────────────
+// ──────────────────────────────────────────────
 
 class PurchaseService {
   static final PurchaseService instance = PurchaseService._();
@@ -44,14 +43,14 @@ class PurchaseService {
   // Leave empty to run in "dry mode" (no purchases, no crashes)
   static const String _dartDefineRcKey = String.fromEnvironment('REVENUECAT_API_KEY');
 
-  // ── Initialisation ─────────────────────────────────────────────────
+  // ── Initialisation ───────────────────────────────────────
   Future<void> init({String? apiKey}) async {
     if (_initialised) return;
 
     final key = apiKey ?? _dartDefineRcKey;
     if (key.isEmpty) {
-      // No API key — run in dry mode. Entitlements are managed
-      // locally via EntitlementService (dev bypass, Firestore proOverride).
+      // No API key — run in dry mode. Entitlements fall back to the
+      // `config/proTesters` email allowlist inside EntitlementService.
       return;
     }
 
@@ -62,7 +61,7 @@ class PurchaseService {
       );
       _initialised = true;
 
-      // Listen for subscription changes and sync to Firestore + EntitlementService
+      // Refresh EntitlementService whenever RevenueCat reports a subscription change.
       Purchases.addCustomerInfoUpdateListener(_onCustomerInfoUpdated);
     } catch (e) {
       ErrorService.log('purchase_init', e);
@@ -70,13 +69,13 @@ class PurchaseService {
     }
   }
 
-  // ── Lazy init ──────────────────────────────────────────────────────
+  // ── Lazy init ──────────────────────────────────────────
   /// Ensures RevenueCat is initialised before use. Safe to call repeatedly.
   Future<void> _ensureInitialised() async {
     if (!_initialised) await init();
   }
 
-  // ── Fetch available packages ───────────────────────────────────────
+  // ── Fetch available packages ───────────────────────────────
   Future<List<Package>> getPackages() async {
     await _ensureInitialised();
     if (!_initialised) return [];
@@ -92,7 +91,7 @@ class PurchaseService {
     }
   }
 
-  // ── Free trial helpers ─────────────────────────────────────────────
+  // ── Free trial helpers ─────────────────────────────────
   // RevenueCat exposes free-trial eligibility on the StoreProduct via
   // introductoryPrice. If introductoryPrice is non-null and the period
   // has units > 0, the user is eligible for a trial when subscribing
@@ -148,7 +147,7 @@ class PurchaseService {
     return false;
   }
 
-  // ── Purchase ───────────────────────────────────────────────────────
+  // ── Purchase ─────────────────────────────────────────────
   Future<bool> purchasePackage(Package package) async {
     await _ensureInitialised();
     if (!_initialised) return false;
@@ -165,7 +164,7 @@ class PurchaseService {
     }
   }
 
-  // ── Restore purchases ─────────────────────────────────────────────
+  // ── Restore purchases ─────────────────────────────────
   Future<bool> restorePurchases() async {
     await _ensureInitialised();
     if (!_initialised) return false;
@@ -179,7 +178,7 @@ class PurchaseService {
     }
   }
 
-  // ── Check current entitlement ──────────────────────────────────────
+  // ── Check current entitlement ──────────────────────────────
   Future<bool> isPro() async {
     await _ensureInitialised();
     if (!_initialised) return false;
@@ -193,28 +192,23 @@ class PurchaseService {
     }
   }
 
-  // ── Sync subscription state to Firestore ───────────────────────────
+  // ── React to subscription state changes ──────────────────────
+  // We no longer mirror RevenueCat state into Firestore from the client —
+  // `subscription.tier`, `subscription.source`, and `subscription.lastSyncedAt`
+  // are locked by Firestore rules. RevenueCat is the single source of truth
+  // for billing entitlement; EntitlementService reads it at runtime via
+  // [isPro]. A future Cloud Function webhook can write the cached copy back
+  // to Firestore with the Admin SDK if we ever need server-side reads.
   void _onCustomerInfoUpdated(CustomerInfo info) async {
-    final isActive = info.entitlements.all[entitlementId]?.isActive ?? false;
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
+    if (FirebaseAuth.instance.currentUser == null) return;
     try {
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'subscription.tier': isActive ? 'pro' : 'free',
-        'subscription.source': 'revenuecat',
-        'subscription.lastSyncedAt': FieldValue.serverTimestamp(),
-      });
-
-      // Refresh local entitlements
       await EntitlementService.instance.refresh();
     } catch (e) {
-      ErrorService.log('purchase_sync_firestore', e);
-      // Firestore sync failed — will retry on next app launch
+      ErrorService.log('purchase_sync_entitlement', e);
     }
   }
 
-  // ── Identify user (call after sign-in) ─────────────────────────────
+  // ── Identify user (call after sign-in) ───────────────────────
   Future<void> identify(String userId) async {
     await _ensureInitialised();
     if (!_initialised) return;
@@ -225,7 +219,22 @@ class PurchaseService {
     }
   }
 
-  // ── Log out (call on sign-out) ─────────────────────────────────────
+  // ── Alias anonymous RC ID to signed-in UID ───────────────────
+  // Called by MigrationService on screen-15 sign-in. Semantically
+  // identical to [identify] — kept as a distinct API so onboarding
+  // call sites read clearly ("alias to uid" matches the plan/spec).
+  // Safe to call in dry mode (no-op).
+  Future<void> aliasToUid(String uid) async {
+    await _ensureInitialised();
+    if (!_initialised) return;
+    try {
+      await Purchases.logIn(uid);
+    } catch (e) {
+      ErrorService.log('purchase_alias_to_uid', e);
+    }
+  }
+
+  // ── Log out (call on sign-out) ────────────────────────────
   Future<void> logOut() async {
     if (!_initialised) return;
     try {

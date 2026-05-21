@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'history_service.dart';
+
 // ─────────────────────────────────────────────
 // AuthService
 // Handles Firebase Authentication for Elio.
@@ -86,5 +88,10 @@ class AuthService {
   Future<void> signOut() async {
     await _googleSignIn.signOut();
     await _auth.signOut();
+    // 21 May 2026 — defensive in-memory cache clear so a sign-out
+    // followed by sign-in (different account or same) doesn't show
+    // the previous user's local-only recipe history. Touches no disk
+    // state; safe to call on every sign-out.
+    HistoryService.clearCache();
   }
 }

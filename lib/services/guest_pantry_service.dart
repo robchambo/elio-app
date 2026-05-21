@@ -1,16 +1,106 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/onboarding_state.dart';
 
 // ─────────────────────────────────────────────
 // GuestPantryService
-// Persists guest onboarding data to SharedPreferences so the
-// pantry, dietary requirements, and style preferences survive
-// app restarts in guest mode.
+//
+// Persists guest onboarding pantry selections to SharedPreferences so
+// screens 11 (staples) and 12 (perishables) survive app restarts
+// before sign-in. Sprint 16 rebuild: replaces the legacy whole-state
+// snapshot with targeted `saveStaples` / `savePerishables` /
+// `loadAll` / `clear` methods keyed off of 2-tier (staples) and
+// 3-tier (perishables) label maps.
+//
+// Static legacy helpers (`save`, `load`) are retained for the handful
+// of call sites that still exist pre-Task 7.1.
 // ─────────────────────────────────────────────
 
+class GuestPantrySnapshot {
+  final Map<String, String> staples;
+  final Map<String, String> perishables;
+
+  const GuestPantrySnapshot({
+    required this.staples,
+    required this.perishables,
+  });
+}
+
 class GuestPantryService {
-  static const _key = 'guest_pantry_v1';
+  static const _legacyKey = 'guest_pantry_v1';
+  static const _staplesKey = 'guest_staples';
+  static const _perishablesKey = 'guest_perishables';
+  static const _householdCountKey = 'guest_household_count';
+
+  /// In-process change notifier for household-size updates. Both
+  /// writers (Firestore for signed-in users, SharedPreferences for
+  /// guests) bump this AFTER a successful save so HomeScreen can
+  /// reload `_householdCount` and the next `_buildRequest` threads
+  /// the fresh value as `servings`. Lives on GuestPantryService for
+  /// proximity to the SharedPreferences household methods — the
+  /// signed-in writer imports it explicitly. Mirrors the
+  /// `HistoryService.changes` pattern used for saved-tab refresh.
+  static final ValueNotifier<int> householdCountChanges =
+      ValueNotifier<int>(0);
+
+  static void notifyHouseholdCountChanged() {
+    householdCountChanges.value = householdCountChanges.value + 1;
+  }
+
+  /// Persist the guest user's household size locally. Mirrors the
+  /// Firestore `users/{uid}.householdCount` field used for signed-in
+  /// users (FirestoreService.saveHouseholdCount). 16 May 2026 — added
+  /// after Rob hit the household-stepper failure path on the 17 May
+  /// build: he’d skipped account creation, so the Firestore write
+  /// blew up on a null `currentUser.uid` and the stepper toasted
+  /// “Could not save household size” every tap.
+  static Future<void> saveHouseholdCount(int count) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_householdCountKey, count);
+    notifyHouseholdCountChanged();
+  }
+
+  /// Read the guest household size with int / null coercion + clamp +
+  /// default-to-2 fallback. Mirrors FirestoreService.getHouseholdCount.
+  static Future<int> loadHouseholdCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getInt(_householdCountKey);
+    if (raw == null) return 2;
+    return raw.clamp(1, 10);
+  }
+
+  Future<void> saveStaples(Map<String, String> tiers) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_staplesKey, jsonEncode(tiers));
+  }
+
+  Future<void> savePerishables(Map<String, String> tiers) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_perishablesKey, jsonEncode(tiers));
+  }
+
+  Future<GuestPantrySnapshot> loadAll() async {
+    final p = await SharedPreferences.getInstance();
+    return GuestPantrySnapshot(
+      staples: _decode(p.getString(_staplesKey)),
+      perishables: _decode(p.getString(_perishablesKey)),
+    );
+  }
+
+  Future<void> clear() async {
+    final p = await SharedPreferences.getInstance();
+    await p.remove(_staplesKey);
+    await p.remove(_perishablesKey);
+    await p.remove(_legacyKey);
+    await p.remove(_householdCountKey);
+  }
+
+  Map<String, String> _decode(String? s) => s == null
+      ? <String, String>{}
+      : Map<String, String>.from(jsonDecode(s) as Map);
+
+  // ─── Legacy helpers retained for pre-Task-7.1 call sites ──────────
 
   static Future<void> save(OnboardingState state) async {
     final prefs = await SharedPreferences.getInstance();
@@ -23,29 +113,20 @@ class GuestPantryService {
           .where((i) => i.tier == 'almostAlwaysHave')
           .map((i) => i.name)
           .toList(),
-      'stylePreferences': state.stylePreferences,
-      'dietaryRequirements':
-          state.dietaryRequirements.map((d) => d.name).toList(),
-      'customAllergens': state.customAllergens,
-      'householdProfiles':
-          state.additionalMembers.map((m) => m.toFirestore()).toList(),
+      'dietary': state.dietary,
+      'allergies': state.allergies,
     };
-    await prefs.setString(_key, jsonEncode(data));
+    await prefs.setString(_legacyKey, jsonEncode(data));
   }
 
   static Future<Map<String, dynamic>?> load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
+    final raw = prefs.getString(_legacyKey);
     if (raw == null || raw.isEmpty) return null;
     try {
       return jsonDecode(raw) as Map<String, dynamic>;
     } catch (_) {
       return null;
     }
-  }
-
-  static Future<void> clear() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_key);
   }
 }

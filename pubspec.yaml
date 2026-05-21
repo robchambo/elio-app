@@ -41,7 +41,7 @@ dependencies:
   shared_preferences: ^2.5.3
   share_plus: ^10.1.4
   go_router: ^14.6.0
-  google_fonts: ^8.0.0
+  flutter_svg: ^2.0.10
   http: ^1.2.2
   firebase_crashlytics: ^4.3.0
   firebase_analytics: ^11.4.0
@@ -51,17 +51,48 @@ dependencies:
   firebase_messaging: ^15.2.4
   speech_to_text: ^7.0.0
   flutter_tts: ^4.2.0
+  # 20 May 2026 — added to explicitly check Android RECORD_AUDIO before
+  # calling `_speech.initialize()`. `speech_to_text` requests permission
+  # implicitly on init, but on Android 13+ the request can be silently
+  # denied without surfacing an error (Kate's 19may-d failure mode:
+  # diagnostic strip says "Listening" but no "Last heard:" populates).
+  # An explicit pre-check lets us route the user to app settings if the
+  # permission was denied / permanently denied previously.
+  permission_handler: ^11.3.1
   mobile_scanner: ^6.0.2
   image_picker: ^1.1.2
+  package_info_plus: ^8.0.2
   shimmer: ^3.0.0
+  # Sprint 16.6: keeps the screen on while a cooking timer is active
+  # so users don't lose the timer view to auto-lock mid-recipe.
+  # Only enabled when CookingTimerService.hasActiveTimers is true;
+  # disabled the moment all timers finish or are cancelled.
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   integration_test:
     sdk: flutter
+  firebase_core_platform_interface: ^6.0.0
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
+# Launcher-icon config lives in `flutter_launcher_icons.yaml`, not here.
+# Run `flutter pub run flutter_launcher_icons` after editing the source
+# PNG at `assets/icon/app_icon.png` to regenerate platform mipmaps.
+
+# 20 May 2026 — Patched fork of speech_to_text 7.3.0 with extended
+# Android silence-length intent extras (EXTRA_SPEECH_INPUT_COMPLETE_
+# SILENCE_LENGTH_MILLIS = 15s, vs upstream's unset → engine default
+# ~1.5–4s). Vendored in `third_party/speech_to_text-patched/`.
+# Without this, Cook Mode voice cycled session-end every 4s on Rob's
+# device — restart loop worked but created dead-zones where mid-
+# restart speech got dropped. See the patch comment in
+# `third_party/speech_to_text-patched/android/src/main/kotlin/.../
+# SpeechToTextPlugin.kt`.
+dependency_overrides:
+  speech_to_text:
+    path: third_party/speech_to_text-patched
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -104,3 +135,21 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  assets:
+    - assets/illustrations/
+    - assets/images/onboarding/
+    - assets/legal/
+
+  fonts:
+    - family: Bricolage Grotesque
+      fonts:
+        - asset: assets/fonts/bricolage_grotesque/BricolageGrotesque-VariableFont.ttf
+    - family: DM Sans
+      fonts:
+        - asset: assets/fonts/dm_sans/DMSans-VariableFont.ttf
+    - family: DM Mono
+      fonts:
+        - asset: assets/fonts/dm_mono/DMMono-Regular.ttf
+        - asset: assets/fonts/dm_mono/DMMono-Medium.ttf
+          weight: 500

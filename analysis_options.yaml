@@ -9,6 +9,15 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+# 20 May 2026 — exclude the vendored speech_to_text fork from analysis.
+# Its own test suite depends on `mockito` which isn't in our pubspec
+# (would expand the dep tree), and the third-party Dart code is not
+# ours to keep clean. Build / runtime are unaffected — the analyzer
+# scope just doesn't reach into vendored sources.
+analyzer:
+  exclude:
+    - third_party/**
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

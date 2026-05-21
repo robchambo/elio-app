@@ -1,23 +1,47 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../theme/elio_theme.dart';
+import '../../theme/elio_spacing.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../models/recipe_models.dart';
 import '../../services/gemini_service.dart';
 import '../../services/history_service.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/pantry_utils.dart';
 import '../../utils/region_utils.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
 import '../../services/error_service.dart';
+import '../../services/cooking_timer_service.dart';
 import '../../services/shopping_service.dart';
+import '../../services/user_settings_service.dart';
+import '../../utils/friendly_error.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../../utils/quantity_utils.dart';
+import '../../utils/time_parser.dart';
+import '../../utils/recipe_variation.dart';
+import '../../widgets/elio/elio_duration_picker_sheet.dart';
+import '../../widgets/elio/elio_page_title.dart';
+import '../../widgets/elio/elio_section_heading.dart';
+import '../../widgets/elio/elio_stat_badge.dart';
+import '../../widgets/elio/elio_servings_control.dart';
+import '../../widgets/elio/elio_ingredient_row.dart';
+import '../../widgets/elio/elio_pantry_icon.dart';
+import '../../widgets/elio/elio_method_step.dart';
+import '../../widgets/elio/elio_feedback_bar.dart';
+import '../../widgets/elio/elio_big_button.dart';
+import '../../widgets/elio/elio_timer_chip.dart';
 import '../paywall/paywall_screen.dart';
-import '../profile/profile_screen.dart';
+import '../shopping/shopping_list_screen.dart';
 
 // ─────────────────────────────────────────────
 // RecipeScreen — Sprint 4 patch
@@ -34,28 +58,44 @@ class RecipeScreen extends StatefulWidget {
   final RecipeGenerationRequest? originalRequest;
   final bool isGuest;
 
-  /// When true, the recipe is auto-saved as bookmarked on first open.
-  /// Used by recipe import to avoid double-saves.
-  /// When true, the recipe is auto-saved as bookmarked on first open.
-  /// Used by recipe import to avoid double-saves.
-  final bool autoSave;
-
   /// The savedAt timestamp from history — enables bookmark toggling
-  /// instead of creating duplicates.
+  /// instead of creating duplicates. Import + Generate flows now pre-
+  /// save the recipe and pass the resulting `savedAt` in (was
+  /// previously a separate `autoSave` flag with a fire-and-forget save
+  /// in initState — removed 16 May 2026 because the race against
+  /// pushReplacement caused stale Saved/Home recents on Android).
   final String? savedAt;
 
   /// Tracks how many times "Generate Another" has been tapped across
   /// screen replacements. After 3, a preference adjustment dialog appears.
   final int regenCount;
 
+  /// True when this RecipeScreen renders a generated side dish (pushed
+  /// from a main recipe's "Suggest a side dish" CTA). When true:
+  ///   - the secondary CTA at the bottom reads "Generate another" (not
+  ///     "Suggest a side dish") because the user is already on one;
+  ///   - that CTA regenerates a fresh side dish against the SAME main
+  ///     recipe context using [sideDishMainTitle] / [sideDishMainIngredientNames]
+  ///     / [sideDishMainDietaryTags] (not against the current side
+  ///     dish itself, which would compound).
+  ///   - the new side dish replaces this screen rather than pushing
+  ///     deeper, so back goes straight to the main recipe.
+  final bool isSideDish;
+  final String? sideDishMainTitle;
+  final List<String>? sideDishMainIngredientNames;
+  final List<String>? sideDishMainDietaryTags;
+
   const RecipeScreen({
     super.key,
     required this.recipe,
     this.originalRequest,
     this.isGuest = false,
-    this.autoSave = false,
     this.savedAt,
     this.regenCount = 0,
+    this.isSideDish = false,
+    this.sideDishMainTitle,
+    this.sideDishMainIngredientNames,
+    this.sideDishMainDietaryTags,
   });
 
   @override
@@ -80,13 +120,138 @@ class _RecipeScreenState extends State<RecipeScreen> {
   // ── Regeneration state ──────────────────────────────────────────────────────────────────────────────
   bool _isRegenerating = false;
   bool _isGeneratingSideDish = false;
+  bool _sideDishGenerated = false;
+
+  @visibleForTesting
+  void debugMarkSideDishGenerated() {
+    setState(() => _sideDishGenerated = true);
+  }
+
+  /// Builds the [RecipeGenerationRequest] used by "Generate another".
+  ///
+  /// Carries forward every field from [base] and overlays:
+  ///   • exclusions accumulated in this session (`_excludedIngredients`)
+  ///   • the current recipe's title appended to `recentTitles`
+  ///   • dietary + custom-allergen lists re-read from
+  ///     [UserSettingsService] so mid-screen Settings edits are honoured
+  ///     (Sprint 16.1 belt-and-braces, see git log on this file).
+  ///
+  /// **Iron rule:** every other field — including the free-text
+  /// `userRequest` craving, `mealType`, and the variation FIFOs
+  /// (`recentHeroIngredients`/`recentCookware`) — MUST be threaded
+  /// through. Dropping any of them silently makes "Generate another"
+  /// regress to a generic generation that ignores the user's stated
+  /// intent. This was Sprint 16.3 bug: `userRequest` was being lost.
+  ///
+  /// **Variation FIFOs are extended in-place by this method.** Home
+  /// owns the FIFO across separate generations, but home never sees a
+  /// regen happen on this screen, so the hero + cookware of
+  /// [_currentRecipe] are appended here (capped at the same window of
+  /// 3 home enforces). Without this the 2nd, 3rd, 4th... regen all see
+  /// the SAME stale variation memory and rotation breaks (Notion bug
+  /// row "4th recipe should pivot", 16 May 2026). User-required
+  /// perishables are excluded from the hero FIFO using the same rule
+  /// as [HomeScreen._onRecipeComplete] (matches HomeScreen's
+  /// `_isUserRequiredPerishable`).
+  ///
+  /// Exposed for test reach. Pure with respect to widget state — does
+  /// not mutate.
+  @visibleForTesting
+  RecipeGenerationRequest debugBuildRegenRequest(
+    RecipeGenerationRequest base,
+  ) {
+    final settings = UserSettingsService.instance;
+
+    // Variation FIFO updates — append current recipe's hero/cookware
+    // before regen so successive regens actually see rotation. Cap at
+    // window of 3 (matches HomeScreen._variationWindow).
+    const variationWindow = 3;
+    final updatedHeroes = List<String>.from(base.recentHeroIngredients);
+    final hero = RecipeVariation.heroIngredient(_currentRecipe);
+    if (hero != null && !_isUserRequiredPerishable(hero, base)) {
+      updatedHeroes.add(hero);
+      while (updatedHeroes.length > variationWindow) {
+        updatedHeroes.removeAt(0);
+      }
+    }
+    final updatedCookware = List<String>.from(base.recentCookware);
+    final cookware = RecipeVariation.cookware(_currentRecipe);
+    if (cookware != null) {
+      updatedCookware.add(cookware);
+      while (updatedCookware.length > variationWindow) {
+        updatedCookware.removeAt(0);
+      }
+    }
+
+    return RecipeGenerationRequest(
+      perishables: base.perishables,
+      alwaysHave: base.alwaysHave,
+      almostAlwaysHave: base.almostAlwaysHave,
+      dietaryRequirements: settings.hydrated
+          ? settings.dietaryRequirements
+          : base.dietaryRequirements,
+      timePreference: base.timePreference,
+      stylePreference: base.stylePreference,
+      moodPreference: base.moodPreference,
+      mealType: base.mealType,
+      servings: base.servings,
+      excludedIngredients: [
+        ...base.excludedIngredients,
+        ..._excludedIngredients,
+      ],
+      recentTitles: [
+        ...base.recentTitles,
+        _currentRecipe.title,
+      ],
+      recentHeroIngredients: updatedHeroes,
+      recentCookware: updatedCookware,
+      runningLowItems: base.runningLowItems,
+      isLeftoverMode: base.isLeftoverMode,
+      leftoverItems: base.leftoverItems,
+      likedRecipes: base.likedRecipes,
+      dislikedRecipes: base.dislikedRecipes,
+      appliances: base.appliances,
+      isSaverMode: base.isSaverMode,
+      perishableInventoryDescriptions: base.perishableInventoryDescriptions,
+      userRequest: base.userRequest,
+      customAllergens:
+          settings.hydrated ? settings.allergies : base.customAllergens,
+    );
+  }
+
+  /// Mirrors HomeScreen's `_isUserRequiredPerishable` — keeps the hero
+  /// FIFO clean of user-chosen required perishables (chicken every
+  /// recipe because the user said "use up chicken" isn't model
+  /// repetition, so shouldn't poison variety memory).
+  bool _isUserRequiredPerishable(
+      String hero, RecipeGenerationRequest request) {
+    if (request.perishables.isEmpty) return false;
+    final h = hero.toLowerCase().trim();
+    if (h.isEmpty) return false;
+    for (final p in request.perishables) {
+      final pl = p.toLowerCase().trim();
+      if (pl.isEmpty) continue;
+      if (pl == h || pl.contains(h) || h.contains(pl)) return true;
+    }
+    return false;
+  }
+
   late int _regenCount;
   final Set<String> _excludedIngredients = {};
+  // Visual-only "ticked off" state for ingredient rows (Sprint 16).
+  final Set<int> _checkedIngredientIndices = {};
   final FirestoreService _firestore = FirestoreService();
   final AnalyticsService _analytics = AnalyticsService.instance;
 
+  // ── Pantry membership lookup (full inventory, normalised names) ──────────
+  // Used by ElioPantryIcon to render green/red on each ingredient row.
+  // Populated from a live Firestore subscription on the user's inventory
+  // sub-collection (staples + perishables together).
+  @visibleForTesting
+  Set<String> normalizedInventoryNames = <String>{};
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _inventorySub;
+
   // ── Rating state ──────────────────────────────────────────────────────────────────────────────
-  bool? _userRating; // true = liked, false = disliked, null = not rated
   bool _isRating = false;
 
   // ── Voice control state ────────────────────────────────────────────────────────────────────────
@@ -95,12 +260,55 @@ class _RecipeScreenState extends State<RecipeScreen> {
   final FlutterTts _tts = FlutterTts();
   bool _voiceEnabled = false;
   bool _isListening = false;
+  bool _isSpeaking = false; // TTS is mid-utterance — gates STT restart
   bool _speechAvailable = false;
   bool _voiceHelpShown = false;
   String _voiceFeedback = '';
+  // 19 May 2026 (19may-c) — on-screen diagnostic strip for the Cook
+  // Mode voice path. Rob's 19may-b feedback was "still not working"
+  // and the Crashlytics `voice_stt_heard` non-fatal route depends on
+  // dashboard access. The strip surfaces what the STT engine is
+  // actually delivering, in one screenshot, so we can disambiguate
+  // (a) mic / engine not running at all, (b) running but not
+  // transcribing the user's voice, (c) transcribing fine but the
+  // matcher isn't firing.
+  String _lastHeardWords = '';
+  // 21 May 2026 (19may-g) — separated from `_lastHeardWords` so the
+  // diagnostic strip doesn't render "Last heard: 'STT error: …'"
+  // (Kate's 19may-f screenshots). The error path now writes here;
+  // the heard path writes to `_lastHeardWords`. Both can be shown,
+  // visually distinct.
+  String _lastSttError = '';
+  // 20 May 2026 (20may-b) — last raw STT status event from the plugin
+  // (e.g. 'listening', 'notListening', 'done'). Surfaced in the
+  // diagnostic strip so we can see which terminal events the Android
+  // engine on Kate's device actually fires. Different OEM
+  // implementations send different status names; this lets us confirm
+  // rather than guess.
+  String _lastSttStatus = '';
   Timer? _feedbackTimer;
   Timer? _restartTimer;
-  String _recognisedWords = '';
+  // 21 May 2026 (19may-g) — auto-clear the error display after a brief
+  // delay so transient `error_speech_timeout` / `error_no_match` events
+  // don't pile up in the strip and look like the engine is broken.
+  Timer? _errorClearTimer;
+  // 20 May 2026 (20may-b) — Rob: Android's green mic-in-use dot
+  // disappears after ~4s and the auto-restart isn't firing. The
+  // status-name-based restart only fires on `'done'`, but on Kate's
+  // device the session-end may fire as `'notListening'` (engine
+  // dependent — varies by OEM). The heartbeat sidesteps the status
+  // name entirely: every 2s, if we think we should be listening
+  // (`_voiceEnabled && !_isSpeaking`) but the plugin says we aren't
+  // (`!_speech.isListening`), restart. Belt-and-braces against any
+  // engine that doesn't fire the status we expect.
+  Timer? _heartbeatTimer;
+
+  // ── Cooking timer state (Sprint 16.6) ─────────────────────────────────────
+  /// Multi-timer service driving the sticky timer bar + inline pill taps.
+  /// Wall-clock end-times so backgrounding the app doesn't lose accuracy.
+  /// The ticker is started in initState and stopped in dispose. Expiry
+  /// fires HapticFeedback + SystemSound via [_onTimerExpired].
+  late final CookingTimerService _timerService;
 
   // ── Cost estimate label ────────────────────────────────────────────────────────────────────────────────────────────────
   /// Returns a formatted cost-per-serving string based on device locale.
@@ -118,16 +326,20 @@ class _RecipeScreenState extends State<RecipeScreen> {
     _currentRecipe = widget.recipe;
     _savedAt = widget.savedAt;
     _regenCount = widget.regenCount;
+    // Sprint 16.6: cooking timer. Start the 1-second ticker so chips
+    // visibly count down. Backgrounded delivery (sound when app is in
+    // the background) is a follow-up via flutter_local_notifications;
+    // v1 fires HapticFeedback + SystemSound while app is foreground.
+    _timerService = CookingTimerService(onExpire: _onTimerExpired)
+      ..startTicker()
+      ..addListener(_onTimerStateChange);
     _initTts();
-    if (widget.autoSave) {
+    _subscribeInventory();
+    if (_savedAt != null) {
+      // Opened from history OR pre-saved by Import/Generate flow —
+      // either way it's in history, so it's "saved". Check bookmark
+      // state for the toggle indicator.
       _isSaved = true;
-      // Save in background — recipe was just imported
-      final saved = SavedRecipe.fromRecipe(widget.recipe, bookmarked: true);
-      _savedAt = saved.savedAt; // Capture so bookmark toggle works
-      HistoryService.saveRecipe(saved);
-    } else if (_savedAt != null) {
-      // Opened from history — check if bookmarked
-      _isSaved = true; // It's in history, so it's "saved"
       _checkBookmarkStatus();
     }
   }
@@ -139,18 +351,329 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   @override
   void dispose() {
+    _inventorySub?.cancel();
     _stopListening();
     _feedbackTimer?.cancel();
     _restartTimer?.cancel();
+    _errorClearTimer?.cancel();
+    _heartbeatTimer?.cancel();
     _tts.stop();
     // Always restore audio in case voice was active
     try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
+    // Sprint 16.6: cooking timer teardown.
+    _timerService.removeListener(_onTimerStateChange);
+    _timerService.dispose();
+    // Drop the wakelock unconditionally on screen leave — don't want
+    // it leaking past navigation away from the recipe.
+    if (_wakelockHeld) {
+      WakelockPlus.disable().catchError((_) {});
+      _wakelockHeld = false;
+    }
     super.dispose();
   }
 
+  // ── Cooking timer handlers (Sprint 16.6) ─────────────────────────────────
+
+  /// Tracks whether wakelock is currently enabled so we only toggle it
+  /// on real edges (active ↔ inactive) — not on every chip countdown
+  /// tick. WakelockPlus.enable()/disable() do platform-channel work.
+  bool _wakelockHeld = false;
+
+  void _onTimerStateChange() {
+    if (!mounted) return;
+    setState(() {});
+
+    // Sprint 16.6: hold the wakelock while at least one timer is
+    // running or paused. Drop it the moment everything is done /
+    // cancelled / dismissed. Edge-triggered so we don't re-call the
+    // platform channel on every 1-second tick.
+    //
+    // 21 May 2026 — 21may-a tried OR-combining `_handsFreeMode ||
+    // _timerService.hasActiveTimers` so the wakelock would also be
+    // held for the duration of Cook Mode. That shipped a white-
+    // screen-on-Cook-Mode-entry regression that we couldn't root-
+    // cause inline. Reverted to the original timer-only logic
+    // pending a safer approach. The Cook-Mode-screen-timeout fix is
+    // re-queued as a Sprint 17 row.
+    final shouldHold = _timerService.hasActiveTimers;
+    if (shouldHold == _wakelockHeld) return;
+    _wakelockHeld = shouldHold;
+    // Fire-and-forget; errors are non-fatal (e.g. unsupported
+    // platform during tests).
+    if (shouldHold) {
+      WakelockPlus.enable().catchError((_) {});
+    } else {
+      WakelockPlus.disable().catchError((_) {});
+    }
+  }
+
+  /// Fires when any timer hits zero. Audible signal via TTS (Android's
+  /// SystemSound.alert is a no-op), haptic buzz, plus a contextual
+  /// snackbar. Backgrounded delivery via local notifications is a
+  /// follow-up (flutter_local_notifications).
+  ///
+  /// Sprint 16.6.x: swapped SystemSound.play(SystemSoundType.alert)
+  /// for `_speakText(...)`. SystemSound.alert is documented as iOS/
+  /// macOS-only and is silent on Android, so the timer was firing
+  /// only haptic with no audio cue. TTS reuses the existing flutter_tts
+  /// dep wired up for voice cooking — no new packages. flutter_tts
+  /// queues internally, so a timer expiring mid-step during hands-free
+  /// mode is read after the current utterance.
+  void _onTimerExpired(CookingTimer timer) {
+    HapticFeedback.heavyImpact();
+    _speakText('${timer.label} timer done');
+    if (!mounted) return;
+    // Sprint 16.7c — withTimer enforces the 6s dismiss even when
+    // accessibleNavigation is true (Flutter would otherwise suppress
+    // its own timer because of the OK action).
+    ScaffoldMessenger.of(context).showSnackBarWithTimer(
+      SnackBar(
+        content: Text('${timer.label} timer done'),
+        backgroundColor: ElioColors.terracotta,
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () => _timerService.dismiss(timer.id),
+        ),
+      ),
+    );
+  }
+
+  /// Tap on an inline time pill in a method step. Opens the duration
+  /// picker pre-filled with the detected duration; starts a timer
+  /// labelled by step number.
+  Future<void> _onMethodTimeTap(int stepIndex, TimeMatch match) async {
+    // showModalBottomSheet fails silently inside immersiveSticky
+    // (CLAUDE.md Flutter gotcha), so when Cook Mode is active we
+    // briefly drop back to edge-to-edge while the picker is open.
+    final wasImmersive = _handsFreeMode;
+    if (wasImmersive) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    }
+    final picked = await ElioDurationPickerSheet.show(
+      context,
+      initialDuration: match.duration,
+      contextLabel:
+          'Step ${stepIndex + 1} · we detected ${match.matchedText} '
+          'in the instruction',
+    );
+    if (wasImmersive && mounted && _handsFreeMode) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    }
+    if (picked == null || !mounted) return;
+    try {
+      _timerService.start(
+        label: 'Step ${stepIndex + 1}',
+        duration: picked,
+      );
+    } on StateError catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You have the maximum number of timers running. Cancel one to start another.',
+          ),
+        ),
+      );
+    }
+  }
+
+  /// Tap on a timer chip → toggle pause / resume / dismiss (done).
+  void _onTimerChipTap(CookingTimer t) {
+    switch (t.status) {
+      case TimerStatus.running:
+        _timerService.pause(t.id);
+        break;
+      case TimerStatus.paused:
+        _timerService.resume(t.id);
+        break;
+      case TimerStatus.done:
+        _timerService.dismiss(t.id);
+        break;
+    }
+  }
+
+  /// Long-press → cancel with confirm.
+  Future<void> _onTimerChipLongPress(CookingTimer t) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: ElioColors.cream,
+        title: const Text('Cancel timer?'),
+        content: Text('Stop the "${t.label}" timer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Cancel timer',
+              style: TextStyle(color: ElioColors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) _timerService.cancel(t.id);
+  }
+
+  /// Sticky timer bar rendered just under the AppBar. Only visible
+  /// when at least one timer exists.
+  ///
+  /// Sprint 16.7d: horizontal scroll instead of Wrap. With the cap
+  /// raised from 5 → 10, a Sunday-roast chip stack could push the
+  /// timer bar to two rows and steal vertical space from the step.
+  /// Single-row scroll keeps the bar a consistent height regardless
+  /// of timer count.
+  Widget _buildTimerBar() {
+    final timers = _timerService.timers;
+    if (timers.isEmpty) return const SizedBox.shrink();
+    final now = DateTime.now();
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: ElioColors.cream.withValues(alpha: 0.95),
+        border: const Border(
+          bottom: BorderSide(color: ElioColors.rule),
+        ),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 10, top: 4),
+              child: Text(
+                'TIMERS',
+                style: ElioTextStyles.eyebrowStyle.copyWith(
+                  color: ElioColors.mocha,
+                ),
+              ),
+            ),
+            for (final t in timers) ...[
+              ElioTimerChip(
+                key: ValueKey(t.id),
+                timer: t,
+                now: now,
+                onTap: () => _onTimerChipTap(t),
+                onLongPress: () => _onTimerChipLongPress(t),
+              ),
+              const SizedBox(width: 8),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Inventory subscription ───────────────────────────────────────────────
+  // Streams the user's full pantry (staples + perishables) so ingredient
+  // rows can show a green pantry icon when matched and red when missing.
+  // Uses exact normalised-name match (PantryUtils.normalise) — fuzzy
+  // matching is reserved for add-item dedup per CLAUDE.md.
+  void _subscribeInventory() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final query = FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('inventory');
+    _inventorySub = query.snapshots().listen((snap) {
+      if (!mounted) return;
+      final names = <String>{};
+      for (final doc in snap.docs) {
+        final name = (doc.data()['name'] as String?) ?? '';
+        if (name.isEmpty) continue;
+        names.add(PantryUtils.normalise(name));
+      }
+      setState(() => normalizedInventoryNames = names);
+    });
+  }
+
+  /// Whether the recipe ingredient is already in the user's live pantry.
+  ///
+  /// Sprint 16.6 (Notion XX bug 2): the raw recipe name carries prep
+  /// words ("Diced onion", "Large eggs", "Chopped garlic, peeled") and
+  /// size adjectives that the pantry doesn't. Comparing raw names misses
+  /// the match — the green/red pantry indicator showed red AND the
+  /// "Add to shopping list" path skipped its dedup branch, re-adding
+  /// items the user already had.
+  ///
+  /// Cleaning via [ShoppingService.cleanForShopping] strips comma
+  /// clauses with prep words, parentheticals with prep words, and
+  /// leading size adjectives. Then [PantryUtils.normalise] handles
+  /// plurals + variant synonyms. Cleaning is idempotent on already-
+  /// clean pantry-style names (no-op for "Onion").
+  bool _isInPantry(RecipeIngredient ing) {
+    final cleaned = ShoppingService.cleanForShopping(ing.name);
+    final norm = PantryUtils.normalise(cleaned);
+    return normalizedInventoryNames.contains(norm);
+  }
+
   // ── TTS setup ──────────────────────────────────────────────────────────────────
+  //
+  // Sprint 16 cook-mode audit (19 May 2026) fixed three classes of bug here:
+  //
+  //   1. **First-word clipping** — flutter_tts grabs the audio session
+  //      lazily on the first `speak()`, which swallows ~300 ms on iOS.
+  //      `setSharedInstance(true)` + `setIosAudioCategory(playback, ...)`
+  //      pre-allocates the session, so utterances start cleanly.
+  //
+  //   2. **TTS / STT collisions mid-utterance** — the STT listener was
+  //      running while TTS spoke, ducking the speech output. We now
+  //      serialise: `_speakText` stops listening, marks `_isSpeaking`,
+  //      and only the completion handler restarts the listener (and
+  //      only if voice control is still enabled).
+  //
+  //   3. **TTS never fires on step entry / Next/Back** — the screen used
+  //      to call `_speakText` only from voice-command callbacks, so
+  //      tapping Next never read the new step aloud. The Cook-Mode
+  //      entry point (`_startHandsFree`) and the Next/Back buttons now
+  //      call `_speakText` directly, independent of mic state.
   Future<void> _initTts() async {
     try {
+      // iOS audio session — silently no-op on Android.
+      await _tts.setSharedInstance(true);
+      await _tts.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [
+          IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+          IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+        ],
+        IosTextToSpeechAudioMode.spokenAudio,
+      );
+
+      // `awaitSpeakCompletion(true)` makes the future returned by
+      // `_tts.speak(...)` resolve only when the utterance finishes —
+      // we use that to bracket the STT pause/resume reliably.
+      await _tts.awaitSpeakCompletion(true);
+
+      // Lifecycle handlers — `_isSpeaking` is the gate that prevents
+      // the STT auto-restart loop from clawing the mic back while we
+      // talk. The completion handler restarts listening once we're done.
+      _tts.setStartHandler(() {
+        if (mounted) setState(() => _isSpeaking = true);
+      });
+      _tts.setCompletionHandler(() {
+        if (mounted) setState(() => _isSpeaking = false);
+        // Resume listening if voice control is still on. Small delay
+        // gives the audio session time to release before STT re-acquires.
+        if (_voiceEnabled && mounted) {
+          _restartTimer?.cancel();
+          _restartTimer = Timer(const Duration(milliseconds: 200), () {
+            if (_voiceEnabled && mounted && !_isSpeaking) _startListening();
+          });
+        }
+      });
+      _tts.setErrorHandler((msg) {
+        if (mounted) setState(() => _isSpeaking = false);
+        ErrorService.log('voice_tts_runtime', msg);
+      });
+
       await _tts.setLanguage('en-US');
       await _tts.setSpeechRate(0.45);
       await _tts.setVolume(1.0);
@@ -160,32 +683,367 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   Future<void> _speakText(String text) async {
+    if (text.trim().isEmpty) return;
     try {
+      // Stop listening BEFORE we speak so the mic doesn't duck our own
+      // output (and so we don't recognise our own voice as a command).
+      // The completion handler in `_initTts` re-arms the listener.
+      if (_isListening) {
+        _restartTimer?.cancel();
+        await _speech.stop();
+        if (mounted) setState(() => _isListening = false);
+      }
+      // Cancel any in-flight utterance — prevents queuing two steps if
+      // the user mashes Next. The completion handler may or may not fire
+      // for a cancelled utterance (engine-dependent on Android), so we
+      // also defensively reset `_isSpeaking` here. Otherwise a stuck
+      // `true` would block the STT auto-restart loop forever.
+      await _tts.stop();
+      if (mounted && _isSpeaking) {
+        setState(() => _isSpeaking = false);
+      }
       await _tts.speak(text);
+      // `awaitSpeakCompletion(true)` means the future resolves only when
+      // the utterance ends, so by the time we get here the user has
+      // heard the whole step. Belt-and-braces: also clear `_isSpeaking`
+      // here in case the completion handler missed (race between the
+      // platform fire and our setState bind).
+      if (mounted && _isSpeaking) {
+        setState(() => _isSpeaking = false);
+      }
+      // Belt-and-braces: also kick the listener restart here. The
+      // completion handler should have done this on its own, but if it
+      // didn't fire (cancelled utterance, engine quirk) the user would
+      // be stuck — TTS done but mic never resumed. Idempotent against
+      // the handler's own restart attempt thanks to the
+      // `if (_voiceEnabled && !_isSpeaking && !_isListening)` gate
+      // inside `_startListening`.
+      if (mounted && _voiceEnabled && !_isListening) {
+        _restartTimer?.cancel();
+        _restartTimer = Timer(const Duration(milliseconds: 200), () {
+          if (_voiceEnabled && mounted && !_isSpeaking && !_isListening) {
+            _startListening();
+          }
+        });
+      }
     } catch (e) {
+      if (mounted && _isSpeaking) {
+        setState(() => _isSpeaking = false);
+      }
       ErrorService.log('voice_tts_speak', e);
     }
   }
 
   // ── Speech recognition ─────────────────────────────────────────────────────────
+
+  /// Map raw Android STT error codes to human-readable diagnostic
+  /// text. `error_speech_timeout` and `error_no_match` are the two
+  /// most common transient ones and we surface them in soft language
+  /// so users don't think the engine is broken.
+  String _friendlySttError(String code) {
+    switch (code) {
+      case 'error_speech_timeout':
+        return 'Didn\'t hear anything — try saying it again.';
+      case 'error_no_match':
+        return 'Didn\'t catch that — try saying it again.';
+      case 'error_network':
+        return 'Speech recognition needs a network connection.';
+      case 'error_network_timeout':
+        return 'Network timed out — check connection.';
+      case 'error_audio':
+        return 'Audio error — check the microphone.';
+      case 'error_server':
+        return 'Speech-recognition server error — try again.';
+      case 'error_client':
+        return 'Speech-recognition client error — try again.';
+      case 'error_insufficient_permissions':
+        return 'Microphone permission missing.';
+      default:
+        return 'STT: $code';
+    }
+  }
+
+  /// Explicit RECORD_AUDIO permission check + recovery flow. Returns
+  /// the resolved state. Side-effects: surfaces the right UI for
+  /// denied / permanently-denied cases (snackbar with retry, snackbar
+  /// with "Open Settings" action), and writes a diagnostic string to
+  /// the on-screen `_lastHeardWords` strip so a screenshot from the
+  /// user tells us the exact permission state without needing
+  /// Crashlytics access.
+  Future<_MicPermissionResult> _ensureMicPermission() async {
+    var status = await Permission.microphone.status;
+
+    // First-time / previously-denied — request now. On Android 13+
+    // this is the only way to surface the system prompt; the
+    // implicit request inside `_speech.initialize()` is often a no-op
+    // if the user previously dismissed it.
+    if (status.isDenied) {
+      status = await Permission.microphone.request();
+    }
+
+    if (status.isGranted || status.isLimited) {
+      return _MicPermissionResult.granted;
+    }
+
+    if (status.isPermanentlyDenied) {
+      ErrorService.log('voice_mic_perm', 'permanentlyDenied');
+      if (mounted) {
+        setState(() => _lastHeardWords =
+            'Mic permission permanently denied — tap "Open Settings"');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Microphone permission is permanently denied. Open Settings to enable it.',
+            ),
+            backgroundColor: ElioColors.espresso,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'Open Settings',
+              textColor: Colors.white,
+              onPressed: () {
+                openAppSettings();
+              },
+            ),
+          ),
+        );
+      }
+      return _MicPermissionResult.permanentlyDenied;
+    }
+
+    // status.isDenied / .isRestricted — surface the reason and let the
+    // user retry. Diagnostic strip carries the state so we can see it
+    // in screenshots.
+    ErrorService.log('voice_mic_perm', status.toString());
+    if (mounted) {
+      setState(() => _lastHeardWords =
+          'Mic permission denied (${status.toString().split('.').last}) — tap mic to retry');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Voice control needs microphone permission. Tap the mic again to retry.",
+          ),
+          backgroundColor: ElioColors.espresso,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+    return _MicPermissionResult.denied;
+  }
+
+  /// Bulletproof "are we still actually listening?" check.
+  ///
+  /// Status-name-based restarts (`'done'`) only catch session-ends on
+  /// engines that fire that specific event. On Kate's 20may-a test the
+  /// Android mic-in-use dot disappeared after ~4s and the auto-restart
+  /// didn't fire — almost certainly because her engine sends
+  /// `'notListening'` (or similar) as terminal. Different OEM
+  /// implementations send different status names.
+  ///
+  /// The heartbeat sidesteps the issue entirely by asking the plugin
+  /// directly. Every 2s while voice is enabled, if `_speech.isListening`
+  /// is false but we expected it to be true, restart.
+  void _startVoiceHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (!mounted) return;
+      if (!_voiceEnabled) return;
+      if (_isSpeaking) return; // TTS owns the session right now
+      // 20 May 2026 (20may-d) — skip if a restart is already
+      // scheduled. The status handler (on 'done') and the error
+      // handler both queue `_restartTimer` with sensible backoffs
+      // (400ms / 800ms / 1000ms depending on cause); having the
+      // heartbeat fire a SECOND restart on top of that means we
+      // hammer the engine and provoke `error_busy`. Defer to whoever
+      // queued first.
+      if (_restartTimer?.isActive ?? false) return;
+      if (!_speech.isListening) {
+        // 20 May 2026 (20may-c) — reset the local flag too so the
+        // diagnostic strip's top line stops claiming "Listening"
+        // when the engine has actually ended the session. The plugin
+        // is the source of truth; this catches up our mirror.
+        if (_isListening) {
+          setState(() => _isListening = false);
+        }
+        // Plugin says we're not listening, no other restart is
+        // pending. Kick one.
+        _startListening();
+      }
+    });
+  }
+
+  void _stopVoiceHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+  }
+
   Future<void> _initVoiceControl() async {
+    // 19 May 2026 (19may-d) — Rob: "tapping the mic doesn't pause TTS".
+    // Pre-19may-a TTS only fired AFTER mic was enabled, so this couldn't
+    // happen. Now TTS auto-plays on Cook Mode entry, so the user can
+    // (and does) tap mic mid-utterance to talk over the directions —
+    // that's the voice-assistant convention (Siri / Alexa / Google all
+    // cancel their response when interrupted). Cancel any in-progress
+    // speech up-front so the listener can take the audio session.
+    try {
+      await _tts.stop();
+    } catch (_) {}
+    if (mounted && _isSpeaking) {
+      setState(() => _isSpeaking = false);
+    }
+
+    // 20 May 2026 (19may-e) — explicit RECORD_AUDIO permission check
+    // BEFORE `_speech.initialize()`. Kate's 19may-d failure mode:
+    // diagnostic strip says "Listening" but no "Last heard:" populates
+    // when she talks → engine is "running" but not actually
+    // transcribing. `speech_to_text.initialize()` requests permission
+    // implicitly on init AND returns true if Speech-to-Text is
+    // available at all, even if RECORD_AUDIO is denied. On Android
+    // 13+ the permission request can be silently auto-denied (system
+    // setting / previous "Don't allow"), and the engine then runs
+    // visually but captures no audio.
+    //
+    // Explicit `permission_handler` check gives us three resolvable
+    // states: granted (proceed), denied (request + retry), or
+    // permanentlyDenied (route to app settings). The diagnostic strip
+    // surfaces the denial reason so a screenshot tells us the exact
+    // permission state.
+    final permStatus = await _ensureMicPermission();
+    if (permStatus != _MicPermissionResult.granted) {
+      return; // _ensureMicPermission already surfaced the right UI
+    }
+
     try {
       _speechAvailable = await _speech.initialize(
         onError: (error) {
-          // On error, attempt restart if voice is still enabled
-          if (_voiceEnabled && mounted) {
+          // 21 May 2026 (19may-g) — Kate's 19may-f screenshots showed
+          // `error_speech_timeout` and `error_no_match` rendering as
+          // "Last heard: 'STT error: …'" which made it look like the
+          // engine was completely broken. They're actually expected
+          // transient events:
+          //   - `error_speech_timeout`: engine listened, heard no
+          //     speech within the pauseFor window. Restart immediately.
+          //   - `error_no_match`: engine heard audio but couldn't
+          //     transcribe it. Restart immediately; user can try again.
+          //   - Other errors: still worth surfacing, restart with a
+          //     small backoff.
+          // The error now writes to `_lastSttError` (separate from
+          // `_lastHeardWords`) so the strip can show both states
+          // distinctly + auto-clear the error after a short delay so
+          // the user isn't permanently staring at "STT error".
+          // 20 May 2026 (20may-d) — three buckets, not two. Rob's
+          // 20may-c screenshots showed the engine cycling through
+          // `error_busy` and `error_client` after we restarted too
+          // fast — Android STT was rejecting our 100ms restart
+          // because the previous session hadn't finished releasing.
+          //
+          //   - **Transient** (50ms retry): `error_speech_timeout`,
+          //     `error_no_match`. These aren't really errors — engine
+          //     just didn't hear / couldn't match. Safe to restart
+          //     immediately.
+          //   - **Busy** (1000ms retry): `error_busy`,
+          //     `error_recognizer_busy`. Engine is literally telling
+          //     us "I'm not ready yet — back off." Hammering it with
+          //     a fast retry just gets another busy error.
+          //   - **Hard** (800ms retry): anything else
+          //     (`error_client`, `error_network`, `error_audio`, …).
+          //     Real failure, give the system a beat to recover.
+          final code = error.errorMsg;
+          final isTransient =
+              code == 'error_speech_timeout' || code == 'error_no_match';
+          final isBusy =
+              code == 'error_busy' || code == 'error_recognizer_busy';
+          final restartDelayMs = isTransient
+              ? 50
+              : isBusy
+                  ? 1000
+                  : 800;
+          if (mounted) {
+            setState(() => _lastSttError = code);
+            _errorClearTimer?.cancel();
+            _errorClearTimer = Timer(
+              Duration(seconds: isTransient ? 2 : 5),
+              () {
+                if (mounted) setState(() => _lastSttError = '');
+              },
+            );
+          }
+          ErrorService.log('voice_stt_error', code);
+          // On error, attempt restart if voice is still enabled — but
+          // not mid-utterance (TTS completion handler owns that).
+          if (_voiceEnabled && mounted && !_isSpeaking) {
             _restartTimer?.cancel();
-            _restartTimer = Timer(const Duration(milliseconds: 500), () {
-              if (_voiceEnabled && mounted) _startListening();
-            });
+            _restartTimer = Timer(
+              Duration(milliseconds: restartDelayMs),
+              () {
+                if (_voiceEnabled && mounted && !_isSpeaking) {
+                  _startListening();
+                }
+              },
+            );
           }
         },
         onStatus: (status) {
+          // 20 May 2026 (20may-b) — surface the raw status name to the
+          // strip + log to Crashlytics. Different Android engines send
+          // different terminal status names ('done' on Pixel, often
+          // 'notListening' on Samsung), and the status-name-based
+          // restart was missing whichever name Kate's device uses.
+          // The heartbeat (below) catches the gap regardless, but the
+          // visibility helps confirm the cause.
+          if (mounted) {
+            setState(() => _lastSttStatus = status);
+          }
+          ErrorService.log('voice_stt_status', status);
+          // 19 May 2026 (19may-d) — ONLY restart on `done` (terminal
+          // session state). The previous code also restarted on
+          // `notListening`, but on Android `notListening` fires
+          // *transiently* between captures inside a single session
+          // (during silence-detection processing). Restarting on that
+          // killed the in-progress recognition before any words were
+          // returned — which is the most likely reason voice commands
+          // appeared to never work at all. Trust the engine to manage
+          // its own in-session state; only restart when the session
+          // truly ends.
+          //
+          // 20 May 2026 (20may-a) — tightened the restart delay from
+          // 300ms to 100ms. The 300ms was a guard against rapid-fire
+          // platform errors but in practice 100ms is fine and shortens
+          // the perceptible gap between sessions to near-zero, which
+          // is what makes "always listening" actually feel always-on.
+          //
+          // 20 May 2026 (20may-b) — the status-name restart stays as
+          // the fast path, but the heartbeat is now the bulletproof
+          // safety net for engines that fire something other than
+          // 'done'.
+          //
+          // 20 May 2026 (20may-c) — CRITICAL: reset our `_isListening`
+          // flag here. The engine ended the session, the plugin's
+          // `isListening` is false, but we never cleared our own
+          // tracking flag — which meant `_startListening`'s
+          // `if (_isListening) return;` early-return blocked every
+          // subsequent restart attempt (both this one AND the
+          // heartbeat). Rob's 20may-b screenshot: "STT status: done"
+          // visible on the strip, top line still says "Listening",
+          // and the green mic-dot is gone. The flag was stale.
           if (status == 'done' || status == 'notListening') {
-            if (_voiceEnabled && mounted) {
+            if (mounted && _isListening) {
+              setState(() => _isListening = false);
+            }
+          }
+          if (status == 'done') {
+            if (_voiceEnabled && mounted && !_isSpeaking) {
               _restartTimer?.cancel();
-              _restartTimer = Timer(const Duration(milliseconds: 300), () {
-                if (_voiceEnabled && mounted) _startListening();
+              // 20 May 2026 (20may-d) — bumped from 100ms to 400ms.
+              // 100ms was firing the restart before the engine had
+              // finished releasing the previous session, which
+              // triggered `error_busy` ("recognizer is already in
+              // use") on Rob's device. 400ms gives Android STT room
+              // to clean up. Still imperceptible to the user vs.
+              // the 8s `pauseFor` window.
+              _restartTimer = Timer(const Duration(milliseconds: 400), () {
+                if (_voiceEnabled && mounted && !_isSpeaking) {
+                  _startListening();
+                }
               });
             }
           }
@@ -196,7 +1054,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Voice control unavailable — microphone permission was denied. Grant it in Settings → Apps → Elio → Permissions.'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
             duration: Duration(seconds: 4),
           ),
         );
@@ -207,13 +1065,22 @@ class _RecipeScreenState extends State<RecipeScreen> {
         setState(() => _voiceEnabled = true);
         // Mute beep streams for entire voice session
         try { await _audioChannel.invokeMethod('muteBeep'); } catch (_) {}
+        // Start the heartbeat — restarts the listener if the engine
+        // silently ends a session without firing a status name we
+        // handle. See `_startVoiceHeartbeat` for the rationale.
+        _startVoiceHeartbeat();
         if (!_voiceHelpShown) {
-          // Show help first — TTS + listening start after "Got It"
+          // Show help first — listening starts after "Got It"
           _showVoiceHelpOverlay();
           _voiceHelpShown = true;
         } else {
+          // 19 May 2026 (19may-d): just start listening. The previous
+          // path called `_speakText(currentStep)` here, which re-spoke
+          // the step every time the user toggled the mic on — annoying,
+          // and on Cook Mode entry the step has already been read once.
+          // Worse, before the muteBeep fix in MainActivity.kt this also
+          // played silently because STREAM_MUSIC had just been zeroed.
           _startListening();
-          _speakText(_currentRecipe.steps[_currentStep]);
         }
       }
     } catch (e) {
@@ -221,7 +1088,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Voice control unavailable — check microphone permissions.'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -230,16 +1097,71 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   Future<void> _startListening() async {
     if (!_speechAvailable || !_voiceEnabled || !mounted) return;
+    // Don't claw the mic back while TTS is mid-utterance — the
+    // completion handler will re-arm us. Without this guard the STT
+    // auto-restart loop fights the speech output for the audio session.
+    if (_isSpeaking) return;
+    // Don't redundantly start a session that's already running. Both
+    // the completion handler AND the belt-and-braces tail of
+    // `_speakText` schedule a 200ms restart; without this guard they'd
+    // both fire and the second `_speech.listen(...)` would throw.
+    //
+    // 20 May 2026 (20may-c) — trust the plugin's `isListening` getter
+    // (source of truth) instead of our local `_isListening` flag.
+    // The flag was getting stuck `true` after engine-side session-ends
+    // that didn't reset it, which blocked every restart attempt — see
+    // the onStatus handler comment for the full story. Asking the
+    // plugin directly removes that whole class of state-drift bug.
+    if (_speech.isListening) return;
     try {
       await _speech.listen(
         onResult: (result) {
-          _recognisedWords = result.recognizedWords.toLowerCase();
-          _processVoiceCommand(_recognisedWords);
+          final words = result.recognizedWords.toLowerCase();
+          if (result.finalResult && words.isNotEmpty) {
+            ErrorService.log('voice_stt_heard', 'words="$words"');
+          }
+          if (words.isNotEmpty && mounted) {
+            setState(() {
+              _lastHeardWords = words;
+              // 19may-g — clear any stale error once we get a real
+              // recognition; otherwise the dimmer error line lingers
+              // alongside the new "Last heard:" line.
+              _lastSttError = '';
+            });
+            _errorClearTimer?.cancel();
+          }
+          _processVoiceCommand(words);
         },
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 5),
+        // 20 May 2026 (20may-a) — Rob: "I struggle to see how hands-
+        // free is effective if it has any time limit." Pushed the
+        // session cap to a wall-clock value bigger than any realistic
+        // Cook Mode session. Android's `SpeechRecognizer` will end
+        // sessions on its own well before this (typically 30–60s
+        // depending on the device), and the auto-restart on `done`
+        // (200ms below) takes over — so this just stops US from
+        // imposing a redundant ceiling on top of the platform's.
+        //
+        // `pauseFor: 8s` (from 19may-g) — forgiving silence window
+        // after TTS finishes describing a step. The user often takes
+        // a beat to process before speaking; pre-`pauseFor: 4s` ran
+        // out in that gap and fired `error_speech_timeout`.
+        //
+        // Note (battery): continuous STT listening is power-hungry.
+        // For Cook Mode that's the right trade — the user has
+        // explicitly turned it on and is mid-recipe. If we ever
+        // surface "always-on" voice outside Cook Mode, revisit.
+        listenFor: const Duration(minutes: 30),
+        pauseFor: const Duration(seconds: 8),
         listenOptions: stt.SpeechListenOptions(
-          listenMode: stt.ListenMode.dictation,
+          // 19may-d — explicit `partialResults: true` (defaults to true
+          // but be explicit). `ListenMode.dictation` was iOS-only per
+          // the plugin docs — dropped, it did nothing on Android and
+          // misled the reader into thinking we'd configured the engine
+          // for long-form on Android. `cancelOnError: false` so a
+          // transient error doesn't kill the whole session (the
+          // onError handler restarts manually instead).
+          partialResults: true,
+          cancelOnError: false,
         ),
       );
       if (mounted) setState(() => _isListening = true);
@@ -260,6 +1182,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   void _toggleVoiceControl() {
     if (_voiceEnabled) {
       _stopListening();
+      _stopVoiceHeartbeat();
       setState(() => _voiceEnabled = false);
       // Restore audio streams when voice control is turned off
       try { _audioChannel.invokeMethod('restoreBeep'); } catch (_) {}
@@ -269,20 +1192,32 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   void _processVoiceCommand(String words) {
-    // Look for "hey elio" wake word followed by a command
-    final wakeIndex = words.lastIndexOf('hey elio');
-    if (wakeIndex == -1) return;
+    // Sprint 16 cook-mode audit (19 May 2026): we used to require the
+    // literal substring "hey elio" before any command would fire, which
+    // never worked reliably — `speech_to_text` doesn't keep partials
+    // across a 5s silence and there's no real wake-word engine bundled.
+    //
+    // Option (b) from the audit: drop the wake-word fiction. While
+    // Cook Mode is open the user has unambiguously asked for voice
+    // control, so we accept bare commands ("next", "back", "repeat",
+    // "done"). TTS↔STT is now serialised, so we don't recognise our
+    // own utterance — the only words in the buffer come from the user.
+    //
+    // Word-boundary matching so we don't fire on substrings inside
+    // longer words (e.g. "context" → not "next"). Also short-circuit
+    // when speaking, in case a stale partial sneaks through.
+    if (_isSpeaking) return;
+    if (words.isEmpty) return;
 
-    final afterWake = words.substring(wakeIndex + 8).trim();
-    if (afterWake.isEmpty) return;
+    bool hasWord(String w) => RegExp(r'\b' + w + r'\b').hasMatch(words);
 
-    if (afterWake.contains('next')) {
+    if (hasWord('next')) {
       _onVoiceNext();
-    } else if (afterWake.contains('back') || afterWake.contains('previous')) {
+    } else if (hasWord('back') || hasWord('previous')) {
       _onVoiceBack();
-    } else if (afterWake.contains('repeat') || afterWake.contains('read')) {
+    } else if (hasWord('repeat') || hasWord('read')) {
       _onVoiceRepeat();
-    } else if (afterWake.contains('done') || afterWake.contains('exit') || afterWake.contains('stop')) {
+    } else if (hasWord('done') || hasWord('exit') || hasWord('stop')) {
       _onVoiceDone();
     }
   }
@@ -303,7 +1238,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
     } else {
       _showVoiceFeedback('Already on the last step');
     }
-    _recognisedWords = '';
   }
 
   void _onVoiceBack() {
@@ -314,18 +1248,17 @@ class _RecipeScreenState extends State<RecipeScreen> {
     } else {
       _showVoiceFeedback('Already on the first step');
     }
-    _recognisedWords = '';
   }
 
   void _onVoiceRepeat() {
     _showVoiceFeedback('Reading step aloud');
     _speakText(_currentRecipe.steps[_currentStep]);
-    _recognisedWords = '';
   }
 
   void _onVoiceDone() {
     _showVoiceFeedback('Voice control off');
     _stopListening();
+    _stopVoiceHeartbeat();
     setState(() {
       _voiceEnabled = false;
     });
@@ -336,7 +1269,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
       'total_steps': _currentRecipe.steps.length,
       'exit_method': 'voice',
     });
-    _recognisedWords = '';
   }
 
   void _showVoiceHelpOverlay() {
@@ -352,27 +1284,27 @@ class _RecipeScreenState extends State<RecipeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.mic_rounded, color: ElioColors.amber, size: 36),
+              const Icon(Icons.mic_rounded, color: ElioColors.terracotta, size: 36),
               const SizedBox(height: 12),
               Text('Voice commands', style: ElioText.headingMedium),
               const SizedBox(height: 16),
               Text(
-                "Say 'Hey Elio' followed by:",
-                style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+                'Just say:',
+                style: ElioText.bodyLarge.copyWith(color: ElioColors.mocha),
               ),
               const SizedBox(height: 16),
-              _buildVoiceHelpRow('"Hey Elio, next"', 'Go to the next step'),
+              _buildVoiceHelpRow('"Next"', 'Go to the next step'),
               const SizedBox(height: 10),
-              _buildVoiceHelpRow('"Hey Elio, back"', 'Go to the previous step'),
+              _buildVoiceHelpRow('"Back"', 'Go to the previous step'),
               const SizedBox(height: 10),
-              _buildVoiceHelpRow('"Hey Elio, repeat"', 'Read the current step aloud'),
+              _buildVoiceHelpRow('"Repeat"', 'Read the current step aloud'),
               const SizedBox(height: 10),
-              _buildVoiceHelpRow('"Hey Elio, done"', 'Turn off voice control'),
+              _buildVoiceHelpRow('"Done"', 'Turn off voice control'),
               const SizedBox(height: 20),
               Text(
                 'Tap the mic button to turn voice control on/off',
                 style: ElioText.bodyMedium.copyWith(
-                  color: ElioColors.textMuted,
+                  color: ElioColors.mocha,
                   fontStyle: FontStyle.italic,
                 ),
                 textAlign: TextAlign.center,
@@ -383,12 +1315,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(dialogContext).pop();
-                    // Start listening + read step 1 after dialog closes
+                    // 19 May 2026 (19may-d): just start listening. The
+                    // step has already been spoken on Cook Mode entry
+                    // (and was being re-spoken silently here pre-19may-d
+                    // because STREAM_MUSIC had been muted by the
+                    // `muteBeep` call in `_initVoiceControl`).
                     _startListening();
-                    _speakText(_currentRecipe.steps[_currentStep]);
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: ElioColors.amber,
+                    backgroundColor: ElioColors.terracotta,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -410,14 +1345,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
-            color: ElioColors.navy.withValues(alpha: 0.06),
+            color: ElioColors.espresso.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             command,
             style: ElioText.bodyMedium.copyWith(
               fontWeight: FontWeight.w600,
-              color: ElioColors.navy,
+              color: ElioColors.espresso,
             ),
           ),
         ),
@@ -425,7 +1360,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         Expanded(
           child: Text(
             description,
-            style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+            style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
           ),
         ),
       ],
@@ -496,15 +1431,28 @@ class _RecipeScreenState extends State<RecipeScreen> {
             );
           });
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Swapped ${ingredient.name} → ${result.substitute}'),
-              backgroundColor: ElioColors.navy,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              duration: const Duration(seconds: 3),
-            ),
-          );
+          // The sheet pops itself before calling this callback (see
+          // _IngredientOptionsSheet "Use this instead" button). The
+          // dismiss animation runs ~300ms; firing showSnackBar inside
+          // that window would render the floating snackbar behind the
+          // still-animating sheet. Defer until the sheet is gone.
+          // Same pattern documented in CLAUDE.md for showDialog after
+          // a bottom-sheet pop.
+          final messenger = ScaffoldMessenger.of(context);
+          Future.delayed(const Duration(milliseconds: 350), () {
+            if (!mounted) return;
+            messenger.showSnackBar(
+              SnackBar(
+                content:
+                    Text('Swapped ${ingredient.name} → ${result.substitute}'),
+                backgroundColor: ElioColors.espresso,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          });
           _analytics.logEvent('ingredient_substituted', {
             'original': ingredient.name,
             'substitute': result.substitute,
@@ -526,7 +1474,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("${ingredient.name} — you probably already have this!"),
-          backgroundColor: ElioColors.navy,
+          backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           duration: const Duration(seconds: 2),
@@ -535,11 +1483,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
       return;
     }
     if (widget.isGuest) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.1: explicit duration + hide-current so the toast
+      // doesn't follow the user across navigation.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Sign in to use the shopping list'),
-          backgroundColor: ElioColors.navy,
+          backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -559,7 +1512,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$cleanName added to shopping list'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             duration: const Duration(seconds: 2),
@@ -615,34 +1568,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Future<void> _executeGeneration(RecipeGenerationRequest request) async {
     setState(() => _isRegenerating = true);
 
+    // Sprint 16.1: force-refresh dietary/allergens fresh-from-server
+    // BEFORE building the regen request. Belt-and-braces against any
+    // missed listener propagation since the original generation —
+    // mid-recipe-screen settings edits MUST be honoured by the next
+    // Generate Another.
+    await UserSettingsService.instance.refresh();
+
     try {
-      // Build updated request — carry forward ALL fields, add exclusions + title
-      final newRequest = RecipeGenerationRequest(
-        perishables: request.perishables,
-        alwaysHave: request.alwaysHave,
-        almostAlwaysHave: request.almostAlwaysHave,
-        dietaryRequirements: request.dietaryRequirements,
-        timePreference: request.timePreference,
-        stylePreference: request.stylePreference,
-        moodPreference: request.moodPreference,
-        servings: request.servings,
-        excludedIngredients: [
-          ...request.excludedIngredients,
-          ..._excludedIngredients,
-        ],
-        recentTitles: [
-          ...request.recentTitles,
-          _currentRecipe.title,
-        ],
-        runningLowItems: request.runningLowItems,
-        isLeftoverMode: request.isLeftoverMode,
-        leftoverItems: request.leftoverItems,
-        likedRecipes: request.likedRecipes,
-        dislikedRecipes: request.dislikedRecipes,
-        appliances: request.appliances,
-        isSaverMode: request.isSaverMode,
-        perishableInventoryDescriptions: request.perishableInventoryDescriptions,
-      );
+      final newRequest = debugBuildRegenRequest(request);
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);
 
@@ -675,11 +1609,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
       ErrorService.log('recipe_regeneration', e);
       if (mounted) {
         setState(() => _isRegenerating = false);
-        final msg = e.toString().replaceFirst('Exception: ', '');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(msg),
-            backgroundColor: ElioColors.navy,
+            content: Text(friendlyError(e)),
+            backgroundColor: ElioColors.espresso,
             duration: const Duration(seconds: 8),
           ),
         );
@@ -706,40 +1639,64 @@ class _RecipeScreenState extends State<RecipeScreen> {
     setState(() => _isGeneratingSideDish = true);
 
     try {
-      final ingredientNames = _currentRecipe.ingredients
-          .map((i) => i.name)
-          .toList();
+      // When the current screen is itself a side dish, generate
+      // against the ORIGINAL main recipe context so we don't spiral
+      // into side-dishes-of-side-dishes. Fall back to the current
+      // recipe when this is a main-recipe screen.
+      final mainTitle = widget.isSideDish
+          ? (widget.sideDishMainTitle ?? _currentRecipe.title)
+          : _currentRecipe.title;
+      final ingredientNames = widget.isSideDish
+          ? (widget.sideDishMainIngredientNames ??
+              _currentRecipe.ingredients.map((i) => i.name).toList())
+          : _currentRecipe.ingredients.map((i) => i.name).toList();
+      final dietaryTags = widget.isSideDish
+          ? (widget.sideDishMainDietaryTags ?? _currentRecipe.dietaryTags)
+          : _currentRecipe.dietaryTags;
 
       final sideDish = await GeminiService.generateSideDish(
-        mainRecipeTitle: _currentRecipe.title,
+        mainRecipeTitle: mainTitle,
         mainIngredientNames: ingredientNames,
-        dietaryTags: _currentRecipe.dietaryTags,
+        dietaryTags: dietaryTags,
         servings: _servings,
       );
 
       _analytics.logEvent('side_dish_generated', {
-        'main_recipe': _currentRecipe.title,
+        'main_recipe': mainTitle,
         'side_dish': sideDish.title,
       });
 
       if (mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => RecipeScreen(
-              recipe: sideDish,
-              isGuest: widget.isGuest,
-              // No originalRequest — "Generate Another" won't appear
-            ),
+        setState(() => _sideDishGenerated = true);
+        // When already on a side dish, REPLACE the screen so back
+        // returns to the main recipe (not a stack of side dishes).
+        // Pass the main-recipe context through so the next "Generate
+        // another" keeps anchoring on the same main.
+        final route = MaterialPageRoute(
+          builder: (_) => RecipeScreen(
+            recipe: sideDish,
+            isGuest: widget.isGuest,
+            isSideDish: true,
+            sideDishMainTitle: mainTitle,
+            sideDishMainIngredientNames: ingredientNames,
+            sideDishMainDietaryTags: dietaryTags,
+            // No originalRequest — "Generate Another" (main-recipe
+            // regen) is not relevant on a side dish.
           ),
         );
+        if (widget.isSideDish) {
+          Navigator.of(context).pushReplacement(route);
+        } else {
+          Navigator.of(context).push(route);
+        }
       }
     } catch (e) {
       ErrorService.log('side_dish_generation', e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('Exception: ', '')),
-            backgroundColor: ElioColors.navy,
+            content: Text(friendlyError(e)),
+            backgroundColor: ElioColors.espresso,
           ),
         );
       }
@@ -758,6 +1715,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
     String? selectedTime = request.timePreference;
     String? selectedMood = request.moodPreference;
 
+    // Cuisine-based pivot list — deliberately distinct from the
+    // descriptive style options on recipe_preferences_screen.dart
+    // (Comfort / Healthy / Hearty / etc.). This dialog opens AFTER
+    // the user's original style pick didn't land, so we offer a
+    // different axis ("mix it up") rather than re-presenting the
+    // same list. Don't unify the two lists; they're complementary.
     const alternativeStyles = [
       'Italian', 'Asian', 'Mexican', 'Mediterranean',
       'Indian', 'American', 'British', 'One-pot', 'Quick & Easy',
@@ -775,13 +1738,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 child: InputChip(
                   label: Text(
                     label,
-                    style: GoogleFonts.quicksand(
+                    style: ElioTextStyles.uiLabelStyle.copyWith(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-                  backgroundColor: ElioColors.amber,
+                  backgroundColor: ElioColors.terracotta,
                   deleteIconColor: Colors.white.withValues(alpha: 0.8),
                   onDeleted: () {
                     setDialogState(onRemove);
@@ -795,16 +1757,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
             }
 
             return AlertDialog(
-              backgroundColor: ElioColors.offWhite,
+              backgroundColor: ElioColors.cream,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
               actionsPadding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
               title: Text(
                 'Not finding what you want?',
-                style: GoogleFonts.outfit(
+                style: ElioTextStyles.sectionHeadingStyle.copyWith(
                   fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: ElioColors.navy,
+                  color: ElioColors.espresso,
                 ),
               ),
               content: SingleChildScrollView(
@@ -814,9 +1775,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   children: [
                     Text(
                       'Adjust your preferences and try again',
-                      style: GoogleFonts.quicksand(
-                        fontSize: 14,
-                        color: ElioColors.navy.withValues(alpha: 0.7),
+                      style: ElioTextStyles.bodySmallStyle.copyWith(
+                        color: ElioColors.espresso.withValues(alpha: 0.7),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -825,10 +1785,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     if (selectedStyle != null || selectedTime != null || selectedMood != null) ...[
                       Text(
                         'Current selections:',
-                        style: GoogleFonts.outfit(
+                        style: ElioTextStyles.uiLabelStyle.copyWith(
                           fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: ElioColors.navy,
+                          color: ElioColors.espresso,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -857,10 +1816,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     // Alternative styles
                     Text(
                       'Try something different:',
-                      style: GoogleFonts.outfit(
+                      style: ElioTextStyles.uiLabelStyle.copyWith(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: ElioColors.navy,
+                        color: ElioColors.espresso,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -872,10 +1830,9 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         return ChoiceChip(
                           label: Text(
                             style,
-                            style: GoogleFonts.quicksand(
-                              fontSize: 13,
+                            style: ElioTextStyles.bodySmallStyle.copyWith(
                               fontWeight: FontWeight.w600,
-                              color: isSelected ? Colors.white : ElioColors.navy,
+                              color: isSelected ? Colors.white : ElioColors.espresso,
                             ),
                           ),
                           selected: isSelected,
@@ -884,14 +1841,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
                               selectedStyle = selected ? style : null;
                             });
                           },
-                          selectedColor: ElioColors.amber,
+                          selectedColor: ElioColors.terracotta,
                           backgroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                             side: BorderSide(
                               color: isSelected
-                                  ? ElioColors.amber
-                                  : ElioColors.navy.withValues(alpha: 0.2),
+                                  ? ElioColors.terracotta
+                                  : ElioColors.espresso.withValues(alpha: 0.2),
                             ),
                           ),
                           showCheckmark: false,
@@ -917,9 +1874,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             timePreference: selectedTime,
                             stylePreference: selectedStyle,
                             moodPreference: selectedMood,
+                            mealType: request.mealType,
                             servings: request.servings,
                             excludedIngredients: request.excludedIngredients,
                             recentTitles: request.recentTitles,
+                            recentHeroIngredients: request.recentHeroIngredients,
+                            recentCookware: request.recentCookware,
                             runningLowItems: request.runningLowItems,
                             isLeftoverMode: request.isLeftoverMode,
                             leftoverItems: request.leftoverItems,
@@ -928,20 +1888,19 @@ class _RecipeScreenState extends State<RecipeScreen> {
                             appliances: request.appliances,
                             isSaverMode: request.isSaverMode,
                             perishableInventoryDescriptions: request.perishableInventoryDescriptions,
+                            userRequest: request.userRequest,
+                            customAllergens: request.customAllergens,
                           );
                           Navigator.of(dialogContext).pop(adjusted);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: ElioColors.amber,
+                          backgroundColor: ElioColors.terracotta,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          textStyle: GoogleFonts.outfit(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          textStyle: ElioTextStyles.uiLabelStyle.copyWith(fontSize: 15),
                           elevation: 0,
                         ),
                         child: const Text('Generate with these'),
@@ -953,8 +1912,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                         onPressed: () => Navigator.of(dialogContext).pop(null),
                         child: Text(
                           'Cancel',
-                          style: GoogleFonts.quicksand(
-                            color: ElioColors.navy.withValues(alpha: 0.6),
+                          style: ElioTextStyles.bodyStyle.copyWith(
+                            color: ElioColors.espresso.withValues(alpha: 0.6),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -973,7 +1932,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Future<void> _rateRecipe(bool liked) async {
     if (_isRating || widget.isGuest) return;
     setState(() {
-      _userRating = liked;
       _isRating = true;
     });
     _analytics.logEvent('recipe_rated', {
@@ -1017,7 +1975,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: ElioColors.border,
+                  color: ElioColors.rule,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1027,7 +1985,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             const SizedBox(height: 4),
             Text(
               'Based on $_servings serving${_servings == 1 ? '' : 's'}',
-              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
             ),
             const SizedBox(height: 20),
             // Calories — full width
@@ -1035,14 +1993,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: BoxDecoration(
-                color: ElioColors.amber.withValues(alpha: 0.08),
+                color: ElioColors.terracotta.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: ElioColors.amber.withValues(alpha: 0.25)),
+                border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.25)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Calories', style: ElioText.headingMedium.copyWith(color: ElioColors.amber)),
+                  Text('Calories', style: ElioText.headingMedium.copyWith(color: ElioColors.terracotta)),
                   RichText(
                     text: TextSpan(
                       children: [
@@ -1051,7 +2009,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
-                            color: ElioColors.navy,
+                            color: ElioColors.espresso,
                           ),
                         ),
                         const TextSpan(
@@ -1059,7 +2017,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
-                            color: ElioColors.textSecondary,
+                            color: ElioColors.mocha,
                           ),
                         ),
                       ],
@@ -1113,7 +2071,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             Text(
               'Estimates only — actual values may vary.',
               style: ElioText.bodyMedium.copyWith(
-                color: ElioColors.textMuted,
+                color: ElioColors.mocha,
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -1138,16 +2096,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
           children: [
             Container(
               width: 40, height: 4,
-              decoration: BoxDecoration(color: ElioColors.border, borderRadius: BorderRadius.circular(2)),
+              decoration: BoxDecoration(color: ElioColors.rule, borderRadius: BorderRadius.circular(2)),
             ),
             const SizedBox(height: 20),
-            const Icon(Icons.info_outline, color: ElioColors.amber, size: 32),
+            const Icon(Icons.info_outline, color: ElioColors.terracotta, size: 32),
             const SizedBox(height: 12),
             Text('About cost estimates', style: ElioText.headingMedium),
             const SizedBox(height: 8),
             Text(
               "Elio's best estimate based on standard, non-premium ingredients. Actual costs may vary depending on where you shop!",
-              style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+              style: ElioText.bodyLarge.copyWith(color: ElioColors.mocha),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -1164,64 +2122,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
-  Widget _buildRatingRow() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: ElioColors.offWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              _userRating == null
-                  ? 'How was this recipe?'
-                  : _userRating == true
-                      ? 'Glad you liked it! Elio will remember.'
-                      : 'Noted. Elio will improve next time.',
-              style: ElioText.bodyMedium.copyWith(
-                color: _userRating == null ? ElioColors.textSecondary : ElioColors.navy,
-                fontWeight: _userRating == null ? FontWeight.w400 : FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          if (!widget.isGuest) ...[
-            _RatingButton(
-              icon: Icons.thumb_up_outlined,
-              iconFilled: Icons.thumb_up_rounded,
-              isSelected: _userRating == true,
-              color: const Color(0xFF2E7D32),
-              onTap: () => _rateRecipe(true),
-            ),
-            const SizedBox(width: 8),
-            _RatingButton(
-              icon: Icons.thumb_down_outlined,
-              iconFilled: Icons.thumb_down_rounded,
-              isSelected: _userRating == false,
-              color: const Color(0xFFC62828),
-              onTap: () => _rateRecipe(false),
-            ),
-          ] else
-            Text(
-              'Sign in to rate',
-              style: ElioText.bodyMedium.copyWith(color: ElioColors.textMuted),
-            ),
-        ],
-      ),
-    );
-  }
-
   // ─── Bulk Prep / Freezing & Storage ─────────────────────────────────────────
   Widget _buildBulkPrepSection() {
     final info = _currentRecipe.bulkPrepInfo!;
     return Container(
       decoration: BoxDecoration(
-        color: ElioColors.offWhite,
+        color: ElioColors.cream,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
+        border: Border.all(color: ElioColors.rule),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -1234,13 +2142,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
               color: Colors.transparent,
               child: Row(
                 children: [
-                  Icon(Icons.ac_unit_rounded, size: 20, color: ElioColors.sky),
+                  Icon(Icons.ac_unit_rounded, size: 20, color: ElioColors.mocha),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Freezing & Storage',
                       style: ElioText.bodyMedium.copyWith(
-                        color: ElioColors.sky,
+                        color: ElioColors.mocha,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1251,7 +2159,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     child: Icon(
                       Icons.expand_more_rounded,
                       size: 22,
-                      color: ElioColors.sky,
+                      color: ElioColors.mocha,
                     ),
                   ),
                 ],
@@ -1290,12 +2198,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: ElioColors.sky),
+          Icon(icon, size: 18, color: ElioColors.mocha),
           const SizedBox(width: 10),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.navy),
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.espresso),
                 children: [
                   TextSpan(
                     text: '$label: ',
@@ -1323,7 +2231,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(nowBookmarked ? 'Recipe saved' : 'Bookmark removed'),
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               duration: const Duration(seconds: 2),
@@ -1347,7 +2255,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('Recipe saved'),
-            backgroundColor: ElioColors.navy,
+            backgroundColor: ElioColors.espresso,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             duration: const Duration(seconds: 2),
@@ -1387,11 +2295,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
   // ─── Add ingredients to shopping list (via confirmation dialog) ─────────────
   Future<void> _addToShoppingList() async {
     if (widget.isGuest) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.1: explicit duration + hide-current.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('Sign in to use the shopping list'),
-          backgroundColor: ElioColors.navy,
+          backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -1401,7 +2313,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
     // Build editable item list from recipe ingredients
     final items = <_RecipeShoppingItem>[];
     for (final ing in _currentRecipe.ingredients) {
-      if (ing.fromInventory) continue;
+      // Sprint 16.7c — pantry-truth check via _isInPantry only. Gemini's
+      // fromInventory flag is a snapshot from generation time, so it
+      // lies after the user mutates their pantry: a recipe generated
+      // when sausages were in the pantry will keep `fromInventory: true`
+      // on the sausage ingredient even after the user × deletes
+      // sausages, which had us silently dropping the just-removed item
+      // from "Add to shopping list" (Bug 2b, 13 May 2026). The live
+      // _isInPantry check below is the only source of truth.
+      if (_isInPantry(ing)) continue;
       if (_isShoppingExclusion(ing.name)) continue;
       final cleanName = ShoppingService.cleanForShopping(ing.name);
       if (ShoppingService.instance.isStaplePublic(cleanName.toLowerCase().trim())) continue;
@@ -1412,11 +2332,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
     }
 
     if (items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.1: explicit duration + hide-current.
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
         SnackBar(
           content: const Text('All ingredients are already in your pantry!'),
-          backgroundColor: ElioColors.navy,
+          backgroundColor: ElioColors.espresso,
           behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
@@ -1444,18 +2368,31 @@ class _RecipeScreenState extends State<RecipeScreen> {
         }
         if (mounted) {
           setState(() => _isAddingToShop = false);
-          ScaffoldMessenger.of(context).showSnackBar(
+          // Sprint 16.1: explicit short duration + hide-current-first.
+          // Default SnackBar duration is 4s but with floating + the
+          // root ScaffoldMessenger, the snackbar follows you across
+          // navigation; without an explicit duration Rob saw it stuck
+          // on the Shopping List tab long after the original action.
+          // The View tap also dismisses so we don't have it lingering
+          // behind the destination route.
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          // Sprint 16.7c — withTimer enforces the 3s dismiss even when
+          // accessibleNavigation is true.
+          messenger.showSnackBarWithTimer(
             SnackBar(
               content: Text('$addedCount item${addedCount == 1 ? '' : 's'} added to shopping list'),
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               action: SnackBarAction(
                 label: 'View',
-                textColor: ElioColors.amber,
+                textColor: ElioColors.terracotta,
                 onPressed: () {
+                  messenger.hideCurrentSnackBar();
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                    MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                   );
                 },
               ),
@@ -1469,11 +2406,15 @@ class _RecipeScreenState extends State<RecipeScreen> {
       } catch (_) {
         if (mounted) {
           setState(() => _isAddingToShop = false);
-          ScaffoldMessenger.of(context).showSnackBar(
+          // Sprint 16.1: explicit duration + hide-current.
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
             SnackBar(
               content: const Text('Could not add to shopping list'),
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
@@ -1527,40 +2468,242 @@ class _RecipeScreenState extends State<RecipeScreen> {
     return _buildNormalMode();
   }
 
-  // ─── Normal mode ─────────────────────────────────────────────────────────────
+  // ─── Normal mode — Sprint 16 typographic layout ─────────────────────────────
   Widget _buildNormalMode() {
+    final r = _currentRecipe;
+    final isStreaming = r.title.isEmpty;
+    final costLabel = _costLabel;
+    final kcalLabel = r.nutrition != null
+        ? '${(r.nutrition!.calories * _scaleFactor).round()} kcal'
+        : null;
+
     return Scaffold(
-      backgroundColor: ElioColors.white,
-      body: CustomScrollView(
-        slivers: [
-          _buildSliverAppBar(),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 80),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildMetaRow(),
-                  const SizedBox(height: 20),
-                  _buildServingScaler(),
-                  const SizedBox(height: 28),
-                  _buildIngredientsSection(),
-                  const SizedBox(height: 28),
-                  _buildMethodSection(),
-                  if (_currentRecipe.substitutions.isNotEmpty) ...[
-                    const SizedBox(height: 28),
-                    _buildSubstitutionsSection(),
-                  ],
-                  const SizedBox(height: 28),
-                  _buildRatingRow(),
-                  if (_currentRecipe.bulkPrepInfo != null) ...[
-                    const SizedBox(height: 20),
-                    _buildBulkPrepSection(),
-                  ],
-                  const SizedBox(height: 16),
-                  _buildActionButtons(),
-                ],
+      backgroundColor: ElioColors.cream,
+      appBar: _buildTopBar(),
+      body: Column(
+        children: [
+          // Sprint 16.6: sticky timer bar — only renders when a timer
+          // exists. The ListView below scrolls underneath; the bar
+          // stays pinned just under the AppBar.
+          _buildTimerBar(),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: ElioSpacing.screenEdge,
+                vertical: ElioSpacing.lg,
               ),
+              children: [
+          // ── Title / description (streaming-aware) ─────────────────────
+          if (isStreaming) ...[
+            _shimmerBlock(height: 48, width: double.infinity),
+            const SizedBox(height: ElioSpacing.md),
+            _shimmerBlock(height: 16, width: double.infinity),
+            const SizedBox(height: 8),
+            _shimmerBlock(height: 16, width: 220),
+          ] else ...[
+            ElioPageTitle(r.title),
+            if (r.description.isNotEmpty) ...[
+              const SizedBox(height: ElioSpacing.md),
+              Text(r.description, style: ElioTextStyles.ledeStyle),
+            ],
+          ],
+          const SizedBox(height: ElioSpacing.lg),
+
+          // ── Stat pills ────────────────────────────────────────────────
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElioStatBadge(
+                icon: Icons.schedule,
+                value: '${r.totalTimeMinutes}m',
+              ),
+              ElioStatBadge(
+                icon: Icons.restaurant,
+                value: '${r.prepTimeMinutes}m prep',
+              ),
+              if (costLabel != null)
+                GestureDetector(
+                  onTap: _showCostInfoSheet,
+                  child: ElioStatBadge(
+                    icon: Icons.attach_money,
+                    value: costLabel,
+                  ),
+                ),
+              if (kcalLabel != null)
+                GestureDetector(
+                  onTap: _showNutritionSheet,
+                  child: ElioStatBadge(
+                    icon: Icons.local_fire_department,
+                    value: kcalLabel,
+                  ),
+                ),
+              // 16 May 2026 (Notion dietaryTags row): render ONE chip
+              // per active constraint, not just `.first`. The pre-fix
+              // code shipped a single-pill summary because Sprint 16.1
+              // only cared about making the first tag honest. With the
+              // request->dietaryTags merge in gemini_service (lines
+              // 113-121), the list now reliably contains every active
+              // constraint (e.g. ["Gluten-Free", "Dairy-Free"]), so
+              // we iterate. Wrap handles overflow to a second row.
+              for (final tag in r.dietaryTags)
+                ElioStatBadge(
+                  icon: Icons.local_dining_outlined,
+                  value: tag,
+                ),
+            ],
+          ),
+          const SizedBox(height: ElioSpacing.lg),
+
+          // ── Servings ─────────────────────────────────────────────────
+          Row(
+            children: [
+              const Icon(Icons.people_outline, color: ElioColors.espresso),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text('Servings', style: ElioTextStyles.uiLabelStyle),
+              ),
+              ElioServingsControl(
+                value: _servings,
+                onChanged: (v) => setState(() => _servings = v),
+              ),
+            ],
+          ),
+          const SizedBox(height: ElioSpacing.xl),
+
+          // ── Ingredients ──────────────────────────────────────────────
+          ElioSectionHeading('Ingredients'),
+          const SizedBox(height: ElioSpacing.md),
+          for (int i = 0; i < r.ingredients.length; i++)
+            _buildIngredientRow(i, r.ingredients[i]),
+
+          const SizedBox(height: ElioSpacing.xl),
+
+          // ── Method ───────────────────────────────────────────────────
+          ElioSectionHeading('Method'),
+          const SizedBox(height: ElioSpacing.md),
+          for (int i = 0; i < r.steps.length; i++)
+            ElioMethodStep(
+              stepNumber: i + 1,
+              title: '',
+              body: r.steps[i],
+              // Sprint 16.6: inline tappable time pills. The handler
+              // opens the duration picker pre-filled with the detected
+              // duration and starts a step-labelled timer.
+              onTimeTap: (match) => _onMethodTimeTap(i, match),
+            ),
+
+          // ── Substitution tips (preserved) ───────────────────────────
+          if (r.substitutions.isNotEmpty) ...[
+            const SizedBox(height: ElioSpacing.md),
+            _buildSubstitutionsSection(),
+          ],
+
+          // ── Bulk prep (preserved) ───────────────────────────────────
+          if (r.bulkPrepInfo != null) ...[
+            const SizedBox(height: ElioSpacing.lg),
+            _buildBulkPrepSection(),
+          ],
+
+          const SizedBox(height: ElioSpacing.xl),
+
+          // ── Feedback bar (thumbs up/down → existing rating handler) ─
+          if (!widget.isGuest)
+            ElioFeedbackBar(onRated: _rateRecipe)
+          else
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: ElioColors.cream,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: Text(
+                'Sign in to rate this recipe',
+                style: ElioTextStyles.bodySmall,
+              ),
+            ),
+
+          const SizedBox(height: ElioSpacing.md),
+
+          // ── Generate another (regenerate with exclusions) ───────────
+          if (widget.originalRequest != null) ...[
+            ElioBigButton(
+              label: 'Generate another',
+              trailingIcon: Icons.all_inclusive,
+              loading: _isRegenerating,
+              onTap: _generateAnother,
+            ),
+            const SizedBox(height: ElioSpacing.md),
+          ],
+
+          // ── Secondary actions: side dish + hands-free ───────────────
+          // Sprint 16.6.x: dropped the `!_sideDishGenerated` gate that
+          // hid this button after a successful generation. Rob reported
+          // that after popping back from a generated side dish, only
+          // hands-free remained — the button was gone with no way to
+          // suggest a different side. Keeping it always tappable lets
+          // the user iterate (label flips to "another"). Re-entrancy
+          // protection is already covered by `_isGeneratingSideDish`.
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isGeneratingSideDish ? null : _generateSideDish,
+              icon: _isGeneratingSideDish
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: ElioColors.terracotta),
+                    )
+                  : const Icon(Icons.restaurant_menu_rounded, size: 20),
+              // Sprint 16.7 (14 May 2026): when the current screen is
+              // itself a side dish (`widget.isSideDish`), the CTA reads
+              // "Generate another" — semantically clearer than
+              // "Suggest a side dish" when you're already on one. The
+              // action still calls `_generateSideDish`, which detects
+              // the side-dish context and regenerates against the
+              // original main recipe (not the current side dish).
+              label: Text(_isGeneratingSideDish
+                  ? (widget.isSideDish
+                      ? 'Finding another...'
+                      : 'Finding a side dish...')
+                  : (widget.isSideDish
+                      ? 'Generate another'
+                      : (_sideDishGenerated
+                          ? 'Suggest another side dish'
+                          : 'Suggest a side dish'))),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ElioColors.terracotta,
+                side: const BorderSide(color: ElioColors.terracotta, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: ElioSpacing.sm),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _startHandsFree,
+              icon: const Icon(Icons.soup_kitchen_outlined, size: 20),
+              // Sprint 16.7c (14 May 2026): renamed from "Start hands-free
+              // mode" — the feature is more than voice (bigger step UI,
+              // wakelock, simplified layout). "Cook Mode" matches the
+              // industry convention (Paprika / SideChef / Allrecipes) and
+              // anchors on the use case rather than the input method.
+              label: const Text('Start Cook Mode'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ElioColors.espresso,
+                side: const BorderSide(color: ElioColors.espresso, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(height: ElioSpacing.xl),
+              ],
             ),
           ),
         ],
@@ -1568,383 +2711,141 @@ class _RecipeScreenState extends State<RecipeScreen> {
     );
   }
 
-  Widget _buildSliverAppBar() {
-    return SliverAppBar(
-      backgroundColor: ElioColors.white,
+  // Cook Mode entry point (also used by the soup-kitchen icon in the
+  // top bar). Method name kept as `_startHandsFree` to avoid churn
+  // across the wider voice/TTS plumbing that still uses "hands-free"
+  // internally — only user-facing copy + icons rebranded 14 May 2026.
+  void _startHandsFree() {
+    setState(() {
+      _handsFreeMode = true;
+      _currentStep = 0;
+    });
+    _analytics.logEvent('hands_free_started', {
+      'step_count': _currentRecipe.steps.length,
+    });
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // Read the first step aloud immediately — TTS no longer waits for
+    // the user to engage voice control. The mic stays off by default;
+    // voice commands are opt-in via the mic toggle.
+    _speakText(_currentRecipe.steps[_currentStep]);
+  }
+
+  // Shimmer-style placeholder for streaming state.
+  Widget _shimmerBlock({required double height, required double width}) {
+    return Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        color: ElioColors.cream,
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
+  }
+
+  // Build a single ingredient row with tap → check, long-press → substitution.
+  Widget _buildIngredientRow(int index, RecipeIngredient ing) {
+    final isExcluded = _excludedIngredients.contains(ing.name);
+    final isChecked = _checkedIngredientIndices.contains(index);
+    final qty = ing.unit.isEmpty
+        ? _scaleQuantity(ing.quantity)
+        : '${_scaleQuantity(ing.quantity)} ${QuantityUtils.normalizeUnit(ing.unit)}';
+    final detailParts = <String>[
+      if (qty.isNotEmpty) qty,
+      if (isExcluded) 'excluded — tap Generate Another',
+    ];
+
+    // RawGestureDetector with LongPressGestureRecognizer so long-press
+    // isn't stolen by the ListView scroll gesture (CLAUDE.md gotcha).
+    return RawGestureDetector(
+      gestures: <Type, GestureRecognizerFactory>{
+        LongPressGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+          () => LongPressGestureRecognizer(
+            duration: const Duration(milliseconds: 300),
+          ),
+          (instance) {
+            instance.onLongPress = () => _showIngredientOptions(ing);
+          },
+        ),
+      },
+      behavior: HitTestBehavior.opaque,
+      child: ElioIngredientRow(
+        name: ing.name,
+        detail: detailParts.isEmpty ? null : detailParts.join(' • '),
+        checked: isChecked,
+        trailing: ElioPantryIcon(inStock: _isInPantry(ing)),
+        onChanged: (v) {
+          setState(() {
+            if (v) {
+              _checkedIngredientIndices.add(index);
+            } else {
+              _checkedIngredientIndices.remove(index);
+            }
+          });
+        },
+      ),
+    );
+  }
+
+  // ─── Minimal top bar — back + action icons ──────────────────────────────────
+  PreferredSizeWidget _buildTopBar() {
+    return AppBar(
+      backgroundColor: ElioColors.cream,
       surfaceTintColor: Colors.transparent,
-      pinned: true,
       elevation: 0,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.navy, size: 20),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded,
+            color: ElioColors.espresso, size: 20),
         onPressed: () => Navigator.of(context).pop(),
       ),
       actions: [
-        // Save recipe
+        // Cook Mode entry (renamed from "voice / hands-free" 14 May 2026 —
+        // see _startHandsFree button below for rationale).
+        IconButton(
+          icon: const Icon(Icons.soup_kitchen_outlined,
+              color: ElioColors.espresso, size: 22),
+          tooltip: 'Cook Mode',
+          onPressed: _startHandsFree,
+        ),
+        // Save / bookmark
         IconButton(
           icon: Icon(
-            _isSaved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
-            color: _isSaved ? ElioColors.amber : ElioColors.navy,
+            _isSaved
+                ? Icons.bookmark_rounded
+                : Icons.bookmark_border_rounded,
+            color: _isSaved ? ElioColors.terracotta : ElioColors.espresso,
             size: 22,
           ),
           tooltip: _isSaved ? 'Saved' : 'Save recipe',
           onPressed: _saveRecipe,
         ),
-        // Add ingredients to shopping list
+        // Add to shopping list
         IconButton(
           icon: _isAddingToShop
               ? const SizedBox(
-                  width: 18, height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.navy),
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: ElioColors.espresso),
                 )
-              : Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    const Icon(Icons.add_shopping_cart_rounded, color: ElioColors.navy, size: 22),
-                    // Show count of ingredients NOT already in the pantry
-                    if (_currentRecipe.ingredients.any((i) => !i.fromInventory))
-                      Positioned(
-                        right: 0,
-                        top: 0,
-                        child: Container(
-                          constraints: const BoxConstraints(minWidth: 16),
-                          height: 16,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: ElioColors.amber,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '${_currentRecipe.ingredients.where((i) => !i.fromInventory).length}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+              : const Icon(Icons.add_shopping_cart_rounded,
+                  color: ElioColors.espresso, size: 22),
           tooltip: 'Add to shopping list',
           onPressed: _isAddingToShop ? null : _addToShoppingList,
         ),
         // Share
         IconButton(
-          icon: const Icon(Icons.ios_share_rounded, color: ElioColors.navy, size: 22),
+          icon: const Icon(Icons.ios_share_rounded,
+              color: ElioColors.espresso, size: 22),
           tooltip: 'Share recipe',
           onPressed: _shareRecipe,
         ),
         const SizedBox(width: 4),
       ],
-      expandedHeight: 0,
-      title: Text(
-        _currentRecipe.title,
-        style: GoogleFonts.outfit(
-          fontSize: 17,
-          fontWeight: FontWeight.w700,
-          color: ElioColors.navy,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
     );
   }
 
-  Widget _buildMetaRow() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(_currentRecipe.title, style: ElioText.displayMedium),
-        const SizedBox(height: 8),
-        if (_currentRecipe.description.isNotEmpty) ...[
-          Text(_currentRecipe.description, style: ElioText.bodyLarge),
-          const SizedBox(height: 12),
-        ],
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _MetaBadge(
-              icon: Icons.timer_outlined,
-              label: '${_currentRecipe.totalTimeMinutes} min',
-            ),
-            _MetaBadge(
-              icon: Icons.restaurant_outlined,
-              label: '${_currentRecipe.prepTimeMinutes} min prep',
-            ),
-            if (_currentRecipe.dietaryTags.isNotEmpty)
-              _MetaBadge(
-                icon: Icons.local_dining_outlined,
-                label: _currentRecipe.dietaryTags.first,
-                color: ElioColors.sky,
-              ),
-            if (_currentRecipe.nutrition != null)
-              GestureDetector(
-                onTap: _showNutritionSheet,
-                child: _MetaBadge(
-                  icon: Icons.monitor_heart_outlined,
-                  label: '${_currentRecipe.nutrition!.calories} kcal',
-                ),
-              ),
-            if (_costLabel != null)
-              GestureDetector(
-                onTap: _showCostInfoSheet,
-                child: _MetaBadge(
-                  icon: Icons.shopping_basket_outlined,
-                  label: _costLabel!,
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildServingScaler() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: ElioColors.offWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: ElioColors.border),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.people_outline, color: ElioColors.navy, size: 20),
-          const SizedBox(width: 10),
-          Text('Servings', style: ElioText.bodyMedium.copyWith(fontWeight: FontWeight.w600)),
-          const Spacer(),
-          GestureDetector(
-            onTap: _servings > 1 ? () => setState(() => _servings--) : null,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: _servings > 1 ? ElioColors.navy : ElioColors.border,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.remove, color: Colors.white, size: 16),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Text(
-              '$_servings',
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: ElioColors.navy,
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: _servings < 12 ? () => setState(() => _servings++) : null,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: _servings < 12 ? ElioColors.navy : ElioColors.border,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 16),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  bool get _canExcludeIngredients => widget.originalRequest != null;
-
-  Widget _buildIngredientsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('Ingredients', style: ElioText.headingMedium),
-            const Spacer(),
-            if (_currentRecipe.ingredients.any((i) => i.fromInventory))
-              Row(
-                children: [
-                  Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      color: ElioColors.amber.withValues(alpha: 0.4),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: ElioColors.amber, width: 1.5),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'from your fridge',
-                    style: ElioText.label.copyWith(color: ElioColors.textSecondary),
-                  ),
-                ],
-              ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Tap any ingredient for options',
-          style: ElioText.label.copyWith(color: ElioColors.textMuted),
-        ),
-        const SizedBox(height: 10),
-        ..._currentRecipe.ingredients.map((ingredient) {
-          final isExcluded = _excludedIngredients.contains(ingredient.name);
-          final isFromInventory = ingredient.fromInventory && !isExcluded;
-          return GestureDetector(
-            onTap: () => _showIngredientOptions(ingredient),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: isExcluded
-                    ? const Color(0xFFF5F5F5)
-                    : isFromInventory
-                        ? ElioColors.amber.withValues(alpha: 0.07)
-                        : ElioColors.offWhite,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: isExcluded
-                      ? ElioColors.border
-                      : isFromInventory
-                          ? ElioColors.amber.withValues(alpha: 0.4)
-                          : ElioColors.border,
-                ),
-              ),
-              child: Row(
-                children: [
-                  // Colour dot
-                  Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.only(right: 10),
-                    decoration: BoxDecoration(
-                      color: isExcluded
-                          ? ElioColors.border
-                          : isFromInventory
-                              ? ElioColors.amber
-                              : ElioColors.border,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  // Name
-                  Expanded(
-                    child: Text(
-                      ingredient.name,
-                      style: ElioText.bodyMedium.copyWith(
-                        fontWeight: isFromInventory ? FontWeight.w600 : FontWeight.w400,
-                        color: isExcluded ? ElioColors.textMuted : ElioColors.textPrimary,
-                        decoration: isExcluded ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                  ),
-                  // Quantity (constrained so name always gets space)
-                  if (!isExcluded)
-                    ConstrainedBox(
-                      constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.35),
-                      child: Text(
-                        ingredient.unit.isEmpty
-                            ? _scaleQuantity(ingredient.quantity)
-                            : '${_scaleQuantity(ingredient.quantity)} ${QuantityUtils.normalizeUnit(ingredient.unit)}',
-                        style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.textSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.right,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  // ✕ options button
-                  ...[
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => _showIngredientOptions(ingredient),
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: isExcluded
-                              ? ElioColors.navy.withValues(alpha: 0.08)
-                              : Colors.transparent,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          isExcluded ? Icons.add_rounded : Icons.close_rounded,
-                          size: 16,
-                          color: isExcluded ? ElioColors.navy : ElioColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          );
-        }),
-        if (_canExcludeIngredients && _excludedIngredients.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(
-            '${_excludedIngredients.length} ingredient${_excludedIngredients.length == 1 ? '' : 's'} excluded — tap "Generate Another" to apply.',
-            style: ElioText.label.copyWith(color: ElioColors.amber),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildMethodSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Method', style: ElioText.headingMedium),
-        const SizedBox(height: 12),
-        ..._currentRecipe.steps.asMap().entries.map((entry) {
-          final stepNum = entry.key + 1;
-          final step = entry.value;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  decoration: const BoxDecoration(
-                    color: ElioColors.navy,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Text(
-                      '$stepNum',
-                      style: GoogleFonts.outfit(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(step, style: ElioText.bodyLarge),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
+  // ─── Substitution tips (preserved from legacy layout) ──────────────────────
   Widget _buildSubstitutionsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1967,29 +2868,30 @@ class _RecipeScreenState extends State<RecipeScreen> {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: ElioColors.sky.withValues(alpha: 0.06),
+                color: ElioColors.peach.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: ElioColors.sky.withValues(alpha: 0.3)),
+                border: Border.all(color: ElioColors.mocha.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.swap_horiz_rounded, color: ElioColors.sky, size: 18),
+                      const Icon(Icons.swap_horiz_rounded,
+                          color: ElioColors.mocha, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Instead of ${sub.original} → ${sub.substitute}',
                           style: ElioText.bodyMedium.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: ElioColors.navy,
+                            color: ElioColors.espresso,
                           ),
                         ),
                       ),
                       Icon(
                         isExpanded ? Icons.expand_less : Icons.expand_more,
-                        color: ElioColors.textSecondary,
+                        color: ElioColors.mocha,
                         size: 20,
                       ),
                     ],
@@ -1998,7 +2900,8 @@ class _RecipeScreenState extends State<RecipeScreen> {
                     const SizedBox(height: 8),
                     Text(
                       sub.tradeOff,
-                      style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                      style: ElioText.bodyMedium
+                          .copyWith(color: ElioColors.mocha),
                     ),
                   ],
                 ],
@@ -2006,88 +2909,6 @@ class _RecipeScreenState extends State<RecipeScreen> {
             ),
           );
         }),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Column(
-      children: [
-        // Generate Another — only when there's original request context
-        if (widget.originalRequest != null) ...[
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: _generateAnother,
-              icon: _isRegenerating
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.refresh_rounded, size: 20),
-              label: Text(_isRegenerating ? 'Generating...' : 'Generate Another'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ElioColors.amber,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                textStyle: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700),
-                elevation: 0,
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
-        // Suggest a Side Dish
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _isGeneratingSideDish ? null : _generateSideDish,
-            icon: _isGeneratingSideDish
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: ElioColors.amber),
-                  )
-                : const Icon(Icons.restaurant_menu_rounded, size: 20),
-            label: Text(_isGeneratingSideDish ? 'Finding a side dish...' : 'Suggest a Side Dish'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ElioColors.amber,
-              side: const BorderSide(color: ElioColors.amber, width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        // Hands-Free Mode — always available
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _handsFreeMode = true;
-                _currentStep = 0;
-              });
-              _analytics.logEvent('hands_free_started', {
-                'step_count': _currentRecipe.steps.length,
-              });
-              SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-            },
-            icon: const Icon(Icons.visibility_outlined, size: 20),
-            label: const Text('Start Hands-Free Mode'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ElioColors.navy,
-              side: const BorderSide(color: ElioColors.navy, width: 1.5),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -2117,91 +2938,56 @@ class _RecipeScreenState extends State<RecipeScreen> {
     final isLast = _currentStep == steps.length - 1;
 
     return Scaffold(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       body: SafeArea(
         child: Column(
           children: [
-            // ── Header row: Exit, mic, title, step counter ──
+            // ── Chrome row: Back, title, Exit ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: Row(
                 children: [
-                  // Exit button
-                  GestureDetector(
-                    onTap: () => _exitHandsFreeMode(),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: ElioColors.offWhite,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: ElioColors.border),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.close, size: 16, color: ElioColors.navy),
-                          const SizedBox(width: 4),
-                          Text('Exit', style: ElioText.label.copyWith(color: ElioColors.navy)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Mic button
-                  GestureDetector(
-                    onTap: _toggleVoiceControl,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: _voiceEnabled
-                            ? ElioColors.amber.withValues(alpha: 0.15)
-                            : ElioColors.offWhite,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _voiceEnabled ? ElioColors.amber : ElioColors.border,
-                          width: _voiceEnabled ? 2.0 : 1.0,
-                        ),
-                        boxShadow: _isListening
-                            ? [
-                                BoxShadow(
-                                  color: ElioColors.amber.withValues(alpha: 0.35),
-                                  blurRadius: 12,
-                                  spreadRadius: 2,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Icon(
-                        _voiceEnabled ? Icons.mic_rounded : Icons.mic_off_rounded,
-                        size: 24,
-                        color: _voiceEnabled ? ElioColors.amber : ElioColors.textMuted,
-                      ),
-                    ),
+                  // Back button (top-left)
+                  _HandsFreeCircleButton(
+                    icon: Icons.arrow_back,
+                    onTap: isFirst
+                        ? null
+                        : () {
+                            setState(() => _currentStep--);
+                            _speakText(_currentRecipe.steps[_currentStep]);
+                          },
                   ),
                   const Spacer(),
-                  // Recipe title
                   Flexible(
                     child: Text(
                       _currentRecipe.title,
-                      style: ElioText.bodyMedium.copyWith(
+                      style: ElioTextStyles.bodySmall.copyWith(
+                        color: ElioColors.mocha,
                         fontWeight: FontWeight.w600,
-                        color: ElioColors.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  // Step counter
-                  Text(
-                    '${_currentStep + 1} / ${steps.length}',
-                    style: ElioText.bodyMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: ElioColors.navy,
-                    ),
+                  const Spacer(),
+                  // Exit button (top-right)
+                  _HandsFreeCircleButton(
+                    icon: Icons.close,
+                    onTap: () => _exitHandsFreeMode(),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            // ── Step counter eyebrow ──
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'STEP ${_currentStep + 1} / ${steps.length}',
+                  style: ElioTextStyles.eyebrow,
+                ),
               ),
             ),
             // ── Voice feedback toast ──
@@ -2212,23 +2998,132 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
-                    color: ElioColors.amber.withValues(alpha: 0.12),
+                    color: ElioColors.terracotta.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: ElioColors.amber.withValues(alpha: 0.3)),
+                    border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.3)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.hearing_rounded, size: 16, color: ElioColors.amber),
+                      const Icon(Icons.hearing_rounded, size: 16, color: ElioColors.terracotta),
                       const SizedBox(width: 8),
                       Text(
                         _voiceFeedback,
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.navy,
+                          color: ElioColors.espresso,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
+            // 19may-c diagnostic strip — visible only while voice control
+            // is enabled in Cook Mode. Shows the current STT state +
+            // the last words the engine delivered. Lets Rob/Kate (or
+            // me, via screenshot) see at a glance whether the engine
+            // is delivering anything at all, without needing
+            // Crashlytics dashboard access. Will be hidden by a
+            // settings toggle in Sprint 17 once the path is stable.
+            if (_voiceEnabled)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: ElioColors.cream,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: ElioColors.rule.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            _isSpeaking
+                                ? Icons.volume_up_rounded
+                                : _isListening
+                                    ? Icons.mic_rounded
+                                    : Icons.mic_off_rounded,
+                            size: 14,
+                            color: _isListening
+                                ? ElioColors.terracotta
+                                : ElioColors.mocha,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _isSpeaking
+                                ? 'Speaking…'
+                                : _isListening
+                                    ? 'Listening — say next / back / repeat / done'
+                                    : 'Mic idle',
+                            style: ElioTextStyles.bodySmallStyle.copyWith(
+                              color: ElioColors.mocha,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_lastHeardWords.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          "Last heard: '$_lastHeardWords'",
+                          style: ElioTextStyles.bodySmallStyle.copyWith(
+                            color: ElioColors.mocha,
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                            letterSpacing: 0,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      // 21 May 2026 (19may-g) — error path renders
+                      // separately, dimmer, so transient
+                      // `error_speech_timeout` / `error_no_match`
+                      // events don't stomp the actual recognition
+                      // line and don't look like permanent failure.
+                      if (_lastSttError.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          _friendlySttError(_lastSttError),
+                          style: ElioTextStyles.bodySmallStyle.copyWith(
+                            color: ElioColors.mocha.withValues(alpha: 0.6),
+                            fontSize: 10.5,
+                            letterSpacing: 0,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      // 20 May 2026 (20may-b) — raw last STT status
+                      // event. Confirms which terminal name the
+                      // engine on this device uses ('done' vs
+                      // 'notListening'). The heartbeat catches both;
+                      // this is for visibility only.
+                      if (_lastSttStatus.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          'STT status: $_lastSttStatus',
+                          style: ElioTextStyles.bodySmallStyle.copyWith(
+                            color: ElioColors.mocha.withValues(alpha: 0.45),
+                            fontSize: 10,
+                            letterSpacing: 0,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -2243,7 +3138,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 2),
                       height: 4,
                       decoration: BoxDecoration(
-                        color: i <= _currentStep ? ElioColors.amber : ElioColors.border,
+                        color: i <= _currentStep ? ElioColors.terracotta : ElioColors.rule,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -2251,6 +3146,10 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 }),
               ),
             ),
+            // Sprint 16.7d: parity with regular recipe view — sticky
+            // timer bar so running timers are visible/manageable from
+            // Cook Mode. Renders nothing when no timers are active.
+            _buildTimerBar(),
             // ── Step content ──
             Expanded(
               child: Padding(
@@ -2259,95 +3158,63 @@ class _RecipeScreenState extends State<RecipeScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Big amber step numeral
                     Text(
-                      'Step ${_currentStep + 1}',
-                      style: GoogleFonts.outfit(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: ElioColors.amber,
-                        letterSpacing: 1.0,
-                      ),
+                      '${_currentStep + 1}',
+                      style: ElioTextStyles.stepNumeral,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Recipe step',
+                      style: ElioTextStyles.heading2,
                     ),
                     const SizedBox(height: 16),
-                    Text(
-                      steps[_currentStep],
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w500,
-                        color: ElioColors.textPrimary,
-                        height: 1.45,
-                      ),
+                    // Sprint 16.7d: inline tappable time pills (parity
+                    // with regular recipe view). Pill text scales to
+                    // the 18pt cook-mode prose via baseStyle.
+                    ElioMethodStepBody(
+                      body: steps[_currentStep],
+                      baseStyle: ElioTextStyles.body
+                          .copyWith(fontSize: 18, height: 1.5),
+                      onTimeTap: (match) =>
+                          _onMethodTimeTap(_currentStep, match),
                     ),
                   ],
                 ),
               ),
             ),
-            // ── Navigation buttons ──
+            // ── Bottom chrome: Next (big) + centred Mic toggle ──
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: 60,
-                      child: OutlinedButton(
-                        onPressed: isFirst
-                            ? null
-                            : () => setState(() => _currentStep--),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: ElioColors.navy,
-                          side: BorderSide(
-                            color: isFirst ? ElioColors.border : ElioColors.navy,
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: const Text('← Back'),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: SizedBox(
-                      height: 60,
-                      child: ElevatedButton(
-                        onPressed: isLast
-                            ? () {
-                                _analytics.logEvent('hands_free_completed', {
-                                  'step_count': steps.length,
-                                });
-                                _stopListening();
-                                _tts.stop();
-                                setState(() {
-                                  _handsFreeMode = false;
-                                  _voiceEnabled = false;
-                                });
-                                SystemChrome.setEnabledSystemUIMode(
-                                    SystemUiMode.edgeToEdge);
-                              }
-                            : () => setState(() => _currentStep++),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: ElioColors.amber,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                        ),
-                        child: Text(
-                          isLast ? 'Done ✓' : 'Next →',
-                          style: GoogleFonts.outfit(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: ElioBigButton(
+                label: isLast ? 'Done' : 'Next step',
+                trailingIcon: isLast ? Icons.check : Icons.chevron_right,
+                onTap: isLast
+                    ? () {
+                        _analytics.logEvent('hands_free_completed', {
+                          'step_count': steps.length,
+                        });
+                        _stopListening();
+                        _tts.stop();
+                        setState(() {
+                          _handsFreeMode = false;
+                          _voiceEnabled = false;
+                        });
+                        SystemChrome.setEnabledSystemUIMode(
+                            SystemUiMode.edgeToEdge);
+                      }
+                    : () {
+                        setState(() => _currentStep++);
+                        _speakText(_currentRecipe.steps[_currentStep]);
+                      },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: _HandsFreeMicButton(
+                enabled: _voiceEnabled,
+                listening: _isListening,
+                onTap: _toggleVoiceControl,
               ),
             ),
           ],
@@ -2359,76 +3226,73 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
 // ─── Supporting widgets ───────────────────────────────────────────────────────
 
-class _MetaBadge extends StatelessWidget {
+class _HandsFreeCircleButton extends StatelessWidget {
   final IconData icon;
-  final String label;
-  final Color? color;
-
-  const _MetaBadge({required this.icon, required this.label, this.color});
+  final VoidCallback? onTap;
+  const _HandsFreeCircleButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final bg = color ?? ElioColors.navy;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: Colors.white),
-          const SizedBox(width: 5),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ],
+    final disabled = onTap == null;
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: ElioColors.cream,
+          shape: BoxShape.circle,
+          border: Border.all(color: ElioColors.rule),
+        ),
+        child: Icon(
+          icon,
+          size: 20,
+          color: disabled ? ElioColors.mocha : ElioColors.espresso,
+        ),
       ),
     );
   }
 }
 
-class _RatingButton extends StatelessWidget {
-  final IconData icon;
-  final IconData iconFilled;
-  final bool isSelected;
-  final Color color;
+class _HandsFreeMicButton extends StatelessWidget {
+  final bool enabled;
+  final bool listening;
   final VoidCallback onTap;
-
-  const _RatingButton({
-    required this.icon,
-    required this.iconFilled,
-    required this.isSelected,
-    required this.color,
+  const _HandsFreeMicButton({
+    required this.enabled,
+    required this.listening,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.12) : ElioColors.white,
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isSelected ? color : ElioColors.border,
-            width: isSelected ? 1.5 : 1.0,
+    return Center(
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          width: 72,
+          height: 72,
+          decoration: BoxDecoration(
+            color: enabled ? ElioColors.terracotta : ElioColors.rule,
+            shape: BoxShape.circle,
+            boxShadow: listening
+                ? [
+                    BoxShadow(
+                      color: ElioColors.terracotta.withValues(alpha: 0.35),
+                      blurRadius: 18,
+                      spreadRadius: 3,
+                    ),
+                  ]
+                : null,
           ),
-        ),
-        child: Icon(
-          isSelected ? iconFilled : icon,
-          size: 20,
-          color: isSelected ? color : ElioColors.textSecondary,
+          child: Icon(
+            enabled ? Icons.mic_rounded : Icons.mic_off_rounded,
+            size: 32,
+            color: enabled ? Colors.white : ElioColors.mocha,
+          ),
         ),
       ),
     );
@@ -2479,7 +3343,7 @@ class _NutritionTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
-                      color: ElioColors.navy,
+                      color: ElioColors.espresso,
                     ),
                   ),
                   TextSpan(
@@ -2487,7 +3351,7 @@ class _NutritionTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: ElioColors.textSecondary,
+                      color: ElioColors.mocha,
                     ),
                   ),
                 ],
@@ -2560,7 +3424,10 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
       ErrorService.log('substitution_generation', e);
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
+          // 14 May 2026 (Notion XX-2 #2/#3): route through friendly
+          // error so network failures show "You're offline" + scrub
+          // the API key from any URL embedded in the exception text.
+          _errorMessage = friendlyError(e);
           _state = 'error';
         });
       }
@@ -2585,7 +3452,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: ElioColors.border,
+                color: ElioColors.rule,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -2613,7 +3480,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
         const SizedBox(height: 4),
         Text(
           '${ing.name}${qty.isNotEmpty ? ' — $qty' : ''}',
-          style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary),
+          style: ElioText.bodyLarge.copyWith(color: ElioColors.mocha),
         ),
         if (ing.fromInventory) ...[
           const SizedBox(height: 8),
@@ -2623,14 +3490,14 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
                 width: 8,
                 height: 8,
                 decoration: const BoxDecoration(
-                  color: ElioColors.amber,
+                  color: ElioColors.terracotta,
                   shape: BoxShape.circle,
                 ),
               ),
               const SizedBox(width: 6),
               Text(
                 'This is from your pantry',
-                style: ElioText.label.copyWith(color: ElioColors.textSecondary),
+                style: ElioText.label.copyWith(color: ElioColors.mocha),
               ),
             ],
           ),
@@ -2640,7 +3507,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
         // Option 1: Suggest substitution
         _buildOptionTile(
           icon: Icons.swap_horiz_rounded,
-          iconColor: ElioColors.sky,
+          iconColor: ElioColors.mocha,
           title: 'Suggest a substitution',
           subtitle: 'AI-powered, instant',
           onTap: _requestSubstitution,
@@ -2653,7 +3520,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
             padding: const EdgeInsets.only(bottom: 8),
             child: _buildOptionTile(
               icon: Icons.refresh_rounded,
-              iconColor: ElioColors.amber,
+              iconColor: ElioColors.terracotta,
               title: 'Remove & regenerate',
               subtitle: 'New recipe without this ingredient',
               onTap: () {
@@ -2666,7 +3533,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
         // Option 3: Add to shopping list
         _buildOptionTile(
           icon: Icons.add_shopping_cart_rounded,
-          iconColor: ElioColors.navy,
+          iconColor: ElioColors.espresso,
           title: 'Add to shopping list',
           subtitle: 'Buy it for next time',
           onTap: widget.isGuest
@@ -2694,9 +3561,9 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: ElioColors.offWhite,
+          color: ElioColors.cream,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: ElioColors.border),
+          border: Border.all(color: ElioColors.rule),
         ),
         child: Row(
           children: [
@@ -2718,20 +3585,20 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
                     title,
                     style: ElioText.bodyMedium.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: locked ? ElioColors.textMuted : ElioColors.textPrimary,
+                      color: locked ? ElioColors.mocha : ElioColors.espresso,
                     ),
                   ),
                   Text(
                     locked ? 'Sign in to use' : subtitle,
-                    style: ElioText.label.copyWith(color: ElioColors.textMuted),
+                    style: ElioText.label.copyWith(color: ElioColors.mocha),
                   ),
                 ],
               ),
             ),
             if (locked)
-              const Icon(Icons.lock_outline_rounded, size: 18, color: ElioColors.textMuted)
+              const Icon(Icons.lock_outline_rounded, size: 18, color: ElioColors.mocha)
             else
-              const Icon(Icons.chevron_right_rounded, size: 20, color: ElioColors.textMuted),
+              const Icon(Icons.chevron_right_rounded, size: 20, color: ElioColors.mocha),
           ],
         ),
       ),
@@ -2750,13 +3617,13 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
               height: 28,
               child: CircularProgressIndicator(
                 strokeWidth: 2.5,
-                color: ElioColors.amber,
+                color: ElioColors.terracotta,
               ),
             ),
             const SizedBox(height: 16),
             Text(
               'Finding a substitution...',
-              style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+              style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
             ),
           ],
         ),
@@ -2774,12 +3641,12 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
       children: [
         Row(
           children: [
-            Icon(Icons.swap_horiz_rounded, color: ElioColors.sky, size: 22),
+            Icon(Icons.swap_horiz_rounded, color: ElioColors.mocha, size: 22),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 'Instead of ${widget.ingredient.name}',
-                style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
               ),
             ),
           ],
@@ -2789,24 +3656,24 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: ElioColors.sky.withValues(alpha: 0.06),
+            color: ElioColors.peach.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: ElioColors.sky.withValues(alpha: 0.3)),
+            border: Border.all(color: ElioColors.mocha.withValues(alpha: 0.3)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 r.substitute,
-                style: ElioText.headingMedium.copyWith(color: ElioColors.navy),
+                style: ElioText.headingMedium.copyWith(color: ElioColors.espresso),
               ),
               if (qty.isNotEmpty) ...[
                 const SizedBox(height: 4),
-                Text(qty, style: ElioText.bodyLarge.copyWith(color: ElioColors.textSecondary)),
+                Text(qty, style: ElioText.bodyLarge.copyWith(color: ElioColors.mocha)),
               ],
               if (r.tradeOff.isNotEmpty) ...[
                 const SizedBox(height: 8),
-                Text(r.tradeOff, style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+                Text(r.tradeOff, style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
               ],
             ],
           ),
@@ -2820,7 +3687,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
               widget.onSubstituted(r);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -2836,7 +3703,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              side: const BorderSide(color: ElioColors.border),
+              side: const BorderSide(color: ElioColors.rule),
             ),
             child: const Text('Never mind'),
           ),
@@ -2854,7 +3721,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
         const SizedBox(height: 8),
         Text(
           _errorMessage,
-          style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+          style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
         ),
         const SizedBox(height: 20),
         SizedBox(
@@ -2862,7 +3729,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
           child: ElevatedButton(
             onPressed: _requestSubstitution,
             style: ElevatedButton.styleFrom(
-              backgroundColor: ElioColors.navy,
+              backgroundColor: ElioColors.espresso,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -2878,7 +3745,7 @@ class _IngredientOptionsSheetState extends State<_IngredientOptionsSheet> {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              side: const BorderSide(color: ElioColors.border),
+              side: const BorderSide(color: ElioColors.rule),
             ),
             child: const Text('Dismiss'),
           ),
@@ -2939,7 +3806,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.white,
+        backgroundColor: ElioColors.cream,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Edit item', style: ElioText.headingMedium),
         content: Column(
@@ -2962,7 +3829,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary)),
+            child: Text('Cancel', style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha)),
           ),
           TextButton(
             onPressed: () {
@@ -2973,7 +3840,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
               Navigator.pop(ctx);
             },
             child: Text('Save', style: ElioText.bodyMedium.copyWith(
-              color: ElioColors.navy,
+              color: ElioColors.espresso,
               fontWeight: FontWeight.w600,
             )),
           ),
@@ -2988,7 +3855,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: ElioColors.white,
+      backgroundColor: ElioColors.cream,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
       child: ConstrainedBox(
@@ -3009,7 +3876,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                   const SizedBox(height: 4),
                   Text(
                     '$_includedCount of ${_items.length} items selected',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.textSecondary),
+                    style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -3019,7 +3886,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                         child: Text(
                           'Select all',
                           style: ElioText.label.copyWith(
-                            color: ElioColors.sky,
+                            color: ElioColors.mocha,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -3030,7 +3897,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                         child: Text(
                           'Deselect all',
                           style: ElioText.label.copyWith(
-                            color: ElioColors.textMuted,
+                            color: ElioColors.mocha,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -3056,7 +3923,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                       margin: const EdgeInsets.only(bottom: 4),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                       decoration: BoxDecoration(
-                        color: item.included ? Colors.transparent : ElioColors.offWhite.withValues(alpha: 0.5),
+                        color: item.included ? Colors.transparent : ElioColors.cream.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
@@ -3066,10 +3933,10 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                             width: 22,
                             height: 22,
                             decoration: BoxDecoration(
-                              color: item.included ? ElioColors.navy : Colors.transparent,
+                              color: item.included ? ElioColors.espresso : Colors.transparent,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: item.included ? ElioColors.navy : ElioColors.border,
+                                color: item.included ? ElioColors.espresso : ElioColors.rule,
                                 width: 1.5,
                               ),
                             ),
@@ -3088,19 +3955,19 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                                     fontSize: 14,
                                     fontWeight: FontWeight.w600,
                                     color: item.included
-                                        ? ElioColors.textPrimary
-                                        : ElioColors.textMuted,
+                                        ? ElioColors.espresso
+                                        : ElioColors.mocha,
                                     decoration: item.included
                                         ? null
                                         : TextDecoration.lineThrough,
-                                    decorationColor: ElioColors.textMuted,
+                                    decorationColor: ElioColors.mocha,
                                   ),
                                 ),
                                 if (item.quantity.isNotEmpty)
                                   Text(
                                     item.quantity,
                                     style: ElioText.label.copyWith(
-                                      color: ElioColors.textMuted,
+                                      color: ElioColors.mocha,
                                       fontSize: 12,
                                     ),
                                   ),
@@ -3111,7 +3978,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                             onTap: () => _editItem(i),
                             child: const Padding(
                               padding: EdgeInsets.all(4),
-                              child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.textMuted),
+                              child: Icon(Icons.edit_outlined, size: 16, color: ElioColors.mocha),
                             ),
                           ),
                         ],
@@ -3134,9 +4001,9 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                           ? () => Navigator.pop(context, true)
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: ElioColors.amber,
+                        backgroundColor: ElioColors.terracotta,
                         foregroundColor: Colors.white,
-                        disabledBackgroundColor: ElioColors.border,
+                        disabledBackgroundColor: ElioColors.rule,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         elevation: 0,
@@ -3154,7 +4021,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                     onTap: () {
                       Navigator.pop(context, false);
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const ProfileScreen(initialTab: 3)),
+                        MaterialPageRoute(builder: (_) => const ShoppingListPage()),
                       );
                     },
                     child: Padding(
@@ -3162,7 +4029,7 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
                       child: Text(
                         'View shopping list',
                         style: ElioText.bodyMedium.copyWith(
-                          color: ElioColors.sky,
+                          color: ElioColors.mocha,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -3177,3 +4044,9 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
     );
   }
 }
+
+/// Resolved RECORD_AUDIO permission state for Cook Mode voice control.
+/// `_ensureMicPermission` returns one of these so the caller can fast-
+/// exit on denial; the side-effect UI (snackbar with retry / Open
+/// Settings, diagnostic-strip text) is handled inside the helper.
+enum _MicPermissionResult { granted, denied, permanentlyDenied }

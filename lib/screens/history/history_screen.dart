@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../models/recipe_models.dart';
 import '../../services/history_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../utils/snackbar_helpers.dart';
 import '../recipe/recipe_screen.dart';
 
 // ─────────────────────────────────────────────
@@ -54,13 +55,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
     await HistoryService.deleteRecipe(saved.savedAt);
     if (mounted) setState(() => _recipes.removeWhere((r) => r.savedAt == saved.savedAt));
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Sprint 16.7c — withTimer enforces the default 4s dismiss even
+      // when the device's accessibleNavigation flag is true.
+      ScaffoldMessenger.of(context).showSnackBarWithTimer(
         SnackBar(
-          content: Text('${saved.recipe.title} removed', style: GoogleFonts.outfit()),
-          backgroundColor: ElioColors.navy,
+          content: Text('${saved.recipe.title} removed', style: ElioTextStyles.bodyStyle),
+          backgroundColor: ElioColors.espresso,
           action: SnackBarAction(
             label: 'Undo',
-            textColor: ElioColors.amber,
+            textColor: ElioColors.terracotta,
             onPressed: () async {
               await HistoryService.saveRecipe(saved);
               _load();
@@ -75,17 +78,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: ElioColors.offWhite,
-        title: Text('Clear history?', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: ElioColors.textPrimary)),
-        content: Text('All saved recipes will be removed from this device.', style: GoogleFonts.outfit(color: ElioColors.textSecondary)),
+        backgroundColor: ElioColors.cream,
+        title: Text('Clear history?', style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 20, color: ElioColors.espresso)),
+        content: Text('All saved recipes will be removed from this device.', style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.mocha)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: GoogleFonts.outfit(color: ElioColors.textSecondary)),
+            child: Text('Cancel', style: ElioTextStyles.bodyStyle.copyWith(color: ElioColors.mocha)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('Clear all', style: GoogleFonts.outfit(color: Colors.red, fontWeight: FontWeight.w700)),
+            child: Text('Clear all', style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.red)),
           ),
         ],
       ),
@@ -113,12 +116,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ElioColors.offWhite,
+      backgroundColor: ElioColors.cream,
       appBar: AppBar(
-        backgroundColor: ElioColors.offWhite,
+        backgroundColor: ElioColors.cream,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.navy, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: ElioColors.espresso, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: RichText(
@@ -126,19 +129,19 @@ class _HistoryScreenState extends State<HistoryScreen> {
             children: [
               TextSpan(
                 text: 'EL',
-                style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy, letterSpacing: -0.5),
+                style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5),
               ),
               TextSpan(
                 text: 'i',
-                style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w300, color: ElioColors.amber, letterSpacing: -0.5),
+                style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 22, fontWeight: FontWeight.w300, color: ElioColors.terracotta, letterSpacing: -0.5),
               ),
               TextSpan(
                 text: 'O',
-                style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w800, color: ElioColors.navy, letterSpacing: -0.5),
+                style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5),
               ),
               TextSpan(
                 text: ' History',
-                style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w400, color: ElioColors.textSecondary),
+                style: ElioTextStyles.bodyStyle.copyWith(fontSize: 18, color: ElioColors.mocha),
               ),
             ],
           ),
@@ -147,12 +150,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
           if (_recipes.isNotEmpty)
             TextButton(
               onPressed: _clearAll,
-              child: Text('Clear all', style: GoogleFonts.outfit(color: Colors.red.shade400, fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Text('Clear all', style: ElioTextStyles.uiLabelStyle.copyWith(color: Colors.red.shade400, fontSize: 13)),
             ),
         ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: ElioColors.amber))
+          ? const Center(child: CircularProgressIndicator(color: ElioColors.terracotta))
           : _recipes.isEmpty
               ? _buildEmpty()
               : _buildList(),
@@ -166,17 +169,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.menu_book_rounded, size: 64, color: ElioColors.border),
+            Icon(Icons.menu_book_rounded, size: 64, color: ElioColors.rule),
             const SizedBox(height: 20),
             Text(
               'No recipes yet',
-              style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.w700, color: ElioColors.textPrimary),
+              style: ElioTextStyles.sectionHeadingStyle.copyWith(fontSize: 22, color: ElioColors.espresso),
             ),
             const SizedBox(height: 8),
             Text(
               'Recipes you generate will appear here automatically.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(fontSize: 15, color: ElioColors.textSecondary, height: 1.5),
+              style: ElioTextStyles.bodyStyle.copyWith(fontSize: 15, color: ElioColors.mocha, height: 1.5),
             ),
           ],
         ),
@@ -189,18 +192,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
       margin: const EdgeInsets.fromLTRB(0, 8, 0, 0),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        color: ElioColors.amber.withValues(alpha: 0.12),
+        color: ElioColors.terracotta.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: ElioColors.amber, width: 1),
+        border: Border.all(color: ElioColors.terracotta, width: 1),
       ),
       child: Row(
         children: [
-          const Icon(Icons.lock_outline_rounded, color: ElioColors.amber, size: 20),
+          const Icon(Icons.lock_outline_rounded, color: ElioColors.terracotta, size: 20),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Upgrade for full history — free accounts show the 20 most recent recipes.',
-              style: GoogleFonts.outfit(fontSize: 13, color: ElioColors.textPrimary, height: 1.4),
+              style: ElioTextStyles.bodySmallStyle.copyWith(color: ElioColors.espresso, height: 1.4),
             ),
           ),
         ],
@@ -240,9 +243,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: ElioColors.offWhite,
+                color: ElioColors.cream,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: ElioColors.border, width: 1),
+                border: Border.all(color: ElioColors.rule, width: 1),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,10 +257,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       children: [
                         Text(
                           recipe.title,
-                          style: GoogleFonts.outfit(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: ElioColors.textPrimary,
+                          style: ElioTextStyles.uiLabelStyle.copyWith(
+                            color: ElioColors.espresso,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -265,9 +266,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         const SizedBox(height: 6),
                         Text(
                           recipe.description,
-                          style: GoogleFonts.outfit(
-                            fontSize: 13,
-                            color: ElioColors.textSecondary,
+                          style: ElioTextStyles.bodySmallStyle.copyWith(
+                            color: ElioColors.mocha,
                             height: 1.4,
                           ),
                           maxLines: 2,
@@ -282,7 +282,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                             const Spacer(),
                             Text(
                               _formatDate(saved.savedAt),
-                              style: GoogleFonts.outfit(fontSize: 11, color: ElioColors.textSecondary),
+                              style: ElioTextStyles.tabLabelStyle.copyWith(color: ElioColors.mocha),
                             ),
                           ],
                         ),
@@ -291,7 +291,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                   // Right: arrow
                   const SizedBox(width: 12),
-                  Icon(Icons.chevron_right_rounded, color: ElioColors.border, size: 22),
+                  Icon(Icons.chevron_right_rounded, color: ElioColors.rule, size: 22),
                 ],
               ),
             ),
@@ -305,9 +305,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 12, color: ElioColors.textSecondary),
+        Icon(icon, size: 12, color: ElioColors.mocha),
         const SizedBox(width: 3),
-        Text(label, style: GoogleFonts.outfit(fontSize: 11, color: ElioColors.textSecondary, fontWeight: FontWeight.w500)),
+        Text(label, style: ElioTextStyles.tabLabelStyle.copyWith(color: ElioColors.mocha)),
       ],
     );
   }
