@@ -51,6 +51,14 @@ dependencies:
   firebase_messaging: ^15.2.4
   speech_to_text: ^7.0.0
   flutter_tts: ^4.2.0
+  # 20 May 2026 — added to explicitly check Android RECORD_AUDIO before
+  # calling `_speech.initialize()`. `speech_to_text` requests permission
+  # implicitly on init, but on Android 13+ the request can be silently
+  # denied without surfacing an error (Kate's 19may-d failure mode:
+  # diagnostic strip says "Listening" but no "Last heard:" populates).
+  # An explicit pre-check lets us route the user to app settings if the
+  # permission was denied / permanently denied previously.
+  permission_handler: ^11.3.1
   mobile_scanner: ^6.0.2
   image_picker: ^1.1.2
   package_info_plus: ^8.0.2
