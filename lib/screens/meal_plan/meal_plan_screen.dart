@@ -566,7 +566,38 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   }
 
   // ─── Header ───────────────────────────────────────────────────────────────────
+  //
+  // 21 May 2026 — Kate's on-device feedback ("this screen could do with
+  // a tidy up — the top section ... why is there a mini Generate button
+  // at the top"). Pre-fix this row stacked two clashing patterns on top
+  // of each other on the empty state:
+  //
+  //   1. Material-style app bar look — back arrow + heading4 "Meal
+  //      planner" title + bodyMedium "Generate your week in one tap"
+  //      subtitle + a small terracotta "Generate" pill at the right.
+  //   2. Immediately below: the proper editorial hero ("PLAN AHEAD"
+  //      eyebrow + ElioHeroHeading "your week ahead" + terracotta
+  //      underline + body paragraph) that matches every other surface
+  //      in the app.
+  //
+  // The mini "Generate" pill was also redundant — `_buildEmptyState()`
+  // already renders the big terracotta "Generate N days" `ElioBigButton`
+  // at the bottom with the same handler. Pre-fix tapping either one
+  // started the same flow.
+  //
+  // Fix:
+  //   - Empty state (`_plan == null`): drop the title + subtitle +
+  //     generate pill entirely. Show only a back-arrow circle button
+  //     (matches the Cook Mode close-button pattern). The editorial
+  //     hero below IS the screen heading; the bottom big button is the
+  //     only Generate CTA.
+  //   - With-plan state (`_plan != null`): keep the back arrow but
+  //     swap heading4-title + subtitle for nothing — the day tabs + meal
+  //     cards make the context obvious. Keep "Restart plan" + "Redo
+  //     week" pills on the right since those are quick-actions the user
+  //     wants visible while viewing the plan.
   Widget _buildHeader() {
+    final isEmpty = _plan == null;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Row(
@@ -578,31 +609,11 @@ class _MealPlanScreenState extends State<MealPlanScreen>
               child: Icon(Icons.arrow_back_ios_new, size: 20, color: ElioColors.espresso),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Meal planner', style: ElioTextStyles.heading4, maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (_plan == null)
-                  Text(
-                    'Generate your week in one tap',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  )
-                else
-                  Text(
-                    'Tap a meal to view full recipe',
-                    style: ElioText.bodyMedium.copyWith(color: ElioColors.mocha),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          if (_plan != null) ...[
+          // Empty state: nothing else here — the editorial hero below is
+          // the screen heading. With-plan state: action pills on the
+          // right (no title text, no mini-Generate).
+          if (!isEmpty) ...[
+            const Spacer(),
             // "Restart plan" — confirm, then discard current and reconfigure
             GestureDetector(
               onTap: _confirmRestartPlan,
@@ -623,13 +634,13 @@ class _MealPlanScreenState extends State<MealPlanScreen>
               ),
             ),
             const SizedBox(width: 6),
+            _GenerateButton(
+              isGenerating: _isGenerating,
+              generatingMessage: _generatingMessage,
+              hasExistingPlan: true,
+              onTap: _generateWeeklyPlan,
+            ),
           ],
-          _GenerateButton(
-            isGenerating: _isGenerating,
-            generatingMessage: _generatingMessage,
-            hasExistingPlan: _plan != null,
-            onTap: _generateWeeklyPlan,
-          ),
         ],
       ),
     );
