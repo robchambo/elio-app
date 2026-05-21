@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_spacing.dart';
@@ -697,6 +698,74 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   // ── Speech recognition ─────────────────────────────────────────────────────────
+
+  /// Explicit RECORD_AUDIO permission check + recovery flow. Returns
+  /// the resolved state. Side-effects: surfaces the right UI for
+  /// denied / permanently-denied cases (snackbar with retry, snackbar
+  /// with "Open Settings" action), and writes a diagnostic string to
+  /// the on-screen `_lastHeardWords` strip so a screenshot from the
+  /// user tells us the exact permission state without needing
+  /// Crashlytics access.
+  Future<_MicPermissionResult> _ensureMicPermission() async {
+    var status = await Permission.microphone.status;
+
+    // First-time / previously-denied — request now. On Android 13+
+    // this is the only way to surface the system prompt; the
+    // implicit request inside `_speech.initialize()` is often a no-op
+    // if the user previously dismissed it.
+    if (status.isDenied) {
+      status = await Permission.microphone.request();
+    }
+
+    if (status.isGranted || status.isLimited) {
+      return _MicPermissionResult.granted;
+    }
+
+    if (status.isPermanentlyDenied) {
+      ErrorService.log('voice_mic_perm', 'permanentlyDenied');
+      if (mounted) {
+        setState(() => _lastHeardWords =
+            'Mic permission permanently denied — tap "Open Settings"');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Microphone permission is permanently denied. Open Settings to enable it.',
+            ),
+            backgroundColor: ElioColors.espresso,
+            duration: const Duration(seconds: 6),
+            action: SnackBarAction(
+              label: 'Open Settings',
+              textColor: Colors.white,
+              onPressed: () {
+                openAppSettings();
+              },
+            ),
+          ),
+        );
+      }
+      return _MicPermissionResult.permanentlyDenied;
+    }
+
+    // status.isDenied / .isRestricted — surface the reason and let the
+    // user retry. Diagnostic strip carries the state so we can see it
+    // in screenshots.
+    ErrorService.log('voice_mic_perm', status.toString());
+    if (mounted) {
+      setState(() => _lastHeardWords =
+          'Mic permission denied (${status.toString().split('.').last}) — tap mic to retry');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Voice control needs microphone permission. Tap the mic again to retry.",
+          ),
+          backgroundColor: ElioColors.espresso,
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+    return _MicPermissionResult.denied;
+  }
+
   Future<void> _initVoiceControl() async {
     // 19 May 2026 (19may-d) — Rob: "tapping the mic doesn't pause TTS".
     // Pre-19may-a TTS only fired AFTER mic was enabled, so this couldn't
@@ -711,6 +780,28 @@ class _RecipeScreenState extends State<RecipeScreen> {
     if (mounted && _isSpeaking) {
       setState(() => _isSpeaking = false);
     }
+
+    // 20 May 2026 (19may-e) — explicit RECORD_AUDIO permission check
+    // BEFORE `_speech.initialize()`. Kate's 19may-d failure mode:
+    // diagnostic strip says "Listening" but no "Last heard:" populates
+    // when she talks → engine is "running" but not actually
+    // transcribing. `speech_to_text.initialize()` requests permission
+    // implicitly on init AND returns true if Speech-to-Text is
+    // available at all, even if RECORD_AUDIO is denied. On Android
+    // 13+ the permission request can be silently auto-denied (system
+    // setting / previous "Don't allow"), and the engine then runs
+    // visually but captures no audio.
+    //
+    // Explicit `permission_handler` check gives us three resolvable
+    // states: granted (proceed), denied (request + retry), or
+    // permanentlyDenied (route to app settings). The diagnostic strip
+    // surfaces the denial reason so a screenshot tells us the exact
+    // permission state.
+    final permStatus = await _ensureMicPermission();
+    if (permStatus != _MicPermissionResult.granted) {
+      return; // _ensureMicPermission already surfaced the right UI
+    }
+
     try {
       _speechAvailable = await _speech.initialize(
         onError: (error) {
@@ -3684,3 +3775,9 @@ class _RecipeShoppingDialogState extends State<_RecipeShoppingDialog> {
     );
   }
 }
+
+/// Resolved RECORD_AUDIO permission state for Cook Mode voice control.
+/// `_ensureMicPermission` returns one of these so the caller can fast-
+/// exit on denial; the side-effect UI (snackbar with retry / Open
+/// Settings, diagnostic-strip text) is handled inside the helper.
+enum _MicPermissionResult { granted, denied, permanentlyDenied }
