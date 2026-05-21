@@ -1997,15 +1997,39 @@ class _RecipeScreenState extends State<RecipeScreen> {
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: ElioColors.terracotta.withValues(alpha: 0.25)),
               ),
+              // 21 May 2026 — Rob: "the calorie total is for the entire
+              // meal. It needs to be per serving." Gemini's prompt
+              // already asks for per-serving values (gemini_service.dart
+              // line 1431) — the rendering was multiplying by
+              // `_scaleFactor = currentServings / originalServings`, so
+              // increasing the serving stepper from 2 → 4 doubled the
+              // displayed calories. That's "total for N servings"
+              // semantics, not per-serving. Per-serving is invariant of
+              // serving count; only ingredient quantities should scale.
+              // Removed the `* _scaleFactor` multiplications on
+              // nutrition values and added an explicit "per serving"
+              // label so the user knows what they're looking at.
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Calories', style: ElioText.headingMedium.copyWith(color: ElioColors.terracotta)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Calories', style: ElioText.headingMedium.copyWith(color: ElioColors.terracotta)),
+                      Text(
+                        'per serving',
+                        style: ElioTextStyles.bodySmallStyle.copyWith(
+                          color: ElioColors.mocha,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                   RichText(
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: '${(n.calories * _scaleFactor).round()}',
+                          text: '${n.calories}',
                           style: TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.w800,
@@ -2027,38 +2051,38 @@ class _RecipeScreenState extends State<RecipeScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            // Macros row
+            // Macros row — per-serving (see Calories block above).
             Row(
               children: [
                 _NutritionTile(
                   label: 'PROTEIN',
-                  value: '${(n.proteinG * _scaleFactor).round()}',
+                  value: '${n.proteinG.round()}',
                   unit: 'g',
                   color: const Color(0xFF4CAF50),
                 ),
                 const SizedBox(width: 10),
                 _NutritionTile(
                   label: 'CARBS',
-                  value: '${(n.carbsG * _scaleFactor).round()}',
+                  value: '${n.carbsG.round()}',
                   unit: 'g',
                   color: const Color(0xFF2196F3),
                 ),
                 const SizedBox(width: 10),
                 _NutritionTile(
                   label: 'FAT',
-                  value: '${(n.fatG * _scaleFactor).round()}',
+                  value: '${n.fatG.round()}',
                   unit: 'g',
                   color: const Color(0xFFFF9800),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            // Fibre
+            // Fibre — per-serving.
             Row(
               children: [
                 _NutritionTile(
                   label: 'FIBRE',
-                  value: '${(n.fibreG * _scaleFactor).round()}',
+                  value: '${n.fibreG.round()}',
                   unit: 'g',
                   color: const Color(0xFF9C27B0),
                 ),
@@ -2473,8 +2497,12 @@ class _RecipeScreenState extends State<RecipeScreen> {
     final r = _currentRecipe;
     final isStreaming = r.title.isEmpty;
     final costLabel = _costLabel;
+    // 21 May 2026 — per-serving (invariant of serving count). Pre-fix
+    // this multiplied by `_scaleFactor` and was effectively "total
+    // calories for N servings"; see the Calories block in
+    // `_buildNutritionCard` for the full rationale.
     final kcalLabel = r.nutrition != null
-        ? '${(r.nutrition!.calories * _scaleFactor).round()} kcal'
+        ? '${r.nutrition!.calories} kcal'
         : null;
 
     return Scaffold(
