@@ -7,7 +7,9 @@ import '../../models/elio_models.dart';
 import '../../models/onboarding_state.dart';
 import '../../models/recipe_models.dart';
 import '../../services/analytics_service.dart';
+import '../../services/error_service.dart';
 import '../../services/gemini_service.dart';
+import '../../services/history_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
@@ -246,19 +248,52 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
     });
   }
 
-  void _onCookThis() {
+  Future<void> _onCookThis() async {
     final r = _recipe;
     if (r == null) return;
     // firstRecipeId is a local stable id derived from the title + stream
     // start — the real Firestore id is assigned post-migration on screen 15.
+    final savedAt = DateTime.now().toUtc().toIso8601String();
     final id =
         '${r.title.toLowerCase().replaceAll(RegExp(r"[^a-z0-9]+"), "-")}-'
         '${_streamStart.millisecondsSinceEpoch}';
     widget.controller.setFirstRecipeId(id);
+
+    // 21 May 2026 — Rob's onboarding test: "Cook this tonight" set
+    // `firstRecipeId` on the controller, then onboarding completed,
+    // user signed in, ended up in the app with NO access to the
+    // recipe they'd just generated. Root cause: nothing actually
+    // persists the recipe body. `firstRecipeId` is a stable
+    // identifier the controller can pass downstream, but no code
+    // path reads it back to load the recipe.
+    //
+    // The screen 13 spec (`docs/onboarding/13-first-recipe.md` §242)
+    // explicitly says: "persist the recipe to recipes/{id} (existing
+    // schema) and to the user's local history. Advance." The
+    // local-history half was never wired up.
+    //
+    // Save the recipe to HistoryService now, bookmarked so it shows
+    // in the Saved tab. HistoryService is SharedPreferences-only
+    // (no Firestore round-trip), which survives the guest → signed-
+    // in MigrationService run cleanly — the migration touches the
+    // user doc + inventory + guest pantry but not the recipe
+    // history blob. So the recipe is there waiting when the user
+    // lands in AppShell.
+    try {
+      await HistoryService.saveRecipe(
+        SavedRecipe(recipe: r, savedAt: savedAt, isBookmarked: true),
+      );
+    } catch (e) {
+      ErrorService.log('onboarding_cook_this_save', e);
+      // Best-effort. Don't block onboarding if save fails — the user
+      // can regenerate from Home.
+    }
+
     AnalyticsService.instance.logEvent(
       'onboarding_step_completed',
       const {'step_index': 13, 'step_name': 'first_recipe'},
     );
+    if (!mounted) return;
     widget.onContinue();
   }
 

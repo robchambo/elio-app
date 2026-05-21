@@ -1,15 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:elio_app/controllers/onboarding_controller.dart';
 import 'package:elio_app/models/elio_models.dart';
 import 'package:elio_app/screens/onboarding/screen13_first_recipe.dart';
+import 'package:elio_app/services/history_service.dart';
 import 'package:elio_app/widgets/elio/elio_hero_heading.dart';
 import 'package:elio_app/widgets/elio/elio_pantry_tag_pill.dart';
 
 import '../../fakes/fake_gemini_service.dart';
 
 void main() {
+  // 21 May 2026 — `_onCookThis` now awaits `HistoryService.saveRecipe`
+  // before firing `onContinue`. HistoryService uses SharedPreferences,
+  // which needs a mock initial-values registration in test mode or
+  // `SharedPreferences.getInstance()` never resolves. Without this
+  // the "Cook this tonight" test hung forever (expect(continued,
+  // isTrue) failed because the await never returned).
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    HistoryService.clearCache();
+  });
+
   void useTallViewport(WidgetTester t) {
     t.view.physicalSize = const Size(800, 1600);
     t.view.devicePixelRatio = 1.0;
@@ -396,10 +409,20 @@ void main() {
     await t.pump();
 
     await t.tap(find.text('Cook this tonight'));
-    await t.pump();
+    // `_onCookThis` is async now — awaits a SharedPreferences write
+    // before calling onContinue. pumpAndSettle lets that resolve.
+    await t.pumpAndSettle();
 
     expect(continued, isTrue);
     expect(controller.state.firstRecipeId, isNotNull);
+    // 21 May 2026 — assert the recipe is persisted to HistoryService.
+    // Rob's onboarding test: pre-fix the "Cook this tonight" handler
+    // set `firstRecipeId` but never saved the recipe body, so once
+    // onboarding completed the user lost access to it entirely.
+    final saved = await HistoryService.getHistory();
+    expect(saved, hasLength(1));
+    expect(saved.single.recipe.title, 'Test Recipe');
+    expect(saved.single.isBookmarked, isTrue);
 
     await fake.closeAll();
   });
