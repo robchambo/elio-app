@@ -131,4 +131,26 @@ class HistoryService {
     _cache = null;
     _notifyChange();
   }
+
+  /// Drop the in-memory cache without touching disk.
+  ///
+  /// AccountService.deleteAccount calls `SharedPreferences.clear()` which
+  /// wipes the on-disk `elio_recipe_history` blob, but the static
+  /// `_cache` survives the process lifetime — so after a delete-and-
+  /// re-onboard the next call to `getHistory()` would return the
+  /// pre-deletion recipes from memory. Rob's 21 May 2026 report
+  /// against 19may-e: "delete my account ... I then login and it
+  /// still has all my recipes there ... so it's not deleted?" Same
+  /// stale-cache pattern is the leading suspect for the linked
+  /// "saved recipe missing ingredients / instructions" bug from the
+  /// same test (stale SavedRecipe object referenced, underlying body
+  /// gone after disk wipe).
+  ///
+  /// Separate from [clearAll] because that touches disk; this is
+  /// in-memory only and idempotent. Safe to call from sign-out paths
+  /// too.
+  static void clearCache() {
+    _cache = null;
+    _notifyChange();
+  }
 }

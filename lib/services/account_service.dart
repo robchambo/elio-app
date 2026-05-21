@@ -38,6 +38,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth_service.dart';
 import 'error_service.dart';
+import 'history_service.dart';
 import 'purchase_service.dart';
 
 /// Provider-id literals from `firebase_auth`. Centralised so the
@@ -230,6 +231,22 @@ class AccountService {
       }
     } catch (e) {
       ErrorService.log('account_delete_prefs', e);
+    }
+
+    // ── 6b. In-memory caches (best-effort) ────────────────────
+    // `SharedPreferences.clear()` above wipes the on-disk
+    // `elio_recipe_history` blob, but `HistoryService._cache` is a
+    // static field that survives the process lifetime. Without this,
+    // after a delete-and-re-onboard cycle the next `getHistory()`
+    // call would return the pre-deletion recipes from the stale
+    // cache — Rob's 21 May 2026 report on 19may-e: "I then login and
+    // it still has all my recipes there ... so it's not deleted?"
+    // Same stale-cache pattern also explains the linked "saved recipe
+    // missing ingredients / instructions" bug from the same test.
+    try {
+      HistoryService.clearCache();
+    } catch (e) {
+      ErrorService.log('account_delete_history_cache', e);
     }
 
     // ── 7. Defensive sign-out (best-effort) ───────────────────
