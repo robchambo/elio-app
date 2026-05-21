@@ -28,9 +28,12 @@ Device locale is used to pre-select the likely answer, so most users tap Continu
 |---|---|---|
 | 1 | United Kingdom | Metric |
 | 2 | United States | Imperial |
-| 3 | Elsewhere | Metric |
+| 3 | Canada | Metric |
+| 4 | Australia | Metric |
 
-*(Device locale pre-selects one of these on screen entry.)*
+*(Device locale pre-selects one of these on screen entry. Unknown locales pre-select United States — matches `RegionUtils.region`'s locale fallback.)*
+
+*(Sprint 17: the legacy "Elsewhere" option was removed; AU + CA were added in its place. Existing accounts that stored `region = 'other'` still load with US-currency cost display until they re-pick.)*
 
 ### Units override (small toggle row below the cards)
 
@@ -63,7 +66,10 @@ Device locale is used to pre-select the likely answer, so most users tap Continu
 │  │ 🇺🇸  United States         │  │
 │  └───────────────────────────┘  │
 │  ┌───────────────────────────┐  │
-│  │ 🌍  Elsewhere              │  │
+│  │ 🇨🇦  Canada                │  │
+│  └───────────────────────────┘  │
+│  ┌───────────────────────────┐  │
+│  │ 🇦🇺  Australia             │  │
 │  └───────────────────────────┘  │
 │                                 │
 │  Measurements                   │
@@ -93,14 +99,14 @@ Device locale is used to pre-select the likely answer, so most users tap Continu
 | **Screen 11 Pantry build** | Category labels and example items localised. UK: "Courgette", "Coriander", "Aubergine". US: "Zucchini", "Cilantro", "Eggplant". Existing `region_utils.dart` likely already handles this — reuse. |
 | **Screen 13 First recipe** | Gemini prompt receives both `region` and `measurementUnits` as hard constraints. Ingredient names follow region; quantities follow units. |
 | **Recipe display everywhere** | `QuantityUtils.normalizeUnit()` already maps units — driven by `measurementUnits` field. Temperatures display °C or °F accordingly. |
-| **Elsewhere option** | Treated as "internationally flexible" — Gemini gets an instruction to use globally-recognised names (e.g. "zucchini" with "(courgette)" in brackets) and metric by default. Not perfect but avoids forcing a user into a wrong regional mould. |
+| **Canada / Australia** | Currency cost label is hidden (Gemini doesn't return CAD/AUD yet — `RegionUtils.formatCost` returns null for `ca`/`au`). Ingredient vocabulary is tuned via the Gemini prompt: Canadian English (cilantro, eggplant) for CA; Australian English (capsicum, eggplant) for AU. Metric by default. |
 
 ### Data model
 
 Reuses existing fields:
 
 ```
-users/{uid}.region: String                // "uk" | "us" | "other"
+users/{uid}.region: String                // "uk" | "us" | "ca" | "au" (+ legacy "other" → US fallback)
 users/{uid}.measurementUnits: String      // "metric" | "imperial"
 ```
 
@@ -125,8 +131,8 @@ Both already used by `region_utils`, `QuantityUtils.normalizeUnit()`, and `gemin
 
 - **User flips units toggle manually, then changes region:** the toggle stays on the user's manual choice, not the new region's default. One-time manual override "sticks" for the session.
 - **User flips units toggle twice (back to default):** treated as no manual override — future region changes do update the units.
-- **Device locale can't be determined:** fall back to UK + Metric as the pre-selected default (UK is the spec market; metric is the safer global default).
-- **"Elsewhere" selected:** units toggle defaults to Metric; region-specific ingredient vocabulary falls back to an international-leaning set.
+- **Device locale can't be determined:** fall back to United States + Imperial as the pre-selected default (matches `RegionUtils.region` locale fallback). One-tap override to UK/CA/AU is the recovery path.
+- **Legacy `other` account opens Settings:** the Region row shows "Other (legacy)" until the user picks a real region. Cost label silently uses US fallback in the meantime (mirrors `app_shell._hydrateRegionUtils`).
 - **Back from screen 10:** selections preserved.
 - **Accessibility:** region cards announce as "<country>, <selected/unselected>". Units toggle announces as "Measurement units, <metric/imperial>, selected. Tap to change.". Helper text appears as a live region.
 - **Reduced Motion:** skip the helper text fade-in; show it statically for 2s then remove.
@@ -134,7 +140,7 @@ Both already used by `region_utils`, `QuantityUtils.normalizeUnit()`, and `gemin
 
 ## Behaviour
 
-- On entry: device locale detected → `Platform.localeName`. Mapping: `en_GB` / any `_GB` → UK; `en_US` / any `_US` → US; anything else → Elsewhere. Region card pre-selected. Units toggle pre-set to region default.
+- On entry: device locale detected → `Platform.localeName`. Mapping: `_GB` → UK; `_US` → US; `_CA` → Canada; `_AU` → Australia; anything else → US. Region card pre-selected. Units toggle pre-set to region default.
 - Tap a region card → selection moves. If the user hasn't manually overridden units yet, the units toggle snaps to the new region's default.
 - Tap units toggle → manual override set. Helper text appears for 2s.
 - Tap **Continue** → persist `region` + `measurementUnits`; advance to screen 10 (Pantry intro).
