@@ -335,6 +335,22 @@ class _ShoppingListScreenState extends State<ShoppingListScreen> {
           ),
           const SizedBox(height: ElioSpacing.xl),
 
+          // 21 May 2026 — Kate's on-device feedback: after a shopping
+          // trip the user has 5–15 ticked items and no obvious way to
+          // wipe the lot in one tap. The same `_ClearCheckedButton`
+          // already exists at the BOTTOM of the list, but on a long
+          // list it sits below the fold. Surface a prominent
+          // terracotta "Clear N checked" pill here, just under the
+          // page header, so a one-tap end-of-shop sweep is obvious.
+          // Only renders when at least one item is ticked.
+          if (_items.any((i) => i.isChecked)) ...[
+            _ClearCheckedPillTop(
+              count: _items.where((i) => i.isChecked).length,
+              onTap: _clearChecked,
+            ),
+            const SizedBox(height: ElioSpacing.md),
+          ],
+
           // ── Add item row ───────────────────────────────────────────
           _AddItemField(
             controller: _addController,
@@ -720,6 +736,54 @@ class _ClearCheckedButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(
             horizontal: ElioSpacing.lg,
             vertical: ElioSpacing.sm,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(ElioRadii.button),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Top-of-screen variant of [_ClearCheckedButton]. Higher visual weight
+/// (terracotta-tinted fill + outline) because this is the end-of-shop
+/// "wipe everything I just ticked" affordance the user expects to find
+/// at a glance. Conditional render — only shown when at least one
+/// item is ticked. See header-row insertion in build().
+class _ClearCheckedPillTop extends StatelessWidget {
+  final int count;
+  final VoidCallback onTap;
+
+  const _ClearCheckedPillTop({required this.count, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = count == 1
+        ? 'Clear 1 ticked item'
+        : 'Clear $count ticked items';
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: const Icon(
+          Icons.delete_sweep_rounded,
+          size: 18,
+          color: ElioColors.terracotta,
+        ),
+        label: Text(
+          label,
+          style: ElioTextStyles.uiLabelStyle.copyWith(
+            color: ElioColors.terracotta,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: ElioColors.terracotta.withValues(alpha: 0.08),
+          side: const BorderSide(color: ElioColors.terracotta, width: 1.2),
+          padding: const EdgeInsets.symmetric(
+            horizontal: ElioSpacing.lg,
+            vertical: 12,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(ElioRadii.button),
