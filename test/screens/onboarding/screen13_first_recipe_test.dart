@@ -409,16 +409,26 @@ void main() {
     await t.pump();
 
     await t.tap(find.text('Cook this tonight'));
-    // `_onCookThis` is async now — awaits a SharedPreferences write
-    // before calling onContinue. pumpAndSettle lets that resolve.
+    // `_onCookThis` is async — awaits a SharedPreferences write, then
+    // shows a confirmation dialog. pumpAndSettle resolves both.
+    await t.pumpAndSettle();
+
+    // 21 May 2026 — confirmation dialog blocks navigation until the
+    // user dismisses it (so a new user is told their recipe is saved
+    // + where to find it). Until "Got it" is tapped, onContinue hasn't
+    // fired yet.
+    expect(find.text('Saved to your recipe book.'), findsOneWidget);
+    expect(continued, isFalse);
+
+    await t.tap(find.text('Got it'));
     await t.pumpAndSettle();
 
     expect(continued, isTrue);
     expect(controller.state.firstRecipeId, isNotNull);
-    // 21 May 2026 — assert the recipe is persisted to HistoryService.
-    // Rob's onboarding test: pre-fix the "Cook this tonight" handler
-    // set `firstRecipeId` but never saved the recipe body, so once
-    // onboarding completed the user lost access to it entirely.
+    // Assert the recipe is persisted to HistoryService. Pre-fix the
+    // "Cook this tonight" handler set `firstRecipeId` but never saved
+    // the recipe body, so once onboarding completed the user lost
+    // access to it entirely.
     final saved = await HistoryService.getHistory();
     expect(saved, hasLength(1));
     expect(saved.single.recipe.title, 'Test Recipe');

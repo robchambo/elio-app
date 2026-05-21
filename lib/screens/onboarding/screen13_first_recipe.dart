@@ -279,11 +279,13 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
     // user doc + inventory + guest pantry but not the recipe
     // history blob. So the recipe is there waiting when the user
     // lands in AppShell.
+    var saveSucceeded = true;
     try {
       await HistoryService.saveRecipe(
         SavedRecipe(recipe: r, savedAt: savedAt, isBookmarked: true),
       );
     } catch (e) {
+      saveSucceeded = false;
       ErrorService.log('onboarding_cook_this_save', e);
       // Best-effort. Don't block onboarding if save fails — the user
       // can regenerate from Home.
@@ -293,8 +295,81 @@ class _Screen13FirstRecipeState extends State<Screen13FirstRecipe> {
       'onboarding_step_completed',
       const {'step_index': 13, 'step_name': 'first_recipe'},
     );
+
+    // 21 May 2026 — confirmation dialog before advancing. A new user
+    // doesn't yet know that the app has a Recipes tab, let alone that
+    // their just-generated recipe will be waiting there. A one-tap
+    // "Got it" moment tells them where to look. Only shown when the
+    // save actually succeeded so we don't promise something we
+    // didn't deliver.
+    if (!mounted) return;
+    if (saveSucceeded) {
+      await _showRecipeSavedDialog();
+    }
     if (!mounted) return;
     widget.onContinue();
+  }
+
+  /// Brief modal shown after "Cook this tonight" succeeds. Single
+  /// "Got it" CTA dismisses + lets `_onCookThis` advance onboarding.
+  Future<void> _showRecipeSavedDialog() async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: ElioColors.cream,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ElioRadii.card),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            ElioSpacing.xl,
+            ElioSpacing.xl,
+            ElioSpacing.xl,
+            ElioSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: ElioColors.terracotta.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.bookmark_added_rounded,
+                  size: 28,
+                  color: ElioColors.terracotta,
+                ),
+              ),
+              const SizedBox(height: ElioSpacing.md),
+              Text(
+                'Saved to your recipe book.',
+                style: ElioTextStyles.heading4,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: ElioSpacing.sm),
+              Text(
+                "You'll find it in the Recipes tab whenever you're "
+                "ready to cook.",
+                style: ElioTextStyles.body.copyWith(color: ElioColors.mocha),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: ElioSpacing.lg),
+              SizedBox(
+                width: double.infinity,
+                child: ElioBigButton(
+                  label: 'Got it',
+                  onTap: () => Navigator.of(dialogContext).pop(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _onShowMeAnother() {
