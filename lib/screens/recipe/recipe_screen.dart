@@ -898,10 +898,16 @@ class _RecipeScreenState extends State<RecipeScreen> {
           // appeared to never work at all. Trust the engine to manage
           // its own in-session state; only restart when the session
           // truly ends.
+          //
+          // 20 May 2026 (20may-a) — tightened the restart delay from
+          // 300ms to 100ms. The 300ms was a guard against rapid-fire
+          // platform errors but in practice 100ms is fine and shortens
+          // the perceptible gap between sessions to near-zero, which
+          // is what makes "always listening" actually feel always-on.
           if (status == 'done') {
             if (_voiceEnabled && mounted && !_isSpeaking) {
               _restartTimer?.cancel();
-              _restartTimer = Timer(const Duration(milliseconds: 300), () {
+              _restartTimer = Timer(const Duration(milliseconds: 100), () {
                 if (_voiceEnabled && mounted && !_isSpeaking) {
                   _startListening();
                 }
@@ -982,23 +988,25 @@ class _RecipeScreenState extends State<RecipeScreen> {
           }
           _processVoiceCommand(words);
         },
-        // 21 May 2026 (19may-g) — Kate's hypothesis from 19may-f
-        // diagnostic screenshots: "it is only listening for five
-        // seconds after the step has been said out loud by the TTS."
-        // She was right — `pauseFor: 4s` was too short. After TTS
-        // finishes describing a step the user often takes a beat to
-        // process before speaking; 4s ran out, engine fired
-        // `error_speech_timeout`, and even though the auto-restart
-        // worked, the strip showed an error and the user thought it
-        // was broken. Bumped to 8s. Listener still terminates after
-        // `listenFor: 30s` total, but the silence-detection window is
-        // now a more forgiving ~8s.
+        // 20 May 2026 (20may-a) — Rob: "I struggle to see how hands-
+        // free is effective if it has any time limit." Pushed the
+        // session cap to a wall-clock value bigger than any realistic
+        // Cook Mode session. Android's `SpeechRecognizer` will end
+        // sessions on its own well before this (typically 30–60s
+        // depending on the device), and the auto-restart on `done`
+        // (200ms below) takes over — so this just stops US from
+        // imposing a redundant ceiling on top of the platform's.
         //
-        // Combined with the 50ms restart on `error_speech_timeout`
-        // (above) the effective listening cadence is now: 8s of
-        // silence-tolerance, brief gap, 8s again — feels continuous
-        // without burning STT engine cycles.
-        listenFor: const Duration(seconds: 30),
+        // `pauseFor: 8s` (from 19may-g) — forgiving silence window
+        // after TTS finishes describing a step. The user often takes
+        // a beat to process before speaking; pre-`pauseFor: 4s` ran
+        // out in that gap and fired `error_speech_timeout`.
+        //
+        // Note (battery): continuous STT listening is power-hungry.
+        // For Cook Mode that's the right trade — the user has
+        // explicitly turned it on and is mid-recipe. If we ever
+        // surface "always-on" voice outside Cook Mode, revisit.
+        listenFor: const Duration(minutes: 30),
         pauseFor: const Duration(seconds: 8),
         listenOptions: stt.SpeechListenOptions(
           // 19may-d — explicit `partialResults: true` (defaults to true
