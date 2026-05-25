@@ -63,7 +63,18 @@ class FakeDocRef {
   }
   async update(data: Data) {
     const existing = STORE.docs.get(this.path) ?? {};
-    STORE.docs.set(this.path, {...existing, ...data});
+    const next: Data = {...existing};
+    for (const [k, v] of Object.entries(data)) {
+      // Honour the FieldValue.delete() sentinel from the fake firestore
+      // namespace below — production code uses this to drop privacy-sensitive
+      // raw email bodies after parsing.
+      if (v && typeof v === 'object' && (v as Data).__type === 'delete') {
+        delete next[k];
+      } else {
+        next[k] = v;
+      }
+    }
+    STORE.docs.set(this.path, next);
   }
   async delete() {
     STORE.docs.delete(this.path);
@@ -174,13 +185,41 @@ Object.defineProperty(admin, 'firestore', {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let postmarkInbound: any;
+let handleInbound: any;
 const FIXTURE = JSON.parse(
   readFileSync(join(__dirname, 'fixtures/postmark-kroger.json'), 'utf8'),
 );
 
+// A canned Gemini response used by the parser-integration cases. The default
+// shape parses cleanly (1 item, confidence == 1.0).
+const DEFAULT_CANNED = {
+  items: [
+    {
+      rawName: 'KRO BRAND MILK 1G',
+      normalizedName: 'whole milk',
+      quantity: 1,
+      unit: 'gal',
+      category: 'dairy',
+      classification: 'food',
+    },
+  ],
+  orderType: 'confirmation',
+  totalDetected: 1,
+};
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fakeClient(canned: any) {
+  return {
+    async generateStructured() {
+      return canned;
+    },
+  };
+}
+
+const SECRET = 'right-secret';
+
 before(async () => {
-  ({postmarkInbound} = await import('../postmarkInbound'));
+  ({handleInbound} = await import('../postmarkInbound'));
 });
 
 beforeEach(async () => {
@@ -197,75 +236,81 @@ after(() => {
   // Nothing to tear down — no real firebase app was initialised.
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mockReq(body: any, secret = 'right-secret') {
-  return {
-    headers: {'x-postmark-secret': secret},
-    body,
-    method: 'POST',
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } as any;
-}
-function mockRes() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const r: any = {statusCode: 0, body: null};
-  r.status = (c: number) => {
-    r.statusCode = c;
-    return r;
-  };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  r.json = (b: any) => {
-    r.body = b;
-    return r;
-  };
-  r.send = r.json;
-  // firebase-functions v2 onRequest wraps our handler in a promise that
-  // attaches an Express-style 'error' listener; satisfy that contract.
-  r.on = () => r;
-  r.off = () => r;
-  r.headersSent = false;
-  return r;
-}
-
-describe('postmarkInbound', () => {
+describe('postmarkInbound (handleInbound)', () => {
   it('401s without the right secret', async () => {
-    const res = mockRes();
-    await postmarkInbound(mockReq(FIXTURE, 'wrong'), res);
-    assert.equal(res.statusCode, 401);
+    const r = await handleInbound(
+      FIXTURE, 'wrong', SECRET, {client: fakeClient(DEFAULT_CANNED)});
+    assert.equal(r.status, 401);
   });
 
   it('ignores unknown To addresses with 200', async () => {
-    const res = mockRes();
-    await postmarkInbound(
-      mockReq({...FIXTURE, To: 'u_unknown@orders.elio.app'}),
-      res,
-    );
-    assert.equal(res.statusCode, 200);
-    assert.deepEqual(res.body, {ignored: true});
+    const r = await handleInbound(
+      {...FIXTURE, To: 'u_unknown@orders.elio.app'},
+      SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+    assert.equal(r.status, 200);
+    assert.deepEqual(r.body, {ignored: true});
   });
 
-  it('writes a parsing stub for valid inbound', async () => {
-    const res = mockRes();
-    await postmarkInbound(mockReq(FIXTURE), res);
-    assert.equal(res.statusCode, 200);
+  it('writes a stub and finalises retailer for valid inbound', async () => {
+    const r = await handleInbound(
+      FIXTURE, SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+    assert.equal(r.status, 200);
     const docs = await admin.firestore()
       .collection('users').doc('user-1')
       .collection('pending_imports').get();
     assert.equal(docs.size, 1);
     const data = docs.docs[0].data();
-    assert.equal(data.status, 'parsing');
     assert.equal(data.retailer, 'kroger');
   });
 
   it('deduplicates on Message-Id', async () => {
-    const res1 = mockRes();
-    const res2 = mockRes();
-    await postmarkInbound(mockReq(FIXTURE), res1);
-    await postmarkInbound(mockReq(FIXTURE), res2);
-    assert.deepEqual(res2.body, {duplicate: true});
+    const r1 = await handleInbound(
+      FIXTURE, SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+    const r2 = await handleInbound(
+      FIXTURE, SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+    assert.equal(r1.status, 200);
+    assert.deepEqual(r2.body, {duplicate: true});
     const docs = await admin.firestore()
       .collection('users').doc('user-1')
       .collection('pending_imports').get();
     assert.equal(docs.size, 1);
+  });
+
+  it('finalises status: pending_review when confidence >= 0.4 '
+    + 'and drops both raw bodies', async () => {
+    const r = await handleInbound(
+      FIXTURE, SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+    assert.equal(r.status, 200);
+    const docs = await admin.firestore()
+      .collection('users').doc('user-1')
+      .collection('pending_imports').get();
+    assert.equal(docs.size, 1);
+    const d = docs.docs[0].data();
+    assert.equal(d.status, 'pending_review');
+    assert.equal(d.items.length, 1);
+    assert.equal(d.items[0].normalizedName, 'whole milk');
+    assert.equal(d.orderType, 'confirmation');
+    assert.ok(d.parseConfidence >= 0.4);
+    // Privacy: both raw bodies dropped on success.
+    assert.equal(d.rawHtmlBody, undefined);
+    assert.equal(d.rawTextBody, undefined);
+  });
+
+  it('finalises status: parse_failed when no items parsed '
+    + 'and retains rawTextBody', async () => {
+    const empty = {items: [], orderType: 'unknown', totalDetected: 0};
+    const r = await handleInbound(
+      FIXTURE, SECRET, SECRET, {client: fakeClient(empty)});
+    assert.equal(r.status, 200);
+    const docs = await admin.firestore()
+      .collection('users').doc('user-1')
+      .collection('pending_imports').get();
+    assert.equal(docs.size, 1);
+    const d = docs.docs[0].data();
+    assert.equal(d.status, 'parse_failed');
+    assert.deepEqual(d.items, []);
+    // Privacy: html dropped on every parse; text retained on failure.
+    assert.equal(d.rawHtmlBody, undefined);
+    assert.equal(d.rawTextBody, FIXTURE.TextBody);
   });
 });
