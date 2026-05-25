@@ -1,0 +1,48 @@
+From: Rob <rob@example.com>
+To: u_abc123xyz4567@orders.elio.app
+Subject: Fwd: Your Tesco delivery — order #TES-554421
+Date: Mon, 25 May 2026 09:10:00 +0100
+
+Sent from my iPhone
+
+Begin forwarded message:
+
+From: Tesco <noreply@tesco.com>
+Date: 25 May 2026 at 08:42:14 BST
+Subject: Your Tesco delivery — order #TES-554421
+To: rob@example.com
+
+Hi Rob,
+
+Your Tesco delivery is complete. Order #TES-554421
+Delivered: 25 May 2026, 08:30
+Driver: Sanjay
+
+ITEMS DELIVERED
+
+  Tesco British Semi Skimmed Milk 2.272L                2 x £1.65   £3.30
+  Tesco Free Range Eggs Large 12pk                      1 x £3.20   £3.20
+  Tesco Wholemeal Bread 800g                            1 x £1.10   £1.10
+  Tesco Salted Butter 250g                              1 x £2.05   £2.05
+  Cathedral City Mature Cheddar 350g                    1 x £4.00   £4.00
+  Tesco British Chicken Breast Fillets 650g             1 x £5.85   £5.85
+  Tesco Mince Beef 5% Fat 500g                          1 x £4.50   £4.50
+  Tesco Bananas Loose                                   0.85kg x £0.78/kg   £0.66
+  Tesco Salad Tomatoes 6pk                              1 x £1.20   £1.20
+  Tesco Baby Spinach 200g                               1 x £1.30   £1.30
+  Tesco Carrots 1kg                                     1 x £0.65   £0.65
+  Heinz Baked Beans 415g                                4 x £1.10   £4.40
+  Tesco Spaghetti 500g                                  2 x £0.75   £1.50
+  Andrex Toilet Tissue Classic Clean 9 Roll             1 x £6.50   £6.50
+  Fairy Original Washing Up Liquid 433ml                1 x £1.50   £1.50
+
+SUBSTITUTIONS
+  • Tesco Plum Tomatoes 6pk substituted for Tesco Salad Tomatoes 6pk
+
+SUBTOTAL                                                              £41.71
+DELIVERY                                                               £4.00
+TOTAL                                                                 £45.71
+
+Track or amend a future order: https://www.tesco.com/groceries/
+
+Thanks for shopping with Tesco.
