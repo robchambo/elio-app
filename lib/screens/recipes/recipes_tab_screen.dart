@@ -25,6 +25,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../models/recipe_models.dart';
+import '../../services/feature_tip_catalog.dart';
+import '../../services/feature_tip_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/history_service.dart';
 import '../../theme/elio_radii.dart';
@@ -32,6 +34,7 @@ import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_bento_card.dart';
+import '../../widgets/elio/elio_feature_tip_sheet.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
 import '../profile/recipe_import_screen.dart';
 import '../recipe/recipe_screen.dart';
@@ -95,6 +98,25 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
       _all = all;
       _pantryLower = pantry;
       _loading = false;
+    });
+    _maybeShowImportTip();
+  }
+
+  /// Sprint 16.8 row 7 — one-time educational pop-up for the Recipe Import
+  /// bento cards (Photo / URL / Manual). Fires only after the user has
+  /// landed on this tab without ever opening import — see
+  /// `FeatureTipCatalog.recipeImport.sessionThreshold`.
+  void _maybeShowImportTip() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final tip = FeatureTipService.instance
+          .shouldShow(FeatureTipCatalog.recipeImport.id);
+      if (tip == null) return;
+      ElioFeatureTipSheet.show(
+        context,
+        tip,
+        onCta: () => _openImport(initialTab: 0),
+      );
     });
   }
 
@@ -168,6 +190,11 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
   }
 
   Future<void> _openImport({int initialTab = 0}) async {
+    // Sprint 16.8 row 7 — feed the one-time-tip eligibility check. Marking
+    // the feature as used auto-suppresses the catalogue tip so the user
+    // who finds import on their own never sees a redundant explainer.
+    FeatureTipService.instance
+        .markFeatureUsed(FeatureTipCatalog.recipeImport.requiredFeatureEvent);
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RecipeImportScreen(initialTab: initialTab),

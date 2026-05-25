@@ -12,9 +12,12 @@ import '../../services/user_settings_service.dart';
 import '../recipe/recipe_screen.dart';
 import '../../services/analytics_service.dart';
 import '../../services/entitlement_service.dart';
+import '../../services/feature_tip_catalog.dart';
+import '../../services/feature_tip_service.dart';
 import '../../services/shopping_service.dart';
 import '../../utils/friendly_error.dart';
 import '../../utils/snackbar_helpers.dart';
+import '../../widgets/elio/elio_feature_tip_sheet.dart';
 import '../paywall/paywall_screen.dart';
 import '../shopping/shopping_list_screen.dart';
 import '../../utils/quantity_utils.dart';
@@ -127,10 +130,29 @@ class _MealPlanScreenState extends State<MealPlanScreen>
           _plan = savedPlan;
           _dataLoaded = true;
         });
+        _maybeShowShoppingTip();
       }
     } catch (_) {
       if (mounted) setState(() => _dataLoaded = true);
     }
+  }
+
+  /// Sprint 16.8 row 7 — one-time educational pop-up for the "Add to
+  /// shopping list" FAB. Only relevant once a plan exists (the FAB is
+  /// hidden on the empty state), so we gate on `_plan != null`.
+  void _maybeShowShoppingTip() {
+    if (_plan == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _plan == null) return;
+      final tip = FeatureTipService.instance
+          .shouldShow(FeatureTipCatalog.mealPlanToShopping.id);
+      if (tip == null) return;
+      ElioFeatureTipSheet.show(
+        context,
+        tip,
+        onCta: _showAddToShoppingDialog,
+      );
+    });
   }
 
   Future<void> _savePlan() async {
@@ -355,6 +377,9 @@ class _MealPlanScreenState extends State<MealPlanScreen>
 
   Future<void> _showAddToShoppingDialog() async {
     if (_plan == null) return;
+    // Sprint 16.8 row 7 — feed the one-time-tip eligibility check.
+    FeatureTipService.instance.markFeatureUsed(
+        FeatureTipCatalog.mealPlanToShopping.requiredFeatureEvent);
     await _entitlements.refresh();
     if (!mounted) return;
     if (!_entitlements.canUseShoppingList) {
