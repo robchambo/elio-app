@@ -39,6 +39,7 @@ powershell -ExecutionPolicy Bypass -File build.ps1 -sprint <version>
 7. **Worktree merges: diff first, never blind `cp`** — worktrees snapshot main at launch; copying overwrites later changes. Use `git diff main -- <file>`, apply via Edit tool. New files are safe to copy. Files modified by multiple agents need manual merge.
 8. **`.withValues(alpha: x)`** not `.withOpacity(x)`.
 9. **Design: remove friction** — minimal taps, simplicity over completeness.
+10. **Never paste real secrets into tests, fixtures, docs, or comments** — even when copying a verbatim error message. Replace the secret with a format-valid synthetic (e.g. `AIzaSyFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE000` for Google API keys). GitGuardian alerted on a real Gemini key leaked via a test fixture in `fc1c005` on 14 May 2026 — don't repeat it. The `.env.local` / `google-services.json` / iOS plist gitignore list is necessary but not sufficient; this rule covers the source files.
 
 ## Flutter Gotchas (hard-won)
 

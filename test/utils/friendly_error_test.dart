@@ -16,12 +16,13 @@ void main() {
     });
 
     test('matches the ClientException shape Kate captured 14 May', () {
-      // Real message from Rob's 14 May screenshot — verbatim shape
-      // includes the full URL + API key.
+      // Verbatim shape of Rob's 14 May screenshot.
+      // SYNTHETIC KEY ONLY — never paste real secrets into test fixtures
+      // (GitGuardian alerted on a real key here on 14 May 2026).
       const raw =
           "ClientException with SocketFailed host lookup: 'generativelanguage.googleapis.com' "
           "(OS Error: No address associated with hostname, errno = 7), "
-          "uri=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=AIzaSyAWztc3-nC5m3da9PemH9vKs-xivfEOuh0";
+          "uri=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=AIzaSyFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE000";
       final e = Exception(raw);
       expect(friendlyError(e), "You're offline. Reconnect and try again.");
     });
@@ -54,19 +55,20 @@ void main() {
       // Even if a non-network exception somehow embeds the URL,
       // the scrubber should strip the key before display.
       final e = Exception(
-          'Recipe generation failed for https://example.com?key=AIzaSyAWztc3-nC5m3da9');
+          'Recipe generation failed for https://example.com?key=AIzaSyFAKEFAKEFAKE');
       final result = friendlyError(e);
-      expect(result, isNot(contains('AIzaSyAWztc3')));
+      expect(result, isNot(contains('AIzaSyFAKE')));
       expect(result, contains('key=***'));
     });
   });
 
   group('scrubApiKey', () {
     test('strips key=... query parameter', () {
+      // SYNTHETIC KEY ONLY — see note in earlier test.
       const raw =
-          'uri=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=AIzaSyAWztc3-nC5m3da9PemH9vKs-xivfEOuh0';
+          'uri=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=AIzaSyFAKEFAKEFAKEFAKEFAKEFAKEFAKEFAKE000';
       final scrubbed = scrubApiKey(raw);
-      expect(scrubbed, isNot(contains('AIzaSyAWztc3')));
+      expect(scrubbed, isNot(contains('AIzaSyFAKE')));
       expect(scrubbed, contains('&key=***'));
     });
 
@@ -78,9 +80,10 @@ void main() {
     });
 
     test('strips bare AIzaSy tokens even without key= prefix', () {
-      const raw = 'Auth failed for token AIzaSyAWztc3-nC5m3da';
+      // SYNTHETIC KEY ONLY — see note in earlier test.
+      const raw = 'Auth failed for token AIzaSyFAKEFAKEFAKEFAKE';
       final scrubbed = scrubApiKey(raw);
-      expect(scrubbed, isNot(contains('AIzaSyAWztc3')));
+      expect(scrubbed, isNot(contains('AIzaSyFAKE')));
       expect(scrubbed, contains('***'));
     });
 
