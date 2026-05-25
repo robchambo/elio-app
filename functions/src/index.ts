@@ -22,6 +22,11 @@
  */
 
 import {logger} from 'firebase-functions/v2';
+
+// Re-export the orderImport module's functions (generateImportAddress,
+// postmarkInbound, etc.). Cloud Functions deployment picks these up
+// alongside the Crashlytics handlers defined in this file.
+export * from './orderImport';
 import {defineSecret} from 'firebase-functions/params';
 import {
   onNewFatalIssuePublished,
