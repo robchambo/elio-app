@@ -1,0 +1,88 @@
+{
+  "planPath": "docs/superpowers/plans/2026-05-25-online-order-import.md",
+  "notes": "Full task bodies live in native Claude Code tasks (TaskGet IDs 1-10). This file is the cross-session resume manifest. Descriptions below are summaries; the canonical body is in each native task's description (which contains Goal/Files/Acceptance Criteria/Verify/Steps + json:metadata fence).",
+  "tasks": [
+    {
+      "id": 1,
+      "nativeTaskId": "1",
+      "subject": "Task 1: Branch + Firestore rules + indexes for pending_imports",
+      "status": "pending",
+      "description": "Lock down the data-model boundary: server-only pending_imports + importAddress writes; owner can only flip status to applied|discarded. Compound index on (status, receivedAt). See native task #1 for full body."
+    },
+    {
+      "id": 2,
+      "nativeTaskId": "2",
+      "subject": "Task 2: Cloud Function generateImportAddress (callable, idempotent)",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "Callable mints u_<13-char base32>@orders.elio.app per Pro user, writes to user doc, idempotent. See native task #2."
+    },
+    {
+      "id": 3,
+      "nativeTaskId": "3",
+      "subject": "Task 3: Postmark inbound webhook (stub-write only)",
+      "status": "pending",
+      "blockedBy": [1],
+      "description": "HTTPS webhook receives Postmark JSON, validates secret + To: address, dedupes on Message-Id, writes pending_imports stub with status:parsing. See native task #3."
+    },
+    {
+      "id": 4,
+      "nativeTaskId": "4",
+      "subject": "Task 4: Gemini structured-output parser (pure function, fixture-tested)",
+      "status": "pending",
+      "description": "Pure parseOrderEmail() with injectable GeminiClient. Forward-wrapper stripper for Gmail/Apple/Outlook. Schema enforces normalised items. See native task #4."
+    },
+    {
+      "id": 5,
+      "nativeTaskId": "5",
+      "subject": "Task 5: Wire parser into webhook + finalise pending_imports + drop raw bodies",
+      "status": "pending",
+      "blockedBy": [3, 4],
+      "description": "handleInbound() calls parser after stub write; finalises status pending_review|parse_failed; drops rawHtmlBody always, rawTextBody on success. See native task #5."
+    },
+    {
+      "id": 6,
+      "nativeTaskId": "6",
+      "subject": "Task 6: Client — settings row + OrderImportScreen (Pro-gated)",
+      "status": "pending",
+      "blockedBy": [2],
+      "description": "Order import row in settings under Preferences; free→upsell, Pro→OrderImportScreen showing address + Copy/Share. See native task #6."
+    },
+    {
+      "id": 7,
+      "nativeTaskId": "7",
+      "subject": "Task 7: Client — pending_imports stream + pantry-tab dot badge",
+      "status": "pending",
+      "blockedBy": [5],
+      "description": "PendingImport models + OrderImportService.pendingImportsStream() + dot badge on pantry bottom-nav icon. See native task #7."
+    },
+    {
+      "id": 8,
+      "nativeTaskId": "8",
+      "subject": "Task 8: Client — review sheet UI",
+      "status": "pending",
+      "blockedBy": [7],
+      "description": "Bottom sheet: editable items, food default-on / household default-off-collapsed, live Will increment/Will add tag via PantryStringMatch.matchKey, dynamic CTA. See native task #8.",
+      "_unused": "id 9 follows"
+    },
+    {
+      "id": 9,
+      "nativeTaskId": "9",
+      "subject": "Task 9: Client — apply flow (review → InventoryWriter → status applied)",
+      "status": "pending",
+      "blockedBy": [6, 8],
+      "description": "OrderImportService.applyImport/discardImport/currentPantryMatchKeys + PendingImportsScreen host. Writes via InventoryWriter.instance.addItem. See native task #9."
+    },
+    {
+      "id": 10,
+      "nativeTaskId": "10",
+      "subject": "Task 10: USER-GATE — end-to-end real-email verification",
+      "status": "pending",
+      "blockedBy": [9],
+      "userGate": true,
+      "tags": ["user-gate"],
+      "description": "Manual E2E: forward a real grocery email, observe pending_imports doc, apply via sheet, verify inventory. 5 captured screenshots committed to docs/superpowers/evidence/. See native task #10 for the full banner + acceptance criteria."
+    }
+  ],
+  "lastUpdated": "2026-05-25T00:00:00Z"
+}
