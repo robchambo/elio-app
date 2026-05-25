@@ -30,6 +30,10 @@ service cloud.firestore {
     function sub(data) {
       return data.get('subscription', {});
     }
+    function importAddressUnchanged() {
+      return request.resource.data.get('importAddress', '')
+          == resource.data.get('importAddress', '');
+    }
     // Protected subscription keys must never change via a client write.
     function protectedSubKeysUnchanged() {
       return sub(request.resource.data).get('tier', 'free')
@@ -62,7 +66,9 @@ service cloud.firestore {
     match /users/{uid} {
       allow read:   if isOwner(uid);
       allow create: if isOwner(uid) && initialSubscriptionSafe();
-      allow update: if isOwner(uid) && protectedSubKeysUnchanged();
+      allow update: if isOwner(uid)
+        && protectedSubKeysUnchanged()
+        && importAddressUnchanged();
       allow delete: if isOwner(uid); // self-serve account deletion (GDPR)
 
       // ── Allowed sub-collections (owner read/write) ─────────────────
@@ -75,6 +81,18 @@ service cloud.firestore {
       match /tierMemory/{id}    { allow read, write: if isOwner(uid); }
       match /customItems/{id}   { allow read, write: if isOwner(uid); }
       match /fcmTokens/{id}     { allow read, write: if isOwner(uid); }
+
+      // ── pending_imports — server-written, owner-readable, owner can
+      // only flip status to applied|discarded. Created and deleted only
+      // by Admin SDK (Postmark webhook → Cloud Function).
+      match /pending_imports/{id} {
+        allow read: if isOwner(uid);
+        allow create, delete: if false;  // server-only via Admin SDK
+        allow update: if isOwner(uid)
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['status'])
+          && request.resource.data.status in ['applied', 'discarded'];
+      }
     }
 
     // Default deny for anything not explicitly allowed above.
