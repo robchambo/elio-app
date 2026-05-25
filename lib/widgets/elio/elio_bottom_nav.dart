@@ -18,11 +18,17 @@ class ElioBottomNav extends StatelessWidget {
   /// Firebase.
   final Stream<List<PendingImport>>? pendingImportsStream;
 
+  /// Task 9: tapping the pantry tab while the badge is visible routes
+  /// to the PendingImportsScreen instead of switching tabs normally.
+  /// When null (or no badge), the tab tap behaves the standard way.
+  final VoidCallback? onPendingImportsBadgeTap;
+
   const ElioBottomNav({
     super.key,
     required this.active,
     required this.onTap,
     this.pendingImportsStream,
+    this.onPendingImportsBadgeTap,
   });
 
   @override
@@ -53,7 +59,12 @@ class ElioBottomNav extends StatelessWidget {
                     // Subscribes the pantry tab to the pending_imports
                     // stream so a freshly-parsed inbound order grows a
                     // dot until the user reviews + applies it.
-                    badgeStream: pendingImportsStream),
+                    badgeStream: pendingImportsStream,
+                    // Task 9: when the badge is visible, tapping the
+                    // pantry tab pushes the PendingImportsScreen instead
+                    // of switching tabs. Falls through to the normal
+                    // tab tap when no callback is supplied.
+                    onBadgeTap: onPendingImportsBadgeTap),
                 _NavItem(icon: Icons.menu_book_outlined, label: 'RECIPES',
                     active: active == ElioNavTab.recipes, onTap: () => onTap(ElioNavTab.recipes)),
                 _NavItem(icon: Icons.checklist_outlined, label: 'SHOPPING LIST',
@@ -78,80 +89,101 @@ class _NavItem extends StatelessWidget {
   /// is non-empty. Only the pantry tab opts in today (pending_imports).
   final Stream<List<PendingImport>>? badgeStream;
 
+  /// Task 9: when supplied AND the badge is visible, the tab's tap
+  /// dispatch swaps from [onTap] to this — so a tap on the pantry tab
+  /// with pending imports pushes the inbox screen instead of switching
+  /// tabs. When null, behaves the normal way.
+  final VoidCallback? onBadgeTap;
+
   const _NavItem({
     required this.icon,
     required this.label,
     required this.active,
     required this.onTap,
     this.badgeStream,
+    this.onBadgeTap,
   });
 
-  Widget _iconWithBadge(Color fg) {
-    final iconWidget = Icon(icon, color: fg, size: 20);
-    if (badgeStream == null) return iconWidget;
-    return StreamBuilder<List<PendingImport>>(
-      stream: badgeStream,
-      builder: (_, snap) {
-        final hasPending = snap.data?.isNotEmpty ?? false;
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            iconWidget,
-            if (hasPending)
-              const Positioned(
-                right: -2,
-                top: -2,
-                child: SizedBox(
-                  width: 7,
-                  height: 7,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: ElioColors.terracotta,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
+  Widget _iconOnly(Color fg) => Icon(icon, color: fg, size: 20);
+
+  Widget _iconWithDot(Color fg) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        _iconOnly(fg),
+        const Positioned(
+          right: -2,
+          top: -2,
+          child: SizedBox(
+            width: 7,
+            height: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: ElioColors.terracotta,
+                shape: BoxShape.circle,
               ),
-          ],
-        );
-      },
+            ),
+          ),
+        ),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final fg = active ? ElioColors.espresso : ElioColors.mocha;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: ElioRadii.all(24),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _iconWithBadge(fg),
-            const SizedBox(height: 4),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: ElioTextStyles.tabLabelStyle.copyWith(color: fg)),
-            const SizedBox(height: 4),
-            // Active-tab tick — small terracotta underline below the label.
-            // SizedBox keeps the row vertical metrics stable on idle tabs.
-            SizedBox(
-              height: 2,
-              width: 18,
-              child: active
-                  ? const DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: ElioColors.terracotta,
-                        borderRadius: BorderRadius.all(Radius.circular(1)),
-                      ),
-                    )
-                  : null,
-            ),
-          ],
+
+    Widget buildBody({required bool hasPending}) {
+      // When the badge is visible AND onBadgeTap is supplied, dispatch
+      // the tap to the badge handler (pushes PendingImportsScreen)
+      // instead of switching tabs. Otherwise normal tab tap.
+      final effectiveOnTap =
+          (hasPending && onBadgeTap != null) ? onBadgeTap! : onTap;
+      return InkWell(
+        onTap: effectiveOnTap,
+        borderRadius: ElioRadii.all(24),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              hasPending ? _iconWithDot(fg) : _iconOnly(fg),
+              const SizedBox(height: 4),
+              Text(label,
+                  textAlign: TextAlign.center,
+                  style: ElioTextStyles.tabLabelStyle.copyWith(color: fg)),
+              const SizedBox(height: 4),
+              // Active-tab tick — small terracotta underline below the
+              // label. SizedBox keeps the row vertical metrics stable on
+              // idle tabs.
+              SizedBox(
+                height: 2,
+                width: 18,
+                child: active
+                    ? const DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: ElioColors.terracotta,
+                          borderRadius:
+                              BorderRadius.all(Radius.circular(1)),
+                        ),
+                      )
+                    : null,
+              ),
+            ],
+          ),
         ),
-      ),
+      );
+    }
+
+    if (badgeStream == null) {
+      return buildBody(hasPending: false);
+    }
+    return StreamBuilder<List<PendingImport>>(
+      stream: badgeStream,
+      builder: (_, snap) {
+        final hasPending = snap.data?.isNotEmpty ?? false;
+        return buildBody(hasPending: hasPending);
+      },
     );
   }
 }

@@ -13,6 +13,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:elio_app/models/pending_import.dart';
 import 'package:elio_app/screens/account/order_import_screen.dart';
 import 'package:elio_app/services/order_import_service.dart';
+import 'package:elio_app/widgets/order_import_review_sheet.dart';
 
 class _FakeOrderImportService implements OrderImportService {
   _FakeOrderImportService({this.error});
@@ -32,6 +33,18 @@ class _FakeOrderImportService implements OrderImportService {
   @override
   Stream<List<PendingImport>> pendingImportsStream() =>
       Stream.value(const <PendingImport>[]);
+
+  // Task 9 added these — OrderImportScreen doesn't touch them. No-op
+  // stubs keep the interface honest without leaking apply-flow logic
+  // into this widget's tests.
+  @override
+  Future<void> applyImport(String importId, List<ApplyItem> items) async {}
+
+  @override
+  Future<void> discardImport(String importId) async {}
+
+  @override
+  Future<Set<String>> currentPantryMatchKeys() async => const <String>{};
 }
 
 void main() {

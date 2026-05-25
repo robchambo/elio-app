@@ -19,6 +19,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/pending_import.dart';
+import '../widgets/order_import_review_sheet.dart' show ApplyItem;
+import 'inventory_writer.dart';
 
 /// Abstract seam — widget tests use a `FakeOrderImportService`.
 abstract class OrderImportService {
@@ -33,6 +35,28 @@ abstract class OrderImportService {
   /// `status: pending_review`, newest first. Drives the pantry-tab
   /// dot badge (Task 7) and the inbox host screen (Task 9).
   Stream<List<PendingImport>> pendingImportsStream();
+
+  /// Apply a reviewed pending import. Writes each selected item via
+  /// [InventoryWriter.instance.addItem] (dedup-aware; runs the lazy
+  /// migration if needed), then flips
+  /// `users/{uid}/pending_imports/{importId}.status` to `'applied'`.
+  ///
+  /// Safety: items are written FIRST, status flips ONLY after all
+  /// writes succeed. If any `addItem` throws partway, status stays
+  /// `pending_review` and the exception propagates to the caller —
+  /// the user can retry without losing the already-written items
+  /// (the dedup logic absorbs the repeat).
+  Future<void> applyImport(String importId, List<ApplyItem> items);
+
+  /// Discard a pending import. Flips its status to `'discarded'`
+  /// with NO inventory writes.
+  Future<void> discardImport(String importId);
+
+  /// Reads the current user's `users/{uid}/inventory` once and
+  /// returns the set of `matchKey` values present (empties dropped).
+  /// Used by the review sheet to prefetch `existingMatchKeys` so
+  /// each row can render `Will add` vs `Will increment`.
+  Future<Set<String>> currentPantryMatchKeys();
 }
 
 /// Production implementation — talks to Firestore + Cloud Functions.
@@ -87,5 +111,58 @@ class FirebaseOrderImportService implements OrderImportService {
         .orderBy('receivedAt', descending: true)
         .snapshots()
         .map((s) => s.docs.map(PendingImport.fromDoc).toList());
+  }
+
+  @override
+  Future<void> applyImport(String importId, List<ApplyItem> items) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw StateError('Sign in to apply an order import.');
+    }
+    // Write ALL items first. If any throws, status stays pending_review
+    // so the user can retry the same pending_imports doc — dedup in
+    // InventoryWriter absorbs the already-written items on the retry.
+    for (final it in items) {
+      await InventoryWriter.instance.addItem(
+        name: it.name,
+        tier: it.tier,
+        category: it.category,
+      );
+    }
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('pending_imports')
+        .doc(importId)
+        .update({'status': 'applied'});
+  }
+
+  @override
+  Future<void> discardImport(String importId) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      throw StateError('Sign in to discard an order import.');
+    }
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('pending_imports')
+        .doc(importId)
+        .update({'status': 'discarded'});
+  }
+
+  @override
+  Future<Set<String>> currentPantryMatchKeys() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return <String>{};
+    final snap = await _db
+        .collection('users')
+        .doc(uid)
+        .collection('inventory')
+        .get();
+    return snap.docs
+        .map((d) => (d.data()['matchKey'] as String?) ?? '')
+        .where((k) => k.isNotEmpty)
+        .toSet();
   }
 }
