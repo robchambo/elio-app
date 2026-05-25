@@ -1,5 +1,6 @@
 // lib/widgets/elio/elio_bottom_nav.dart
 import 'package:flutter/material.dart';
+import '../../models/pending_import.dart';
 import '../../theme/elio_theme.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_text_styles.dart';
@@ -10,7 +11,19 @@ class ElioBottomNav extends StatelessWidget {
   final ElioNavTab active;
   final ValueChanged<ElioNavTab> onTap;
 
-  const ElioBottomNav({super.key, required this.active, required this.onTap});
+  /// Optional stream of pending imports to drive the pantry-tab dot
+  /// badge. When omitted, falls back to
+  /// `FirebaseOrderImportService().pendingImportsStream()`. Injectable
+  /// so widget tests can pass a controlled stream without touching
+  /// Firebase.
+  final Stream<List<PendingImport>>? pendingImportsStream;
+
+  const ElioBottomNav({
+    super.key,
+    required this.active,
+    required this.onTap,
+    this.pendingImportsStream,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +45,15 @@ class ElioBottomNav extends StatelessWidget {
               children: [
                 _NavItem(icon: Icons.home_outlined, label: 'HOME',
                     active: active == ElioNavTab.home, onTap: () => onTap(ElioNavTab.home)),
-                _NavItem(icon: Icons.kitchen_outlined, label: 'PANTRY',
-                    active: active == ElioNavTab.pantry, onTap: () => onTap(ElioNavTab.pantry)),
+                _NavItem(
+                    icon: Icons.kitchen_outlined,
+                    label: 'PANTRY',
+                    active: active == ElioNavTab.pantry,
+                    onTap: () => onTap(ElioNavTab.pantry),
+                    // Subscribes the pantry tab to the pending_imports
+                    // stream so a freshly-parsed inbound order grows a
+                    // dot until the user reviews + applies it.
+                    badgeStream: pendingImportsStream),
                 _NavItem(icon: Icons.menu_book_outlined, label: 'RECIPES',
                     active: active == ElioNavTab.recipes, onTap: () => onTap(ElioNavTab.recipes)),
                 _NavItem(icon: Icons.checklist_outlined, label: 'SHOPPING LIST',
@@ -53,7 +73,50 @@ class _NavItem extends StatelessWidget {
   final bool active;
   final VoidCallback onTap;
 
-  const _NavItem({required this.icon, required this.label, required this.active, required this.onTap});
+  /// When non-null, the tab icon is wrapped in a StreamBuilder that
+  /// renders a small red dot at the top-right when the latest emission
+  /// is non-empty. Only the pantry tab opts in today (pending_imports).
+  final Stream<List<PendingImport>>? badgeStream;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.badgeStream,
+  });
+
+  Widget _iconWithBadge(Color fg) {
+    final iconWidget = Icon(icon, color: fg, size: 20);
+    if (badgeStream == null) return iconWidget;
+    return StreamBuilder<List<PendingImport>>(
+      stream: badgeStream,
+      builder: (_, snap) {
+        final hasPending = snap.data?.isNotEmpty ?? false;
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            iconWidget,
+            if (hasPending)
+              const Positioned(
+                right: -2,
+                top: -2,
+                child: SizedBox(
+                  width: 7,
+                  height: 7,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: ElioColors.terracotta,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +129,7 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: fg, size: 20),
+            _iconWithBadge(fg),
             const SizedBox(height: 4),
             Text(label,
                 textAlign: TextAlign.center,

@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:elio_app/models/pending_import.dart';
 import 'package:elio_app/screens/account/order_import_screen.dart';
 import 'package:elio_app/services/order_import_service.dart';
 
@@ -24,6 +25,13 @@ class _FakeOrderImportService implements OrderImportService {
     if (error != null) throw error!;
     return 'u_test1234abcde@orders.elio.app';
   }
+
+  // Task 7 added this to the seam — OrderImportScreen doesn't use it,
+  // but the interface requires it. Emit empty so any future smoke
+  // test of the broader nav doesn't trip.
+  @override
+  Stream<List<PendingImport>> pendingImportsStream() =>
+      Stream.value(const <PendingImport>[]);
 }
 
 void main() {

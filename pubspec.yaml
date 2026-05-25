@@ -78,6 +78,8 @@ dev_dependencies:
   firebase_core_platform_interface: ^6.0.0
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
+  fake_cloud_firestore: ^3.1.0
+  firebase_auth_mocks: ^0.14.2
 # Launcher-icon config lives in `flutter_launcher_icons.yaml`, not here.
 # Run `flutter pub run flutter_launcher_icons` after editing the source
 # PNG at `assets/icon/app_icon.png` to regenerate platform mipmaps.

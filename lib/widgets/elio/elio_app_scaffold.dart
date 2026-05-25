@@ -1,5 +1,6 @@
 // lib/widgets/elio/elio_app_scaffold.dart
 import 'package:flutter/material.dart';
+import '../../services/order_import_service.dart';
 import '../../theme/elio_theme.dart';
 import 'elio_backdrop_illustration.dart';
 import 'elio_bottom_nav.dart';
@@ -45,7 +46,15 @@ class ElioAppScaffold extends StatelessWidget {
         ),
       ),
       bottomNavigationBar: hasNav
-          ? ElioBottomNav(active: activeTab!, onTap: onTabChanged!)
+          ? ElioBottomNav(
+              active: activeTab!,
+              onTap: onTabChanged!,
+              // Pantry-tab dot badge for pending order imports.
+              // Default-wires the production service; widget tests
+              // that mount ElioBottomNav directly can override.
+              pendingImportsStream:
+                  FirebaseOrderImportService().pendingImportsStream(),
+            )
           : null,
     );
   }
