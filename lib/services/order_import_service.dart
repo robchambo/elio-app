@@ -24,7 +24,7 @@ import 'inventory_writer.dart';
 
 /// Abstract seam — widget tests use a `FakeOrderImportService`.
 abstract class OrderImportService {
-  /// Returns the user's `u_<token>@orders.elio.app` import address.
+  /// Returns the user's `u_<token>@orders.eliochef.com` import address.
   ///
   /// Reads `users/{uid}.importAddress` first; only calls the
   /// `generateImportAddress` callable on a cache miss. Subsequent

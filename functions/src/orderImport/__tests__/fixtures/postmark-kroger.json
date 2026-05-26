@@ -1,7 +1,7 @@
 {
   "FromName": "Kroger",
   "From": "donotreply@kroger.com",
-  "To": "u_abc123xyz4567@orders.elio.app",
+  "To": "u_abc123xyz4567@orders.eliochef.com",
   "Subject": "Your Kroger order — receipt",
   "MessageID": "abc-message-id-001",
   "Date": "2026-05-25T14:32:00Z",

@@ -15,7 +15,7 @@
       "subject": "Task 2: Cloud Function generateImportAddress (callable, idempotent)",
       "status": "pending",
       "blockedBy": [1],
-      "description": "Callable mints u_<13-char base32>@orders.elio.app per Pro user, writes to user doc, idempotent. See native task #2."
+      "description": "Callable mints u_<13-char base32>@orders.eliochef.com per Pro user, writes to user doc, idempotent. See native task #2."
     },
     {
       "id": 3,

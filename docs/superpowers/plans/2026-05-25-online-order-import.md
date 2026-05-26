@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers-extended-cc:subagent-driven-development (recommended) or superpowers-extended-cc:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Pro users forward an order-confirmation email to a per-user `@orders.elio.app` address. A Cloud Function parses it with Gemini, writes a `pending_imports` doc, and a Flutter review sheet lets the user approve items into the pantry via the existing `InventoryWriter`.
+**Goal:** Pro users forward an order-confirmation email to a per-user `@orders.eliochef.com` address. A Cloud Function parses it with Gemini, writes a `pending_imports` doc, and a Flutter review sheet lets the user approve items into the pantry via the existing `InventoryWriter`.
 
 **Architecture:** Postmark Inbound → Cloud Function `postmarkInbound` (validates + idempotency + persists stub) → Cloud Function `parseOrderEmail` (Gemini structured-output, normalised items) → Firestore `users/{uid}/pending_imports/{id}` → Flutter stream → review sheet → `InventoryWriter.addItem` per checked item → mark applied. Matcher lives client-side only (no Dart→TS port).
 
@@ -166,7 +166,7 @@ status from pending_review to applied|discarded. Compound index on
 
 ## Task 2: Cloud Function — `generateImportAddress` (callable)
 
-**Goal:** A Flutter client calls this once; it mints a 64-bit token (base32, lowercase), writes `users/{uid}.importAddress = "u_<token>@orders.elio.app"` via Admin SDK, returns the address. Idempotent — re-calls return the existing address.
+**Goal:** A Flutter client calls this once; it mints a 64-bit token (base32, lowercase), writes `users/{uid}.importAddress = "u_<token>@orders.eliochef.com"` via Admin SDK, returns the address. Idempotent — re-calls return the existing address.
 
 **Files:**
 - Create: `functions/src/orderImport/generateImportAddress.ts`
@@ -233,7 +233,7 @@ describe('generateImportAddress', () => {
     );
   });
 
-  it('mints a u_<13chars>@orders.elio.app address on first call', async () => {
+  it('mints a u_<13chars>@orders.eliochef.com address on first call', async () => {
     const wrapped = test.wrap(generateImportAddress);
     const res = await wrapped({auth: {uid: 'user-1'}} as never);
     assert.match(res.address, /^u_[a-z0-9]{13}@orders\.elio\.app$/);
@@ -287,7 +287,7 @@ export const generateImportAddress = onCall(async (req) => {
   const snap = await ref.get();
   const existing = snap.get('importAddress') as string | undefined;
   if (existing) return {address: existing};
-  const address = `u_${mintToken()}@orders.elio.app`;
+  const address = `u_${mintToken()}@orders.eliochef.com`;
   await ref.set({importAddress: address}, {merge: true});
   return {address};
 });
@@ -318,7 +318,7 @@ Expected: PASS (3 tests).
 git add functions/
 git commit -m "feat(functions): generateImportAddress callable
 
-Mints a 65-bit base32 token per Pro user (u_<13chars>@orders.elio.app),
+Mints a 65-bit base32 token per Pro user (u_<13chars>@orders.eliochef.com),
 stores it on users/{uid}.importAddress via Admin SDK, idempotent on
 re-call. This is the auth boundary for inbound order emails — clients
 can only read this field (Firestore rules from Task 1)."
@@ -338,7 +338,7 @@ can only read this field (Firestore rules from Task 1)."
 
 **Acceptance Criteria:**
 - [ ] Rejects requests missing the Postmark webhook secret header → 401
-- [ ] Rejects To: addresses not matching `u_<token>@orders.elio.app` → 200 with `{ignored: true}` (we accept the email so Postmark stops retrying, but no-op)
+- [ ] Rejects To: addresses not matching `u_<token>@orders.eliochef.com` → 200 with `{ignored: true}` (we accept the email so Postmark stops retrying, but no-op)
 - [ ] Writes one `pending_imports` doc with `status: parsing`, `retailer: detected-or-unknown`, `receivedAt: serverTimestamp()`, `idempotencyKey: sha256(Message-Id)`
 - [ ] Duplicate Message-Id → no second write; returns `{duplicate: true}`
 - [ ] Postmark webhook secret pulled from `POSTMARK_INBOUND_SECRET` via `defineSecret`
@@ -358,7 +358,7 @@ Create `functions/src/orderImport/__tests__/fixtures/postmark-kroger.json` from 
 {
   "FromName": "Kroger",
   "From": "donotreply@kroger.com",
-  "To": "u_abc123xyz4567@orders.elio.app",
+  "To": "u_abc123xyz4567@orders.eliochef.com",
   "Subject": "Your Kroger order — receipt",
   "MessageID": "abc-message-id-001",
   "Date": "2026-05-25T14:32:00Z",
@@ -387,7 +387,7 @@ before(async () => {
   admin.initializeApp({projectId: 'demo-elio'});
   // Seed a user doc with the address from the fixture
   await admin.firestore().collection('users').doc('user-1').set({
-    importAddress: 'u_abc123xyz4567@orders.elio.app',
+    importAddress: 'u_abc123xyz4567@orders.eliochef.com',
   });
   ({postmarkInbound} = await import('../postmarkInbound'));
 });
@@ -419,7 +419,7 @@ describe('postmarkInbound', () => {
   it('ignores unknown To addresses with 200', async () => {
     const res = mockRes();
     await postmarkInbound(
-      mockReq({...FIXTURE, To: 'u_unknown@orders.elio.app'}),
+      mockReq({...FIXTURE, To: 'u_unknown@orders.eliochef.com'}),
       res,
     );
     assert.equal(res.status, 200);
@@ -1111,7 +1111,7 @@ class FakeOrderImportService implements OrderImportService {
   @override
   Future<String> ensureImportAddress() async {
     called = true;
-    return next ?? 'u_test1234abcde@orders.elio.app';
+    return next ?? 'u_test1234abcde@orders.eliochef.com';
   }
 }
 
@@ -1120,7 +1120,7 @@ void main() {
     final svc = FakeOrderImportService();
     await t.pumpWidget(MaterialApp(home: OrderImportScreen(service: svc)));
     await t.pumpAndSettle();
-    expect(find.textContaining('u_test1234abcde@orders.elio.app'), findsOneWidget);
+    expect(find.textContaining('u_test1234abcde@orders.eliochef.com'), findsOneWidget);
     expect(find.text('Copy'), findsOneWidget);
     expect(svc.called, isTrue);
   });
@@ -1928,7 +1928,7 @@ opens the review sheet."
 **Acceptance Criteria:**
 - [ ] Dev environment Postmark inbound server is provisioned, with the inbound stream pointed at the deployed `postmarkInbound` function (`firebase deploy --only functions:postmarkInbound`)
 - [ ] `GEMINI_API_KEY` and `POSTMARK_INBOUND_SECRET` secrets set via `firebase functions:secrets:set`
-- [ ] DNS MX records for `orders.elio.app` (or a dev subdomain like `orders-dev.elio.app`) point to Postmark per their setup docs
+- [ ] DNS MX records for `orders.eliochef.com` (or a dev subdomain like `orders-dev.elio.app`) point to Postmark per their setup docs
 - [ ] A signed-in Pro test user generates an import address via the in-app screen — captured in evidence
 - [ ] A real order confirmation email is forwarded from a real Gmail/Apple Mail to that address — captured in evidence (sender + subject)
 - [ ] Within ≤60s, a `pending_imports` doc appears in Firestore with `status: pending_review` and ≥1 parsed item — captured (Firestore screenshot OR `gcloud firestore` query output)
@@ -1959,9 +1959,9 @@ firebase functions:secrets:set POSTMARK_INBOUND_SECRET
 firebase deploy --only functions:generateImportAddress,functions:postmarkInbound
 ```
 
-- [ ] **Step 3: DNS — point orders.elio.app MX records at Postmark**
+- [ ] **Step 3: DNS — point orders.eliochef.com MX records at Postmark**
 
-Add the MX records per Postmark's docs (`inbound.postmarkapp.com.` priority 10). Verify with `dig MX orders.elio.app`. If using a dev subdomain (`orders-dev.elio.app`), update the address format in `generateImportAddress.ts` for the dev build.
+Add the MX records per Postmark's docs (`inbound.postmarkapp.com.` priority 10). Verify with `dig MX orders.eliochef.com`. If using a dev subdomain (`orders-dev.elio.app`), update the address format in `generateImportAddress.ts` for the dev build.
 
 - [ ] **Step 4: Generate an address in the app**
   - Build a dev variant of the app pointing at the dev Firebase project.

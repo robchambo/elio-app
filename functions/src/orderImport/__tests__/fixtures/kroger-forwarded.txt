@@ -1,5 +1,5 @@
 From: Rob <rob@example.com>
-To: u_abc123xyz4567@orders.elio.app
+To: u_abc123xyz4567@orders.eliochef.com
 Subject: Fwd: Your Kroger order — receipt
 Date: Mon, 25 May 2026 14:35:00 -0700
 

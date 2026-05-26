@@ -513,7 +513,7 @@ class _AccountScreenState extends State<AccountScreen> {
   // ─── Order import (Pro-gated) ─────────────────────────────────────
 
   /// Sprint 17 — settings → order import. Pro users push the screen
-  /// that fetches their `u_<token>@orders.elio.app` address. Free
+  /// that fetches their `u_<token>@orders.eliochef.com` address. Free
   /// users get the same PaywallScreen used by every other locked-
   /// feature gate (see `_showProRequiredSnack` in meal_plan_screen).
   Future<void> _openOrderImport() async {

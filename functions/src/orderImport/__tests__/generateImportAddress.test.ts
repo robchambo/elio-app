@@ -110,7 +110,7 @@ beforeEach(() => {
   STORE.autoId = 0;
 });
 
-const ADDRESS_RE = /^u_[a-z2-7]{13}@orders\.elio\.app$/;
+const ADDRESS_RE = /^u_[a-z2-7]{13}@orders\.eliochef\.com$/;
 
 describe('generateImportAddress', () => {
   it('rejects unauthenticated calls', async () => {
@@ -126,7 +126,7 @@ describe('generateImportAddress', () => {
     );
   });
 
-  it('mints a u_<13chars>@orders.elio.app address on first call', async () => {
+  it('mints a u_<13chars>@orders.eliochef.com address on first call', async () => {
     const wrapped = testEnv.wrap(generateImportAddress);
     const res = await wrapped({auth: {uid: 'user-1'}});
     assert.match(res.address, ADDRESS_RE);

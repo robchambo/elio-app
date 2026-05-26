@@ -26,7 +26,7 @@ export const generateImportAddress = onCall(async (req) => {
   const snap = await ref.get();
   const existing = snap.data()?.importAddress as string | undefined;
   if (existing) return {address: existing};
-  const address = `u_${mintToken()}@orders.elio.app`;
+  const address = `u_${mintToken()}@orders.eliochef.com`;
   await ref.set({importAddress: address}, {merge: true});
   return {address};
 });

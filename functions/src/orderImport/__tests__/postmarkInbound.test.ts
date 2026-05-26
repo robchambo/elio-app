@@ -228,7 +228,7 @@ beforeEach(async () => {
   STORE.docs.clear();
   STORE.autoId = 0;
   await admin.firestore().collection('users').doc('user-1').set({
-    importAddress: 'u_abc123xyz4567@orders.elio.app',
+    importAddress: 'u_abc123xyz4567@orders.eliochef.com',
   });
 });
 
@@ -245,7 +245,7 @@ describe('postmarkInbound (handleInbound)', () => {
 
   it('ignores unknown To addresses with 200', async () => {
     const r = await handleInbound(
-      {...FIXTURE, To: 'u_unknown@orders.elio.app'},
+      {...FIXTURE, To: 'u_unknown@orders.eliochef.com'},
       SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
     assert.equal(r.status, 200);
     assert.deepEqual(r.body, {ignored: true});

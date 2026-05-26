@@ -24,7 +24,7 @@ class _FakeOrderImportService implements OrderImportService {
   Future<String> ensureImportAddress() async {
     calls += 1;
     if (error != null) throw error!;
-    return 'u_test1234abcde@orders.elio.app';
+    return 'u_test1234abcde@orders.eliochef.com';
   }
 
   // Task 7 added this to the seam — OrderImportScreen doesn't use it,
@@ -54,7 +54,7 @@ void main() {
     await t.pumpAndSettle();
 
     expect(
-      find.textContaining('u_test1234abcde@orders.elio.app'),
+      find.textContaining('u_test1234abcde@orders.eliochef.com'),
       findsOneWidget,
     );
     expect(find.text('Copy'), findsOneWidget);
