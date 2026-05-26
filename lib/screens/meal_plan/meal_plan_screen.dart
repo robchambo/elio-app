@@ -140,8 +140,14 @@ class _MealPlanScreenState extends State<MealPlanScreen>
   /// Sprint 16.8 row 7 — one-time educational pop-up for the "Add to
   /// shopping list" FAB. Only relevant once a plan exists (the FAB is
   /// hidden on the empty state), so we gate on `_plan != null`.
-  void _maybeShowShoppingTip() {
+  ///
+  /// Awaits `ensureFreshFromFirestore` so cross-device seenTips state has
+  /// a chance to load before we decide whether to show the tip — without
+  /// this, the tip would fire on Device 2 even if dismissed on Device 1.
+  Future<void> _maybeShowShoppingTip() async {
     if (_plan == null) return;
+    await FeatureTipService.instance.ensureFreshFromFirestore();
+    if (!mounted || _plan == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _plan == null) return;
       final tip = FeatureTipService.instance

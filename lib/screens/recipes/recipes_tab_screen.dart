@@ -106,7 +106,15 @@ class _RecipesTabScreenState extends State<RecipesTabScreen>
   /// bento cards (Photo / URL / Manual). Fires only after the user has
   /// landed on this tab without ever opening import — see
   /// `FeatureTipCatalog.recipeImport.sessionThreshold`.
-  void _maybeShowImportTip() {
+  ///
+  /// Awaits `ensureFreshFromFirestore` first so a tip dismissed on another
+  /// device (or earlier reinstall on this device, same Google account)
+  /// doesn't re-fire here just because the post-sign-in refresh hadn't
+  /// finished by the time the tab mounted. Bounded by a 3s soft timeout
+  /// inside the service.
+  Future<void> _maybeShowImportTip() async {
+    await FeatureTipService.instance.ensureFreshFromFirestore();
+    if (!mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final tip = FeatureTipService.instance

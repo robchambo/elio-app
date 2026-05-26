@@ -53,7 +53,12 @@ class FeatureTipService extends ChangeNotifier {
             // mirror is per-device, which is the right grain for "don't
             // bug me again on this phone".
           } else {
-            unawaited(_refreshFromFirestore());
+            // Kick off a fresh Firestore read. Stored on the public
+            // `_pendingRefresh` field so screens can await it via
+            // `ensureFreshFromFirestore()` before deciding whether to
+            // show a tip — without that await, the tip fires on Device 2
+            // before the cross-device seenTips map has finished loading.
+            unawaited(_startRefresh());
           }
         },
         onError: (_) {},
@@ -83,6 +88,13 @@ class FeatureTipService extends ChangeNotifier {
   bool _prefsLoaded = false;
   StreamSubscription<User?>? _authSub;
 
+  /// Future that completes when the most-recent Firestore refresh finishes.
+  /// `null` when no refresh has ever been requested. Screens that gate on
+  /// cross-device seen-state await this via [ensureFreshFromFirestore]
+  /// before invoking [shouldShow] so a tip dismissed on Device 1 doesn't
+  /// re-fire on Device 2 because the refresh was still in-flight.
+  Future<void>? _pendingRefresh;
+
   static String _seenKey(String tipId) => 'seen_tip_$tipId';
   static String _usedKey(String featureId) => 'feature_used_$featureId';
 
@@ -107,6 +119,36 @@ class FeatureTipService extends ChangeNotifier {
   }
 
   bool hasSeen(String tipId) => _seen[tipId] == true;
+
+  /// Await the in-flight Firestore refresh, kicking one off if none is
+  /// pending and the user is signed in. Bounded by a soft timeout so a
+  /// slow network never delays a tip-show by more than [timeout]; on
+  /// timeout the screen falls back to whatever seen-state is in the local
+  /// cache (worst case: tip fires once on a new device, then is marked
+  /// seen on dismissal and stays seen everywhere thereafter).
+  ///
+  /// Call this immediately before [shouldShow] on any screen where the
+  /// catalogue tip targets a cross-device feature.
+  Future<void> ensureFreshFromFirestore({
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    if (Platform.environment.containsKey('FLUTTER_TEST')) return;
+    String? uid;
+    try {
+      uid = FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      return;
+    }
+    if (uid == null) return;
+    _pendingRefresh ??= _startRefresh();
+    try {
+      await _pendingRefresh!.timeout(timeout);
+    } catch (_) {
+      // Timeout or refresh error — fall through with whatever local
+      // seen-state we have. The next refresh attempt (triggered by the
+      // next auth-state event or the next call here) gets a clean slot.
+    }
+  }
 
   /// Returns the tip definition if eligible to show right now, else null.
   /// Increments the per-tip session view counter as a side effect, so
@@ -187,6 +229,18 @@ class FeatureTipService extends ChangeNotifier {
     }
   }
 
+  /// Wraps [_refreshFromFirestore] so [_pendingRefresh] is cleared once
+  /// the read completes — keeping the field a useful "is anyone currently
+  /// reading?" signal rather than a stale resolved future.
+  Future<void> _startRefresh() {
+    late final Future<void> f;
+    f = _refreshFromFirestore().whenComplete(() {
+      if (identical(_pendingRefresh, f)) _pendingRefresh = null;
+    });
+    _pendingRefresh = f;
+    return f;
+  }
+
   Future<void> _refreshFromFirestore() async {
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -220,6 +274,7 @@ class FeatureTipService extends ChangeNotifier {
     _used.clear();
     _sessionViews.clear();
     _prefsLoaded = false;
+    _pendingRefresh = null;
   }
 
   @override
