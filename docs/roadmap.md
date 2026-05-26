@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 19 May 2026 (added v1.2 row: cloud-sync saved recipes — local-only `HistoryService` doesn't survive reinstall / clear-data / new device.)
+**Last updated:** 26 May 2026 (Sprint 16.8 row 7 flipped to ⚠️ Infrastructure shipped — generic `FeatureTipService` landed on `main` via PRs #8 + #9 with 2 pilot tips; email-import-specific tip catalogue entry deferred until that vendor work lands. Added P2 v1.1 row: feature-tip polish + Style B spotlight + catalogue expansion.)
 
 **Active branch:** `sprint/16-integration` — main integration line. Topic branch `fix/flash-lite-streaming` (1 commit ahead) ready to merge.
 **Pushed to origin:** through `041a915` on `sprint/16-integration`; `c58c924` pushed on `fix/flash-lite-streaming` after on-device sign-off.
@@ -531,7 +531,7 @@ Capture here so they don't keep resurfacing in planning.
 | 4 | Email-to-pantry parser (Gemini-driven, reuses receipt OCR pipeline + `InventoryWriter` dedup) | Not started |
 | 5 | Vendor presets — US: Instacart, Amazon Fresh, Walmart. UK: Tesco, Sainsbury's, Ocado | Not started |
 | 6 | Settings UI — "Forward your shopping orders to: `<your-address>`" with copy button + instructions | Not started |
-| 7 | Onboarding-friendly explainer — first-time discoverability | Not started |
+| 7 | Onboarding-friendly explainer — first-time discoverability | ⚠️ Infrastructure ✅ shipped — generic `FeatureTipService` + Style A bottom-sheet widget + catalogue + analytics telemetry landed via [PR #8](https://github.com/robchambo/elio-app/pull/8) → [PR #9 restore](https://github.com/robchambo/elio-app/pull/9) (squash `10fa8a0` on `main`). Two pilot tips live: Recipe Import, Meal Plan → Shopping. Email-forward-specific tip catalogue entry deferred until the rest of this sprint lands (no point teaching a feature that doesn't ship yet). Adding it later = one entry in `feature_tip_catalog.dart` + one `markFeatureUsed` call in the email-import settings tap handler. |
 | 8 | Spam / abuse guard — drop emails from unknown senders without an active forwarding rule | Not started |
 
 **Estimate:** ~1.5 weeks once domain is live.
@@ -616,6 +616,7 @@ Capture here so they don't keep resurfacing in planning.
 | P1 | **Free-tier shopping list** (single list, no household, no recipe-link) | Widens conversion funnel. OurGroceries gives full list free; Elio's all-or-nothing gating may cap free-to-paid. |
 | P2 | **Wider recipe-import site coverage** | Top-50 cooking domains with validated parsers as fallback to Vision OCR. AnyList + Plan to Eat publish supported-domain lists. |
 | P2 | **Alexa skill** | Bring! ships it; lower priority than Siri / Google. |
+| P2 | **Feature-tip system polish + catalogue expansion** | The `FeatureTipService` shipped Sprint 16.8 (commit `10fa8a0`) is currently Style A bottom-sheets with two pilot tips (Recipe Import, Meal Plan → Shopping). Post-launch polish pass: (a) **Style B spotlight coach-marks** (`showcaseview` dep, `GlobalKey`-based targeting) for the gesture features where spatial highlighting matters — Cook Mode timer-number taps, long-press ingredient chip → Substitute/Regen, long-press pantry chip → Running Low. (b) **Catalogue expansion** — add tips for Bulk Prep toggle, Makeable-Now filter, Side Dish suggestion, bookmark-from-history, barcode/receipt scanner edit affordances (full ~11-feature backlog from the Sprint 16.8 discoverability survey). (c) **Backfill `logFeatureUsed(...)` events** across every candidate feature so the v1.1 catalogue expansion has real analytics to target by ("which features actually get missed"). (d) **Settings → "Show me tips again"** debug/reset toggle that wipes `seenTips` (both local SharedPrefs `seen_tip_*` keys + the Firestore field), so testers + users who want to re-explore can. Trivial — one button + a `FeatureTipService.resetAllSeen()` method. Plan/test procedure already exists at https://www.notion.so/36c4718e358a818fb69cf414a3d143d2 — extend it for the new entries. |
 
 ### v1.2 — competitor analysis (data-driven post-launch)
 
