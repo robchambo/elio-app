@@ -217,6 +217,7 @@ function fakeClient(canned: any) {
 }
 
 const SECRET = 'right-secret';
+const AUTH = 'Basic ' + Buffer.from(SECRET).toString('base64');
 
 before(async () => {
   ({handleInbound} = await import('../postmarkInbound'));
@@ -237,23 +238,30 @@ after(() => {
 });
 
 describe('postmarkInbound (handleInbound)', () => {
-  it('401s without the right secret', async () => {
+  it('401s without the right credentials', async () => {
+    const wrong = 'Basic ' + Buffer.from('wrong:creds').toString('base64');
     const r = await handleInbound(
-      FIXTURE, 'wrong', SECRET, {client: fakeClient(DEFAULT_CANNED)});
+      FIXTURE, wrong, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+    assert.equal(r.status, 401);
+  });
+
+  it('401s when Authorization header missing entirely', async () => {
+    const r = await handleInbound(
+      FIXTURE, undefined, SECRET, {client: fakeClient(DEFAULT_CANNED)});
     assert.equal(r.status, 401);
   });
 
   it('ignores unknown To addresses with 200', async () => {
     const r = await handleInbound(
       {...FIXTURE, To: 'u_unknown@orders.eliochef.com'},
-      SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+      AUTH, SECRET, {client: fakeClient(DEFAULT_CANNED)});
     assert.equal(r.status, 200);
     assert.deepEqual(r.body, {ignored: true});
   });
 
   it('writes a stub and finalises retailer for valid inbound', async () => {
     const r = await handleInbound(
-      FIXTURE, SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+      FIXTURE, AUTH, SECRET, {client: fakeClient(DEFAULT_CANNED)});
     assert.equal(r.status, 200);
     const docs = await admin.firestore()
       .collection('users').doc('user-1')
@@ -265,9 +273,9 @@ describe('postmarkInbound (handleInbound)', () => {
 
   it('deduplicates on Message-Id', async () => {
     const r1 = await handleInbound(
-      FIXTURE, SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+      FIXTURE, AUTH, SECRET, {client: fakeClient(DEFAULT_CANNED)});
     const r2 = await handleInbound(
-      FIXTURE, SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+      FIXTURE, AUTH, SECRET, {client: fakeClient(DEFAULT_CANNED)});
     assert.equal(r1.status, 200);
     assert.deepEqual(r2.body, {duplicate: true});
     const docs = await admin.firestore()
@@ -279,7 +287,7 @@ describe('postmarkInbound (handleInbound)', () => {
   it('finalises status: pending_review when confidence >= 0.4 '
     + 'and drops both raw bodies', async () => {
     const r = await handleInbound(
-      FIXTURE, SECRET, SECRET, {client: fakeClient(DEFAULT_CANNED)});
+      FIXTURE, AUTH, SECRET, {client: fakeClient(DEFAULT_CANNED)});
     assert.equal(r.status, 200);
     const docs = await admin.firestore()
       .collection('users').doc('user-1')
@@ -300,7 +308,7 @@ describe('postmarkInbound (handleInbound)', () => {
     + 'and retains rawTextBody', async () => {
     const empty = {items: [], orderType: 'unknown', totalDetected: 0};
     const r = await handleInbound(
-      FIXTURE, SECRET, SECRET, {client: fakeClient(empty)});
+      FIXTURE, AUTH, SECRET, {client: fakeClient(empty)});
     assert.equal(r.status, 200);
     const docs = await admin.firestore()
       .collection('users').doc('user-1')

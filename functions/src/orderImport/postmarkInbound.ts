@@ -8,8 +8,34 @@ import {
   type GeminiClient,
 } from './orderParser';
 
+// POSTMARK_INBOUND_SECRET stores the Basic-Auth credential pair the
+// Postmark inbound webhook sends. Format: "username:password" — the same
+// string you embed in the webhook URL on Postmark's side
+// (https://username:password@<function-url>). We compare against the
+// base64-decoded `Authorization: Basic ...` header value byte-for-byte.
 const postmarkSecret = defineSecret('POSTMARK_INBOUND_SECRET');
 const geminiKey = defineSecret('GEMINI_API_KEY');
+
+/**
+ * Returns true if the request's Authorization header is a valid Basic Auth
+ * value matching `expected` ("username:password"). Returns false on any
+ * malformed header, wrong scheme, or credential mismatch.
+ */
+export function verifyBasicAuth(
+  authHeader: string | undefined,
+  expected: string,
+): boolean {
+  if (!authHeader || !authHeader.toLowerCase().startsWith('basic ')) {
+    return false;
+  }
+  try {
+    const decoded = Buffer.from(authHeader.slice(6).trim(), 'base64')
+      .toString('utf8');
+    return decoded === expected;
+  } catch {
+    return false;
+  }
+}
 
 const RETAILERS: {match: RegExp; key: string}[] = [
   {match: /@kroger\.com/i, key: 'kroger'},
@@ -48,12 +74,12 @@ export interface InboundResult {
 export async function handleInbound(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   body: any,
-  secretHeader: string | undefined,
-  expectedSecret: string,
+  authHeader: string | undefined,
+  expectedCredentials: string,
   deps: InboundDeps,
 ): Promise<InboundResult> {
-  if (secretHeader !== expectedSecret) {
-    return {status: 401, body: {error: 'invalid secret'}};
+  if (!verifyBasicAuth(authHeader, expectedCredentials)) {
+    return {status: 401, body: {error: 'invalid credentials'}};
   }
   const {To, From, MessageID, Subject, HtmlBody, TextBody} = body ?? {};
   if (!To || !MessageID) {
@@ -125,7 +151,7 @@ export const postmarkInbound = onRequest(
   async (req, res) => {
     const result = await handleInbound(
       req.body,
-      req.headers['x-postmark-secret'] as string | undefined,
+      req.headers['authorization'] as string | undefined,
       postmarkSecret.value(),
       {client: realGeminiClient()},
     );
