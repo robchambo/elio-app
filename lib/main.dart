@@ -10,6 +10,7 @@ import 'theme/elio_theme.dart';
 import 'screens/onboarding/onboarding_flow.dart';
 import 'screens/shell/app_shell.dart';
 import 'services/analytics_service.dart';
+import 'services/feature_tip_service.dart';
 import 'services/gemini_service.dart';
 import 'services/remote_config_service.dart';
 import 'services/notification_service.dart';
@@ -42,10 +43,14 @@ void main() async {
       return true;
     };
 
-    // Parallelise Analytics + Remote Config (both independent after Firebase)
+    // Parallelise Analytics + Remote Config + FeatureTip preload (all
+    // independent after Firebase). FeatureTip preload populates the
+    // SharedPreferences-backed seen-state cache so the first call to
+    // `shouldShow` on any screen is synchronous.
     await Future.wait([
       AnalyticsService.instance.init(),
       RemoteConfigService.instance.init(),
+      FeatureTipService.instance.preload(),
     ]);
 
     // Lightweight notification init (register background handler + listeners only)
