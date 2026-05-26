@@ -517,24 +517,33 @@ Capture here so they don't keep resurfacing in planning.
 
 ---
 
-## Sprint 16.8 — Email-Forward Order Import (Pre-Launch, blocked on domain)
+## Sprint 16.8 — Email-Forward Order Import (Pre-Launch, in-flight)
 
-**Goal:** Capture the growing online-grocery slice. User gets a unique elio inbox (`<uid-hash>@in.elio.app`), forwards Instacart / Amazon Fresh / Tesco / Sainsbury's / Ocado order confirmations, Elio parses line items into pantry as if it were a receipt scan. Hybrid of receipt OCR + a new ingestion path.
+**Goal:** Capture the growing online-grocery slice. User gets a unique elio inbox (`u_<token>@orders.eliochef.com`), forwards Instacart / Amazon Fresh / Tesco / Sainsbury's / Ocado / Kroger order confirmations, Elio parses line items into the pantry via the existing `InventoryWriter` (dedup-aware).
 
-**Blocked on:** Rob's domain registration (waiting on ISP login issue). Once `in.elio.app` MX is live, this can start.
+**Branch:** `feat/online-order-import` — design, plan, code complete (Postmark Inbound + 2 Cloud Functions + Gemini parser + review sheet UI). 31 tests green. Awaiting end-to-end real-email verification.
+
+**Spec:** `docs/superpowers/specs/2026-05-25-online-order-import-design.md`
+**Plan:** `docs/superpowers/plans/2026-05-25-online-order-import.md`
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | Inbound email infra — Postmark vs AWS SES decision, MX setup on `in.elio.app` | Not started |
-| 2 | Per-user unique inbox address (`<uid-hash>@in.elio.app`) — generate, store, surface in Settings | Not started |
-| 3 | Cloud Function to receive incoming email, validate sender, parse, write to Firestore inventory | Not started |
-| 4 | Email-to-pantry parser (Gemini-driven, reuses receipt OCR pipeline + `InventoryWriter` dedup) | Not started |
-| 5 | Vendor presets — US: Instacart, Amazon Fresh, Walmart. UK: Tesco, Sainsbury's, Ocado | Not started |
-| 6 | Settings UI — "Forward your shopping orders to: `<your-address>`" with copy button + instructions | Not started |
-| 7 | Onboarding-friendly explainer — first-time discoverability | Not started |
-| 8 | Spam / abuse guard — drop emails from unknown senders without an active forwarding rule | Not started |
+| 1 | Inbound email infra — Postmark Inbound chosen; MX on `orders.eliochef.com` (Hostinger DNS) | In progress (DNS pending) |
+| 2 | Per-user unique inbox `u_<13-char base32>@orders.eliochef.com` via `generateImportAddress` callable | ✅ Done |
+| 3 | Cloud Function `postmarkInbound` — secret check (Basic Auth), idempotency, write to `pending_imports` | ✅ Done |
+| 4 | Email-to-pantry parser — Gemini structured output, retailer-agnostic | ✅ Done |
+| 5 | Retailer regex table — Kroger / Fred Meyer / Tesco / Sainsbury's / Ocado / Walmart / Instacart / Amazon / Woolworths AU / Coles / Loblaws | ✅ Done |
+| 6 | Settings UI — `OrderImportScreen` with Copy / Share, Pro-gated row in Preferences | ✅ Done |
+| 7 | Pantry-tab dot badge + review sheet + apply flow via existing `InventoryWriter` | ✅ Done |
+| 8 | End-to-end verification with a real grocery email (USER-GATE task #10) | In progress |
+| 9 | **Postmark test-mode → approved (production)** — submit account approval to lift 100-email/month cap. Required before public launch. | Not started |
+| 10 | Onboarding-friendly explainer — first-time discoverability | Not started (deferred to v1.1 per spec §11) |
+| 11 | Domain rename audit — other `elio.app` references in `legal_links.dart`, paywall, onboarding strings still point at the placeholder domain | Not started |
 
-**Estimate:** ~1.5 weeks once domain is live.
+**Outstanding before launch:**
+- Hostinger DNS: MX `orders.eliochef.com` → `inbound.postmarkapp.com`
+- Postmark account approval (task #9 — currently 100-email cap in test mode)
+- E2E verification with a real email (task #8)
 
 **Why pre-launch (Rob's call, 11 May):** the moat extension over Samsung Food's smart-fridge integration — same job-to-be-done (track what you actually have at home) but reachable without locked-in hardware.
 
