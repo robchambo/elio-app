@@ -1092,7 +1092,12 @@ class GeminiService {
       case AppRegion.au:
         buffer.writeln('User is in Australia — use USD for cost estimates and Australian English ingredient names (e.g. "capsicum" not "bell pepper", "eggplant" not "aubergine").');
       case AppRegion.us:
-        buffer.writeln('User is in the United States — use USD for cost estimates and US ingredient names.');
+        // Sprint 17 (25 May) — anchored with explicit examples after
+        // Kate's C3 finding (US-region recipe came back with "coriander").
+        // Gemini's default IS American English, but soft "use US names"
+        // hints lose to any British signal elsewhere in the prompt
+        // (pantry items, recipe titles). Examples lock the spelling.
+        buffer.writeln('User is in the United States — use USD for cost estimates and American English ingredient names. NEVER use British spellings: write "cilantro" not "coriander", "zucchini" not "courgette", "eggplant" not "aubergine", "shrimp" not "prawns", "ground beef" not "mince", "bell pepper" not "capsicum", "arugula" not "rocket", "scallion" or "green onion" not "spring onion".');
     }
 
     if (request.dietaryRequirements.isNotEmpty) {
@@ -1945,7 +1950,10 @@ class GeminiService {
       case AppRegion.au:
         regionLine = 'User is in Australia — use USD for cost and Australian English ingredient names.';
       case AppRegion.us:
-        regionLine = 'User is in the US — use USD for cost and US ingredient names.';
+        // See main-prompt comment above (line ~1094): explicit-spelling
+        // anchors added after Kate's C3 finding on 25 May. Same wording
+        // here so side-dish generation matches main-recipe vocabulary.
+        regionLine = 'User is in the US — use USD for cost and American English ingredient names. NEVER use British spellings: write "cilantro" not "coriander", "zucchini" not "courgette", "eggplant" not "aubergine", "shrimp" not "prawns", "ground beef" not "mince".';
     }
 
     final prompt = StringBuffer()
