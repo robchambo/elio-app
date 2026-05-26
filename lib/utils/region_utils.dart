@@ -4,13 +4,14 @@ import 'dart:ui';
 // RegionUtils
 // Locale-based region and currency detection.
 //
-// Elio targets US (primary) and UK (secondary) markets.
-// Currency is determined automatically from the device locale —
-// no manual setting required. This mirrors the App Store / Play Store
-// regional distribution model: users in the UK get the UK build,
-// users in the US get the US build.
+// Elio targets US + UK as the primary cost-display markets, with AU + CA
+// as supported regions that fall back to USD-priced cost display (Gemini
+// doesn't return AUD/CAD prices yet — `formatCost` returns null for AU/CA
+// so the cost label is hidden in the UI rather than showing a wrong-currency
+// number). Ingredient nomenclature is still tuned per-region in the Gemini
+// prompt (Australian English / Canadian English).
 //
-// Extending to new markets (e.g. CA, AU, EU):
+// Extending to new markets (e.g. EU):
 //   1. Add a new AppRegion enum value.
 //   2. Add the country code(s) to _countryCodeToRegion.
 //   3. Add currency symbol and cost getter to RegionUtils.formatCost().
@@ -19,7 +20,8 @@ import 'dart:ui';
 enum AppRegion {
   us,  // United States — USD ($)
   uk,  // United Kingdom — GBP (£)
-  // Future: ca (CAD), au (AUD), eu (EUR), etc.
+  ca,  // Canada — cost hidden (no CAD support yet)
+  au,  // Australia — cost hidden (no AUD support yet)
 }
 
 class RegionUtils {
@@ -29,6 +31,8 @@ class RegionUtils {
   static const Map<String, AppRegion> _countryCodeToRegion = {
     'US': AppRegion.us,
     'GB': AppRegion.uk,
+    'CA': AppRegion.ca,
+    'AU': AppRegion.au,
   };
 
   /// User-overridden region (set from onboarding or settings).
@@ -59,11 +63,15 @@ class RegionUtils {
     return _countryCodeToRegion[countryCode] ?? AppRegion.us;
   }
 
-  /// Currency symbol for the current region.
+  /// Currency symbol for the current region. AU/CA fall back to `$`
+  /// (USD display) since Gemini doesn't price in AUD/CAD yet.
   static String get currencySymbol {
     switch (region) {
       case AppRegion.uk: return '£';
-      case AppRegion.us: return '\$';
+      case AppRegion.us:
+      case AppRegion.ca:
+      case AppRegion.au:
+        return '\$';
     }
   }
 
@@ -71,7 +79,9 @@ class RegionUtils {
   ///
   /// Pass both [usd] and [gbp] values (as returned by Gemini).
   /// Returns null if no value is available for the current region
-  /// (or either currency as a fallback).
+  /// (or either currency as a fallback). AU/CA always return null —
+  /// cost display is suppressed for those regions until Gemini returns
+  /// AUD/CAD prices.
   ///
   /// Example output: "~£2.80 / serving"  or  "~$3.50 / serving"
   static String? formatCost({
@@ -87,6 +97,9 @@ class RegionUtils {
       case AppRegion.us:
         if (usd != null && usd > 0) return '~\$${usd.toStringAsFixed(2)}$suffix';
         if (gbp != null && gbp > 0) return '~£${gbp.toStringAsFixed(2)}$suffix'; // fallback
+        return null;
+      case AppRegion.ca:
+      case AppRegion.au:
         return null;
     }
   }

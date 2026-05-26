@@ -68,12 +68,20 @@ class _AppShellState extends State<AppShell> {
       if (units == 'metric' || units == 'imperial') {
         RegionUtils.setMeasurementUnits(units!);
       }
-      if (region == 'uk') {
-        RegionUtils.setRegion(AppRegion.uk);
-      } else if (region == 'us' || region == 'other') {
-        // 'other' has no dedicated AppRegion yet — fall back to US for
-        // currency/cost formatting, matching account_screen._setRegion.
-        RegionUtils.setRegion(AppRegion.us);
+      switch (region) {
+        case 'uk':
+          RegionUtils.setRegion(AppRegion.uk);
+        case 'ca':
+          RegionUtils.setRegion(AppRegion.ca);
+        case 'au':
+          RegionUtils.setRegion(AppRegion.au);
+        case 'us':
+        case 'other':
+          // Legacy 'other' accounts (Sprint 16 and earlier) keep
+          // falling back to US for cost/currency until the user
+          // picks a real region in Settings. Matches
+          // account_screen._setRegion.
+          RegionUtils.setRegion(AppRegion.us);
       }
     } catch (_) {
       // Best-effort. RegionUtils retains its defaults on failure.

@@ -14,10 +14,15 @@ import '../../widgets/elio/elio_segmented_toggle.dart';
 // ─────────────────────────────────────────────
 // Screen 09 — Region & units
 //
-// Single-select of uk|us|other plus a metric/imperial toggle.
+// Single-select of uk|us|ca|au plus a metric/imperial toggle.
 // Region is pre-selected from device locale on first render.
 // Units auto-flip on region change unless the user has manually
 // overridden the toggle (tracked via controller.unitsManuallyEdited).
+//
+// AU + CA replaced the legacy 'other' option in Sprint 17. Existing
+// 'other' accounts still map to US for currency/cost (see
+// app_shell._hydrateRegionUtils and account_screen._setRegion) until
+// the user picks a real region in Settings.
 //
 // See docs/onboarding/09-region.md for authoritative copy spec.
 // ─────────────────────────────────────────────
@@ -33,22 +38,29 @@ class _RegionOption {
 const List<_RegionOption> _regionOptions = [
   _RegionOption('uk', 'United Kingdom', Icons.flag_outlined),
   _RegionOption('us', 'United States', Icons.flag),
-  _RegionOption('other', 'Elsewhere', Icons.public),
+  _RegionOption('ca', 'Canada', Icons.flag_outlined),
+  _RegionOption('au', 'Australia', Icons.flag_outlined),
 ];
 
-/// Default measurement-units for a given region.
+/// Default measurement-units for a given region. US is the only
+/// imperial-default region; UK / CA / AU all default to metric.
 String _defaultUnitsFor(String region) =>
     region == 'us' ? 'imperial' : 'metric';
 
-/// Map a locale country code to the region value.
+/// Map a locale country code to the region value. Locales we don't
+/// recognise fall back to 'us' (same default as RegionUtils.region).
 String regionFromCountryCode(String? code) {
   switch (code) {
     case 'GB':
       return 'uk';
     case 'US':
       return 'us';
+    case 'CA':
+      return 'ca';
+    case 'AU':
+      return 'au';
     default:
-      return 'other';
+      return 'us';
   }
 }
 

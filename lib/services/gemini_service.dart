@@ -1081,10 +1081,18 @@ class GeminiService {
       buffer.writeln('Use metric measurements (grams, millilitres, Celsius) for all quantities and temperatures.');
     }
     final appRegion = RegionUtils.region;
-    if (appRegion == AppRegion.uk) {
-      buffer.writeln('User is in the United Kingdom — use GBP for cost estimates and UK ingredient names.');
-    } else {
-      buffer.writeln('User is in the United States — use USD for cost estimates and US ingredient names.');
+    switch (appRegion) {
+      case AppRegion.uk:
+        buffer.writeln('User is in the United Kingdom — use GBP for cost estimates and UK ingredient names.');
+      case AppRegion.ca:
+        // Sprint 17 — CAD display not yet supported; cost label is
+        // hidden in the UI for CA. Gemini still fills USD as the
+        // canonical price field.
+        buffer.writeln('User is in Canada — use USD for cost estimates and Canadian English ingredient names (e.g. "cilantro" not "coriander").');
+      case AppRegion.au:
+        buffer.writeln('User is in Australia — use USD for cost estimates and Australian English ingredient names (e.g. "capsicum" not "bell pepper", "eggplant" not "aubergine").');
+      case AppRegion.us:
+        buffer.writeln('User is in the United States — use USD for cost estimates and US ingredient names.');
     }
 
     if (request.dietaryRequirements.isNotEmpty) {
@@ -1928,9 +1936,17 @@ class GeminiService {
     final unitLine = units == 'imperial'
         ? 'Use imperial measurements (ounces, cups, Fahrenheit).'
         : 'Use metric measurements (grams, millilitres, Celsius).';
-    final regionLine = region == AppRegion.uk
-        ? 'User is in the UK — use GBP for cost and UK ingredient names.'
-        : 'User is in the US — use USD for cost and US ingredient names.';
+    final String regionLine;
+    switch (region) {
+      case AppRegion.uk:
+        regionLine = 'User is in the UK — use GBP for cost and UK ingredient names.';
+      case AppRegion.ca:
+        regionLine = 'User is in Canada — use USD for cost and Canadian English ingredient names.';
+      case AppRegion.au:
+        regionLine = 'User is in Australia — use USD for cost and Australian English ingredient names.';
+      case AppRegion.us:
+        regionLine = 'User is in the US — use USD for cost and US ingredient names.';
+    }
 
     final prompt = StringBuffer()
       ..writeln('You are Elio, a friendly AI cooking assistant.')
