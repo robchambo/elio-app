@@ -49,6 +49,7 @@ import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
+import '../../widgets/elio/elio_segmented_row.dart';
 import '../../utils/region_utils.dart';
 import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_provider_signin_button.dart';
@@ -765,8 +766,8 @@ class _AccountScreenState extends State<AccountScreen> {
                 _Section(
                   title: 'Preferences',
                   rows: [
-                    _SegmentedRow(
-                      label: 'Measurement Units',
+                    ElioSegmentedRow(
+                      label: 'Units',
                       options: const [('metric', 'Metric'), ('imperial', 'Imperial')],
                       value: _measurementUnits,
                       onChanged: _setUnits,
@@ -1049,72 +1050,6 @@ class _ActionRow extends StatelessWidget {
             color: destructive ? ElioColors.error : ElioColors.espresso,
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Inline segmented control row — label on the left, segments on the
-/// right. Used for Measurement Units + Region.
-class _SegmentedRow extends StatelessWidget {
-  final String label;
-  final List<(String, String)> options; // (value, displayLabel)
-  final String value;
-  final ValueChanged<String> onChanged;
-  const _SegmentedRow({
-    required this.label,
-    required this.options,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Expanded(child: Text(label, style: ElioTextStyles.uiLabelStyle)),
-          Container(
-            decoration: BoxDecoration(
-              color: ElioColors.cream,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: ElioColors.rule, width: 1),
-            ),
-            padding: const EdgeInsets.all(2),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final (val, display) in options)
-                  GestureDetector(
-                    onTap: () {
-                      if (val != value) onChanged(val);
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 140),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: val == value
-                            ? ElioColors.terracotta
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        display,
-                        style: ElioTextStyles.uiLabelStyle.copyWith(
-                          color: val == value
-                              ? Colors.white
-                              : ElioColors.espresso,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
