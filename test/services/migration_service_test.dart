@@ -158,6 +158,92 @@ void main() {
       expect(writer.ownerProfileData?['allergies'], ['peanuts', 'shellfish']);
     });
 
+    test('dedupes inventory by matchKey before batch write (Sprint 17)',
+        () async {
+      // Repro for the post-onboarding dup bug: user picks the same
+      // item across screens 11 + 12 (custom-add "Tomato" as a staple
+      // + tap the Tomato tile as a perishable), OnboardingState
+      // carries both. Without dedup, MigrationService writes both
+      // and the user lands on the pantry with a visible duplicate.
+      final writer = FakeFirestoreWriter();
+      final guestPantry = FakeGuestPantryService();
+
+      final service = MigrationService(
+        writer: writer,
+        guestPantry: guestPantry,
+        purchaseAlias: (uid) async {},
+      );
+
+      final state = OnboardingState()
+        ..userGoal = 'pantryFirst'
+        ..inventory = [
+          // Staple pick on screen 11 (e.g. custom-added under "Mediterranean").
+          const InventoryItem(
+            name: 'Tomato',
+            tier: 'alwaysHave',
+            category: 'Mediterranean',
+          ),
+          // Perishable pick on screen 12 (Produce tile). Same logical item.
+          const InventoryItem(
+            name: 'Tomato',
+            tier: 'perishable',
+            category: 'Produce',
+          ),
+          // Plural-of-singular variant — still the same matchKey.
+          const InventoryItem(name: 'Tomatoes', tier: 'almostAlwaysHave'),
+          // Genuinely distinct item — should NOT be deduped.
+          const InventoryItem(name: 'Rice', tier: 'alwaysHave'),
+        ];
+
+      await service.migrateGuestToFirestore('uid-dup', state);
+
+      // 4 input items → 2 output rows (one Tomato + one Rice).
+      expect(writer.inventoryItems.length, 2);
+
+      final tomato = writer.inventoryItems
+          .firstWhere((i) => (i['matchKey'] as String) == 'tomato');
+      // Perishable wins on conflict — it carries the expiry/urgency
+      // signal and tends to be the later, more deliberate pick.
+      expect(tomato['tier'], 'perishable');
+      expect(tomato['category'], 'Produce');
+
+      final rice = writer.inventoryItems
+          .firstWhere((i) => (i['matchKey'] as String) == 'rice');
+      expect(rice['tier'], 'alwaysHave');
+    });
+
+    test('inventory rows include matchKey + nameLower for dedup (Sprint 17)',
+        () async {
+      // Without these keys, InventoryWriter.findExistingByKey can't
+      // match the onboarding-imported rows on subsequent PantryBuilder
+      // adds, so it INSERTs duplicates instead of UPDATEing.
+      final writer = FakeFirestoreWriter();
+      final guestPantry = FakeGuestPantryService();
+
+      final service = MigrationService(
+        writer: writer,
+        guestPantry: guestPantry,
+        purchaseAlias: (uid) async {},
+      );
+
+      final state = OnboardingState()
+        ..userGoal = 'pantryFirst'
+        ..inventory = [
+          const InventoryItem(name: 'Carrots', tier: 'perishable'),
+        ];
+
+      await service.migrateGuestToFirestore('uid-keys', state);
+
+      expect(writer.inventoryItems.length, 1);
+      final carrots = writer.inventoryItems.first;
+      expect(carrots['nameLower'], 'carrots');
+      // matchKey singularises — "Carrots" → "carrot".
+      expect(carrots['matchKey'], 'carrot');
+      // Lifecycle timestamps populated (matches InventoryWriter inserts).
+      expect(carrots.containsKey('firstAddedAt'), isTrue);
+      expect(carrots.containsKey('lastPurchasedAt'), isTrue);
+    });
+
     test('RC alias failure does not prevent guest pantry clear', () async {
       final writer = FakeFirestoreWriter();
       final guestPantry = FakeGuestPantryService();

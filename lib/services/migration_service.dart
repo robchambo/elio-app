@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../models/elio_models.dart';
 import '../models/onboarding_state.dart';
+import '../utils/pantry_string_match.dart';
 import 'error_service.dart';
 import 'guest_pantry_service.dart';
 import 'purchase_service.dart';
@@ -162,7 +164,19 @@ class MigrationService {
     }
     await _writer.setOwnerProfile(uid, ownerPatch);
 
-    final items = state.inventory.map((i) => i.toFirestore()).toList();
+    // Sprint 17 — deduplicate the inventory list by matchKey before the
+    // batch write. The OnboardingState can carry the same item across
+    // screens 11 (staples) and 12 (perishables) when the user picks it
+    // in both — e.g. custom-adds "Tomato" on the staples screen and
+    // also taps the Tomato tile on the perishables screen. Without
+    // this guard MigrationService would write both rows and the user
+    // would land with a duplicate on first open of the Pantry tab.
+    //
+    // Perishable wins on conflict — it's the more specific tier
+    // (carries an expiry / urgency signal) and tends to be the user's
+    // later, more deliberate pick on screen 12.
+    final deduped = _dedupeInventoryByMatchKey(state.inventory);
+    final items = deduped.map((i) => i.toFirestore()).toList();
     await _writer.writeInventory(uid, items);
 
     try {
@@ -172,5 +186,29 @@ class MigrationService {
     }
 
     await _guestPantry.clear();
+  }
+
+  /// Collapses items that share a `matchKey` (e.g. "Tomato" picked as
+  /// both a staple on screen 11 and a perishable on screen 12) so the
+  /// batch write produces one row per logical item. Perishable wins on
+  /// conflict; otherwise the later entry wins (matches "user's most
+  /// recent intent").
+  static List<InventoryItem> _dedupeInventoryByMatchKey(
+    List<InventoryItem> items,
+  ) {
+    final byKey = <String, InventoryItem>{};
+    for (final item in items) {
+      final key = PantryStringMatch.matchKey(item.name);
+      final existing = byKey[key];
+      if (existing == null) {
+        byKey[key] = item;
+        continue;
+      }
+      // Perishable wins; otherwise later entry wins.
+      if (item.tier == 'perishable' || existing.tier != 'perishable') {
+        byKey[key] = item;
+      }
+    }
+    return byKey.values.toList();
   }
 }
