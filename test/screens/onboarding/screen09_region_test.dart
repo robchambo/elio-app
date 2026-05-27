@@ -14,6 +14,8 @@ void main() {
         supportedLocales: const [
           Locale('en', 'GB'),
           Locale('en', 'US'),
+          Locale('en', 'CA'),
+          Locale('en', 'AU'),
           Locale('en', 'FR'),
         ],
         home: child,
@@ -28,7 +30,7 @@ void main() {
     });
   }
 
-  testWidgets('renders 3 region cards + units toggle', (t) async {
+  testWidgets('renders 4 region cards + units toggle', (t) async {
     useTallViewport(t);
     await t.pumpWidget(wrap(Screen09Region(
       controller: OnboardingController(),
@@ -36,10 +38,11 @@ void main() {
       onBack: () {},
     )));
     await t.pump();
-    expect(find.byType(ElioOnboardingOptionCard), findsNWidgets(3));
+    expect(find.byType(ElioOnboardingOptionCard), findsNWidgets(4));
     expect(find.text('United Kingdom'), findsOneWidget);
     expect(find.text('United States'), findsOneWidget);
-    expect(find.text('Elsewhere'), findsOneWidget);
+    expect(find.text('Canada'), findsOneWidget);
+    expect(find.text('Australia'), findsOneWidget);
     expect(find.byType(ElioSegmentedToggle), findsOneWidget);
     expect(find.text('Metric'), findsOneWidget);
     expect(find.text('Imperial'), findsOneWidget);
@@ -69,7 +72,36 @@ void main() {
     expect(c.state.measurementUnits, 'imperial');
   });
 
-  testWidgets('falls through to other + metric for FR locale', (t) async {
+  testWidgets('pre-selects ca + metric when locale is CA', (t) async {
+    useTallViewport(t);
+    final c = OnboardingController();
+    await t.pumpWidget(wrap(
+      Screen09Region(controller: c, onContinue: () {}, onBack: () {}),
+      locale: const Locale('en', 'CA'),
+    ));
+    await t.pump();
+    expect(c.state.region, 'ca');
+    expect(c.state.measurementUnits, 'metric');
+  });
+
+  testWidgets('pre-selects au + metric when locale is AU', (t) async {
+    useTallViewport(t);
+    final c = OnboardingController();
+    await t.pumpWidget(wrap(
+      Screen09Region(controller: c, onContinue: () {}, onBack: () {}),
+      locale: const Locale('en', 'AU'),
+    ));
+    await t.pump();
+    expect(c.state.region, 'au');
+    expect(c.state.measurementUnits, 'metric');
+  });
+
+  testWidgets('falls through to us + imperial for unknown locale (FR)',
+      (t) async {
+    // Sprint 17 — 'other' option removed. Unknown locales now default
+    // to 'us' (mirrors RegionUtils.region's locale-fallback), so the
+    // measurement-units default also flips to imperial. Users in
+    // long-tail locales can tap UK / CA / AU in one action.
     useTallViewport(t);
     final c = OnboardingController();
     await t.pumpWidget(wrap(
@@ -77,8 +109,8 @@ void main() {
       locale: const Locale('en', 'FR'),
     ));
     await t.pump();
-    expect(c.state.region, 'other');
-    expect(c.state.measurementUnits, 'metric');
+    expect(c.state.region, 'us');
+    expect(c.state.measurementUnits, 'imperial');
   });
 
   testWidgets('changing region auto-flips units when not overridden',
@@ -97,10 +129,10 @@ void main() {
     await t.pump();
     expect(c.state.region, 'us');
     expect(c.state.measurementUnits, 'imperial');
-    // And back again.
-    await t.tap(find.text('Elsewhere'));
+    // Switch to Canada → units flip back to metric.
+    await t.tap(find.text('Canada'));
     await t.pump();
-    expect(c.state.region, 'other');
+    expect(c.state.region, 'ca');
     expect(c.state.measurementUnits, 'metric');
   });
 

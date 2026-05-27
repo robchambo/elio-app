@@ -109,6 +109,32 @@ class AnalyticsService {
     } catch (_) {}
   }
 
+  // ─── Feature-tip telemetry ───────────────────────────────────────
+  //
+  // Sprint 16.8 row 7. Two paired events that let us learn (post-launch)
+  // which catalogue tips actually drive discovery vs. which features
+  // people find on their own. The catalogue's eligibility check is
+  // local (SharedPrefs-mirrored), so these analytics events are
+  // observational only — they don't gate anything.
+
+  /// Log that the user has used a tip-tracked feature. Wire into the tap
+  /// handler of every feature listed in FeatureTipCatalog. Mirrors the
+  /// local `FeatureTipService.markFeatureUsed` call so we can compare
+  /// "ever-used" rates against "tip-shown" rates in Firebase Analytics.
+  Future<void> logFeatureUsed(String featureId) async {
+    await logEvent('feature_used', {'feature': featureId});
+  }
+
+  /// Log that a feature-discovery tip was shown.
+  Future<void> logFeatureTipShown(String tipId) async {
+    await logEvent('feature_tip_shown', {'tip': tipId});
+  }
+
+  /// Log that the user tapped the tip's primary CTA (vs. dismissed).
+  Future<void> logFeatureTipCta(String tipId) async {
+    await logEvent('feature_tip_cta', {'tip': tipId});
+  }
+
   // ─── Generic event logging ───────────────────────────────────────
 
   Future<void> logEvent(String name, [Map<String, Object>? params]) async {

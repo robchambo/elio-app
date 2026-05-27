@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:elio_app/models/recipe_models.dart';
 import 'package:elio_app/screens/recipe/recipe_screen.dart';
 import 'package:elio_app/screens/recipes/recipes_tab_screen.dart';
+import 'package:elio_app/services/feature_tip_catalog.dart';
+import 'package:elio_app/services/feature_tip_service.dart';
 import 'package:elio_app/services/history_service.dart';
 
 SavedRecipe _fixture({
@@ -60,6 +62,10 @@ Future<void> _seedHistory(List<SavedRecipe> recipes) async {
   SharedPreferences.setMockInitialValues({
     'elio_recipe_history': encoded,
     'inventory_deduped_v1': true,
+    // Sprint 16.8 row 7 — pre-mark the recipe-import discovery tip as
+    // seen so the one-time bottom sheet doesn't pop over the TabBar
+    // mid-test and break tap targets.
+    'seen_tip_${FeatureTipCatalog.recipeImport.id}': true,
   });
 }
 
@@ -89,6 +95,11 @@ void main() {
     await _seedHistory([
       _fixture(savedAt: '2026-04-25T12:00:00.000', title: 'Test Recipe'),
     ]);
+    // Sprint 16.8 row 7 — the FeatureTipService singleton survives across
+    // tests; reset + re-preload so each test starts with a clean session-
+    // view counter and the seen-tip flag from _seedHistory's mock prefs.
+    FeatureTipService.instance.resetForTesting();
+    await FeatureTipService.instance.preload();
   });
 
   testWidgets('Saved is the default tab when screen opens', (tester) async {

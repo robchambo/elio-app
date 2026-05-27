@@ -150,16 +150,104 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Future<void> _setRegion(String region) async {
     setState(() => _region = region);
-    // RegionUtils only has uk/us (no 'other'). Map 'other' to us as a
-    // default — same fallback the country-code resolver uses.
     final canonical = region.toLowerCase();
-    RegionUtils.setRegion(canonical == 'uk' ? AppRegion.uk : AppRegion.us);
+    final AppRegion target;
+    switch (canonical) {
+      case 'uk':
+        target = AppRegion.uk;
+      case 'ca':
+        target = AppRegion.ca;
+      case 'au':
+        target = AppRegion.au;
+      default:
+        // 'us' + legacy 'other' both land here. Mirrors
+        // app_shell._hydrateRegionUtils.
+        target = AppRegion.us;
+    }
+    RegionUtils.setRegion(target);
     await _firestore.updateSettings(region: canonical);
   }
 
   Future<void> _setSaverMode(bool value) async {
     setState(() => _saverModeDefault = value);
     await _firestore.updateSettings(saverModeDefault: value);
+  }
+
+  // ─── Region picker ────────────────────────────────────────────────
+
+  // Sprint 17 — single source of truth for region display labels in
+  // Settings. Keep in sync with onboarding screen 09's `_regionOptions`.
+  static const List<(String, String)> _regionPickerOptions = [
+    ('uk', 'United Kingdom'),
+    ('us', 'United States'),
+    ('ca', 'Canada'),
+    ('au', 'Australia'),
+  ];
+
+  String _regionDisplayLabel(String value) {
+    for (final (v, label) in _regionPickerOptions) {
+      if (v == value) return label;
+    }
+    // Legacy 'other' accounts (Sprint 16 and earlier) — the value is
+    // still mapped to US in RegionUtils, but the row shows it honestly
+    // so the user knows to re-pick.
+    if (value == 'other') return 'Other (legacy)';
+    return value;
+  }
+
+  Future<void> _openRegionPicker(BuildContext context) async {
+    final picked = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: ElioColors.cream,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                child: Text(
+                  'Region',
+                  style: ElioTextStyles.heading5,
+                ),
+              ),
+              for (final (value, label) in _regionPickerOptions)
+                InkWell(
+                  onTap: () => Navigator.of(sheetContext).pop(value),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 14),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: ElioTextStyles.uiLabelStyle,
+                          ),
+                        ),
+                        if (value == _region)
+                          const Icon(
+                            Icons.check_rounded,
+                            size: 22,
+                            color: ElioColors.terracotta,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+    if (picked != null && picked != _region) {
+      await _setRegion(picked);
+    }
   }
 
   // ─── Account actions ──────────────────────────────────────────────
@@ -683,18 +771,16 @@ class _AccountScreenState extends State<AccountScreen> {
                       value: _measurementUnits,
                       onChanged: _setUnits,
                     ),
-                    _SegmentedRow(
+                    _PickerRow(
                       label: 'Region',
-                      // 21 May 2026 — match the canonical lowercase
-                      // values from onboarding screen 09 and include
-                      // 'other' (was missing entirely from settings).
-                      options: const [
-                        ('uk', 'UK'),
-                        ('us', 'US'),
-                        ('other', 'Other'),
-                      ],
+                      // Sprint 17 — replaced segmented control (was UK/
+                      // US/Other) with a 4-option modal picker (UK / US
+                      // / CA / AU). Legacy 'other' accounts render as
+                      // "Other (legacy)" in the row until the user
+                      // picks a real region.
                       value: _region,
-                      onChanged: _setRegion,
+                      displayFor: _regionDisplayLabel,
+                      onTap: () => _openRegionPicker(context),
                     ),
                     _PushRow(
                       label: 'Notifications',
@@ -879,6 +965,53 @@ class _PushRow extends StatelessWidget {
             Expanded(
               child: Text(label, style: ElioTextStyles.uiLabelStyle),
             ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 22,
+              color: ElioColors.mocha,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Picker row — label on the left, current value + chevron on the
+/// right. Tap opens a modal bottom sheet (or any picker) via [onTap].
+/// Used for Region in Sprint 17 (4 options too many for the inline
+/// segmented control).
+class _PickerRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final String Function(String value) displayFor;
+  final VoidCallback onTap;
+  const _PickerRow({
+    required this.label,
+    required this.value,
+    required this.displayFor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(ElioRadii.card),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(label, style: ElioTextStyles.uiLabelStyle),
+            ),
+            Text(
+              displayFor(value),
+              style: ElioTextStyles.uiLabelStyle.copyWith(
+                color: ElioColors.mocha,
+              ),
+            ),
+            const SizedBox(width: 4),
             const Icon(
               Icons.chevron_right_rounded,
               size: 22,

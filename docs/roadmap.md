@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 19 May 2026 (added v1.2 row: cloud-sync saved recipes — local-only `HistoryService` doesn't survive reinstall / clear-data / new device.)
+**Last updated:** 26 May 2026 (Sprint 16.8 row 7 flipped to ⚠️ Infrastructure shipped — generic `FeatureTipService` landed on `main` via PRs #8 + #9 with 2 pilot tips; email-import-specific tip catalogue entry deferred until that vendor work lands. Added P2 v1.1 row: feature-tip polish + Style B spotlight + catalogue expansion.)
 
 **Active branch:** `sprint/16-integration` — main integration line. Topic branch `fix/flash-lite-streaming` (1 commit ahead) ready to merge.
 **Pushed to origin:** through `041a915` on `sprint/16-integration`; `c58c924` pushed on `fix/flash-lite-streaming` after on-device sign-off.
@@ -528,17 +528,18 @@ Capture here so they don't keep resurfacing in planning.
 
 | # | Task | Status |
 |---|------|--------|
-| 1 | Inbound email infra — Postmark Inbound chosen; MX on `orders.eliochef.com` (Hostinger DNS) | In progress (DNS pending) |
+| 1 | Inbound email infra — Postmark Inbound chosen; MX on `orders.eliochef.com` (Hostinger DNS) | ✅ Done |
 | 2 | Per-user unique inbox `u_<13-char base32>@orders.eliochef.com` via `generateImportAddress` callable | ✅ Done |
-| 3 | Cloud Function `postmarkInbound` — secret check (Basic Auth), idempotency, write to `pending_imports` | ✅ Done |
+| 3 | Cloud Function `postmarkInbound` — Basic Auth verify, SHA256 idempotency, write to `pending_imports` | ✅ Done |
 | 4 | Email-to-pantry parser — Gemini structured output, retailer-agnostic | ✅ Done |
 | 5 | Retailer regex table — Kroger / Fred Meyer / Tesco / Sainsbury's / Ocado / Walmart / Instacart / Amazon / Woolworths AU / Coles / Loblaws | ✅ Done |
 | 6 | Settings UI — `OrderImportScreen` with Copy / Share, Pro-gated row in Preferences | ✅ Done |
 | 7 | Pantry-tab dot badge + review sheet + apply flow via existing `InventoryWriter` | ✅ Done |
-| 8 | End-to-end verification with a real grocery email (USER-GATE task #10) | In progress |
+| 8 | End-to-end verification with a real grocery email (USER-GATE) — Kate's full A/B/C/D sweep on [the test sheet](https://www.notion.so/36d4718e358a8124bc6fd52f97b023a5) | In progress |
 | 9 | **Postmark test-mode → approved (production)** — submit account approval to lift 100-email/month cap. Required before public launch. | Not started |
-| 10 | Onboarding-friendly explainer — first-time discoverability | Not started (deferred to v1.1 per spec §11) |
+| 10 | Onboarding-friendly explainer — first-time discoverability | Infrastructure ✅ already shipped (generic `FeatureTipService` + bottom-sheet widget + catalogue + analytics via [PR #8](https://github.com/robchambo/elio-app/pull/8) → [PR #9 restore](https://github.com/robchambo/elio-app/pull/9), squash `10fa8a0`). Email-import tip entry deferred to v1.1 per spec §11. Adding later = one entry in `feature_tip_catalog.dart` + one `markFeatureUsed` call in the `OrderImportScreen` first-open path. |
 | 11 | Domain rename audit — other `elio.app` references in `legal_links.dart`, paywall, onboarding strings still point at the placeholder domain | Not started |
+| 12 | Spam / abuse guard — drop emails from unknown senders without an active forwarding rule (v1: bounce is implicit because unknown To: addresses return `{ignored: true}`; v1.1 might add explicit rate-limit + Postmark spam-filter tuning) | Deferred to v1.1 |
 
 **Outstanding before launch:**
 - Hostinger DNS: MX `orders.eliochef.com` → `inbound.postmarkapp.com`
@@ -625,6 +626,7 @@ Capture here so they don't keep resurfacing in planning.
 | P1 | **Free-tier shopping list** (single list, no household, no recipe-link) | Widens conversion funnel. OurGroceries gives full list free; Elio's all-or-nothing gating may cap free-to-paid. |
 | P2 | **Wider recipe-import site coverage** | Top-50 cooking domains with validated parsers as fallback to Vision OCR. AnyList + Plan to Eat publish supported-domain lists. |
 | P2 | **Alexa skill** | Bring! ships it; lower priority than Siri / Google. |
+| P2 | **Feature-tip system polish + catalogue expansion** | The `FeatureTipService` shipped Sprint 16.8 (commit `10fa8a0`) is currently Style A bottom-sheets with two pilot tips (Recipe Import, Meal Plan → Shopping). Post-launch polish pass: (a) **Style B spotlight coach-marks** (`showcaseview` dep, `GlobalKey`-based targeting) for the gesture features where spatial highlighting matters — Cook Mode timer-number taps, long-press ingredient chip → Substitute/Regen, long-press pantry chip → Running Low. (b) **Catalogue expansion** — add tips for Bulk Prep toggle, Makeable-Now filter, Side Dish suggestion, bookmark-from-history, barcode/receipt scanner edit affordances (full ~11-feature backlog from the Sprint 16.8 discoverability survey). (c) **Backfill `logFeatureUsed(...)` events** across every candidate feature so the v1.1 catalogue expansion has real analytics to target by ("which features actually get missed"). (d) **Settings → "Show me tips again"** debug/reset toggle that wipes `seenTips` (both local SharedPrefs `seen_tip_*` keys + the Firestore field), so testers + users who want to re-explore can. Trivial — one button + a `FeatureTipService.resetAllSeen()` method. Plan/test procedure already exists at https://www.notion.so/36c4718e358a818fb69cf414a3d143d2 — extend it for the new entries. |
 
 ### v1.2 — competitor analysis (data-driven post-launch)
 
