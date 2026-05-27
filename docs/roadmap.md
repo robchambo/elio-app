@@ -1,9 +1,11 @@
 # Elio Roadmap
 
-**Last updated:** 26 May 2026 (Sprint 16.8 row 7 flipped to ⚠️ Infrastructure shipped — generic `FeatureTipService` landed on `main` via PRs #8 + #9 with 2 pilot tips; email-import-specific tip catalogue entry deferred until that vendor work lands. Added P2 v1.1 row: feature-tip polish + Style B spotlight + catalogue expansion.)
+**Last updated:** 27 May 2026 (Sprint 17 status reconciled against current `main` + open PRs + deployed-infra state ahead of Sprint 17 launch-prep work.)
 
-**Active branch:** `sprint/16-integration` — main integration line. Topic branch `fix/flash-lite-streaming` (1 commit ahead) ready to merge.
-**Pushed to origin:** through `041a915` on `sprint/16-integration`; `c58c924` pushed on `fix/flash-lite-streaming` after on-device sign-off.
+**Active branch:** `main` @ `dc1131c`. Sprint 16 + 16.8 squash-merged. Latest APK: `releases/elio-sprint-26may-b.apk`, tag `build/sprint-26may-b`.
+**Open PRs vs `main`:** #13 `fix/pantry-dedup-and-builder-failures` (pantry write + Builder error surfacing) · #14 `fix/guest-regen-paywall-and-error-toasts` (recipe-screen regen gate + friendly toasts) · #7 `claude/ios-dev-setup-prompt-MNul1` (iOS docs). Test rows on the Test Hub.
+**Sprint 17 launch-prep:** cut `sprint/17-integration` fresh off `main` whenever ready — no Sprint 16 wait remaining. `origin/sprint-17` stale (rules + entitlement content already on `main` via parallel commits, except `proOverride` client-code removal — tracked as Sprint 17 #14).
+**Deployed Cloud Functions (`elio-prototype`):** `generateImportAddress`, `postmarkInbound` (us-central1) · `crashlyticsFatal` / `Nonfatal` / `Velocity` / `Regression` → Notion Crashes DB (us-east1). All nodejs22.
 
 **Recent (1–15 May 2026):**
 - Sprint 15.9.2 — Gemini warmup (cold-start reliability)
@@ -554,25 +556,45 @@ Capture here so they don't keep resurfacing in planning.
 
 **Goal:** Everything that must be true before either store accepts a submission.
 
+**Branch convention:** new `sprint/17-integration` cut **fresh** from `main`. Fix branches off it, no fold-back (per integration-branch scope-freeze rule). `origin/sprint-17` stale — delete after Sprint 17 lands.
+
+**APK convention:** `S17--<DDmmm>-<letter>` (e.g. `S17--28may-a`). Filename `elio-S17--<DDmmm>-<letter>.apk`, label `0.S17--<DDmmm>-<letter>+<hash>`, tag `build/S17--<DDmmm>-<letter>`. Sub-sprints use `S17.<sub>--…`.
+
+### Already shipped (counted under Sprint 17 umbrella)
+
+| Area | What landed | Where |
+|---|---|---|
+| Performance audit | DevTools profiling, list optimisation, cold start parallelised | Sprint 15.3 |
+| ErrorService coverage | ~15 call sites across 6 services | Sprint 15.5 |
+| Firestore rules + entitlement hardening | `firestore.rules` default-deny, owner-only, protected sub-keys locked. `EntitlementService.refresh()` reads from RevenueCat at runtime. Dev Pro via `config/proTesters`. | On `main` via parallel commits (`5d26454` etc.) |
+| Firestore rules deploy | Production deploy 16 May (unblocked `customItems`). Dry-run still passes. | `5d26454` |
+| Crashlytics → Notion pipe (Tier 2) | 4 Cloud Functions idempotent-upsert into Operations → Crashes DB. **Supersedes the original Slack/Discord webhook plan.** | `functions/src/index.ts`, deployed us-east1 |
+| GDPR — code services | `AccountService.deleteAccount()`, `DataExportService`, `LegalLinks` scaffolding | Wired into AccountScreen |
+| Privacy / ToS — content + in-app screens | `assets/legal/privacy-policy.md` + `terms-of-service.md` + `wa-consumer-health-data-notice.md` (US/UK dual-regime); in-app `LegalDocScreen` reachable from AccountScreen About | Content authored, hosted URLs pending |
+| `REVENUECAT_API_KEY` build wiring | `build.ps1` `--dart-define` pass-through (dry mode falls back) | Sprint 15.5 |
+
+### Outstanding
+
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
-| 1 | Performance audit (DevTools profiling, list optimisation, cold start time) | 3–4 | ✅ Done |
-| 2 | **Firestore security rules audit** — rules are currently permissive (dev mode); must be locked down before public launch. Firebase console already flagging this. Also: data retention policy, input sanitisation | 2–3 | ⚠️ Partially done — rules + entitlement hardening landed on `sprint-17` branch (commits `8a17e8c`, `8c9e318`). Still to do: `firebase deploy --only firestore:rules`, emulator rule test suite, Cloud Functions backend so `weeklyGenerations` can be locked too, GCP budget caps |
-| 3 | GDPR compliance (data export, account deletion, consent tracking) | 2–3 | Not started |
-| 4 | Privacy policy + Terms of Service (in-app screens + hosted URLs — shared across both stores) | 2–3 | Not started |
-| 5 | Remove temporary debug messages from home_screen.dart | 0.5 | Not started |
-| 6 | Crashlytics → Slack/Discord webhook (real-time error alerts via Cloud Function) | 1–2 | Not started |
-| 7 | Wire `REVENUECAT_API_KEY` through build.ps1 / `.env.local` + configure live Play Store + App Store SKUs with 7-day free trial | 2–3 | Partially done (build.ps1 wired, key not yet in .env.local) |
-| 8 | Expand `ErrorService` coverage to GeminiService, FirestoreService, VoiceControlService, PurchaseService (currently only 4 call sites) | 1–2 | ✅ Done (Sprint 15.5 — ~15 call sites across 6 services) |
-| 9 | **Email re-auth path for Delete Account.** `AccountScreen._reauthForDelete` currently only supports the Google provider — Email/password users get a snackbar pointing them at the support email. **Launch blocker** per Play Store + GDPR requirement for in-app account deletion across all auth methods. Wire `EmailAuthProvider.credential(...)` into the existing reauth callback, mirroring the Google branch. Added 11 May 2026 after discovering it during the Sprint 16.6 device-test pass. | 1–2 | Not started |
-| 10 | **Forgot Password flow on-device verification.** `AuthService.sendPasswordReset` + `EmailLoginScreen` "Forgot password?" link are already wired. Verify end-to-end: enter email → tap link → email arrives → reset flow works → can sign in with the new password. Added 11 May 2026 — code in place since Sprint 15.x, never on-device confirmed. | 0.25 | Not started |
-| 11 | **Onboarding hero imagery — confirm final art shipped.** Two onboarding image assets currently in the repo are interim, not Kate's finals: `assets/images/onboarding/welcome_hero.png` (screen 01 marketing hero) and `assets/images/onboarding/pantry_intro_hero.jpg` (screen 10 illustrated pantry shelf). Before submission, **diff both files against the final Kate-delivered art** and replace if different. Tell-tales the current ones are interim: (a) `welcome_hero.png` is the 19 May resized version of the original placeholder; (b) `pantry_intro_hero.jpg` has visible AI-generation typos (`GRAAIN RICE`, `FANIFER`). Also re-confirm: no other onboarding screen still renders a placeholder emoji or amber-tinted block where a real illustration should be. Added 19 May 2026. | 0.5 | Not started |
-| 13 | **Cook Mode — keep screen on for the duration of hands-free.** `wakelock_plus` is currently held only while a recipe TIMER is active (Sprint 16.6 `_onTimerStateChange` logic). Cook Mode without a running timer hits the OS screen timeout (Rob's 2-minute setting caught this 21 May). 21may-a shipped an attempted fix (`_updateWakelock()` helper that OR-combined `_handsFreeMode || _timerService.hasActiveTimers`, wired into `_startHandsFree` / `_exitHandsFreeMode` / inline Done button) — that shipped a white-screen-on-Cook-Mode-entry regression that we couldn't root-cause inline, so it was reverted on 21may-b. Re-approach: try gating the platform call on `_handsFreeMode` via `initState` + dispose pair instead of the inline timer-callback path. Or use `WidgetsBindingObserver.didChangeAppLifecycleState` so we can defensively re-assert the wakelock on resume. Build 21may-a tag preserves the failed-attempt code for reference. Added 21 May 2026. | 1–2 | Reverted on 21may-b, needs fresh attempt |
-| ~~12~~ | ~~Cook Mode voice — resume on identified failure mode.~~ | — | ✅ **Closed.** All four leads from this row shipped to `main` between 19–21 May (RECORD_AUDIO permission gate, stale `_isListening` flag fix, `error_busy` backoff, forked `speech_to_text` with 15s silence window, plus voice heartbeat + continuous-listening refactor — ~10 fix branches across ~12 builds). Notion test list bottom block records "Cook Mode voice arc closed. End-to-end working as of 21may-b." Row was added 20 May before the fixes landed and never flipped. |
+| 1 | **Email re-auth for Delete Account** — `account_screen.dart:570` `_reauthForDelete` only handles Google; email/password users get the support-email snackbar (line 588-599). Wire `EmailAuthProvider.credential(...)` mirroring Google branch. **Launch blocker** (Play Store + GDPR — in-app deletion across all auth methods). | 1–2 | Not started |
+| 2 | **GDPR consent tracking** — sign-up checkbox + Settings withdrawal toggles (granular: analytics / crash reporting / marketing). Writes to `users/{uid}/consent` with timestamp. Satisfies GDPR Art. 7(3) withdrawal requirement. | 5–6 | Not started |
+| 3 | **Privacy / ToS hosted URLs** — blocked on domain purchase (in flight). Once domain lands, Firebase Hosting on `elio-prototype`. Update `LegalLinks` to point at hosted URLs alongside in-app render. | 1 | Blocked on domain |
+| 4 | **Server-side `weeklyGenerations` counter** — Cloud Fn proxies `generateRecipeStream` (HTTP SSE w/ manual ID-token verify), increments counter in Firestore transaction, enforces tier cap. Hides Gemini key from APK decompilation. Rules then lock `weeklyGenerations` + `weekStartedAt`. | 8–10 | Not started |
+| 5 | **Emulator rule test suite** — `firebase emulators` + `@firebase/rules-unit-testing` proving default-deny / owner-only / protected-sub-keys-locked / pending_imports invariants. ~20 tests. | 3 | Not started |
+| 6 | **GCP budget caps** — billing alert + hard-cap on `elio-prototype` project. Cloud Console only. | 0.5 | Not started |
+| 7 | **RC live SKUs + key in `.env.local`** — create Play Store + App Store SKUs (7-day free trial), wire to RC dashboard, paste key into `.env.local`. | 2–3 | Partial (build.ps1 wired) |
+| 8 | **Forgot Password on-device verification** — code wired since Sprint 15.x, never end-to-end confirmed. | 0.25 | Not verified |
+| 9 | **Strip debug from `home_screen.dart`** — re-verify grep pre-build (no matches currently). | 0.25 | Likely done, verify pre-build |
+| 10 | **Onboarding hero imagery — Kate finals** — replace `welcome_hero.png` (19 May interim resize) + `pantry_intro_hero.jpg` (visible AI typos `GRAAIN RICE`, `FANIFER`). Re-confirm no other placeholder. | 0.5 | Blocked on Kate art |
+| 11 | **Cook Mode — wakelock for hands-free duration** — `wakelock_plus` currently held only while a timer is active. 21may-a `_updateWakelock()` attempt shipped a white-screen regression, reverted on 21may-b. Re-try via `initState`/`dispose` pair on `_handsFreeMode`, or `WidgetsBindingObserver.didChangeAppLifecycleState` resume re-assert. | 1–2 | Reverted, needs fresh attempt |
+| 12 | **`functions/README.md`** — operator notes: deploy, `NOTION_TOKEN` rotation, schema-drift caveat (`index.ts:78-118`), regions split (us-central1 vs us-east1). | 0.5 | Not started |
+| 13 | **Delete `proOverride` dead code** — `FirestoreService.grantProAccess()` + `revokeProAccess()` (`firestore_service.dart:597-606`) write `subscription.proOverride: true/false`. Rules already reject these writes (silent fail). Zero callers in `lib/`. Pure delete. (`proOverrideForTest` in `recipe_preferences_screen.dart` is a renamed test seam — keep.) | 0.25 | Not started |
+| 14 | **Delete obsolete `origin/sprint-17` branch** — after Sprint 17 lands. | 0.1 | Not started |
 
-**Estimate:** 16.75–28.75 hours
+**Estimate outstanding:** 23.85–30.85 hours total (Claude code + Rob external + on-device verify). Of that, ~22–25h Claude-code work; ~5–6h Rob external (RC dashboard, GCP, hosting, Kate art when delivered).
 
-**Sprint 17 progress note (16 April 2026):** Firestore rules + entitlement hardening were committed on the `sprint-17` branch (currently unmerged). The old hard-coded dev-email allowlist and `proOverride` flag have been removed entirely; dev/tester Pro now comes from the Firestore doc `config/proTesters` (emails array). RevenueCat is the single source of truth for paying users. Branch needs `flutter analyze` + a PR to `main`.
+**Items punted from Sprint 17 → see Notion Launch Checklist** for the wider pre-launch backlog (referral loop, push campaigns, in-app review, analytics → BigQuery, a11y audit, app icon ratify, first-run coach marks, Gemini model audit, regional ingredient vocabulary, etc). Those are not store-submission blockers — they land in v1.1 or as pre-launch polish only if Sprint 17 outstanding closes early.
 
 ---
 
@@ -674,4 +696,4 @@ Capture here so they don't keep resurfacing in planning.
 - Dev flavor broken — always use `--flavor prod`
 - iOS URL scheme placeholder needs filling before any iOS build
 - APK size 72.9 MB (mobile_scanner ML Kit) — may need app bundles for Play Store
-- `REVENUECAT_API_KEY` wired in build.ps1 but actual key not yet in `.env.local` (need RC project setup)
+- `REVENUECAT_API_KEY` not in `.env.local` (tracked under Sprint 17 outstanding #7)
