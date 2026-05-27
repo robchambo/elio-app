@@ -62,6 +62,29 @@ void main() {
     });
   });
 
+  group('friendlyError — Dart type-error sanitisation (Sprint 17)', () {
+    // Kate's 26 May guest-account regen surfaced "Null check operator
+    // used on a null value" as a snackbar. The regen path is now
+    // gated by the paywall before it can crash like that, but
+    // friendlyError stays the last line of defence for any other
+    // bubble-up path.
+    test('null check operator → generic friendly copy', () {
+      // Simulate the exact toString shape Dart produces for `x!` on null.
+      final e = Exception('Null check operator used on a null value');
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('TypeError casts → generic friendly copy', () {
+      final e = Exception("type 'Null' is not a subtype of type 'String'");
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('RangeError → generic friendly copy', () {
+      final e = Exception('RangeError (index): Index out of range: no indices for empty list');
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+  });
+
   group('scrubApiKey', () {
     test('strips key=... query parameter', () {
       // SYNTHETIC KEY ONLY — see note in earlier test.

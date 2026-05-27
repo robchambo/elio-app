@@ -1568,6 +1568,32 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Future<void> _executeGeneration(RecipeGenerationRequest request) async {
     setState(() => _isRegenerating = true);
 
+    // Sprint 17 — free-tier cap check up front. The home screen gates
+    // first-generation here (HomeScreen._openPreferencesThenGenerate),
+    // but the regen path on this screen previously skipped the check
+    // entirely. Both guests over their 3/week limit and signed-in
+    // non-Pro users over the weekly cap could hammer "Generate
+    // another" until Gemini / the prompt path crashed with a raw
+    // null-check error toast (Kate's 26 May guest-account repro).
+    // Now we route to the standard paywall instead.
+    if (widget.isGuest) {
+      final canGenerate = await EntitlementService.canGuestGenerate();
+      if (!mounted) return;
+      if (!canGenerate) {
+        setState(() => _isRegenerating = false);
+        _showUpgradeDialog();
+        return;
+      }
+    } else {
+      await EntitlementService.instance.refresh();
+      if (!mounted) return;
+      if (!EntitlementService.instance.canGenerate) {
+        setState(() => _isRegenerating = false);
+        _showUpgradeDialog();
+        return;
+      }
+    }
+
     // Sprint 16.1: force-refresh dietary/allergens fresh-from-server
     // BEFORE building the regen request. Belt-and-braces against any
     // missed listener propagation since the original generation —
@@ -1580,7 +1606,13 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);
 
-      if (!widget.isGuest) {
+      if (widget.isGuest) {
+        // Sprint 17 — count the regen against the guest's 3/week cap.
+        // Previously only first-generation incremented (via
+        // HomeScreen), so guests could regen unbounded after the
+        // first recipe of the week.
+        await EntitlementService.recordGuestGeneration();
+      } else {
         await Future.wait([
           EntitlementService.instance.recordGeneration(),
           _firestore.saveRecipe(newRecipe),
@@ -1618,6 +1650,20 @@ class _RecipeScreenState extends State<RecipeScreen> {
         );
       }
     }
+  }
+
+  /// Pushes the standard cap-reached paywall. Mirrors
+  /// HomeScreen._showUpgradeDialog so the regen path and the
+  /// first-generation path lead users to the same screen.
+  void _showUpgradeDialog() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PaywallScreen(
+          triggerContext: 'weekly_limit',
+          trigger: PaywallTrigger.capReached,
+        ),
+      ),
+    );
   }
 
   // ── Side dish generation ────────────────────────────────────────────────────
