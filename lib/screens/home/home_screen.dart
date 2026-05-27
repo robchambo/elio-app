@@ -386,10 +386,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final perishablesForRequest = prefs.useUpItems.isNotEmpty
         ? prefs.useUpItems
         : _selectedPerishables.toList();
+
+    // Sprint 17 — Pantry / Go Wild mode picker on the prefs screen.
+    // When Go Wild is on, every pantry-sourced signal is zeroed so
+    // Gemini has no inventory context to honour and is free to suggest
+    // anything compatible with dietary/style/mood/time prefs. Dietary,
+    // allergens, appliances, taste profile (liked/disliked) and recent
+    // history stay in — Go Wild changes *what's available*, not who
+    // the user is or what they've already eaten this week. Saver Mode
+    // is orthogonal and still honoured if also on.
+    final goWild = prefs.ignorePantry;
     return RecipeGenerationRequest(
-      perishables: perishablesForRequest,
-      alwaysHave: _alwaysHave,
-      almostAlwaysHave: _almostAlwaysHave,
+      perishables: goWild ? const [] : perishablesForRequest,
+      alwaysHave: goWild ? const [] : _alwaysHave,
+      almostAlwaysHave: goWild ? const [] : _almostAlwaysHave,
       dietaryRequirements: _activeDietaryRequirements,
       timePreference: prefs.time,
       stylePreference: prefs.style,
@@ -399,14 +409,15 @@ class _HomeScreenState extends State<HomeScreen> {
       recentTitles: List.from(_recentTitles),
       recentHeroIngredients: List.from(_recentHeroIngredients),
       recentCookware: List.from(_recentCookware),
-      runningLowItems: List.from(_runningLowItems),
+      runningLowItems: goWild ? const [] : List.from(_runningLowItems),
       isLeftoverMode: prefs.isLeftoverMode,
       leftoverItems: prefs.leftoverItems,
       likedRecipes: _likedRecipes,
       dislikedRecipes: _dislikedRecipes,
       appliances: _appliances,
       isSaverMode: prefs.isSaverMode,
-      perishableInventoryDescriptions: _perishableDescriptions,
+      perishableInventoryDescriptions:
+          goWild ? const [] : _perishableDescriptions,
       userRequest: prefs.userRequest,
       // Sprint 15.9.3 SAFETY FIX: thread allergens through so the
       // prompt's Allergens line gets populated. Without this the user's

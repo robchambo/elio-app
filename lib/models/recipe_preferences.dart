@@ -11,6 +11,16 @@
 // [useUpItems] to carry selections from the new Perishables Picker.
 // useUpItems supersedes the old leftover-mode chip editor; when populated,
 // these items become REQUIRED ingredients in the Gemini prompt.
+//
+// Sprint 17 (26 May 2026) — added [ignorePantry] for the new
+// Pantry / Go Wild segmented toggle on the "set the mood" screen. When
+// true, Home's _buildRequest zeroes out every pantry-sourced field
+// (perishables, alwaysHave, almostAlwaysHave, runningLowItems,
+// perishableInventoryDescriptions) so Gemini has no inventory context to
+// honour and is free to suggest anything compatible with the user's
+// dietary/style/mood/time prefs. Use case: "I'm going shopping anyway —
+// suggest a nice meal." Saver Mode + Bulk Cook are orthogonal (still
+// honoured if also on).
 
 class RecipePreferences {
   final String? time;
@@ -45,6 +55,14 @@ class RecipePreferences {
   /// REQUIRED ingredients in the recipe (mapped onto request.perishables).
   final List<String> useUpItems;
 
+  /// Sprint 17 — "Go Wild" mode. When true the prefs screen tells Home to
+  /// drop every pantry-sourced field from the recipe request, so Gemini
+  /// generates anything compatible with the user's dietary/style/mood/time
+  /// prefs (and the free-text craving, if any) regardless of what's
+  /// actually at home. Default false (the existing pantry-aware behaviour
+  /// is the canonical recipe-generation path).
+  final bool ignorePantry;
+
   const RecipePreferences({
     this.time,
     this.style,
@@ -55,6 +73,7 @@ class RecipePreferences {
     this.leftoverItems = const [],
     this.userRequest,
     this.useUpItems = const [],
+    this.ignorePantry = false,
   });
 
   const RecipePreferences.any()
@@ -66,5 +85,6 @@ class RecipePreferences {
       isLeftoverMode = false,
       leftoverItems = const [],
       userRequest = null,
-      useUpItems = const [];
+      useUpItems = const [],
+      ignorePantry = false;
 }

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pantry / Go Wild toggle — visual preview (PR #12)</title>
+<style>
+  /* Elio palette (from lib/theme/elio_theme.dart) */
+  :root {
+    --cream:      #F4ECE0;
+    --cream-deep: #EFE3D2;
+    --terracotta: #E37B53;
+    --peach:      #F2C9A8;
+    --espresso:   #2A1F1A;
+    --mocha:      #6B5A4F;
+    --rule:       #D7C5B0;
+    --amber:      #E8A33C;
+
+    /* Radii (lib/theme/elio_radii.dart) */
+    --r-card: 16px;
+    --r-pill: 999px;
+
+    /* Spacing (lib/theme/elio_spacing.dart, 8-point grid) */
+    --xs: 4px;  --sm: 8px;  --md: 16px;  --lg: 24px;  --xl: 32px;  --xxl: 48px;
+    --screen-edge: 24px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: #2A1F1A;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--espresso);
+  }
+  .page-title {
+    color: #EFE3D2; text-align: center; padding: var(--lg) var(--md) var(--sm);
+    font-size: 14px; letter-spacing: 0.04em; opacity: 0.7;
+  }
+  .stage {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+    gap: var(--lg);
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: var(--md) var(--lg) var(--xxl);
+  }
+
+  /* Phone frame */
+  .phone {
+    width: 100%; max-width: 420px; margin: 0 auto;
+    background: var(--cream);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 24px 48px rgba(0,0,0,0.35);
+  }
+  .phone-label {
+    background: #1A120E; color: #EFE3D2;
+    padding: var(--sm) var(--md);
+    font-size: 11px; letter-spacing: 0.05em; text-transform: uppercase;
+    text-align: center;
+  }
+  .screen {
+    padding: var(--xl) var(--screen-edge);
+  }
+
+  /* Hero heading (very compressed mock of ElioHeroHeading) */
+  .hero {
+    font-family: Georgia, "Times New Roman", serif;
+    font-weight: 700;
+    font-size: 56px;
+    line-height: 0.95;
+    color: var(--espresso);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+  .hero .amber-dot { color: var(--amber); }
+  .hero-underline {
+    width: 36px; height: 4px; background: var(--terracotta);
+    border-radius: 2px; margin-top: 12px;
+  }
+
+  .spacer-xl { height: var(--xl); }
+  .spacer-lg { height: var(--lg); }
+  .spacer-md { height: var(--md); }
+  .spacer-sm { height: var(--sm); }
+
+  /* Craving field (mock of _buildCravingField) */
+  .craving {
+    width: 100%;
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-card);
+    padding: 14px var(--md);
+    color: var(--mocha);
+    font-size: 16px;
+  }
+
+  /* NEW: Pantry / Go Wild segmented row (matches _buildPantryModeRow) */
+  .mode-row {
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-card);
+    padding: 12px var(--md);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .mode-row.center { justify-content: center; }
+  .mode-label {
+    font-size: 15px; font-weight: 600; color: var(--espresso);
+  }
+  .pill-rail {
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-pill);
+    padding: 2px;
+    display: inline-flex; gap: 0;
+  }
+  .pill-seg {
+    padding: 6px 14px;
+    border-radius: var(--r-pill);
+    font-size: 13px; font-weight: 600;
+    color: var(--espresso);
+    cursor: pointer;
+    transition: background 140ms ease, color 140ms ease;
+    user-select: none;
+  }
+  .pill-seg.active {
+    background: var(--terracotta); color: #FFFFFF;
+  }
+
+  /* Saver / Bulk toggle tiles (mock of _buildToggleTile) */
+  .toggle-tile {
+    background: var(--cream);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-card);
+    padding: var(--md);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .toggle-tile.active {
+    border-color: var(--terracotta); border-width: 1.5px;
+    padding: 15.5px;
+  }
+  .toggle-info { display: flex; flex-direction: column; gap: 2px; }
+  .toggle-title { font-size: 15px; font-weight: 600; color: var(--espresso); }
+  .toggle-subtitle { font-size: 13px; color: var(--mocha); }
+  .toggle-switch {
+    width: 44px; height: 24px;
+    background: #C7B89E;
+    border-radius: 999px;
+    position: relative;
+    transition: background 160ms ease;
+    flex-shrink: 0;
+  }
+  .toggle-switch::after {
+    content: "";
+    position: absolute; top: 2px; left: 2px;
+    width: 20px; height: 20px;
+    background: #FFFFFF;
+    border-radius: 50%;
+    transition: left 160ms ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .toggle-switch.on { background: var(--terracotta); }
+  .toggle-switch.on::after { left: 22px; }
+
+  /* Settings preview block */
+  .settings-section-label {
+    font-size: 11px; letter-spacing: 0.12em; color: var(--mocha);
+    text-transform: uppercase; padding: 0 4px var(--sm);
+    font-weight: 600;
+  }
+  .settings-card {
+    background: var(--cream-deep);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-card);
+    overflow: hidden;
+  }
+  .settings-row {
+    padding: 12px var(--md);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .settings-row + .settings-row {
+    border-top: 1px solid var(--rule);
+  }
+  .settings-row .label { font-size: 15px; font-weight: 600; color: var(--espresso); }
+
+  /* Note + before/after */
+  .note {
+    color: var(--mocha);
+    background: var(--cream-deep);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-card);
+    padding: var(--md);
+    font-size: 13px;
+    line-height: 1.45;
+  }
+  .before-after {
+    display: grid; gap: var(--md);
+    grid-template-columns: 1fr;
+    margin-top: var(--md);
+  }
+  .ba-col {
+    background: var(--cream); border: 1px solid var(--rule);
+    border-radius: var(--r-card); padding: var(--md);
+  }
+  .ba-col h4 {
+    margin: 0 0 var(--sm) 0; font-size: 12px;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--mocha);
+  }
+  .ba-col .row {
+    background: var(--cream-deep);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-card);
+    padding: 10px var(--md);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 14px;
+  }
+  .ba-col .row .label-multiline {
+    font-weight: 600;
+    word-spacing: 99rem;  /* force per-word break for "before" demo */
+  }
+</style>
+</head>
+<body>
+<div class="page-title">Elio · Pantry / Go Wild toggle preview · PR #12 · 26 May 2026</div>
+
+<div class="stage">
+
+  <!-- ── 1. PANTRY mode (default) ─────────────────────────── -->
+  <div>
+    <div class="phone">
+      <div class="phone-label">Recipe-gen screen · Pantry mode (default)</div>
+      <div class="screen">
+        <h1 class="hero">set the<br>mood<span class="amber-dot">.</span></h1>
+        <div class="hero-underline"></div>
+
+        <div class="spacer-xl"></div>
+
+        <!-- Craving field -->
+        <div class="craving">Got a craving? Tell me about it</div>
+
+        <!-- 24px gap (ElioSpacing.lg) -->
+        <div class="spacer-lg"></div>
+
+        <!-- NEW: Pantry / Go Wild row -->
+        <div class="mode-row">
+          <div class="mode-label">Mode</div>
+          <div class="pill-rail">
+            <div class="pill-seg active">Pantry</div>
+            <div class="pill-seg">Go Wild</div>
+          </div>
+        </div>
+
+        <!-- 32px gap (ElioSpacing.xl) -->
+        <div class="spacer-xl"></div>
+
+        <!-- Saver Mode tile -->
+        <div class="toggle-tile">
+          <div class="toggle-info">
+            <div class="toggle-title">Saver mode</div>
+            <div class="toggle-subtitle">Budget-friendly recipes</div>
+          </div>
+          <div class="toggle-switch"></div>
+        </div>
+
+        <div class="spacer-sm"></div>
+
+        <!-- Bulk cook tile -->
+        <div class="toggle-tile">
+          <div class="toggle-info">
+            <div class="toggle-title">Bulk cook</div>
+            <div class="toggle-subtitle">Freezer-friendly meals</div>
+          </div>
+          <div class="toggle-switch"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2. GO WILD mode selected ─────────────────────────── -->
+  <div>
+    <div class="phone">
+      <div class="phone-label">Recipe-gen screen · Go Wild selected</div>
+      <div class="screen">
+        <h1 class="hero">set the<br>mood<span class="amber-dot">.</span></h1>
+        <div class="hero-underline"></div>
+
+        <div class="spacer-xl"></div>
+
+        <div class="craving">Got a craving? Tell me about it</div>
+
+        <div class="spacer-lg"></div>
+
+        <div class="mode-row">
+          <div class="mode-label">Mode</div>
+          <div class="pill-rail">
+            <div class="pill-seg">Pantry</div>
+            <div class="pill-seg active">Go Wild</div>
+          </div>
+        </div>
+
+        <div class="spacer-sm"></div>
+
+        <div class="note">
+          Ready to Go Wild? We’ll ignore your pantry ingredients for this search, but
+          don’t worry—your allergy and dietary preferences are still safely locked in.
+        </div>
+
+        <div class="spacer-xl"></div>
+
+        <div class="toggle-tile">
+          <div class="toggle-info">
+            <div class="toggle-title">Saver mode</div>
+            <div class="toggle-subtitle">Budget-friendly recipes</div>
+          </div>
+          <div class="toggle-switch"></div>
+        </div>
+
+        <div class="spacer-sm"></div>
+
+        <div class="toggle-tile">
+          <div class="toggle-info">
+            <div class="toggle-title">Bulk cook</div>
+            <div class="toggle-subtitle">Freezer-friendly meals</div>
+          </div>
+          <div class="toggle-switch"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. Settings Units fix ─────────────────────────── -->
+  <div>
+    <div class="phone">
+      <div class="phone-label">Settings · "Units" label overflow fix</div>
+      <div class="screen">
+        <div class="settings-section-label">Preferences</div>
+
+        <div class="before-after">
+          <div class="ba-col">
+            <h4>Before · "Measurement Units" (wraps)</h4>
+            <div class="row">
+              <div class="label-multiline" style="max-width: 50%;">Measurement Units</div>
+              <div class="pill-rail">
+                <div class="pill-seg active">Metric</div>
+                <div class="pill-seg">Imperial</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="ba-col">
+            <h4>After · "Units" (one line)</h4>
+            <div class="row">
+              <div class="label-multiline">Units</div>
+              <div class="pill-rail">
+                <div class="pill-seg active">Metric</div>
+                <div class="pill-seg">Imperial</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="spacer-lg"></div>
+
+        <div class="note">
+          Segment values (<strong>Metric</strong> / <strong>Imperial</strong>) already
+          convey what kind of units — the word "Measurement" was carrying no signal and
+          costing two lines on the narrowest device.
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

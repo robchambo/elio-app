@@ -33,6 +33,7 @@ import '../../widgets/elio/elio_big_button.dart';
 import '../../widgets/elio/elio_chip.dart';
 import '../../widgets/elio/elio_eyebrow.dart';
 import '../../widgets/elio/elio_hero_heading.dart';
+import '../../widgets/elio/elio_segmented_row.dart';
 import '../paywall/paywall_screen.dart';
 import '../recipe/recipe_screen.dart';
 import 'bulk_prep_results_screen.dart';
@@ -169,6 +170,13 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   /// in the prompt. No "Any" sentinel — null is the no-preference state.
   String? _mealType;
 
+  // Sprint 17 — Pantry / Go Wild mode picker. False (= Pantry) preserves
+  // the canonical pantry-aware generation flow; true (= Go Wild) tells
+  // Home._buildRequest to zero out every pantry-sourced field so Gemini
+  // is free to suggest anything within dietary/style/mood/time prefs.
+  // Use case: "I'm going to the shops anyway — pick me a nice meal."
+  bool _isGoWildMode = false;
+
   // Sprint 16.3 — Saver + Bulk cook live as the top-of-screen toggle row
   // (above the chip sections). Bulk cook is Pro-gated and opens a slider
   // dialog (meals 1-3, portions 4-12) on enable; tapping the right side
@@ -259,6 +267,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       leftoverItems: const [],
       userRequest: craving.isEmpty ? null : craving,
       useUpItems: List.unmodifiable(_useUpItems),
+      ignorePantry: _isGoWildMode,
     );
 
     final request = await widget.buildRequest(prefs);
@@ -603,6 +612,68 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ── Pantry / Go Wild mode picker (Sprint 17) ─────────────────────
+  // Two-segment pill control sitting between the craving field and the
+  // Saver / Bulk toggle row. Pantry (default) preserves the canonical
+  // pantry-aware generation flow; Go Wild tells Home._buildRequest to
+  // drop every pantry-sourced field so Gemini is free to suggest
+  // anything within dietary / style / mood / time prefs. Use case:
+  // "I'm going to the shops anyway — pick me a nice meal."
+  //
+  // Visual chrome matches the surrounding _buildToggleTile cards (cream
+  // fill, rule border, ElioSpacing.md padding) so the row sits
+  // comfortably between the craving field above and the saver/bulk
+  // tiles below. ElioSegmentedRow provides the inline pill — same widget
+  // as the Settings → Units row.
+  Widget _buildPantryModeRow() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // "Mode" label on the left, pill rail on the right — same shape
+        // as the Settings → Units row so the control reads as part of
+        // the same family. Cream/rule card matches the visual weight of
+        // the craving field above and the saver / bulk tiles below.
+        Container(
+          decoration: BoxDecoration(
+            color: ElioColors.cream,
+            borderRadius: BorderRadius.circular(ElioRadii.card),
+            border: Border.all(color: ElioColors.rule, width: 1),
+          ),
+          child: ElioSegmentedRow(
+            label: 'Mode',
+            options: const [('pantry', 'Pantry'), ('go_wild', 'Go Wild')],
+            value: _isGoWildMode ? 'go_wild' : 'pantry',
+            onChanged: (v) =>
+                setState(() => _isGoWildMode = v == 'go_wild'),
+          ),
+        ),
+        // Friendly explainer that appears only when Go Wild is selected.
+        // Reassures the user that the safety-critical signals (allergens
+        // + dietary) are still in force, even though pantry context is
+        // being dropped for this generation. Quieter creamDeep card with
+        // mocha body copy so it doesn't compete with the pill above.
+        if (_isGoWildMode) ...[
+          const SizedBox(height: ElioSpacing.sm),
+          Container(
+            padding: const EdgeInsets.all(ElioSpacing.md),
+            decoration: BoxDecoration(
+              color: ElioColors.creamDeep,
+              borderRadius: BorderRadius.circular(ElioRadii.card),
+              border: Border.all(color: ElioColors.rule, width: 1),
+            ),
+            child: Text(
+              "Ready to Go Wild? We’ll ignore your pantry ingredients for this search, but don’t worry—your allergy and dietary preferences are still safely locked in.",
+              style: ElioTextStyles.bodySmallStyle.copyWith(
+                color: ElioColors.mocha,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -988,6 +1059,8 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
           ],
           const SizedBox(height: ElioSpacing.xl),
           _buildCravingField(),
+          const SizedBox(height: ElioSpacing.lg),
+          _buildPantryModeRow(),
           const SizedBox(height: ElioSpacing.xl),
           _buildTopToggles(),
           const SizedBox(height: ElioSpacing.xl),
