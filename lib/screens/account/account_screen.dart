@@ -39,9 +39,11 @@ import '../../main.dart';
 import '../../services/account_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/data_export_service.dart';
+import '../../services/entitlement_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/guest_pantry_service.dart';
 import '../../services/legal_links.dart';
+import '../../services/order_import_service.dart';
 import '../../services/purchase_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
@@ -51,6 +53,7 @@ import '../../utils/region_utils.dart';
 import '../../widgets/elio/elio_page_title.dart';
 import '../../widgets/elio/elio_provider_signin_button.dart';
 import '../auth/email_login_screen.dart';
+import '../paywall/paywall_screen.dart';
 import '../profile/dietary_screen.dart';
 import '../profile/household_screen.dart';
 import '../profile/kitchen_screen.dart';
@@ -58,6 +61,7 @@ import '../profile/notification_prefs_screen.dart';
 import '../shell/app_shell.dart';
 import 'account_actions.dart';
 import 'legal_doc_screen.dart';
+import 'order_import_screen.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -594,6 +598,34 @@ class _AccountScreenState extends State<AccountScreen> {
     return null;
   }
 
+  // ─── Order import (Pro-gated) ─────────────────────────────────────
+
+  /// Sprint 17 — settings → order import. Pro users push the screen
+  /// that fetches their `u_<token>@orders.eliochef.com` address. Free
+  /// users get the same PaywallScreen used by every other locked-
+  /// feature gate (see `_showProRequiredSnack` in meal_plan_screen).
+  Future<void> _openOrderImport() async {
+    if (!EntitlementService.instance.isPro) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const PaywallScreen(
+            triggerContext: 'order_import',
+            trigger: PaywallTrigger.lockedFeature,
+            lockedFeatureName: 'Order import',
+          ),
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => OrderImportScreen(
+          service: FirebaseOrderImportService(),
+        ),
+      ),
+    );
+  }
+
   // ─── About actions ────────────────────────────────────────────────
 
   Future<void> _exportData() async {
@@ -759,6 +791,17 @@ class _AccountScreenState extends State<AccountScreen> {
                       subtitle: 'Start each recipe in budget-friendly mode',
                       value: _saverModeDefault,
                       onChanged: _setSaverMode,
+                    ),
+                    // Sprint 17 — Pro-gated. Free users get the same
+                    // PaywallScreen used by Meal Planner / Shopping
+                    // List feature gates (see _showProRequiredSnack in
+                    // meal_plan_screen.dart). Pro users push to
+                    // OrderImportScreen which fetches their address
+                    // (cached on the user doc after the first callable
+                    // invocation).
+                    _PushRow(
+                      label: 'Order import',
+                      onTap: _openOrderImport,
                     ),
                   ],
                 ),

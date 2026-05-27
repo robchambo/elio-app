@@ -1,0 +1,47 @@
+From: Rob <rob@example.com>
+To: u_abc123xyz4567@orders.eliochef.com
+Subject: Fwd: Your Kroger order — receipt
+Date: Mon, 25 May 2026 14:35:00 -0700
+
+Forwarding for the pantry app.
+
+---------- Forwarded message ---------
+From: Kroger <donotreply@kroger.com>
+Date: Mon, 25 May 2026 14:32:00 -0700
+Subject: Your Kroger order — receipt
+To: rob@example.com
+
+Hi Rob,
+
+Thanks for your order at KROGER #0123 — BELLEVUE, WA.
+Order #KR-88291043
+Pickup completed: May 25, 2026 2:15 PM
+
+YOUR ITEMS
+
+  1   KRO BRAND WHOLE MILK 1 GAL                              $3.79
+  2   SIMPLE TRUTH ORGANIC LARGE EGGS 12CT       @ $5.49      $10.98
+  1   KRO BRAND UNSALTED BUTTER 16OZ                          $4.49
+  3   FRESH BANANAS, lb                          @ $0.59/lb    $1.77
+  1   BONELESS SKINLESS CHICKEN BREAST 1.4 LB                 $7.83
+  2   KRO BRAND SHARP CHEDDAR CHEESE 8OZ         @ $3.29      $6.58
+  1   PRIVATE SELECTION SOURDOUGH LOAF                        $4.99
+  1   SIMPLE TRUTH BABY SPINACH 5OZ                           $3.49
+  2   COCA-COLA ZERO SUGAR 12PK CAN              @ $7.99     $15.98
+  1   BOUNTY PAPER TOWELS 6 DBL ROLL                          $14.99
+  1   TIDE LIQUID DETERGENT 92OZ                              $13.49
+  2   KRO BRAND CHUNK LIGHT TUNA 5OZ             @ $0.99      $1.98
+  1   SIMPLE TRUTH ORGANIC BABY CARROTS 1LB                   $1.99
+  1   FRESH AVOCADO, HASS, EA                                 $1.29
+
+SUBTOTAL                                                     $93.64
+TAX                                                           $4.21
+DELIVERY FEE                                                  $0.00
+TOTAL                                                        $97.85
+
+Thanks for shopping at Kroger!
+Manage your order: https://www.kroger.com/orders/KR-88291043
+
+Questions? Reply to this email or call 1-800-KRO-GERS.
+
+This is an automated message — replies are monitored.

@@ -1,6 +1,5 @@
-# Compiled JavaScript files
-lib/**/*.js
-lib/**/*.js.map
+# Compiled JavaScript files + test fixtures copied at build time
+lib/
 
 # Dependencies
 node_modules/
