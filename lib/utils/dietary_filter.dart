@@ -242,7 +242,9 @@ class DietaryFilter {
     // and Worcestershire is rare in vegan cooking; not worth the work.
     // 'worcestershire sauce': flags intentionally removed — see comment above.
     'frozen prawns': {_BlockFlag.shellfish, _BlockFlag.vegan, _BlockFlag.vegetarian},
+    'frozen shrimp': {_BlockFlag.shellfish, _BlockFlag.vegan, _BlockFlag.vegetarian},
     'prawns': {_BlockFlag.shellfish}, // perishables
+    'shrimp': {_BlockFlag.shellfish}, // US alias
     'salmon': {_BlockFlag.fish}, // pescatarian fine; veggie/vegan blocked via cat
     'white fish': {_BlockFlag.fish},
 
@@ -259,8 +261,11 @@ class DietaryFilter {
     'bulgur wheat': {_BlockFlag.gluten},
     'tortillas (flour)': {_BlockFlag.gluten},
     'plain flour': {_BlockFlag.gluten},
+    'all-purpose flour': {_BlockFlag.gluten}, // US alias
     'self-raising flour': {_BlockFlag.gluten},
+    'self-rising flour': {_BlockFlag.gluten}, // US alias
     'strong bread flour': {_BlockFlag.gluten},
+    'bread flour': {_BlockFlag.gluten}, // US alias
     // Note: 'sausages' carries gluten too — combined with meat in the
     // perishable meat block below to keep one entry per item.
     // 2026-05-19 Kate flag pass (in-cell comment, Frozen Staples):
@@ -306,20 +311,27 @@ class DietaryFilter {
     // brand-dependent — most major brands now use vegetable rennet).
     'milk': {_BlockFlag.vegan, _BlockFlag.dairy},
     'yoghurt': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'yogurt': {_BlockFlag.vegan, _BlockFlag.dairy}, // US alias
     'double cream': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'heavy cream': {_BlockFlag.vegan, _BlockFlag.dairy}, // US alias
     'single cream': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'light cream': {_BlockFlag.vegan, _BlockFlag.dairy}, // US alias
     'cheddar cheese': {_BlockFlag.vegan, _BlockFlag.dairy},
     'parmesan': {_BlockFlag.vegan, _BlockFlag.dairy},
     'mozzarella': {_BlockFlag.vegan, _BlockFlag.dairy},
     'cream cheese': {_BlockFlag.vegan, _BlockFlag.dairy},
     'greek yoghurt': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'greek yogurt': {_BlockFlag.vegan, _BlockFlag.dairy}, // US alias
     'natural yoghurt': {_BlockFlag.vegan, _BlockFlag.dairy},
+    'plain yogurt': {_BlockFlag.vegan, _BlockFlag.dairy}, // US alias
 
     // ─── Perishable meat (under Fresh meat & fish) ───────────────
     'chicken breast': {_BlockFlag.meat},
     'chicken thighs': {_BlockFlag.meat},
     'mince (beef)': {_BlockFlag.meat},
+    'ground beef': {_BlockFlag.meat}, // US alias
     'mince (pork)': {_BlockFlag.meat},
+    'ground pork': {_BlockFlag.meat}, // US alias
     'bacon': {_BlockFlag.meat},
     'sausages': {_BlockFlag.meat, _BlockFlag.gluten}, // overrides earlier entry
     'steak': {_BlockFlag.meat},
@@ -334,7 +346,17 @@ class DietaryFilter {
       _BlockFlag.vegetarian,
       _BlockFlag.meat,
     },
+    'bouillon cubes (chicken)': {
+      _BlockFlag.vegan,
+      _BlockFlag.vegetarian,
+      _BlockFlag.meat,
+    },
     'stock cubes (beef)': {
+      _BlockFlag.vegan,
+      _BlockFlag.vegetarian,
+      _BlockFlag.meat,
+    },
+    'bouillon cubes (beef)': {
       _BlockFlag.vegan,
       _BlockFlag.vegetarian,
       _BlockFlag.meat,

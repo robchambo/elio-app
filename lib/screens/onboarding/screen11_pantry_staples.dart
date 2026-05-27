@@ -97,7 +97,7 @@ const Map<String, _DefaultRule> _kDefaultStaples = {
     dietaryExcludes: ['vegan'],
   ),
   // Canned & Jarred
-  'Tinned tomatoes': _DefaultRule(category: 'Canned & Jarred'),
+  'Canned tomatoes': _DefaultRule(category: 'Canned & Jarred'),
   'Chickpeas': _DefaultRule(category: 'Canned & Jarred'),
   // Grains & Pasta
   'Rice (white)': _DefaultRule(category: 'Grains & Pasta'),
@@ -117,11 +117,11 @@ const Map<String, _DefaultRule> _kDefaultStaples = {
     allergyExcludes: ['dairy'],
   ),
   // Baking Essentials
-  'Plain flour': _DefaultRule(
+  'All-purpose flour': _DefaultRule(
     category: 'Baking Essentials',
     allergyExcludes: ['gluten', 'wheat'],
   ),
-  'Caster sugar': _DefaultRule(category: 'Baking Essentials'),
+  'Granulated sugar': _DefaultRule(category: 'Baking Essentials'),
   'Baking powder': _DefaultRule(category: 'Baking Essentials'),
   // Frozen Staples
   'Frozen peas': _DefaultRule(category: 'Frozen Staples'),

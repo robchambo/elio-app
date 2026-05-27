@@ -29,7 +29,7 @@ class PantryCategories {
       subcategories: {
         'Basic': [
           'Salt', 'Black pepper', 'Garlic powder', 'Onion powder', 'Paprika',
-          'Cumin', 'Oregano', 'Chilli flakes', 'Cinnamon', 'Mixed herbs',
+          'Cumin', 'Oregano', 'Red pepper flakes', 'Cinnamon', 'Mixed herbs',
           'Thyme', 'Rosemary', 'Bay leaves', 'Nutmeg', 'Cayenne pepper',
           'Smoked paprika',
         ],
@@ -54,7 +54,7 @@ class PantryCategories {
       subcategories: {
         '': [
           'Garam masala', 'Turmeric', 'Cumin seeds', 'Coriander (ground)',
-          'Chilli powder', 'Cardamom', 'Mustard seeds', 'Fenugreek',
+          'Chili powder', 'Cardamom', 'Mustard seeds', 'Fenugreek',
           'Curry powder', 'Curry paste', 'Ghee', 'Lentils (red)',
           'Lentils (green)', 'Chickpeas', 'Basmati rice', 'Naan bread',
           'Paneer', 'Tamarind paste',
@@ -105,9 +105,9 @@ class PantryCategories {
       icon: '🥚',
       subcategories: {
         '': [
-          'Eggs', 'Butter', 'Milk', 'Double cream', 'Single cream',
+          'Eggs', 'Butter', 'Milk', 'Heavy cream', 'Light cream',
           'Cheddar cheese', 'Parmesan', 'Mozzarella', 'Cream cheese',
-          'Greek yoghurt', 'Natural yoghurt', 'Sour cream',
+          'Greek yogurt', 'Plain yogurt', 'Sour cream',
         ],
       },
     ),
@@ -116,9 +116,9 @@ class PantryCategories {
       icon: '🥫',
       subcategories: {
         '': [
-          'Tinned tomatoes', 'Chopped tomatoes', 'Tomato puree',
+          'Canned tomatoes', 'Chopped tomatoes', 'Tomato paste',
           'Coconut milk', 'Chickpeas', 'Kidney beans', 'Black beans',
-          'Baked beans', 'Tuna', 'Sweetcorn', 'Peanut butter',
+          'Baked beans', 'Tuna', 'Corn', 'Peanut butter',
           'Jam', 'Olives', 'Anchovies', 'Passata',
         ],
       },
@@ -140,10 +140,10 @@ class PantryCategories {
       icon: '🧁',
       subcategories: {
         '': [
-          'Plain flour', 'Self-raising flour', 'Strong bread flour',
-          'Baking powder', 'Bicarbonate of soda', 'Vanilla extract',
-          'Cocoa powder', 'Caster sugar', 'Brown sugar', 'Icing sugar',
-          'Cornflour', 'Yeast', 'Golden syrup', 'Chocolate chips',
+          'All-purpose flour', 'Self-rising flour', 'Bread flour',
+          'Baking powder', 'Baking soda', 'Vanilla extract',
+          'Cocoa powder', 'Granulated sugar', 'Brown sugar', 'Powdered sugar',
+          'Cornstarch', 'Yeast', 'Golden syrup', 'Chocolate chips',
         ],
       },
     ),
@@ -154,9 +154,9 @@ class PantryCategories {
         '': [
           'Ketchup', 'Mayonnaise', 'Mustard', 'Dijon mustard',
           'Worcestershire sauce', 'Hot sauce', 'Honey', 'Maple syrup',
-          'Tomato puree', 'BBQ sauce', 'Soy sauce',
-          'Stock cubes (chicken)', 'Stock cubes (vegetable)',
-          'Stock cubes (beef)', 'Mango chutney',
+          'Tomato paste', 'BBQ sauce', 'Soy sauce',
+          'Bouillon cubes (chicken)', 'Bouillon cubes (vegetable)',
+          'Bouillon cubes (beef)', 'Mango chutney',
         ],
       },
     ),
@@ -165,8 +165,8 @@ class PantryCategories {
       icon: '🧊',
       subcategories: {
         '': [
-          'Frozen peas', 'Frozen sweetcorn', 'Frozen spinach',
-          'Frozen berries', 'Frozen prawns', 'Frozen chips',
+          'Frozen peas', 'Frozen corn', 'Frozen spinach',
+          'Frozen berries', 'Frozen shrimp', 'Frozen fries',
           'Ice cream', 'Frozen pastry (puff)', 'Frozen pastry (shortcrust)',
           'Frozen mixed vegetables', 'Frozen edamame',
         ],
