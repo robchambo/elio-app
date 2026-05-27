@@ -1,3 +1,4 @@
+import '../utils/json_num.dart';
 import 'recipe_models.dart';
 
 // ─────────────────────────────────────────────
@@ -87,9 +88,9 @@ class MealSlot {
     return MealSlot(
       title: json['title'] as String? ?? 'Meal',
       description: json['description'] as String? ?? '',
-      prepTimeMinutes: (json['prepTimeMinutes'] as num?)?.toInt() ?? 5,
-      cookTimeMinutes: (json['cookTimeMinutes'] as num?)?.toInt() ?? 15,
-      servings: (json['servings'] as num?)?.toInt() ?? 2,
+      prepTimeMinutes: asNum(json['prepTimeMinutes'])?.toInt() ?? 5,
+      cookTimeMinutes: asNum(json['cookTimeMinutes'])?.toInt() ?? 15,
+      servings: asNum(json['servings'])?.toInt() ?? 2,
       dietaryTags: (json['dietaryTags'] as List<dynamic>? ?? [])
           .map((e) => e.toString())
           .toList(),
@@ -102,9 +103,9 @@ class MealSlot {
       nutrition: json['nutrition'] != null
           ? NutritionInfo.fromJson(json['nutrition'] as Map<String, dynamic>)
           : null,
-      caloriesPerServing: (json['caloriesPerServing'] as num?)?.toInt(),
-      estimatedCostPerServingUSD: (json['estimatedCostPerServingUSD'] as num?)?.toDouble(),
-      estimatedCostPerServingGBP: (json['estimatedCostPerServingGBP'] as num?)?.toDouble(),
+      caloriesPerServing: asNum(json['caloriesPerServing'])?.toInt(),
+      estimatedCostPerServingUSD: asNum(json['estimatedCostPerServingUSD'])?.toDouble(),
+      estimatedCostPerServingGBP: asNum(json['estimatedCostPerServingGBP'])?.toDouble(),
       substitutions: (json['substitutions'] as List<dynamic>? ?? [])
           .map((e) => RecipeSubstitution.fromJson(e as Map<String, dynamic>))
           .toList(),

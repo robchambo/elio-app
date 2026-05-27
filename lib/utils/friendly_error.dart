@@ -49,6 +49,19 @@ String friendlyError(Object e) {
   if (isOffline) {
     return "You're offline. Reconnect and try again.";
   }
+  // Sprint 17 (27 May 2026) — fall back to a generic message for Dart
+  // runtime errors (TypeError, cast failure, null-check operator). These
+  // leak Dart-internal text ("type 'String' is not a subtype of type
+  // 'num?' in type cast") straight into the toast on 26may-b when
+  // Gemini emitted a String for a numeric meal-slot field. Surface a
+  // friendly message; the raw error still reaches Crashlytics via
+  // ErrorService.log upstream.
+  if (lower.contains('_typeerror') ||
+      lower.contains('is not a subtype of') ||
+      lower.contains('null check operator') ||
+      lower.contains('in type cast')) {
+    return 'Something went wrong. Please try again.';
+  }
   return scrubApiKey(raw.replaceFirst('Exception: ', ''));
 }
 

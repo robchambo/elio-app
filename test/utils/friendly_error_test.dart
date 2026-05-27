@@ -62,6 +62,37 @@ void main() {
     });
   });
 
+  group('friendlyError — Dart runtime errors (Sprint 17 hotfix)', () {
+    test('maps TypeError cast failure to friendly fallback', () {
+      // Verbatim shape from Rob's 26may-b meal-plan recipe-tap bug.
+      try {
+        final dynamic v = '5 min';
+        // ignore: unused_local_variable, unnecessary_cast
+        final n = v as num?;
+        fail('expected cast to throw');
+      } catch (e) {
+        expect(friendlyError(e),
+            'Something went wrong. Please try again.');
+      }
+    });
+
+    test('maps null-check operator error to friendly fallback', () {
+      try {
+        // ignore: dead_null_aware_expression
+        final int x = (null as int?)!;
+        fail('expected null check to throw: $x');
+      } catch (e) {
+        expect(friendlyError(e),
+            'Something went wrong. Please try again.');
+      }
+    });
+
+    test('still falls through clean for non-error Exception text', () {
+      final e = Exception('Some other domain message');
+      expect(friendlyError(e), 'Some other domain message');
+    });
+  });
+
   group('scrubApiKey', () {
     test('strips key=... query parameter', () {
       // SYNTHETIC KEY ONLY — see note in earlier test.
