@@ -20,7 +20,12 @@ import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 
 class ElioSegmentedRow extends StatelessWidget {
-  final String label;
+  /// Optional label shown to the left of the pill rail. Null = pill rail
+  /// renders centred in the row with no leading text — used by the
+  /// recipe-prefs Pantry / Go Wild picker where the segment values
+  /// already speak for themselves and the parent screen wants the pill
+  /// to be the visual focal point.
+  final String? label;
 
   /// `(value, displayLabel)` tuples. Two-segment is the most common shape
   /// (Metric / Imperial, Pantry / Go Wild) but the widget accepts any
@@ -32,7 +37,7 @@ class ElioSegmentedRow extends StatelessWidget {
 
   const ElioSegmentedRow({
     super.key,
-    required this.label,
+    this.label,
     required this.options,
     required this.value,
     required this.onChanged,
@@ -40,52 +45,57 @@ class ElioSegmentedRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+    final pillRail = Container(
+      decoration: BoxDecoration(
+        color: ElioColors.cream,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: ElioColors.rule, width: 1),
+      ),
+      padding: const EdgeInsets.all(2),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(child: Text(label, style: ElioTextStyles.uiLabelStyle)),
-          Container(
-            decoration: BoxDecoration(
-              color: ElioColors.cream,
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: ElioColors.rule, width: 1),
-            ),
-            padding: const EdgeInsets.all(2),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final (val, display) in options)
-                  GestureDetector(
-                    onTap: () {
-                      if (val != value) onChanged(val);
-                    },
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 140),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: val == value
-                            ? ElioColors.terracotta
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        display,
-                        style: ElioTextStyles.uiLabelStyle.copyWith(
-                          color: val == value
-                              ? Colors.white
-                              : ElioColors.espresso,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
+          for (final (val, display) in options)
+            GestureDetector(
+              onTap: () {
+                if (val != value) onChanged(val);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 140),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: val == value
+                      ? ElioColors.terracotta
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  display,
+                  style: ElioTextStyles.uiLabelStyle.copyWith(
+                    color: val == value
+                        ? Colors.white
+                        : ElioColors.espresso,
+                    fontSize: 13,
                   ),
-              ],
+                ),
+              ),
             ),
-          ),
         ],
       ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: label != null
+          ? Row(
+              children: [
+                Expanded(
+                    child: Text(label!, style: ElioTextStyles.uiLabelStyle)),
+                pillRail,
+              ],
+            )
+          : Center(child: pillRail),
     );
   }
 }

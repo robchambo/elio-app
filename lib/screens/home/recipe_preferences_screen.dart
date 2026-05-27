@@ -629,19 +629,51 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   // tiles below. ElioSegmentedRow provides the inline pill — same widget
   // as the Settings → Units row.
   Widget _buildPantryModeRow() {
-    return Container(
-      decoration: BoxDecoration(
-        color: ElioColors.cream,
-        borderRadius: BorderRadius.circular(ElioRadii.card),
-        border: Border.all(color: ElioColors.rule, width: 1),
-      ),
-      child: ElioSegmentedRow(
-        label: 'Mode',
-        options: const [('pantry', 'Pantry'), ('go_wild', 'Go Wild')],
-        value: _isGoWildMode ? 'go_wild' : 'pantry',
-        onChanged: (v) =>
-            setState(() => _isGoWildMode = v == 'go_wild'),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // "Mode" label on the left, pill rail on the right — same shape
+        // as the Settings → Units row so the control reads as part of
+        // the same family. Cream/rule card matches the visual weight of
+        // the craving field above and the saver / bulk tiles below.
+        Container(
+          decoration: BoxDecoration(
+            color: ElioColors.cream,
+            borderRadius: BorderRadius.circular(ElioRadii.card),
+            border: Border.all(color: ElioColors.rule, width: 1),
+          ),
+          child: ElioSegmentedRow(
+            label: 'Mode',
+            options: const [('pantry', 'Pantry'), ('go_wild', 'Go Wild')],
+            value: _isGoWildMode ? 'go_wild' : 'pantry',
+            onChanged: (v) =>
+                setState(() => _isGoWildMode = v == 'go_wild'),
+          ),
+        ),
+        // Friendly explainer that appears only when Go Wild is selected.
+        // Reassures the user that the safety-critical signals (allergens
+        // + dietary) are still in force, even though pantry context is
+        // being dropped for this generation. Quieter creamDeep card with
+        // mocha body copy so it doesn't compete with the pill above.
+        if (_isGoWildMode) ...[
+          const SizedBox(height: ElioSpacing.sm),
+          Container(
+            padding: const EdgeInsets.all(ElioSpacing.md),
+            decoration: BoxDecoration(
+              color: ElioColors.creamDeep,
+              borderRadius: BorderRadius.circular(ElioRadii.card),
+              border: Border.all(color: ElioColors.rule, width: 1),
+            ),
+            child: Text(
+              "Ready to Go Wild? We’ll ignore your pantry ingredients for this search, but don’t worry—your allergy and dietary preferences are still safely locked in.",
+              style: ElioTextStyles.bodySmallStyle.copyWith(
+                color: ElioColors.mocha,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
