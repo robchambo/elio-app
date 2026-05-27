@@ -22,6 +22,14 @@
  */
 
 import {logger} from 'firebase-functions/v2';
+import * as admin from 'firebase-admin';
+
+// Initialise Admin SDK once for the whole codebase. The orderImport
+// functions use admin.firestore() at request time; without this they
+// throw "The default Firebase app does not exist."
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
 
 // Re-export the orderImport module's functions (generateImportAddress,
 // postmarkInbound, etc.). Cloud Functions deployment picks these up
