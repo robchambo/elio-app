@@ -22,7 +22,28 @@ class FirestoreService {
 
   Map<String, List<String>>? _cachedTasteProfile;
 
-  String get _uid => _auth.currentUser!.uid;
+  /// Current user's UID. Throws a typed [StateError] (rather than the
+  /// generic "Null check operator used on a null value") when called
+  /// without a signed-in user — makes the Crashlytics report grep-able
+  /// and the failure mode obvious. Callers that may run pre-auth
+  /// (AppShell init, FCM token callbacks, etc.) MUST guard
+  /// `FirebaseAuth.instance.currentUser` upstream.
+  ///
+  /// Crashes DB row `36c4718e-358a-81ea-9b18-c679ba28f7b7` (27 May 2026)
+  /// recorded an unguarded cold-start fire of `getSettings()` from
+  /// `AppShell._hydrateRegionUtils()` against a signed-out user (sign-
+  /// out preserves `onboardingComplete=true`, so AuthGate routes such
+  /// users straight to AppShell). That call site now early-returns.
+  String get _uid {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError(
+        'FirestoreService called without a signed-in user. '
+        'Guard `FirebaseAuth.instance.currentUser` upstream.',
+      );
+    }
+    return user.uid;
+  }
 
   /// Converts a stored enum name (e.g. "glutenFree") to its human-readable
   /// label (e.g. "Gluten-free") so Gemini can understand the constraint.
