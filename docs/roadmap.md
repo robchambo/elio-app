@@ -591,8 +591,9 @@ Capture here so they don't keep resurfacing in planning.
 | 12 | **`functions/README.md`** — operator notes: deploy, `NOTION_TOKEN` rotation, schema-drift caveat (`index.ts:78-118`), regions split (us-central1 vs us-east1). | 0.5 | Not started |
 | 13 | **Delete `proOverride` dead code** — `FirestoreService.grantProAccess()` + `revokeProAccess()` (`firestore_service.dart:597-606`) write `subscription.proOverride: true/false`. Rules already reject these writes (silent fail). Zero callers in `lib/`. Pure delete. (`proOverrideForTest` in `recipe_preferences_screen.dart` is a renamed test seam — keep.) | 0.25 | Not started |
 | 14 | **Delete obsolete `origin/sprint-17` branch** — after Sprint 17 lands. | 0.1 | Not started |
+| 15 | **First-recipe-gen tip — long-press ingredient to substitute** — `FeatureTipService` (Sprint 16.8) is already the home; adding the tip = one entry in `feature_tip_catalog.dart` + one `markFeatureUsed` call in the long-press handler on the ingredient row. Style A bottom-sheet (same as the recipe-import + meal-plan-to-shopping pilots). First task after Phase 1 launch-prep PRs land + test green. | 0.5 | Not started |
 
-**Estimate outstanding:** 23.85–30.85 hours total (Claude code + Rob external + on-device verify). Of that, ~22–25h Claude-code work; ~5–6h Rob external (RC dashboard, GCP, hosting, Kate art when delivered).
+**Estimate outstanding:** 24.35–31.35 hours total (Claude code + Rob external + on-device verify). Of that, ~22.5–25.5h Claude-code work; ~5–6h Rob external (RC dashboard, GCP, hosting, Kate art when delivered).
 
 **Items punted from Sprint 17 → see Notion Launch Checklist** for the wider pre-launch backlog (referral loop, push campaigns, in-app review, analytics → BigQuery, a11y audit, app icon ratify, first-run coach marks, Gemini model audit, regional ingredient vocabulary, etc). Those are not store-submission blockers — they land in v1.1 or as pre-launch polish only if Sprint 17 outstanding closes early.
 
