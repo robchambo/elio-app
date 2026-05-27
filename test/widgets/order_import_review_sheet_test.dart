@@ -4,8 +4,7 @@
 //
 // Widget tests for the review sheet:
 //   1. Food items default-checked, household collapsed under expander.
-//   2. `Will increment` vs `Will add` tag is driven by `existingMatchKeys`.
-//   3. Toggling a food row off decrements the CTA's count.
+//   2. Toggling a food row off decrements the CTA's count.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -59,7 +58,6 @@ void main() {
     (t) async {
       await t.pumpWidget(_host(OrderImportReviewSheet(
         pendingImport: _import(),
-        existingMatchKeys: const <String>{},
         onApply: (_) async {},
         onDiscard: () {},
       )));
@@ -79,28 +77,10 @@ void main() {
   );
 
   testWidgets(
-    'shows Will increment tag when name matches existing pantry',
-    (t) async {
-      await t.pumpWidget(_host(OrderImportReviewSheet(
-        pendingImport: _import(),
-        // 'banana' matches PantryStringMatch.matchKey('banana').
-        existingMatchKeys: const <String>{'banana'},
-        onApply: (_) async {},
-        onDiscard: () {},
-      )));
-      await t.pumpAndSettle();
-
-      expect(find.text('Will increment'), findsOneWidget);
-      expect(find.text('Will add'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
     'toggling a row off decrements the CTA count',
     (t) async {
       await t.pumpWidget(_host(OrderImportReviewSheet(
         pendingImport: _import(),
-        existingMatchKeys: const <String>{},
         onApply: (_) async {},
         onDiscard: () {},
       )));

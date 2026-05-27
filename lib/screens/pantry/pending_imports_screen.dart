@@ -5,9 +5,7 @@
 // Inbox host for parsed order emails awaiting review. Streams the
 // user's pending_imports collection (filtered to status:pending_review,
 // newest first) and renders one row per import. Tapping a row opens
-// the OrderImportReviewSheet in a modal bottom sheet, prefetching the
-// current pantry's matchKey set so each row can render Will add /
-// Will increment without a per-row Firestore round-trip.
+// the OrderImportReviewSheet in a modal bottom sheet.
 //
 // onApply: writes the selected items through OrderImportService.
 //   applyImport (which uses InventoryWriter under the hood), pops the
@@ -31,8 +29,6 @@ class PendingImportsScreen extends StatelessWidget {
   const PendingImportsScreen({super.key, required this.service});
 
   Future<void> _open(BuildContext ctx, PendingImport pi) async {
-    final matchKeys = await service.currentPantryMatchKeys();
-    if (!ctx.mounted) return;
     await showModalBottomSheet<void>(
       context: ctx,
       isScrollControlled: true,
@@ -40,7 +36,6 @@ class PendingImportsScreen extends StatelessWidget {
       builder: (sheetCtx) {
         return OrderImportReviewSheet(
           pendingImport: pi,
-          existingMatchKeys: matchKeys,
           onApply: (items) async {
             await service.applyImport(pi.id, items);
             if (!sheetCtx.mounted) return;

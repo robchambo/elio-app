@@ -42,9 +42,6 @@ class _FakeOrderImportService implements OrderImportService {
 
   @override
   Future<void> discardImport(String importId) async {}
-
-  @override
-  Future<Set<String>> currentPantryMatchKeys() async => const <String>{};
 }
 
 void main() {

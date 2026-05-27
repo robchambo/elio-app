@@ -8,12 +8,13 @@
 //     hidden under an expander).
 //   - Editable normalisedName text field.
 //   - Category label.
-//   - "Will increment" / "Will add" tag, computed live via
-//     `PantryStringMatch.matchKey` against `existingMatchKeys` (the
-//     caller passes the host's pantry matchKeys in).
 //
 // The CTA at the bottom shows the live selected count
 // (`Add N items to pantry`) and is disabled when N == 0.
+//
+// InventoryWriter.addItem handles dedup correctly server-side
+// regardless of whether the row already exists, so the sheet does not
+// surface a per-row "Will add" / "Will increment" hint.
 //
 // Apply-side wiring (InventoryWriter + status flip) lives in Task 9 —
 // this widget is purely UI + an `onApply(List<ApplyItem>)` callback.
@@ -28,7 +29,6 @@ import '../theme/elio_radii.dart';
 import '../theme/elio_spacing.dart';
 import '../theme/elio_text_styles.dart';
 import '../theme/elio_theme.dart';
-import '../utils/pantry_string_match.dart';
 
 /// Bridge between the review sheet and Task 9's apply flow.
 ///
@@ -66,10 +66,6 @@ class OrderImportReviewSheet extends StatefulWidget {
   /// The pending import being reviewed.
   final PendingImport pendingImport;
 
-  /// `matchKey`s already in the user's pantry. Used to flip each row's
-  /// tag between `Will add` and `Will increment`.
-  final Set<String> existingMatchKeys;
-
   /// Called when the user taps the CTA. Receives the selected items
   /// (with potentially edited names). The host is responsible for the
   /// InventoryWriter + status-flip wiring (Task 9).
@@ -82,7 +78,6 @@ class OrderImportReviewSheet extends StatefulWidget {
   const OrderImportReviewSheet({
     super.key,
     required this.pendingImport,
-    required this.existingMatchKeys,
     required this.onApply,
     required this.onDiscard,
   });
@@ -117,10 +112,6 @@ class _OrderImportReviewSheetState extends State<OrderImportReviewSheet> {
     super.initState();
     _rows = widget.pendingImport.items.map((it) {
       final ctrl = TextEditingController(text: it.normalizedName);
-      // Rebuild the row when the name changes so the tag re-evaluates.
-      ctrl.addListener(() {
-        if (mounted) setState(() {});
-      });
       return _RowState(
         controller: ctrl,
         original: it,
@@ -368,12 +359,6 @@ class _OrderImportReviewSheetState extends State<OrderImportReviewSheet> {
   }
 
   Widget _itemRow(_RowState row) {
-    final matchKey = PantryStringMatch.matchKey(row.controller.text);
-    final willIncrement = widget.existingMatchKeys.contains(matchKey);
-    final tagLabel = willIncrement ? 'Will increment' : 'Will add';
-    final tagColor =
-        willIncrement ? ElioColors.success : ElioColors.terracotta;
-
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: ElioSpacing.xs),
       child: Row(
@@ -410,31 +395,7 @@ class _OrderImportReviewSheetState extends State<OrderImportReviewSheet> {
               ],
             ),
           ),
-          const SizedBox(width: ElioSpacing.sm),
-          _tagPill(tagLabel, tagColor),
         ],
-      ),
-    );
-  }
-
-  Widget _tagPill(String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: ElioSpacing.sm,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        color: color.withAlpha(30),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withAlpha(80), width: 1),
-      ),
-      child: Text(
-        label,
-        style: ElioTextStyles.bodySmallStyle.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
-          fontSize: 12,
-        ),
       ),
     );
   }

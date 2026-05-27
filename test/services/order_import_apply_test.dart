@@ -10,8 +10,6 @@
 //   3. A throw in the middle of applyImport leaves status as
 //      'pending_review' (status is set ONLY after all writes succeed)
 //      and the exception propagates to the caller.
-//   4. currentPantryMatchKeys reads `users/{uid}/inventory` and returns
-//      the matchKey set (empties dropped).
 //
 // We bypass real Firestore for the inventory writes by overriding
 // InventoryWriter.instance with one backed by a CapturingStorage
@@ -194,21 +192,5 @@ void main() {
     // every addItem succeeds.
     final doc = await docRef.get();
     expect(doc.data()?['status'], 'pending_review');
-  });
-
-  test(
-      'currentPantryMatchKeys reads users/{uid}/inventory matchKey field',
-      () async {
-    final fx = _setUp();
-    final inv =
-        fx.db.collection('users').doc('u').collection('inventory');
-    await inv.add(<String, dynamic>{'name': 'Milk', 'matchKey': 'milk'});
-    await inv.add(<String, dynamic>{'name': 'Banana', 'matchKey': 'banana'});
-    await inv.add(<String, dynamic>{'name': 'NoKey'}); // missing field
-    await inv.add(<String, dynamic>{'name': 'Empty', 'matchKey': ''});
-
-    final svc = FirebaseOrderImportService(db: fx.db, auth: fx.auth);
-    final keys = await svc.currentPantryMatchKeys();
-    expect(keys, equals(<String>{'milk', 'banana'}));
   });
 }

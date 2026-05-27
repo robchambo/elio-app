@@ -51,12 +51,6 @@ abstract class OrderImportService {
   /// Discard a pending import. Flips its status to `'discarded'`
   /// with NO inventory writes.
   Future<void> discardImport(String importId);
-
-  /// Reads the current user's `users/{uid}/inventory` once and
-  /// returns the set of `matchKey` values present (empties dropped).
-  /// Used by the review sheet to prefetch `existingMatchKeys` so
-  /// each row can render `Will add` vs `Will increment`.
-  Future<Set<String>> currentPantryMatchKeys();
 }
 
 /// Production implementation — talks to Firestore + Cloud Functions.
@@ -149,20 +143,5 @@ class FirebaseOrderImportService implements OrderImportService {
         .collection('pending_imports')
         .doc(importId)
         .update({'status': 'discarded'});
-  }
-
-  @override
-  Future<Set<String>> currentPantryMatchKeys() async {
-    final uid = _auth.currentUser?.uid;
-    if (uid == null) return <String>{};
-    final snap = await _db
-        .collection('users')
-        .doc(uid)
-        .collection('inventory')
-        .get();
-    return snap.docs
-        .map((d) => (d.data()['matchKey'] as String?) ?? '')
-        .where((k) => k.isNotEmpty)
-        .toSet();
   }
 }
