@@ -611,7 +611,7 @@ Two one-time tips on the existing Sprint 16.8 `FeatureTipService` (Style A botto
 **Tip 15b — First-gen ingredient-substitute tip (teaches a gesture).**
 - **Trigger:** lands on the recipe screen; `sessionThreshold` TBD at build (likely 1–2). Suppressed once the user long-presses an ingredient (`markFeatureUsed`).
 - **Host screen:** recipe screen (`recipe_screen.dart`).
-- **UI:** Style A "did-you-know" sheet. No auto-select CTA — it teaches the hidden long-press gesture (long-press ingredient → Substitute / Regen / Add-to-shopping). Copy TBD at build (draft: "Tip: long-press any ingredient to swap it for something else.").
+- **UI:** Style A "did-you-know" sheet. No auto-select CTA — it teaches the hidden long-press gesture (long-press ingredient → Substitute / Regen / Add-to-shopping). **Copy (signed off):** `Tip: long-press any ingredient to swap it.`
 - **Catalog entry:** `id: ingredient_substitute`, `requiredFeatureEvent: ingredient_longpress_used`.
 
 **Shared build notes:** each tip = one `FeatureTipCatalog` entry + one `markFeatureUsed` call at the feature's tap/long-press site + one `shouldShow` call on the host screen (15a's gated behind the household check). No new dependency. Pairs naturally with row 16 (recipe back-nav) for the same testing pass.
