@@ -47,6 +47,7 @@ import '../../services/order_import_service.dart';
 import '../../services/purchase_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
+import 'password_prompt.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_segmented_row.dart';
@@ -561,9 +562,9 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
-  /// Sprint 16.1 V1 re-auth callback. Supports Google sign-in (Rob's
-  /// primary flow). Email/password and Apple are deferred — they show
-  /// a snackbar pointing the user at Google for now.
+  /// Re-auth callback for Delete Account. Supports Google + Email/password
+  /// providers. Apple is still deferred (Sprint 19 — Apple Sign-In lands
+  /// with the iOS track).
   ///
   /// Returns `null` to signal user-cancelled or unsupported provider →
   /// AccountService aborts the delete cleanly.
@@ -585,12 +586,25 @@ class _AccountScreenState extends State<AccountScreen> {
         return null;
       }
     }
-    // Email/password and Apple flows pending — show guidance.
+    // Sprint 17 — Email/password reauth (Play Store + GDPR launch
+    // blocker). Pulls the email from the currently signed-in user and
+    // prompts for the password via a modal dialog. Wrong-password errors
+    // surface in AccountService.deleteAccount's FirebaseAuthException
+    // catch (returns DeleteAccountFailed(stage: 'reauth')), which the
+    // caller maps to a snackbar.
+    if (providerId == AccountProviderIds.password) {
+      final email = FirebaseAuth.instance.currentUser?.email;
+      if (email == null) return null;
+      final password = await promptForPassword(context, email: email);
+      if (password == null || password.isEmpty) return null;
+      return EmailAuthProvider.credential(email: email, password: password);
+    }
+    // Apple deferred until Sprint 19.
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Account deletion currently requires Google sign-in. '
+            'Account deletion currently requires Google or Email sign-in. '
             'Email us at ${LegalLinks.supportEmail} for help.',
           ),
         ),
@@ -598,6 +612,7 @@ class _AccountScreenState extends State<AccountScreen> {
     }
     return null;
   }
+
 
   // ─── Order import (Pro-gated) ─────────────────────────────────────
 
