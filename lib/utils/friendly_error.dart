@@ -49,20 +49,27 @@ String friendlyError(Object e) {
   if (isOffline) {
     return "You're offline. Reconnect and try again.";
   }
-  // Sprint 17 — never leak Dart's raw null-check / type-cast / range
-  // error toStrings to the user. Kate's 26 May guest regen surfaced
-  // "Null check operator used on a null value" in a snackbar after
-  // the regen path hit its limit; we now gate that path properly, but
-  // any other code path that bubbles a TypeError / RangeError up to a
-  // toast should still degrade to a generic friendly message rather
+  // Sprint 17 — never leak Dart's raw null-check / type-cast / range /
+  // NoSuchMethod toStrings to the user. Two motivating bugs (both 26
+  // May 2026):
+  //   (a) Kate guest regen surfaced "Null check operator used on a
+  //       null value" in a snackbar after the regen path hit its
+  //       limit (PR #14 gated that path properly).
+  //   (b) Rob meal-plan recipe-tap surfaced "type 'String' is not a
+  //       subtype of type 'num?' in type cast" when Gemini emitted a
+  //       String for a numeric meal-slot field (PR #19 added a
+  //       defensive asNum() coercion).
+  // Anything else that bubbles a TypeError / RangeError / NoSuchMethod
+  // up to a toast should degrade to a generic friendly message rather
   // than raw `_TypeError` text. The underlying error is still logged
   // via the caller's ErrorService.log — only the user-visible string
   // is sanitised.
   final isDartTypeError = lower.contains('null check operator') ||
       lower.contains('_typeerror') ||
-      lower.contains('type \'null\' is not a subtype') ||
+      lower.contains('is not a subtype of') ||
+      lower.contains('in type cast') ||
       lower.contains('rangeerror') ||
-      lower.contains('noSuchMethodError'.toLowerCase());
+      lower.contains('nosuchmethoderror');
   if (isDartTypeError) {
     return 'Something went wrong. Please try again.';
   }

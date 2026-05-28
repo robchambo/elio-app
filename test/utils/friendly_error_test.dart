@@ -63,25 +63,65 @@ void main() {
   });
 
   group('friendlyError — Dart type-error sanitisation (Sprint 17)', () {
-    // Kate's 26 May guest-account regen surfaced "Null check operator
-    // used on a null value" as a snackbar. The regen path is now
-    // gated by the paywall before it can crash like that, but
-    // friendlyError stays the last line of defence for any other
-    // bubble-up path.
+    // Two motivating bugs (both 26 May 2026):
+    //   (a) Kate guest regen → "Null check operator used on a null value"
+    //       snackbar (PR #14 gated the path; friendlyError is last-line).
+    //   (b) Rob meal-plan recipe-tap → "type 'String' is not a subtype
+    //       of type 'num?' in type cast" (PR #19 added asNum() helper;
+    //       friendlyError covers anything else still bubbling).
+
     test('null check operator → generic friendly copy', () {
-      // Simulate the exact toString shape Dart produces for `x!` on null.
       final e = Exception('Null check operator used on a null value');
       expect(friendlyError(e), 'Something went wrong. Please try again.');
     });
 
-    test('TypeError casts → generic friendly copy', () {
+    test('TypeError null cast → generic friendly copy', () {
       final e = Exception("type 'Null' is not a subtype of type 'String'");
       expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('TypeError String→num cast → generic friendly copy (meal-plan shape)', () {
+      // Verbatim shape from Rob's 26may-b meal-plan recipe-tap bug.
+      final e = Exception("type 'String' is not a subtype of type 'num?' in type cast");
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('cast failure thrown from real Dart cast → friendly fallback', () {
+      try {
+        final dynamic v = '5 min';
+        // ignore: unused_local_variable, unnecessary_cast
+        final n = v as num?;
+        fail('expected cast to throw');
+      } catch (e) {
+        expect(friendlyError(e),
+            'Something went wrong. Please try again.');
+      }
+    });
+
+    test('real null-check operator error → friendly fallback', () {
+      try {
+        // ignore: dead_null_aware_expression
+        final int x = (null as int?)!;
+        fail('expected null check to throw: $x');
+      } catch (e) {
+        expect(friendlyError(e),
+            'Something went wrong. Please try again.');
+      }
     });
 
     test('RangeError → generic friendly copy', () {
       final e = Exception('RangeError (index): Index out of range: no indices for empty list');
       expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('NoSuchMethodError → generic friendly copy', () {
+      final e = Exception("NoSuchMethodError: The method 'foo' was called on null.");
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('still falls through clean for non-error Exception text', () {
+      final e = Exception('Some other domain message');
+      expect(friendlyError(e), 'Some other domain message');
     });
   });
 

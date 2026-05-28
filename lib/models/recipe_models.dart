@@ -4,6 +4,8 @@
 // Mirrors the Firestore schema in the design document.
 // ─────────────────────────────────────────────
 
+import '../utils/json_num.dart';
+
 // Sprint 16.6 — defensive cap on RecipeIngredient string fields. Gemini
 // occasionally writes deliberation text or echoes prompt instructions
 // into string-typed fields when `thinkingBudget: 0` removes its scratch
@@ -234,11 +236,11 @@ class NutritionInfo {
 
   factory NutritionInfo.fromJson(Map<String, dynamic> json) {
     return NutritionInfo(
-      calories: (json['calories'] as num?)?.toInt() ?? 0,
-      proteinG: (json['proteinG'] as num?)?.toDouble() ?? 0.0,
-      carbsG: (json['carbsG'] as num?)?.toDouble() ?? 0.0,
-      fatG: (json['fatG'] as num?)?.toDouble() ?? 0.0,
-      fibreG: (json['fibreG'] as num?)?.toDouble() ?? 0.0,
+      calories: asNum(json['calories'])?.toInt() ?? 0,
+      proteinG: asNum(json['proteinG'])?.toDouble() ?? 0.0,
+      carbsG: asNum(json['carbsG'])?.toDouble() ?? 0.0,
+      fatG: asNum(json['fatG'])?.toDouble() ?? 0.0,
+      fibreG: asNum(json['fibreG'])?.toDouble() ?? 0.0,
     );
   }
 
@@ -310,9 +312,9 @@ class GeneratedRecipe {
   }) {
     return GeneratedRecipe(
       title: json['title'] as String? ?? 'Recipe',
-      prepTimeMinutes: (json['prepTimeMinutes'] as num?)?.toInt() ?? 10,
-      cookTimeMinutes: (json['cookTimeMinutes'] as num?)?.toInt() ?? 20,
-      servings: (json['servings'] as num?)?.toInt() ?? 2,
+      prepTimeMinutes: asNum(json['prepTimeMinutes'])?.toInt() ?? 10,
+      cookTimeMinutes: asNum(json['cookTimeMinutes'])?.toInt() ?? 20,
+      servings: asNum(json['servings'])?.toInt() ?? 2,
       description: json['description'] as String? ?? '',
       ingredients: (json['ingredients'] as List<dynamic>? ?? [])
           .map((e) => RecipeIngredient.fromJson(
@@ -332,8 +334,8 @@ class GeneratedRecipe {
       nutrition: json['nutrition'] != null
           ? NutritionInfo.fromJson(json['nutrition'] as Map<String, dynamic>)
           : null,
-      estimatedCostPerServingUSD: (json['estimatedCostPerServingUSD'] as num?)?.toDouble(),
-      estimatedCostPerServingGBP: (json['estimatedCostPerServingGBP'] as num?)?.toDouble(),
+      estimatedCostPerServingUSD: asNum(json['estimatedCostPerServingUSD'])?.toDouble(),
+      estimatedCostPerServingGBP: asNum(json['estimatedCostPerServingGBP'])?.toDouble(),
       bulkPrepInfo: json['bulkPrepInfo'] != null ? BulkPrepInfo.fromJson(json['bulkPrepInfo'] as Map<String, dynamic>) : null,
       category: json['category'] as String?,
     );
@@ -573,7 +575,7 @@ class BulkPrepInfo {
 
   factory BulkPrepInfo.fromJson(Map<String, dynamic> json) {
     return BulkPrepInfo(
-      totalPortions: (json['totalPortions'] as num?)?.toInt() ?? 6,
+      totalPortions: asNum(json['totalPortions'])?.toInt() ?? 6,
       freezingInstructions: json['freezingInstructions'] as String? ?? '',
       reheatingInstructions: json['reheatingInstructions'] as String? ?? '',
       storageLife: json['storageLife'] as String? ?? '',

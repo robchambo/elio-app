@@ -16,6 +16,8 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../utils/json_num.dart';
+
 /// One parsed line item from an order email.
 class PendingImportItem {
   final String rawName;
@@ -38,7 +40,7 @@ class PendingImportItem {
       PendingImportItem(
         rawName: (m['rawName'] as String?) ?? '',
         normalizedName: (m['normalizedName'] as String?) ?? '',
-        quantity: m['quantity'] as num?,
+        quantity: asNum(m['quantity']),
         unit: m['unit'] as String?,
         category: (m['category'] as String?) ?? 'other',
         classification: (m['classification'] as String?) ?? 'unknown',
@@ -80,7 +82,7 @@ class PendingImport {
           .toList(),
       receivedAt: (m['receivedAt'] as Timestamp?)?.toDate(),
       orderType: (m['orderType'] as String?) ?? 'unknown',
-      parseConfidence: ((m['parseConfidence'] as num?) ?? 0).toDouble(),
+      parseConfidence: (asNum(m['parseConfidence']) ?? 0).toDouble(),
       emailSubject: (m['emailSubject'] as String?) ?? '',
     );
   }
