@@ -944,7 +944,16 @@ class _Section extends StatelessWidget {
               borderRadius: BorderRadius.circular(ElioRadii.card),
               border: Border.all(color: ElioColors.rule, width: 1),
             ),
+            // Sprint 17 (27 May 2026) — stretch rows to fill card width so
+            // _ActionRow / _StaticRow content left-aligns like _PushRow /
+            // _PickerRow / _SwitchRow (which already use Row + Expanded
+            // and fill the width intrinsically). Without stretch, the
+            // default CrossAxisAlignment.center centred the chevronless
+            // rows mid-card while the chevron rows hugged the left edge,
+            // producing the misaligned Account + About sections Rob
+            // screenshot'd 27 May.
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var i = 0; i < rows.length; i++) ...[
                   rows[i],
