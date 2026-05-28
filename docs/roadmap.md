@@ -591,10 +591,30 @@ Capture here so they don't keep resurfacing in planning.
 | 12 | **`functions/README.md`** — operator notes: deploy, `NOTION_TOKEN` rotation, schema-drift caveat (`index.ts:78-118`), regions split (us-central1 vs us-east1). | 0.5 | Not started |
 | 13 | **Delete `proOverride` dead code** — `FirestoreService.grantProAccess()` + `revokeProAccess()` (`firestore_service.dart:597-606`) write `subscription.proOverride: true/false`. Rules already reject these writes (silent fail). Zero callers in `lib/`. Pure delete. (`proOverrideForTest` in `recipe_preferences_screen.dart` is a renamed test seam — keep.) | 0.25 | Not started |
 | 14 | **Delete obsolete `origin/sprint-17` branch** — after Sprint 17 lands. | 0.1 | Not started |
-| 15 | **First-recipe-gen tip — long-press ingredient to substitute** — `FeatureTipService` (Sprint 16.8) is already the home; adding the tip = one entry in `feature_tip_catalog.dart` + one `markFeatureUsed` call in the long-press handler on the ingredient row. Style A bottom-sheet (same as the recipe-import + meal-plan-to-shopping pilots). First task after Phase 1 launch-prep PRs land + test green. | 0.5 | Not started |
-| 16 | **Recipe screen back nav → Set-the-mood, not Home** — currently back button from RecipeScreen (after generation) lands on Home, losing the user's craving / mode / saver / mealType selections. Should pop to `RecipePreferencesScreen` ("set the mood") so the user can tweak one thing and regen without re-entering everything. Likely a `Navigator.push` → `pushReplacement` swap on the prefs → recipe transition, or a custom `PopScope` on RecipeScreen intercepting the back gesture. Pair with row 15 — same testing pass. | 0.5 | Not started |
+| 15 | **Educational-tips batch** (two Style A `FeatureTipService` tips, one branch / one APK / one test pass — build after the next device-test pass clears). See the **Educational-tips batch spec** below this table. | 1.5 | Not started |
+| 16 | **Recipe screen back nav → Set-the-mood, not Home** — currently back button from RecipeScreen (after generation) lands on Home, losing the user's craving / mode / saver / mealType selections. Should pop to `RecipePreferencesScreen` ("set the mood") so the user can tweak one thing and regen without re-entering everything. Likely a `Navigator.push` → `pushReplacement` swap on the prefs → recipe transition, or a custom `PopScope` on RecipeScreen intercepting the back gesture. Pair with row 15 batch — same testing pass. | 0.5 | Not started |
 
 **Estimate outstanding:** 24.85–31.85 hours total (Claude code + Rob external + on-device verify). Of that, ~23–26h Claude-code work; ~5–6h Rob external (RC dashboard, GCP, hosting, Kate art when delivered).
+
+### Educational-tips batch spec (roadmap row 15)
+
+Two one-time tips on the existing Sprint 16.8 `FeatureTipService` (Style A bottom-sheet — `elio_feature_tip_sheet.dart`; no Style B spotlight needed/built). Both ship in one branch, one APK, one test pass. **Build trigger:** after the next on-device test pass clears (per Rob, not before). Design signed off 28 May 2026.
+
+**Tip 15a — Kid-friendly chip nudge (NEW, household-gated).**
+- **Trigger:** household audience signal = `household == 'family'` OR `householdCount > 2`, AND it's the user's **2nd** recipe-gen-screen visit (`sessionThreshold: 2`), AND they haven't already tapped the Kid-friendly chip (`markFeatureUsed` auto-suppresses). Audience gate lives at the `shouldShow` call site on the recipe-prefs screen — no `FeatureTipService` change (the service stays a generic usage-gap engine).
+- **Host screen:** `recipe_preferences_screen.dart` ("set the mood"). Kid-friendly is a Mood chip (`_moodOptions[2]`, `:146`); it already drives a real Gemini branch (`gemini_service.dart:1623` → "recognisable to kids, not adventurous").
+- **UI:** Style A bottom sheet. CTA **auto-selects** the chip (`_mood = 'Kid-friendly'`) rather than spotlighting it — cleaner than pointing at an on-screen chip the sheet covers.
+- **Copy (signed off — variant A):** Title `Cooking for kids?` · Body `Tap Kid-friendly under Mood and we'll keep recipes simple, mild, and recognisable — food the little ones will actually eat.` · CTA `Use it`.
+- **Catalog entry:** `id: kid_friendly_mood`, `requiredFeatureEvent: kid_friendly_mood_used` (fire `markFeatureUsed` from the chip's tap handler), `sessionThreshold: 2`.
+- **Wiring to verify when building:** household signal availability at gen time for (a) signed-in users — `householdCount` from user doc, same source `home_screen.dart:250` reads; (b) guests mid-onboarding — `OnboardingController` / `GuestPantryService`. Confirm both before relying on the gate.
+
+**Tip 15b — First-gen ingredient-substitute tip (teaches a gesture).**
+- **Trigger:** lands on the recipe screen; `sessionThreshold` TBD at build (likely 1–2). Suppressed once the user long-presses an ingredient (`markFeatureUsed`).
+- **Host screen:** recipe screen (`recipe_screen.dart`).
+- **UI:** Style A "did-you-know" sheet. No auto-select CTA — it teaches the hidden long-press gesture (long-press ingredient → Substitute / Regen / Add-to-shopping). Copy TBD at build (draft: "Tip: long-press any ingredient to swap it for something else.").
+- **Catalog entry:** `id: ingredient_substitute`, `requiredFeatureEvent: ingredient_longpress_used`.
+
+**Shared build notes:** each tip = one `FeatureTipCatalog` entry + one `markFeatureUsed` call at the feature's tap/long-press site + one `shouldShow` call on the host screen (15a's gated behind the household check). No new dependency. Pairs naturally with row 16 (recipe back-nav) for the same testing pass.
 
 **Items punted from Sprint 17 → see Notion Launch Checklist** for the wider pre-launch backlog (referral loop, push campaigns, in-app review, analytics → BigQuery, a11y audit, app icon ratify, first-run coach marks, Gemini model audit, regional ingredient vocabulary, etc). Those are not store-submission blockers — they land in v1.1 or as pre-launch polish only if Sprint 17 outstanding closes early.
 
