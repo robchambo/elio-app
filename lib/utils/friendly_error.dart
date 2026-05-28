@@ -49,6 +49,23 @@ String friendlyError(Object e) {
   if (isOffline) {
     return "You're offline. Reconnect and try again.";
   }
+  // Sprint 17 — never leak Dart's raw null-check / type-cast / range
+  // error toStrings to the user. Kate's 26 May guest regen surfaced
+  // "Null check operator used on a null value" in a snackbar after
+  // the regen path hit its limit; we now gate that path properly, but
+  // any other code path that bubbles a TypeError / RangeError up to a
+  // toast should still degrade to a generic friendly message rather
+  // than raw `_TypeError` text. The underlying error is still logged
+  // via the caller's ErrorService.log — only the user-visible string
+  // is sanitised.
+  final isDartTypeError = lower.contains('null check operator') ||
+      lower.contains('_typeerror') ||
+      lower.contains('type \'null\' is not a subtype') ||
+      lower.contains('rangeerror') ||
+      lower.contains('noSuchMethodError'.toLowerCase());
+  if (isDartTypeError) {
+    return 'Something went wrong. Please try again.';
+  }
   return scrubApiKey(raw.replaceFirst('Exception: ', ''));
 }
 
