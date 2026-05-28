@@ -17,7 +17,11 @@
 
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+// `cloud_firestore` 6.x exports a `Type` symbol (Pipeline DSL) that
+// collides with `dart:core.Type` used by Flutter's `GestureRecognizerFactory`
+// map keys. Hide it — Firestore code in this file uses only the
+// Query/DocumentSnapshot/CollectionReference surfaces.
+import 'package:cloud_firestore/cloud_firestore.dart' hide Type;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
