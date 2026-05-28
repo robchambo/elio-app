@@ -29,9 +29,14 @@ if (-not $rcKey) {
 }
 
 # Build output paths
+# Sprint 17 — APK filename + git tag drop the legacy `sprint-` prefix.
+# Pass `-sprint S17--<DDmmm>-<letter>` (or `S17.<sub>--<DDmmm>-<letter>`
+# for sub-sprints) → filename `elio-S17--<DDmmm>-<letter>.apk` + tag
+# `build/S17--<DDmmm>-<letter>`. Sprint 16 builds in `releases/` keep
+# their legacy `elio-sprint-…` filenames; convention applies forward only.
 $buildOutput = Join-Path $PSScriptRoot "build\app\outputs\flutter-apk\app-prod-release.apk"
 $releaseDir  = Join-Path $PSScriptRoot "releases"
-$outputName  = "elio-sprint-$sprint.apk"
+$outputName  = "elio-$sprint.apk"
 $outputPath  = Join-Path $releaseDir $outputName
 
 # Ensure releases/ folder exists
@@ -90,8 +95,8 @@ Write-Host "Build complete:" -ForegroundColor Green
 Write-Host "  $outputPath" -ForegroundColor White
 Write-Host ""
 
-# Tag the build in git
-$tag = "build/sprint-$sprint"
+# Tag the build in git (Sprint 17+ convention drops the `sprint-` prefix).
+$tag = "build/$sprint"
 git tag -f $tag 2>&1 | Out-Null
 Write-Host "Git tag: $tag" -ForegroundColor DarkGray
 Write-Host ""
