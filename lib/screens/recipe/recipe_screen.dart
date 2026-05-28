@@ -53,6 +53,23 @@ import '../shopping/shopping_list_screen.dart';
 //   • Recent title memory passed through to prevent duplicates
 // ─────────────────────────────────────────────
 
+/// Sprint 17 (28 May 2026, Rob S17--27may-a screenshot) — collapse
+/// duplicate dietary tags that differ only in case (e.g. "Pescatarian"
+/// + "pescatarian", produced by the request→Gemini-response merge in
+/// gemini_service.dart:113-121). Order-preserving, first-seen label
+/// wins so the user-facing capitalisation from the request side is
+/// retained. Pure top-level so it's testable.
+List<String> _dedupTagsCaseInsensitive(Iterable<String> tags) {
+  final seen = <String>{};
+  final result = <String>[];
+  for (final tag in tags) {
+    final key = tag.toLowerCase().trim();
+    if (key.isEmpty) continue;
+    if (seen.add(key)) result.add(tag);
+  }
+  return result;
+}
+
 class RecipeScreen extends StatefulWidget {
   final GeneratedRecipe recipe;
   final RecipeGenerationRequest? originalRequest;
@@ -2620,7 +2637,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
               // 113-121), the list now reliably contains every active
               // constraint (e.g. ["Gluten-Free", "Dairy-Free"]), so
               // we iterate. Wrap handles overflow to a second row.
-              for (final tag in r.dietaryTags)
+              //
+              // 28 May 2026 (Rob screenshot, S17--27may-a): the merge
+              // can emit the same tag twice with different cases (e.g.
+              // "Pescatarian" from user-request + "pescatarian" from
+              // Gemini's response). Dedup case-insensitively before
+              // rendering. First-seen label wins to preserve the
+              // user-facing capitalisation from the request side.
+              for (final tag in _dedupTagsCaseInsensitive(r.dietaryTags))
                 ElioStatBadge(
                   icon: Icons.local_dining_outlined,
                   value: tag,

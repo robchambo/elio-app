@@ -34,6 +34,28 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
+    // Sprint 17 (28 May 2026, Rob + Kate S17--27may-a sign-out-on-cold-
+    // restart bug) — block until Firebase Auth has restored the
+    // persisted user from disk. `Firebase.initializeApp` returns once
+    // the SDK is up, but auth's restore-persisted-user step runs as an
+    // async side effect; `FirebaseAuth.instance.currentUser` is null
+    // for a few hundred ms after init, then becomes non-null when
+    // restore completes. Reading `currentUser` synchronously (as
+    // AuthGate + AppShell do) sees the null window → renders the app
+    // as signed-out → never re-renders because nothing listens to
+    // `authStateChanges()`. Awaiting `.first` here delays runApp until
+    // the first emission, which IS the restored user (or null if no
+    // session). Cold-start cost: 50-500ms, no UX impact (splash already
+    // visible).
+    try {
+      await FirebaseAuth.instance.authStateChanges().first
+          .timeout(const Duration(seconds: 3));
+    } catch (_) {
+      // Timeout or stream error — fall through. AppShell's auth
+      // listener (added in the same change) will pick up any
+      // late-arriving auth state.
+    }
+
     // Pass all uncaught Flutter framework errors to Crashlytics
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
 
