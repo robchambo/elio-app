@@ -16,6 +16,7 @@
 // can swipe horizontally between Home / Pantry / Recipes / Shopping list.
 // Tap on the bottom-nav and swipe both feed through `_selectTab` which
 // keeps `_tab`, the controller, and the back-history in sync.
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/region_utils.dart';
@@ -61,6 +62,14 @@ class _AppShellState extends State<AppShell> {
   /// meant a cold-started app stayed on the metric/US defaults until
   /// the user happened to visit Settings. Fire-and-forget.
   Future<void> _hydrateRegionUtils() async {
+    // Sprint 17 — sign-out preserves `onboardingComplete=true` (per the
+    // 16.1.x Auth UX fix), which means AuthGate can route a signed-out
+    // user straight to AppShell. `FirestoreService.getSettings()` reads
+    // `_uid` synchronously and throws StateError if no user is signed
+    // in. Guests keep the in-memory RegionUtils defaults (metric / US,
+    // overridable via Settings). See Crashes row
+    // `36c4718e-358a-81ea-9b18-c679ba28f7b7`.
+    if (FirebaseAuth.instance.currentUser == null) return;
     try {
       final settings = await FirestoreService().getSettings();
       final units = settings['measurementUnits'] as String?;
