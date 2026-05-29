@@ -1,4 +1,5 @@
 import {onRequest} from 'firebase-functions/v2/https';
+import {logger} from 'firebase-functions/v2';
 import {defineSecret} from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import {createHash} from 'node:crypto';
@@ -56,6 +57,43 @@ function detectRetailer(from: string): string {
   return 'unknown';
 }
 
+/** Extract the first bare email address from a string, lowercased. */
+function bareEmail(s: unknown): string | undefined {
+  if (typeof s !== 'string') return undefined;
+  const m = s.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+  return m ? m[0].toLowerCase() : undefined;
+}
+
+/**
+ * Every plausible bare recipient address from a Postmark inbound payload,
+ * most-reliable first. The 28 May 2026 "nothing lands in the pantry" bug
+ * was here: the handler matched `importAddress` against the raw `To`
+ * field only, but Postmark's `To` is the raw To *header* — it can be
+ * `"Name <addr>"`, and on a forwarded email it often carries the
+ * ORIGINAL retailer recipient rather than the user's import address.
+ * `OriginalRecipient` is the envelope address Postmark actually
+ * delivered to (the import address), and `ToFull`/`CcFull[].Email` are
+ * the parsed bare addresses. Try them all so the import address is found
+ * regardless of how the forward was shaped.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveRecipients(body: any): string[] {
+  const out: string[] = [];
+  const push = (e?: string) => {
+    if (e && !out.includes(e)) out.push(e);
+  };
+  push(bareEmail(body?.OriginalRecipient));
+  for (const t of (body?.ToFull ?? []) as Array<{Email?: string}>) {
+    push(bareEmail(t?.Email));
+  }
+  for (const t of (body?.CcFull ?? []) as Array<{Email?: string}>) {
+    push(bareEmail(t?.Email));
+  }
+  push(bareEmail(body?.To));
+  push(bareEmail(body?.Cc));
+  return out;
+}
+
 export interface InboundDeps {
   client: GeminiClient;
 }
@@ -79,20 +117,40 @@ export async function handleInbound(
   deps: InboundDeps,
 ): Promise<InboundResult> {
   if (!verifyBasicAuth(authHeader, expectedCredentials)) {
+    logger.warn('postmarkInbound: rejected — bad Basic Auth');
     return {status: 401, body: {error: 'invalid credentials'}};
   }
-  const {To, From, MessageID, Subject, HtmlBody, TextBody} = body ?? {};
-  if (!To || !MessageID) {
+  const {From, MessageID, Subject, HtmlBody, TextBody} = body ?? {};
+  const recipients = resolveRecipients(body);
+  if (recipients.length === 0 || !MessageID) {
+    logger.warn('postmarkInbound: ignored — no recipient or MessageID', {
+      recipientCount: recipients.length,
+      hasMessageID: Boolean(MessageID),
+    });
     return {status: 200, body: {ignored: true}};
   }
 
   const db = admin.firestore();
-  const usersSnap = await db.collection('users')
-    .where('importAddress', '==', To).limit(1).get();
-  if (usersSnap.empty) {
+  // Match the import address against any resolved recipient. `in` would be
+  // tidier but the unit-test fake firestore only models `==`, and the
+  // recipient list is tiny (<=4), so loop with `==`.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let userRef: any;
+  for (const addr of recipients) {
+    const snap = await db.collection('users')
+      .where('importAddress', '==', addr).limit(1).get();
+    if (!snap.empty) {
+      userRef = snap.docs[0].ref;
+      break;
+    }
+  }
+  if (!userRef) {
+    logger.warn('postmarkInbound: ignored — no user matches recipients', {
+      recipients,
+    });
     return {status: 200, body: {ignored: true}};
   }
-  const userRef = usersSnap.docs[0].ref;
+  logger.info('postmarkInbound: matched user', {path: userRef.path});
   const idempotencyKey = createHash('sha256').update(MessageID).digest('hex');
 
   // Idempotency check
@@ -143,6 +201,12 @@ export async function handleInbound(
   }
   await docRef.update(update);
 
+  logger.info('postmarkInbound: wrote pending_import', {
+    importId: docRef.id,
+    retailer,
+    status: finalStatus,
+    itemCount: parsed.items.length,
+  });
   return {status: 200, body: {ok: true, importId: docRef.id}};
 }
 
