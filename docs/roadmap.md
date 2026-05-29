@@ -593,8 +593,9 @@ Capture here so they don't keep resurfacing in planning.
 | 14 | **Delete obsolete `origin/sprint-17` branch** — after Sprint 17 lands. | 0.1 | Not started |
 | 15 | **Educational-tips batch** (two Style A `FeatureTipService` tips, one branch / one APK / one test pass — build after the next device-test pass clears). See the **Educational-tips batch spec** below this table. | 1.5 | Not started |
 | 16 | **Recipe screen back nav → Set-the-mood, not Home** — currently back button from RecipeScreen (after generation) lands on Home, losing the user's craving / mode / saver / mealType selections. Should pop to `RecipePreferencesScreen` ("set the mood") so the user can tweak one thing and regen without re-entering everything. Likely a `Navigator.push` → `pushReplacement` swap on the prefs → recipe transition, or a custom `PopScope` on RecipeScreen intercepting the back gesture. Pair with row 15 batch — same testing pass. | 0.5 | Not started |
+| 17 | **Guest → sign-in conversion** — make sign-in the prominent path for signed-out launches (Rob 28 May), with guest as an explicit option, plus contextual "sign in to keep this" nudges at guest value-moments. Replaces the current silent 16.1.x "signed-out lands on AppShell as guest" default. See the **Guest → sign-in conversion spec** below. Product decision logged; needs build. | 1–1.5d | Not started |
 
-**Estimate outstanding:** 24.85–31.85 hours total (Claude code + Rob external + on-device verify). Of that, ~23–26h Claude-code work; ~5–6h Rob external (RC dashboard, GCP, hosting, Kate art when delivered).
+**Estimate outstanding:** ~27–34 hours total (Claude code + Rob external + on-device verify). Of that, ~25–28h Claude-code work; ~5–6h Rob external (RC dashboard, GCP, hosting, Kate art when delivered).
 
 ### Educational-tips batch spec (roadmap row 15)
 
@@ -615,6 +616,33 @@ Two one-time tips on the existing Sprint 16.8 `FeatureTipService` (Style A botto
 - **Catalog entry:** `id: ingredient_substitute`, `requiredFeatureEvent: ingredient_longpress_used`.
 
 **Shared build notes:** each tip = one `FeatureTipCatalog` entry + one `markFeatureUsed` call at the feature's tap/long-press site + one `shouldShow` call on the host screen (15a's gated behind the household check). No new dependency. Pairs naturally with row 16 (recipe back-nav) for the same testing pass.
+
+### Guest → sign-in conversion spec (roadmap row 17)
+
+**Decision (Rob, 28 May 2026):** stop letting signed-out users land silently in guest mode. Sign-in should be the prominent surface; guest stays available but as an explicit choice. Plus nudge guests to sign in at the moment they create something worth keeping. Direction set; copy + final UX to confirm at build.
+
+**Current behaviour (the problem).** `AuthGate` (`main.dart`) routes on the `onboardingComplete` SharedPreferences flag only: `true` → `AppShell`, which runs in guest mode whenever `FirebaseAuth.instance.currentUser == null` (HomeScreen computes `isGuest = currentUser == null`). So a signed-out user — whether a deliberate guest or someone who just signed out — silently gets the guest AppShell. There is **no flag distinguishing a deliberate guest from a signed-out returner**, and guest state is device-local (the cross-account / count bugs fixed in S17--28may-d were downstream of this).
+
+**Part A — signed-out entry routing.** Add a persistent `hasAccount` SharedPreferences bool: set `true` on the first successful sign-in (any provider), cleared only by Delete Account + Restart Onboarding (NOT by sign-out). Then `AuthGate` branches the signed-out case:
+- `onboardingComplete && currentUser != null` → `AppShell` (signed in). *Unchanged.*
+- `onboardingComplete && currentUser == null && hasAccount` → **returner**: route to the **sign-in screen** (reuse `EmailLoginScreen` / a sign-in landing) with a prominent **"Continue as guest"** escape. They had an account — bring them back.
+- `onboardingComplete && currentUser == null && !hasAccount` → **deliberate guest**: `AppShell` as today, BUT show a one-time-per-launch **Home sign-in sheet** — "Sign in to save your pantry, recipes & plans" with primary **Sign in** + secondary **Continue as guest** (dismiss → stays guest). Not a wall.
+- `!onboardingComplete` → `OnboardingFlow`. *Unchanged.*
+
+(This maps Rob's two options onto the two cases: returner gets the sign-in screen; fresh guest gets the home pop-up with guest as an option.)
+
+**Part B — contextual "sign in to keep" nudge.** At guest value-moments, surface a lightweight sheet whose CTA goes to sign-in:
+- After a guest generates / saves a recipe → "Sign in to keep this recipe."
+- After a guest adds pantry items → "Sign in to save your pantry."
+One nudge per moment-type per session; suppressed once signed in. Dedicated auth sheet (not `FeatureTipService` — this is conversion, not feature-discovery), brand-styled.
+
+**Critical dependency — the "keep" promise must be real.** `MigrationService.migrateGuestToFirestore(uid, …)` already carries guest pantry + state into Firestore on sign-in, but today it runs from the **onboarding screen-15** path. The in-app sign-in paths (Settings → Sign In tile → `EmailLoginScreen`, and the new entry/keep sheets) MUST also run migration so a guest's recipes/pantry actually transfer on sign-in — otherwise "sign in to keep this" loses the very thing it promised. **Verify + wire migration on every sign-in entry point** as part of this work.
+
+**Surfaces:** `main.dart` AuthGate branch · new `hasAccount` flag (set in `AuthService` / `MigrationService` sign-in success path) · sign-in landing (new or `EmailLoginScreen` + "Continue as guest" CTA) · Home one-time guest sheet · keep-nudge sheet at recipe-save + pantry-add guest paths · migration wired on in-app sign-in.
+
+**Edge cases:** don't wall deliberate guests every launch (the one-time sheet, not a hard gate); don't lose guest work on sign-in (migration); account-switch merges guest→signing-in account (pre-launch acceptable, revisit with 16.7b household sharing).
+
+**Estimate:** 1–1.5 days. Confirm copy for the entry sheet + both keep-nudges before building.
 
 **Items punted from Sprint 17 → see Notion Launch Checklist** for the wider pre-launch backlog (referral loop, push campaigns, in-app review, analytics → BigQuery, a11y audit, app icon ratify, first-run coach marks, Gemini model audit, regional ingredient vocabulary, etc). Those are not store-submission blockers — they land in v1.1 or as pre-launch polish only if Sprint 17 outstanding closes early.
 
