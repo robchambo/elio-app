@@ -591,7 +591,7 @@ Capture here so they don't keep resurfacing in planning.
 | 12 | **`functions/README.md`** — operator notes: deploy, `NOTION_TOKEN` rotation, schema-drift caveat (`index.ts:78-118`), regions split (us-central1 vs us-east1). | 0.5 | Not started |
 | 13 | **Delete `proOverride` dead code** — `FirestoreService.grantProAccess()` + `revokeProAccess()` (`firestore_service.dart:597-606`) write `subscription.proOverride: true/false`. Rules already reject these writes (silent fail). Zero callers in `lib/`. Pure delete. (`proOverrideForTest` in `recipe_preferences_screen.dart` is a renamed test seam — keep.) | 0.25 | Not started |
 | 14 | **Delete obsolete `origin/sprint-17` branch** — after Sprint 17 lands. | 0.1 | Not started |
-| 15 | **Educational-tips batch** (two Style A `FeatureTipService` tips, one branch / one APK / one test pass — build after the next device-test pass clears). See the **Educational-tips batch spec** below this table. | 1.5 | Not started |
+| 15 | **Educational-tips batch** (three Style A `FeatureTipService` tips — kid-friendly chip, ingredient-substitute, Go Wild → add-to-shopping; one branch / one APK / one test pass, build after the next device-test pass clears). See the **Educational-tips batch spec** below this table. 15c carries a pending shopping-list gating decision. | 2 | Not started |
 | 16 | **Recipe screen back nav → Set-the-mood, not Home** — currently back button from RecipeScreen (after generation) lands on Home, losing the user's craving / mode / saver / mealType selections. Should pop to `RecipePreferencesScreen` ("set the mood") so the user can tweak one thing and regen without re-entering everything. Likely a `Navigator.push` → `pushReplacement` swap on the prefs → recipe transition, or a custom `PopScope` on RecipeScreen intercepting the back gesture. Pair with row 15 batch — same testing pass. | 0.5 | Not started |
 | 17 | **Guest → sign-in conversion** — make sign-in the prominent path for signed-out launches (Rob 28 May), with guest as an explicit option, plus contextual "sign in to keep this" nudges at guest value-moments. Replaces the current silent 16.1.x "signed-out lands on AppShell as guest" default. See the **Guest → sign-in conversion spec** below. Product decision logged; needs build. | 1–1.5d | Not started |
 
@@ -614,6 +614,16 @@ Two one-time tips on the existing Sprint 16.8 `FeatureTipService` (Style A botto
 - **Host screen:** recipe screen (`recipe_screen.dart`).
 - **UI:** Style A "did-you-know" sheet. No auto-select CTA — it teaches the hidden long-press gesture (long-press ingredient → Substitute / Regen / Add-to-shopping). **Copy (signed off):** `Tip: long-press any ingredient to swap it.`
 - **Catalog entry:** `id: ingredient_substitute`, `requiredFeatureEvent: ingredient_longpress_used`.
+
+**Tip 15c — Go Wild → add-to-shopping tip (NEW, Rob 29 May).**
+- **Trigger:** the user's **first Go Wild generation**. Go Wild zeroes pantry-sourced fields, so the recipe will likely use ingredients they don't have — the moment to surface the "add to shopping list" button.
+- **Host screen:** recipe screen (where the Go Wild recipe lands + where the add-to-shopping cart button lives, `recipe_screen.dart:2933`).
+- **UI:** Style A bottom sheet. CTA points at / triggers the add-to-shopping action.
+- **Copy (draft, confirm at build):** Title `Don't have it all?` · Body `Go Wild recipes look beyond your pantry — so you might be missing a few things. Tap the cart to send what you need to your shopping list.` · CTA `Add to shopping list`.
+- **Catalog entry:** `id: gowild_add_to_shopping`, `requiredFeatureEvent: recipe_add_to_shopping_used`, fired on first Go Wild recipe view (gate the `shouldShow` call on "this generation was Go Wild").
+- **⚠️ GATING DECISION PENDING (Rob, 29 May).** Rob assumed shopping list is Pro and the tip would need gating. **Code reality differs:** the shopping-list tab + the recipe-screen `_addToShoppingList` are gated on **guest only** (signed-in free users can use them); only the meal-plan→shopping path is Pro (`canUseShoppingList`). EntitlementService's intent ("Free tier: no shopping list") is NOT enforced on these paths. So before building 15c, decide:
+  - **(a) Shopping list = Pro** → close the gating gap on recipe add-to-shopping + the shopping tab; 15c then upsells free users (CTA → paywall). Also a monetisation-leak fix.
+  - **(b) Shopping list = free** → no gating; 15c just educates everyone; **correct the free-vs-Pro HTML** (`docs/strategy/2026-05-28-free-vs-pro-features.html`) which currently lists shopping list as Pro.
 
 **Shared build notes:** each tip = one `FeatureTipCatalog` entry + one `markFeatureUsed` call at the feature's tap/long-press site + one `shouldShow` call on the host screen (15a's gated behind the household check). No new dependency. Pairs naturally with row 16 (recipe back-nav) for the same testing pass.
 
