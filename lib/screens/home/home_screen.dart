@@ -120,6 +120,12 @@ class _HomeScreenState extends State<HomeScreen> {
     // `_householdCount` on tick. Same pattern as HistoryService.
     GuestPantryService.householdCountChanges
         .addListener(_onHouseholdCountChanged);
+    // Sprint 17 (29 May 2026): the free-gen counter card reads
+    // `_entitlements.remainingGenerations` at build only. Recording a
+    // generation mutated the count but fired no rebuild, so the caption
+    // stayed "7 of 7" until the next cold start (Rob's 29 May report).
+    // EntitlementService is now a ChangeNotifier — rebuild on every tick.
+    _entitlements.addListener(_onEntitlementsChanged);
     _loadUserData();
     _loadRecentRecipes();
     // Request notification permission on first HomeScreen load (non-blocking)
@@ -337,7 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (_) => RecipePreferencesScreen(
           buildRequest: _buildRequest,
           onRecipeComplete: _onRecipeComplete,
-          isGuest: widget.isGuest,
+          isGuest: _isGuest,
           activeDietary: _activeDietaryRequirements,
           customStyles: _customStyles,
           perishableInventory: _perishableInventoryNames,
@@ -360,7 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
       MaterialPageRoute(
         builder: (_) => RecipeScreen(
           recipe: r.recipe,
-          isGuest: widget.isGuest,
+          isGuest: _isGuest,
           savedAt: r.savedAt,
         ),
       ),
@@ -546,6 +552,7 @@ class _HomeScreenState extends State<HomeScreen> {
     HistoryService.changes.removeListener(_onHistoryChanged);
     GuestPantryService.householdCountChanges
         .removeListener(_onHouseholdCountChanged);
+    _entitlements.removeListener(_onEntitlementsChanged);
     super.dispose();
   }
 
@@ -556,6 +563,20 @@ class _HomeScreenState extends State<HomeScreen> {
   void _onSettingsChanged() {
     if (mounted) setState(() {});
   }
+
+  /// EntitlementService ticked (generation recorded / refreshed / reset).
+  /// Rebuild so the free-gen counter caption reflects the new count live.
+  void _onEntitlementsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Live guest state — `widget.isGuest` is captured at construction and
+  /// goes stale if the user signs out while Home is mounted (Home lives
+  /// forever inside AppShell's PageView). Pushing the stale `false` into
+  /// child screens made them call `FirestoreService` with a null user →
+  /// `Bad state: …without a signed-in user` on regen (Rob's 29 May crash).
+  bool get _isGuest =>
+      widget.isGuest || FirebaseAuth.instance.currentUser == null;
 
   void _onHistoryChanged() {
     if (!mounted) return;

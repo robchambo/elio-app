@@ -1,6 +1,6 @@
 # Elio Roadmap
 
-**Last updated:** 27 May 2026 (Sprint 17 status reconciled against current `main` + open PRs + deployed-infra state ahead of Sprint 17 launch-prep work.)
+**Last updated:** 29 May 2026 (Added row 18 — guest pantry parity + builder tap-cycle UI; part-b encoding = tier fill-style (outline/solid/green), not freshness. Sprint 17 status reconciled against current `main` + open PRs + deployed-infra state ahead of Sprint 17 launch-prep work.)
 
 **Active branch:** `main` @ `dc1131c`. Sprint 16 + 16.8 squash-merged. Latest APK: `releases/elio-sprint-26may-b.apk`, tag `build/sprint-26may-b`.
 **Open PRs vs `main`:** #13 `fix/pantry-dedup-and-builder-failures` (pantry write + Builder error surfacing) · #14 `fix/guest-regen-paywall-and-error-toasts` (recipe-screen regen gate + friendly toasts) · #7 `claude/ios-dev-setup-prompt-MNul1` (iOS docs). Test rows on the Test Hub.
@@ -594,6 +594,7 @@ Capture here so they don't keep resurfacing in planning.
 | 15 | **Educational-tips batch** (three Style A `FeatureTipService` tips — kid-friendly chip, ingredient-substitute, Go Wild → add-to-shopping; one branch / one APK / one test pass, build after the next device-test pass clears). See the **Educational-tips batch spec** below this table. 15c carries a pending shopping-list gating decision. | 2 | Not started |
 | 16 | **Recipe screen back nav → Set-the-mood, not Home** — currently back button from RecipeScreen (after generation) lands on Home, losing the user's craving / mode / saver / mealType selections. Should pop to `RecipePreferencesScreen` ("set the mood") so the user can tweak one thing and regen without re-entering everything. Likely a `Navigator.push` → `pushReplacement` swap on the prefs → recipe transition, or a custom `PopScope` on RecipeScreen intercepting the back gesture. Pair with row 15 batch — same testing pass. | 0.5 | Not started |
 | 17 | **Guest → sign-in conversion** — make sign-in the prominent path for signed-out launches (Rob 28 May), with guest as an explicit option, plus contextual "sign in to keep this" nudges at guest value-moments. Replaces the current silent 16.1.x "signed-out lands on AppShell as guest" default. See the **Guest → sign-in conversion spec** below. Product decision logged; needs build. | 1–1.5d | Not started |
+| 18 | **Guest pantry parity + builder tap-cycle UI** (Rob 28 May). Two coupled parts: (a) **guest pantry parity** — the in-app Pantry tab is guest-blind (display/add/remove all skip `GuestPantryService`; builder shows "Sign in to save", nothing persists) even though onboarding builds a guest pantry; wire read+add+remove to `GuestPantryService` for guests. (b) **builder tap-cycle UI** — replace long-press tier-picker with single-tap-cycle encoding the storage tier: `almostAlwaysHave` = outline, `alwaysHave` = solid fill, `perishable` = solid green. Staple lane cycles off→outline→solid; perishable lane is on/off green. Category fixes the lane. **(a) requires guest→sign-in pantry migration** (the parked `MigrationService` Task 6.4 only runs on the onboarding screen-15 path, not a later AccountScreen sign-in) — shipping (a) without it = guest builds pantry → signs in → pantry lost. See the **Guest pantry parity + builder UI spec** below. Pairs with row 17 (same guest-mode surface). | 1.5–2d | Not started |
 
 **Estimate outstanding:** ~27–34 hours total (Claude code + Rob external + on-device verify). Of that, ~25–28h Claude-code work; ~5–6h Rob external (RC dashboard, GCP, hosting, Kate art when delivered).
 
@@ -645,6 +646,39 @@ Two one-time tips on the existing Sprint 16.8 `FeatureTipService` (Style A botto
 - After a guest generates / saves a recipe → "Sign in to keep this recipe."
 - After a guest adds pantry items → "Sign in to save your pantry."
 One nudge per moment-type per session; suppressed once signed in. Dedicated auth sheet (not `FeatureTipService` — this is conversion, not feature-discovery), brand-styled.
+
+### Guest pantry parity + builder UI spec (roadmap row 18)
+
+**Decision (Rob, 28 May 2026):** guest should have a fully functional local pantry (build → edit → generate), with the "sign in to keep" nudge (row 17) as the conversion lever — not a wall. Confirmed worth doing; flagged as a 2-part job because (a) without (b) is a regression trap.
+
+**The bug (part a — guest pantry parity).** The in-app Pantry tab is guest-blind:
+- **Display** — `pantry_screen.dart:162` `_subscribeInventory` returns early when `currentUser == null`; never reads `GuestPantryService`. Guest pantry shows empty even though onboarding populated it.
+- **Add** — builder `onAddItem` (`:752`) calls `_firestore.addInventoryItem` → `InventoryWriter` returns "" for guests → "Sign in to save items to your pantry." snackbar, nothing persists.
+- **Remove** — Firestore-only.
+
+`GuestPantryService` already has the storage: `saveStaples(Map<String,String>)` / `savePerishables(Map<String,String>)` / `loadAll() → GuestPantrySnapshot` / `clear`, keyed `guest_staples` + `guest_perishables`. **Fix:** branch all three pantry-tab operations on `currentUser == null`:
+- guest read → `loadAll()` → map staples (always/usually) + perishables (fresh/this-week/today) into the `_items` shape the tab renders. SharedPrefs is not a stream — load once + listen on a guest pantry change-notifier (mirror the existing `householdCountChanges` `ValueNotifier` pattern) instead of `query.snapshots()`.
+- guest add → mutate the right map (staple tier → `saveStaples`; perishable → `savePerishables`) + save + reload.
+- guest remove → drop from the right map + save + reload.
+
+**Migration dependency (part a's blocker).** `MigrationService` runs guest→Firestore only on the **onboarding screen-15 sign-in** path. A guest who edits the pantry in-app *after* onboarding, then signs in later via AccountScreen → `EmailLoginScreen`, does **not** get those edits migrated. Shipping guest pantry parity without closing this = guest builds a pantry → signs in → it vanishes (worse than the current "sign in to save" dead-end). So row 18 must also run `MigrationService` (or an equivalent guest-pantry adopt) on **any** sign-in where a guest pantry exists, merging into Firestore inventory (dedup against existing — `inventory_deduped_v1` logic already exists).
+
+**The UI change (part b — builder tap-cycle).** Replace the pantry-builder long-press tier-picker dialog with a single-tap-cycle whose visual encodes the **storage tier** (Rob 29 May — the axis is restock-habit, not freshness). Two independent cues: fill *style* encodes the staple sub-tier, fill *colour* (green) flags perishable.
+
+**Visual language (one state per tier):**
+- `almostAlwaysHave` → **outline** (brand colour)
+- `alwaysHave` → **solid fill** (brand colour)
+- `perishable` → **solid fill, green**
+
+**Tap behaviour — cycle length depends on the item's lane:**
+- **Staple item** → `off → outline → solid → off` (cycles the 2 staple tiers, like onboarding screen 11).
+- **Perishable item** → `off → green solid → off` (on/off only — no sub-tier).
+
+**Lane is category-fixed** (already mapped — same logic as the order-import `_tierFor`): perishable categories (produce/dairy/meat/bakery) → perishable lane; the rest → staple lane. The builder picks the cycle per tile without asking. No cross-lane re-tiering (a perishable tile can't become "always have") — matches onboarding's split-screen model; revisit only if a long-press escape hatch is wanted later.
+
+**Legend:** `elio_pantry_tier_legend.dart` (shared with onboarding) must be updated to show outline / solid / green-solid, not the freshness legend. Drop the long-press `RawGestureDetector` tier-picker.
+
+**Rejected:** mapping onboarding's green/orange/red freshness ramp onto the 3 storage tiers — freshness (how soon it expires) and restock-tier (how often you keep it stocked) are different axes; conflating them mislabels "always-have soy sauce" as "fresh/green."
 
 **Critical dependency — the "keep" promise must be real.** `MigrationService.migrateGuestToFirestore(uid, …)` already carries guest pantry + state into Firestore on sign-in, but today it runs from the **onboarding screen-15** path. The in-app sign-in paths (Settings → Sign In tile → `EmailLoginScreen`, and the new entry/keep sheets) MUST also run migration so a guest's recipes/pantry actually transfer on sign-in — otherwise "sign in to keep this" loses the very thing it promised. **Verify + wire migration on every sign-in entry point** as part of this work.
 
