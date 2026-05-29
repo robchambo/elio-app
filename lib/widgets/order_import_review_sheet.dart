@@ -41,10 +41,16 @@ class ApplyItem {
 
   ApplyItem({required this.name, required this.category});
 
-  /// Maps category → InventoryWriter tier:
-  ///   produce/dairy/meat/bakery → perishable
-  ///   frozen                    → frozen
-  ///   else                      → pantry
+  /// Maps category → InventoryWriter tier. The pantry only knows three
+  /// tiers — `alwaysHave` / `almostAlwaysHave` / `perishable`
+  /// (`InventoryItem.tier`). The pre-fix mapping returned `frozen` and
+  /// `pantry`, which match NO displayed tier — so a non-perishable
+  /// import (e.g. soy sauce, category `pantry`) was written to Firestore
+  /// but never showed up in any pantry section (Rob, 29 May 2026). Every
+  /// category must resolve to a real tier:
+  ///   produce/dairy/meat/bakery → perishable (fresh, expiry-tracked)
+  ///   everything else           → almostAlwaysHave (staples you keep:
+  ///                               pantry goods, frozen, drinks, household)
   String get tier => _tierFor(category);
 }
 
@@ -55,10 +61,11 @@ String _tierFor(String category) {
     case 'meat':
     case 'bakery':
       return 'perishable';
-    case 'frozen':
-      return 'frozen';
     default:
-      return 'pantry';
+      // pantry / frozen / beverage / household / other → a have-it
+      // staple tier. (No dedicated 'frozen' or 'pantry' tier exists;
+      // mapping to a real tier is what makes the item visible.)
+      return 'almostAlwaysHave';
   }
 }
 

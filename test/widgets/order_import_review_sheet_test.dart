@@ -98,4 +98,31 @@ void main() {
       expect(find.textContaining('Add 2 items to pantry'), findsNothing);
     },
   );
+
+  // Sprint 17 (29 May 2026) — Rob: soy sauce (category `pantry`) imported
+  // but never showed in the pantry. ApplyItem.tier returned `pantry`
+  // (and `frozen`), neither of which is a real InventoryItem tier
+  // (alwaysHave / almostAlwaysHave / perishable), so the item was written
+  // to Firestore but matched no displayed tier. Every category must map
+  // to a valid tier.
+  group('ApplyItem.tier maps every category to a valid pantry tier', () {
+    const validTiers = {'alwaysHave', 'almostAlwaysHave', 'perishable'};
+
+    test('perishable categories → perishable', () {
+      for (final c in ['produce', 'dairy', 'meat', 'bakery']) {
+        expect(ApplyItem(name: 'x', category: c).tier, 'perishable',
+            reason: '$c should be perishable');
+      }
+    });
+
+    test('non-perishable categories → almostAlwaysHave (a real tier)', () {
+      // pantry was the soy-sauce case; frozen was the other invalid one.
+      for (final c in ['pantry', 'frozen', 'beverage', 'household', 'other']) {
+        final tier = ApplyItem(name: 'x', category: c).tier;
+        expect(validTiers.contains(tier), isTrue,
+            reason: '$c must map to a valid tier, got "$tier"');
+        expect(tier, 'almostAlwaysHave', reason: '$c should be almostAlwaysHave');
+      }
+    });
+  });
 }
