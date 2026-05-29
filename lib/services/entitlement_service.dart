@@ -132,9 +132,35 @@ class EntitlementService {
     if (user == null) return;
 
     _weeklyGenerations++;
-    await _db.collection('users').doc(user.uid).update({
+
+    // Sprint 17 (28 May 2026) — anchor the weekly window on the first
+    // generation if it isn't already set. Without this, an account whose
+    // `weekStartedAt` is null (legacy accounts, or any path that never
+    // wrote it) trips `_needsWeekReset()` on every `refresh()` → the
+    // counter resets to 0 each time → the user always sees the full 7
+    // free recipes and the used-count never sticks. Rob's 28 May report:
+    // "signed out and back in, gave me my full 7 free recipes not the 6".
+    final updates = <String, Object>{
       'subscription.weeklyGenerations': FieldValue.increment(1),
-    });
+    };
+    if (_weekStartedAt == null) {
+      _weekStartedAt = DateTime.now().toUtc();
+      updates['subscription.weekStartedAt'] = FieldValue.serverTimestamp();
+    }
+    await _db.collection('users').doc(user.uid).update(updates);
+  }
+
+  // ── Reset cached per-user state (call on sign-out) ─────────
+  /// Clears the cached tier + weekly-generation state so a stale
+  /// signed-in count can't bleed into the guest session or the next
+  /// account signed in on the same device. Sprint 17 (28 May 2026) —
+  /// part of the sign-out-cleanliness fix; pairs with
+  /// `HistoryService`'s uid-scoped keys. The `config/proTesters` cache
+  /// is account-independent and intentionally left intact.
+  void reset() {
+    _tier = 'free';
+    _weeklyGenerations = 0;
+    _weekStartedAt = null;
   }
 
   // ── Guest entitlements (device-local) ──────────────────────

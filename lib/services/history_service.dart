@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/recipe_models.dart';
@@ -8,12 +9,43 @@ import '../models/recipe_models.dart';
 // Persists generated recipes locally using shared_preferences.
 // Recipes are stored as a JSON list, newest first.
 // Max 50 recipes retained (oldest pruned automatically).
+//
+// Sprint 17 (28 May 2026) — storage key is scoped per account. The
+// pre-Sprint-17 single global key `elio_recipe_history` leaked one
+// account's saved recipes to the next account signed in on the same
+// device: history is device-local (no Firestore mirror yet — v1.2
+// backlog) and sign-out only dropped the in-memory cache, not the
+// on-disk blob. Scoping by uid gives each account its own blob, so
+// account B no longer sees account A's recipes and signing back into A
+// restores A's. Guests use a dedicated `…guest` key. The in-memory
+// cache is tagged with the key it was built for, so it auto-invalidates
+// the moment the signed-in uid changes — no explicit clear needed on
+// the auth transition.
 // ─────────────────────────────────────────────
 
 class HistoryService {
-  static const String _key = 'elio_recipe_history';
+  /// Pre-Sprint-17 global key. Migrated into the per-account key on the
+  /// first read after upgrade, then removed (see [getHistory]).
+  static const String _legacyKey = 'elio_recipe_history';
+  static const String _keyPrefix = 'elio_recipe_history_';
   static const int _maxRecipes = 50;
   static List<SavedRecipe>? _cache;
+  static String? _cacheKey;
+
+  /// Storage key scoped to the current account, or `…guest` when signed
+  /// out. Resolved fresh on every access so an auth change is picked up
+  /// without a restart.
+  static String get _key {
+    String? uid;
+    try {
+      uid = FirebaseAuth.instance.currentUser?.uid;
+    } catch (_) {
+      // Firebase not initialised (e.g. unit tests, or a guest session
+      // before init) — fall back to the guest blob.
+      uid = null;
+    }
+    return uid != null ? '$_keyPrefix$uid' : '${_keyPrefix}guest';
+  }
 
   /// Fires after every history mutation. Views that read history
   /// (RecipesTabScreen, Home recents) listen so they refresh when an
@@ -38,19 +70,43 @@ class HistoryService {
     _notifyChange();
   }
 
-  /// Returns all saved recipes, newest first.
+  /// Returns all saved recipes for the current account, newest first.
   static Future<List<SavedRecipe>> getHistory() async {
-    if (_cache != null) return List.from(_cache!);
+    final key = _key;
+    // Cache is tagged with the key it was built for — a uid change
+    // (sign-in / sign-out / account switch) changes `key`, so the stale
+    // cache is ignored and the right blob is reloaded.
+    if (_cache != null && _cacheKey == key) return List.from(_cache!);
 
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null || raw.isEmpty) return [];
+    var raw = prefs.getString(key);
+
+    // One-time migration of the pre-Sprint-17 global blob. The first
+    // account (or guest) to read after upgrade claims it, then it's
+    // removed. Pre-launch there's only ever one real tester per device,
+    // so misattribution risk is nil and this preserves existing saved
+    // recipes across the key change.
+    if (raw == null || raw.isEmpty) {
+      final legacy = prefs.getString(_legacyKey);
+      if (legacy != null && legacy.isNotEmpty) {
+        await prefs.setString(key, legacy);
+        await prefs.remove(_legacyKey);
+        raw = legacy;
+      }
+    }
+
+    if (raw == null || raw.isEmpty) {
+      _cache = [];
+      _cacheKey = key;
+      return [];
+    }
     try {
       final list = jsonDecode(raw) as List<dynamic>;
       final result = list
           .map((e) => SavedRecipe.fromJson(e as Map<String, dynamic>))
           .toList();
       _cache = result;
+      _cacheKey = key;
       return List.from(result);
     } catch (_) {
       return [];

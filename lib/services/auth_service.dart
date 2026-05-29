@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'entitlement_service.dart';
 import 'history_service.dart';
 
 // ─────────────────────────────────────────────
@@ -91,7 +92,13 @@ class AuthService {
     // 21 May 2026 — defensive in-memory cache clear so a sign-out
     // followed by sign-in (different account or same) doesn't show
     // the previous user's local-only recipe history. Touches no disk
-    // state; safe to call on every sign-out.
+    // state; safe to call on every sign-out. (Sprint 17: history is now
+    // uid-scoped on disk too, so the cache also auto-invalidates on the
+    // uid change — this stays as belt-and-braces.)
     HistoryService.clearCache();
+    // Sprint 17 (28 May 2026) — clear cached entitlement state so a
+    // stale signed-in tier / weekly-generation count doesn't bleed into
+    // the guest session or the next account on this device.
+    EntitlementService.instance.reset();
   }
 }
