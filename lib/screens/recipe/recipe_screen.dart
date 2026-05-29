@@ -124,6 +124,15 @@ class RecipeScreen extends StatefulWidget {
 }
 
 class _RecipeScreenState extends State<RecipeScreen> {
+  /// Live guest state. `widget.isGuest` is captured when the screen is
+  /// built and goes stale if the user signs out while it's open (or if a
+  /// caller passes a stale value). Treating "no signed-in user" as guest
+  /// everywhere stops the Firestore-touching paths (regen `saveRecipe`,
+  /// `rateRecipe`) from firing with a null user → `Bad state: …without a
+  /// signed-in user` (Rob's 29 May crash on "Generate another").
+  bool get _isGuest =>
+      widget.isGuest || FirebaseAuth.instance.currentUser == null;
+
   late int _servings;
 
   // ── Mutable recipe (supports in-place ingredient swaps) ────────────────────
@@ -1420,7 +1429,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ingredient: ingredient,
         recipe: _currentRecipe,
         originalRequest: widget.originalRequest,
-        isGuest: widget.isGuest,
+        isGuest: _isGuest,
         scaleFactor: _scaleFactor,
         onSubstituted: (result) {
           // In-place swap: replace ingredient with substitute
@@ -1503,7 +1512,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       );
       return;
     }
-    if (widget.isGuest) {
+    if (_isGuest) {
       // Sprint 16.1: explicit duration + hide-current so the toast
       // doesn't follow the user across navigation.
       final messenger = ScaffoldMessenger.of(context);
@@ -1597,7 +1606,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
     // another" until Gemini / the prompt path crashed with a raw
     // null-check error toast (Kate's 26 May guest-account repro).
     // Now we route to the standard paywall instead.
-    if (widget.isGuest) {
+    if (_isGuest) {
       final canGenerate = await EntitlementService.canGuestGenerate();
       if (!mounted) return;
       if (!canGenerate) {
@@ -1627,7 +1636,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);
 
-      if (widget.isGuest) {
+      if (_isGuest) {
         // Sprint 17 — count the regen against the guest's 3/week cap.
         // Previously only first-generation incremented (via
         // HomeScreen), so guests could regen unbounded after the
@@ -1652,7 +1661,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             builder: (_) => RecipeScreen(
               recipe: newRecipe,
               originalRequest: newRequest,
-              isGuest: widget.isGuest,
+              isGuest: _isGuest,
               regenCount: _regenCount,
             ),
           ),
@@ -1742,7 +1751,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         final route = MaterialPageRoute(
           builder: (_) => RecipeScreen(
             recipe: sideDish,
-            isGuest: widget.isGuest,
+            isGuest: _isGuest,
             isSideDish: true,
             sideDishMainTitle: mainTitle,
             sideDishMainIngredientNames: ingredientNames,
@@ -1997,7 +2006,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   Future<void> _rateRecipe(bool liked) async {
-    if (_isRating || widget.isGuest) return;
+    if (_isRating || _isGuest) return;
     setState(() {
       _isRating = true;
     });
@@ -2385,7 +2394,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   // ─── Add ingredients to shopping list (via confirmation dialog) ─────────────
   Future<void> _addToShoppingList() async {
-    if (widget.isGuest) {
+    if (_isGuest) {
       // Sprint 16.1: explicit duration + hide-current.
       final messenger = ScaffoldMessenger.of(context);
       messenger.hideCurrentSnackBar();
@@ -2710,7 +2719,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           const SizedBox(height: ElioSpacing.xl),
 
           // ── Feedback bar (thumbs up/down → existing rating handler) ─
-          if (!widget.isGuest)
+          if (!_isGuest)
             ElioFeedbackBar(onRated: _rateRecipe)
           else
             Container(

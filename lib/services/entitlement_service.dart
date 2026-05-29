@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'purchase_service.dart';
 
@@ -12,11 +13,14 @@ import 'purchase_service.dart';
 // Pro tier:   Unlimited everything.
 // ──────────────────────────────────────────────
 
-class EntitlementService {
+class EntitlementService extends ChangeNotifier {
   static final EntitlementService instance = EntitlementService._();
   EntitlementService._();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Lazy so the singleton can be constructed without an initialised
+  // Firebase (e.g. pure-Dart unit tests). Only the methods that actually
+  // query Firestore touch it.
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   // ── Cached state (refreshed on each check) ─────────────────
   String _tier = 'free';
@@ -79,7 +83,16 @@ class EntitlementService {
   }
 
   // ── Refresh from Firestore ─────────────────────────────
+  /// Public entry: refresh cached state, then notify listeners once so any
+  /// subscribed UI (e.g. the Home free-gen counter) rebuilds. Wraps the
+  /// internal refresh — which has several early returns — so the notify
+  /// fires on every non-throwing path without sprinkling calls inside.
   Future<void> refresh() async {
+    await _refreshFromFirestore();
+    notifyListeners();
+  }
+
+  Future<void> _refreshFromFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -132,6 +145,9 @@ class EntitlementService {
     if (user == null) return;
 
     _weeklyGenerations++;
+    // Redraw any listening UI immediately (the Home counter reads the
+    // in-memory value; the Firestore write below is just persistence).
+    notifyListeners();
 
     // Sprint 17 (28 May 2026) — anchor the weekly window on the first
     // generation if it isn't already set. Without this, an account whose
@@ -161,6 +177,7 @@ class EntitlementService {
     _tier = 'free';
     _weeklyGenerations = 0;
     _weekStartedAt = null;
+    notifyListeners();
   }
 
   // ── Guest entitlements (device-local) ──────────────────────

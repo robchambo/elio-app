@@ -555,10 +555,16 @@ class _AccountScreenState extends State<AccountScreen> {
       case DeleteAccountCancelled():
         // User backed out — silent.
         break;
-      case DeleteAccountFailed(:final stage, :final message):
-        messenger.showSnackBar(
-          SnackBar(content: Text('Delete failed at $stage: $message')),
-        );
+      case DeleteAccountFailed(:final stage):
+        // Friendly, stage-aware copy (Rob-approved 29 May). The raw error
+        // is never shown — it's already logged to Crashlytics inside
+        // AccountService. `reauth` is the wrong-password case (E2);
+        // anything later (firestore/auth) is a mid-delete failure.
+        final friendly = stage == 'reauth'
+            ? "That password didn't match. Your account's safe — try again."
+            : 'Couldn\'t delete your account just now. Please try again, '
+                'or email us at ${LegalLinks.supportEmail}.';
+        messenger.showSnackBar(SnackBar(content: Text(friendly)));
     }
   }
 

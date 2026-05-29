@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'package:elio_app/services/entitlement_service.dart';
 
 /// Unit tests for EntitlementService logic.
 ///
@@ -134,6 +137,31 @@ void main() {
 
     test('Non-dev email is not recognised', () {
       expect(devEmails.contains('random@example.com'), isFalse);
+    });
+  });
+
+  // Sprint 17 (29 May 2026) — Rob's "counter stays 7/7" bug. The Home
+  // free-gen card read remainingGenerations at build only and never
+  // redrew after a generation. Fix made EntitlementService a
+  // ChangeNotifier so recordGeneration/refresh/reset push a rebuild.
+  group('ChangeNotifier wiring (live counter redraw)', () {
+    test('EntitlementService is a ChangeNotifier', () {
+      expect(EntitlementService.instance, isA<ChangeNotifier>());
+    });
+
+    test('reset() notifies listeners and clears cached state', () {
+      final svc = EntitlementService.instance;
+      var notified = 0;
+      void listener() => notified++;
+      svc.addListener(listener);
+      addTearDown(() => svc.removeListener(listener));
+
+      svc.reset(); // pure-Dart path — no Firebase needed
+
+      expect(notified, greaterThanOrEqualTo(1),
+          reason: 'reset() must notifyListeners() so the Home card redraws');
+      expect(svc.remainingGenerations, equals(EntitlementService.freeWeeklyLimit),
+          reason: 'reset clears the weekly count back to the full free limit');
     });
   });
 
