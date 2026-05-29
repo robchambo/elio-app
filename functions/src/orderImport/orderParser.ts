@@ -1,4 +1,5 @@
 import {GoogleGenerativeAI, SchemaType} from '@google/generative-ai';
+import {logger} from 'firebase-functions/v2';
 import {defineSecret} from 'firebase-functions/params';
 import {stripForwardWrapper} from './forwardWrapperStripper';
 import {
@@ -131,6 +132,16 @@ export async function parseOrderEmail(
   input: ParseInput,
 ): Promise<ParsedOrder> {
   const body = stripForwardWrapper(input.rawText || input.rawHtml);
+  // Diagnostic (29 May 2026, order-import-not-working investigation):
+  // body sizes tell us if a forwarded email arrives with an empty/tiny
+  // text body (→ extraction problem) vs full content (→ Gemini problem).
+  // No content logged — lengths only — to keep email bodies out of logs.
+  logger.info('parseOrderEmail: body prepared', {
+    rawTextLen: input.rawText?.length ?? 0,
+    rawHtmlLen: input.rawHtml?.length ?? 0,
+    strippedLen: body.length,
+    retailerHint: input.retailerHint,
+  });
   const prompt =
     `${SYSTEM_PROMPT}\n\nRetailer hint: ${input.retailerHint}\n\n` +
     `Email body:\n${body.slice(0, 30000)}`;
@@ -142,7 +153,13 @@ export async function parseOrderEmail(
   };
   try {
     raw = await input.client.generateStructured(prompt) as typeof raw;
-  } catch {
+  } catch (e) {
+    // Was previously a silent swallow → looked identical to "0 items
+    // parsed". Log so we can tell a Gemini API/key/model failure apart
+    // from a genuine no-items email.
+    logger.error('parseOrderEmail: Gemini call threw', {
+      error: e instanceof Error ? e.message : String(e),
+    });
     return {items: [], orderType: 'unknown', parseConfidence: 0, totalDetected: 0};
   }
 
@@ -173,6 +190,17 @@ export async function parseOrderEmail(
   const parseConfidence = items.length === 0
     ? 0
     : Math.min(1, items.length / Math.max(1, totalDetected));
+
+  // Diagnostic: raw vs valid item counts. If rawItemCount > 0 but
+  // validItemCount == 0, Gemini returned items that failed isValidItem
+  // (schema/category mismatch). If both 0, Gemini found nothing in the
+  // body it was given.
+  logger.info('parseOrderEmail: gemini returned', {
+    rawItemCount: Array.isArray(raw?.items) ? raw.items.length : -1,
+    validItemCount: items.length,
+    totalDetected,
+    orderType,
+  });
 
   return {items, orderType, parseConfidence, totalDetected};
 }
