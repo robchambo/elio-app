@@ -68,6 +68,24 @@ if ($rcKey) {
     $buildArgs += "--dart-define=REVENUECAT_API_KEY=$rcKey"
 }
 
+# Clear stale plugin-registration state before a release build.
+# `flutter test` regenerates GeneratedPluginRegistrant.java + the plugin
+# manifest with the integration_test dev-dependency registered. That line
+# (`dev.flutter.plugins.integration_test.IntegrationTestPlugin`) doesn't
+# exist on the release classpath, so `assembleProdRelease` fails to compile
+# whenever a build follows a test run. Deleting both files forces Flutter to
+# regenerate them fresh in the release context (which omits the dev dep).
+# Targeted on purpose — cheaper than a full `flutter clean` (no recompile),
+# fixes only this failure mode.
+$staleRegistrant = Join-Path $PSScriptRoot "android\app\src\main\java\io\flutter\plugins\GeneratedPluginRegistrant.java"
+$stalePluginManifest = Join-Path $PSScriptRoot ".flutter-plugins-dependencies"
+foreach ($stale in @($staleRegistrant, $stalePluginManifest)) {
+    if (Test-Path $stale) {
+        Remove-Item $stale -Force -ErrorAction SilentlyContinue
+        Write-Host "Cleared stale plugin state: $stale" -ForegroundColor DarkGray
+    }
+}
+
 # Locate flutter - try PATH first, then known install location
 $flutterCmd = Get-Command flutter -ErrorAction SilentlyContinue
 if ($flutterCmd) {
