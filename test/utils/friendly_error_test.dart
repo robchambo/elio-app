@@ -62,6 +62,85 @@ void main() {
     });
   });
 
+  group('friendlyError — Dart type-error sanitisation (Sprint 17)', () {
+    // Two motivating bugs (both 26 May 2026):
+    //   (a) Kate guest regen → "Null check operator used on a null value"
+    //       snackbar (PR #14 gated the path; friendlyError is last-line).
+    //   (b) Rob meal-plan recipe-tap → "type 'String' is not a subtype
+    //       of type 'num?' in type cast" (PR #19 added asNum() helper;
+    //       friendlyError covers anything else still bubbling).
+
+    test('null check operator → generic friendly copy', () {
+      final e = Exception('Null check operator used on a null value');
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('TypeError null cast → generic friendly copy', () {
+      final e = Exception("type 'Null' is not a subtype of type 'String'");
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('TypeError String→num cast → generic friendly copy (meal-plan shape)', () {
+      // Verbatim shape from Rob's 26may-b meal-plan recipe-tap bug.
+      final e = Exception("type 'String' is not a subtype of type 'num?' in type cast");
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('cast failure thrown from real Dart cast → friendly fallback', () {
+      try {
+        final dynamic v = '5 min';
+        // ignore: unused_local_variable, unnecessary_cast
+        final n = v as num?;
+        fail('expected cast to throw');
+      } catch (e) {
+        expect(friendlyError(e),
+            'Something went wrong. Please try again.');
+      }
+    });
+
+    test('real null-check operator error → friendly fallback', () {
+      try {
+        // ignore: dead_null_aware_expression
+        final int x = (null as int?)!;
+        fail('expected null check to throw: $x');
+      } catch (e) {
+        expect(friendlyError(e),
+            'Something went wrong. Please try again.');
+      }
+    });
+
+    test('RangeError → generic friendly copy', () {
+      final e = Exception('RangeError (index): Index out of range: no indices for empty list');
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('NoSuchMethodError → generic friendly copy', () {
+      final e = Exception("NoSuchMethodError: The method 'foo' was called on null.");
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('StateError "Bad state: FirestoreService…" → generic friendly copy', () {
+      // Rob 30 May — non-Pro-at-cap regen surfaced this raw StateError.
+      final e = StateError(
+          'Bad state: FirestoreService called without a signed-in user. '
+          'Guard `FirebaseAuth.instance.currentUser` upstream.');
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('cloud_firestore permission-denied → generic friendly copy', () {
+      // Rob 30 May — non-Pro regen surfaced this raw plugin error from a
+      // now-removed dead Firestore write.
+      final e = Exception('[cloud_firestore/permission-denied] '
+          'The caller does not have permission to execute the specified operation.');
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
+    test('still falls through clean for non-error Exception text', () {
+      final e = Exception('Some other domain message');
+      expect(friendlyError(e), 'Some other domain message');
+    });
+  });
+
   group('scrubApiKey', () {
     test('strips key=... query parameter', () {
       // SYNTHETIC KEY ONLY — see note in earlier test.

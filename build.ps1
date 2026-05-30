@@ -29,9 +29,14 @@ if (-not $rcKey) {
 }
 
 # Build output paths
+# Sprint 17 — APK filename + git tag drop the legacy `sprint-` prefix.
+# Pass `-sprint S17--<DDmmm>-<letter>` (or `S17.<sub>--<DDmmm>-<letter>`
+# for sub-sprints) → filename `elio-S17--<DDmmm>-<letter>.apk` + tag
+# `build/S17--<DDmmm>-<letter>`. Sprint 16 builds in `releases/` keep
+# their legacy `elio-sprint-…` filenames; convention applies forward only.
 $buildOutput = Join-Path $PSScriptRoot "build\app\outputs\flutter-apk\app-prod-release.apk"
 $releaseDir  = Join-Path $PSScriptRoot "releases"
-$outputName  = "elio-sprint-$sprint.apk"
+$outputName  = "elio-$sprint.apk"
 $outputPath  = Join-Path $releaseDir $outputName
 
 # Ensure releases/ folder exists
@@ -63,6 +68,24 @@ if ($rcKey) {
     $buildArgs += "--dart-define=REVENUECAT_API_KEY=$rcKey"
 }
 
+# Clear stale plugin-registration state before a release build.
+# `flutter test` regenerates GeneratedPluginRegistrant.java + the plugin
+# manifest with the integration_test dev-dependency registered. That line
+# (`dev.flutter.plugins.integration_test.IntegrationTestPlugin`) doesn't
+# exist on the release classpath, so `assembleProdRelease` fails to compile
+# whenever a build follows a test run. Deleting both files forces Flutter to
+# regenerate them fresh in the release context (which omits the dev dep).
+# Targeted on purpose — cheaper than a full `flutter clean` (no recompile),
+# fixes only this failure mode.
+$staleRegistrant = Join-Path $PSScriptRoot "android\app\src\main\java\io\flutter\plugins\GeneratedPluginRegistrant.java"
+$stalePluginManifest = Join-Path $PSScriptRoot ".flutter-plugins-dependencies"
+foreach ($stale in @($staleRegistrant, $stalePluginManifest)) {
+    if (Test-Path $stale) {
+        Remove-Item $stale -Force -ErrorAction SilentlyContinue
+        Write-Host "Cleared stale plugin state: $stale" -ForegroundColor DarkGray
+    }
+}
+
 # Locate flutter - try PATH first, then known install location
 $flutterCmd = Get-Command flutter -ErrorAction SilentlyContinue
 if ($flutterCmd) {
@@ -90,8 +113,8 @@ Write-Host "Build complete:" -ForegroundColor Green
 Write-Host "  $outputPath" -ForegroundColor White
 Write-Host ""
 
-# Tag the build in git
-$tag = "build/sprint-$sprint"
+# Tag the build in git (Sprint 17+ convention drops the `sprint-` prefix).
+$tag = "build/$sprint"
 git tag -f $tag 2>&1 | Out-Null
 Write-Host "Git tag: $tag" -ForegroundColor DarkGray
 Write-Host ""

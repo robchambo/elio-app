@@ -201,6 +201,13 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
   Timer? _messageTimer;
   StreamSubscription<RecipeGenerationStatus>? _generationSub;
   String? _errorMessage;
+  // True once a terminal RecipeComplete has been seen for the current
+  // generation. Guards the stream's onDone failure branch: _handleComplete
+  // awaits HistoryService.saveRecipe before navigating away, and the stream
+  // closes (onDone) during that await while _phase is still `generating` —
+  // without this flag onDone would flash "Generation ended unexpectedly"
+  // for a frame before the recipe screen pushes (Rob 29 May).
+  bool _sawComplete = false;
 
   @override
   void initState() {
@@ -286,6 +293,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       _messageIndex = 0;
       _errorMessage = null;
     });
+    _sawComplete = false;
     _startMessageRotation();
 
     final factory = widget.streamFactory ?? GeminiService.generateRecipeStream;
@@ -302,8 +310,11 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
       },
       onDone: () {
         // If we never saw a complete or error, treat as failure.
+        // _sawComplete guards the benign case where the stream closes
+        // while _handleComplete is still awaiting its save (we're still
+        // in `generating` but a recipe IS on the way).
         if (!mounted) return;
-        if (_phase == _PrefsPhase.generating) {
+        if (_phase == _PrefsPhase.generating && !_sawComplete) {
           _showError(
             'Generation ended unexpectedly. Please try again.',
           );
@@ -322,6 +333,7 @@ class _RecipePreferencesScreenState extends State<RecipePreferencesScreen> {
         // Rotating messages drive the UI — no per-event work needed.
         break;
       case RecipeComplete():
+        _sawComplete = true;
         _handleComplete(status.recipe, request);
       case RecipeError():
         // 16 May 2026 (Notion friendlyError row, on-device retest):

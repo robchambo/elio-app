@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'error_service.dart';
 import 'purchase_service.dart';
 
 // ──────────────────────────────────────────────
@@ -12,11 +14,14 @@ import 'purchase_service.dart';
 // Pro tier:   Unlimited everything.
 // ──────────────────────────────────────────────
 
-class EntitlementService {
+class EntitlementService extends ChangeNotifier {
   static final EntitlementService instance = EntitlementService._();
   EntitlementService._();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Lazy so the singleton can be constructed without an initialised
+  // Firebase (e.g. pure-Dart unit tests). Only the methods that actually
+  // query Firestore touch it.
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   // ── Cached state (refreshed on each check) ─────────────────
   String _tier = 'free';
@@ -79,7 +84,16 @@ class EntitlementService {
   }
 
   // ── Refresh from Firestore ─────────────────────────────
+  /// Public entry: refresh cached state, then notify listeners once so any
+  /// subscribed UI (e.g. the Home free-gen counter) rebuilds. Wraps the
+  /// internal refresh — which has several early returns — so the notify
+  /// fires on every non-throwing path without sprinkling calls inside.
   Future<void> refresh() async {
+    await _refreshFromFirestore();
+    notifyListeners();
+  }
+
+  Future<void> _refreshFromFirestore() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -113,10 +127,19 @@ class EntitlementService {
     if (_needsWeekReset()) {
       _weeklyGenerations = 0;
       _weekStartedAt = DateTime.now().toUtc();
-      await _db.collection('users').doc(user.uid).update({
-        'subscription.weeklyGenerations': 0,
-        'subscription.weekStartedAt': FieldValue.serverTimestamp(),
-      });
+      try {
+        await _db.collection('users').doc(user.uid).set(
+          {
+            'subscription': {
+              'weeklyGenerations': 0,
+              'weekStartedAt': FieldValue.serverTimestamp(),
+            },
+          },
+          SetOptions(merge: true),
+        );
+      } on FirebaseException catch (e, st) {
+        ErrorService.log('weekly_reset_write:${e.code}', e, st);
+      }
     }
   }
 
@@ -132,9 +155,56 @@ class EntitlementService {
     if (user == null) return;
 
     _weeklyGenerations++;
-    await _db.collection('users').doc(user.uid).update({
-      'subscription.weeklyGenerations': FieldValue.increment(1),
-    });
+    // Redraw any listening UI immediately (the Home counter reads the
+    // in-memory value; the Firestore write below is just persistence).
+    notifyListeners();
+
+    // Sprint 17 (28 May 2026) — anchor the weekly window on the first
+    // generation if it isn't already set. Without this, an account whose
+    // `weekStartedAt` is null (legacy accounts, or any path that never
+    // wrote it) trips `_needsWeekReset()` on every `refresh()` → the
+    // counter resets to 0 each time → the user always sees the full 7
+    // free recipes and the used-count never sticks. Rob's 28 May report:
+    // "signed out and back in, gave me my full 7 free recipes not the 6".
+    final subUpdate = <String, Object>{
+      'weeklyGenerations': FieldValue.increment(1),
+    };
+    if (_weekStartedAt == null) {
+      _weekStartedAt = DateTime.now().toUtc();
+      subUpdate['weekStartedAt'] = FieldValue.serverTimestamp();
+    }
+    try {
+      // set+merge (not update): `update()` rejects a missing/incomplete user
+      // doc, which is the most likely cause of the persisted count never
+      // sticking (deployed rules were confirmed current — not a rules issue).
+      // set+merge creates the doc/subscription map if absent (hits the
+      // `create` rule — no tier written, so initialSubscriptionSafe passes)
+      // and merges the nested subscription map otherwise.
+      await _db.collection('users').doc(user.uid).set(
+        {'subscription': subUpdate},
+        SetOptions(merge: true),
+      );
+    } on FirebaseException catch (e, st) {
+      // Diagnostic: capture the exact code (permission-denied / not-found /
+      // unavailable…) so a recurrence is traceable. The count still shows
+      // via the in-memory value; persistence is best-effort until row 4
+      // (server-side counter) lands.
+      ErrorService.log('record_generation_write:${e.code}', e, st);
+    }
+  }
+
+  // ── Reset cached per-user state (call on sign-out) ─────────
+  /// Clears the cached tier + weekly-generation state so a stale
+  /// signed-in count can't bleed into the guest session or the next
+  /// account signed in on the same device. Sprint 17 (28 May 2026) —
+  /// part of the sign-out-cleanliness fix; pairs with
+  /// `HistoryService`'s uid-scoped keys. The `config/proTesters` cache
+  /// is account-independent and intentionally left intact.
+  void reset() {
+    _tier = 'free';
+    _weeklyGenerations = 0;
+    _weekStartedAt = null;
+    notifyListeners();
   }
 
   // ── Guest entitlements (device-local) ──────────────────────

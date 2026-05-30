@@ -17,11 +17,16 @@
 
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+// `cloud_firestore` 6.x exports a `Type` symbol (Pipeline DSL) that
+// collides with `dart:core.Type` used by Flutter's `GestureRecognizerFactory`
+// map keys. Hide it — Firestore code in this file uses only the
+// Query/DocumentSnapshot/CollectionReference surfaces.
+import 'package:cloud_firestore/cloud_firestore.dart' hide Type;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import '../../services/error_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/inventory_writer.dart';
 import '../../services/pantry_memory_service.dart';
@@ -696,6 +701,21 @@ class _PantryScreenState extends State<PantryScreen> {
     );
   }
 
+  /// Pantry Builder error snackbar. Replaces the silent failure mode
+  /// where a fire-and-forget `widget.onAddItem` would let the sheet's
+  /// chip flip to "selected" while nothing landed in Firestore.
+  void _showPantryBuilderError(String message) {
+    if (!mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    _activeSnackbar = messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
   /// Opens the Pantry Builder sheet via `showDialog` rather than
   /// `showModalBottomSheet`. Nested bottom sheets fail silently on Android —
   /// this screen may itself be reached from contexts that use sheets, and
@@ -720,21 +740,52 @@ class _PantryScreenState extends State<PantryScreen> {
             child: PantryBuilderSheet(
               existingItemNames: existingNames,
               onAddItem: (name, tier, category) async {
-                await _firestore.addInventoryItem(
-                  name,
-                  tier,
-                  category: category,
-                );
+                // Sprint 17 — the sheet calls this fire-and-forget
+                // (`widget.onAddItem(...)` in pantry_builder_sheet.dart
+                // is not awaited), so any error from
+                // `addInventoryItem` would otherwise go unhandled and
+                // the user would see the chip flip to "selected"
+                // while nothing landed in Firestore. Wrap in try/catch
+                // so we can route guests + surface real failures
+                // (rules denied, network) via a snackbar.
+                try {
+                  final id = await _firestore.addInventoryItem(
+                    name,
+                    tier,
+                    category: category,
+                  );
+                  if (id.isEmpty) {
+                    // InventoryWriter returns "" for guest sessions
+                    // (no signed-in user). The sheet's optimistic UI
+                    // update would otherwise lie to the user. Surface
+                    // it explicitly.
+                    _showPantryBuilderError(
+                      'Sign in to save items to your pantry.',
+                    );
+                  }
+                } catch (e, st) {
+                  ErrorService.log('pantry_builder_add', e, st);
+                  _showPantryBuilderError(
+                    'Couldn\'t save "$name". Please try again.',
+                  );
+                }
               },
               onRemoveItem: (name) async {
-                final idx = _items.indexWhere(
-                  (i) => (i['name'] as String? ?? '').toLowerCase() ==
-                      name.toLowerCase(),
-                );
-                if (idx == -1) return;
-                final itemId = _items[idx]['id'] as String?;
-                if (itemId == null) return;
-                await _firestore.deleteInventoryItem(itemId);
+                try {
+                  final idx = _items.indexWhere(
+                    (i) => (i['name'] as String? ?? '').toLowerCase() ==
+                        name.toLowerCase(),
+                  );
+                  if (idx == -1) return;
+                  final itemId = _items[idx]['id'] as String?;
+                  if (itemId == null) return;
+                  await _firestore.deleteInventoryItem(itemId);
+                } catch (e, st) {
+                  ErrorService.log('pantry_builder_remove', e, st);
+                  _showPantryBuilderError(
+                    'Couldn\'t remove "$name". Please try again.',
+                  );
+                }
               },
             ),
           ),

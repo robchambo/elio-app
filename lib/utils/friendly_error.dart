@@ -49,6 +49,45 @@ String friendlyError(Object e) {
   if (isOffline) {
     return "You're offline. Reconnect and try again.";
   }
+  // Sprint 17 — never leak Dart's raw null-check / type-cast / range /
+  // NoSuchMethod toStrings to the user. Two motivating bugs (both 26
+  // May 2026):
+  //   (a) Kate guest regen surfaced "Null check operator used on a
+  //       null value" in a snackbar after the regen path hit its
+  //       limit (PR #14 gated that path properly).
+  //   (b) Rob meal-plan recipe-tap surfaced "type 'String' is not a
+  //       subtype of type 'num?' in type cast" when Gemini emitted a
+  //       String for a numeric meal-slot field (PR #19 added a
+  //       defensive asNum() coercion).
+  // Anything else that bubbles a TypeError / RangeError / NoSuchMethod
+  // up to a toast should degrade to a generic friendly message rather
+  // than raw `_TypeError` text. The underlying error is still logged
+  // via the caller's ErrorService.log — only the user-visible string
+  // is sanitised.
+  //   (c) Rob non-Pro-at-cap regen surfaced the raw "Bad state:
+  //       FirestoreService called without a signed-in user…" StateError
+  //       in a snackbar when a signed-out session reached a Firestore
+  //       write (30 May 2026). The guest-path guard now routes those
+  //       cases correctly, but a StateError must never reach the user as
+  //       raw text either — so `bad state` / `StateError` is sanitised too.
+  //   (d) Rob non-Pro regen surfaced raw "[cloud_firestore/permission-denied]
+  //       The caller does not have permission…" (30 May) when a now-removed
+  //       dead Firestore write was denied. Background Firestore errors must
+  //       never reach the user as raw text either — sanitise any
+  //       cloud_firestore plugin error / permission-denied too.
+  final isDartTypeError = lower.contains('null check operator') ||
+      lower.contains('_typeerror') ||
+      lower.contains('is not a subtype of') ||
+      lower.contains('in type cast') ||
+      lower.contains('rangeerror') ||
+      lower.contains('nosuchmethoderror') ||
+      lower.contains('bad state') ||
+      lower.contains('stateerror') ||
+      lower.contains('permission-denied') ||
+      lower.contains('cloud_firestore/');
+  if (isDartTypeError) {
+    return 'Something went wrong. Please try again.';
+  }
   return scrubApiKey(raw.replaceFirst('Exception: ', ''));
 }
 

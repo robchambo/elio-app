@@ -1,5 +1,9 @@
 import 'dart:async';
-import 'package:cloud_firestore/cloud_firestore.dart';
+// `cloud_firestore` 6.x exports a `Type` symbol (Pipeline DSL) that
+// collides with `dart:core.Type` used by Flutter's `GestureRecognizerFactory`
+// map keys. Hide it — Firestore code in this file uses only the
+// Query/DocumentSnapshot/CollectionReference surfaces.
+import 'package:cloud_firestore/cloud_firestore.dart' hide Type;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -53,6 +57,23 @@ import '../shopping/shopping_list_screen.dart';
 //   • Recent title memory passed through to prevent duplicates
 // ─────────────────────────────────────────────
 
+/// Sprint 17 (28 May 2026, Rob S17--27may-a screenshot) — collapse
+/// duplicate dietary tags that differ only in case (e.g. "Pescatarian"
+/// + "pescatarian", produced by the request→Gemini-response merge in
+/// gemini_service.dart:113-121). Order-preserving, first-seen label
+/// wins so the user-facing capitalisation from the request side is
+/// retained. Pure top-level so it's testable.
+List<String> _dedupTagsCaseInsensitive(Iterable<String> tags) {
+  final seen = <String>{};
+  final result = <String>[];
+  for (final tag in tags) {
+    final key = tag.toLowerCase().trim();
+    if (key.isEmpty) continue;
+    if (seen.add(key)) result.add(tag);
+  }
+  return result;
+}
+
 class RecipeScreen extends StatefulWidget {
   final GeneratedRecipe recipe;
   final RecipeGenerationRequest? originalRequest;
@@ -103,6 +124,15 @@ class RecipeScreen extends StatefulWidget {
 }
 
 class _RecipeScreenState extends State<RecipeScreen> {
+  /// Live guest state. `widget.isGuest` is captured when the screen is
+  /// built and goes stale if the user signs out while it's open (or if a
+  /// caller passes a stale value). Treating "no signed-in user" as guest
+  /// everywhere stops the Firestore-touching paths (regen `saveRecipe`,
+  /// `rateRecipe`) from firing with a null user → `Bad state: …without a
+  /// signed-in user` (Rob's 29 May crash on "Generate another").
+  bool get _isGuest =>
+      widget.isGuest || FirebaseAuth.instance.currentUser == null;
+
   late int _servings;
 
   // ── Mutable recipe (supports in-place ingredient swaps) ────────────────────
@@ -1399,7 +1429,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         ingredient: ingredient,
         recipe: _currentRecipe,
         originalRequest: widget.originalRequest,
-        isGuest: widget.isGuest,
+        isGuest: _isGuest,
         scaleFactor: _scaleFactor,
         onSubstituted: (result) {
           // In-place swap: replace ingredient with substitute
@@ -1482,7 +1512,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
       );
       return;
     }
-    if (widget.isGuest) {
+    if (_isGuest) {
       // Sprint 16.1: explicit duration + hide-current so the toast
       // doesn't follow the user across navigation.
       final messenger = ScaffoldMessenger.of(context);
@@ -1568,6 +1598,32 @@ class _RecipeScreenState extends State<RecipeScreen> {
   Future<void> _executeGeneration(RecipeGenerationRequest request) async {
     setState(() => _isRegenerating = true);
 
+    // Sprint 17 — free-tier cap check up front. The home screen gates
+    // first-generation here (HomeScreen._openPreferencesThenGenerate),
+    // but the regen path on this screen previously skipped the check
+    // entirely. Both guests over their 3/week limit and signed-in
+    // non-Pro users over the weekly cap could hammer "Generate
+    // another" until Gemini / the prompt path crashed with a raw
+    // null-check error toast (Kate's 26 May guest-account repro).
+    // Now we route to the standard paywall instead.
+    if (_isGuest) {
+      final canGenerate = await EntitlementService.canGuestGenerate();
+      if (!mounted) return;
+      if (!canGenerate) {
+        setState(() => _isRegenerating = false);
+        _showUpgradeDialog();
+        return;
+      }
+    } else {
+      await EntitlementService.instance.refresh();
+      if (!mounted) return;
+      if (!EntitlementService.instance.canGenerate) {
+        setState(() => _isRegenerating = false);
+        _showUpgradeDialog();
+        return;
+      }
+    }
+
     // Sprint 16.1: force-refresh dietary/allergens fresh-from-server
     // BEFORE building the regen request. Belt-and-braces against any
     // missed listener propagation since the original generation —
@@ -1580,11 +1636,24 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);
 
-      if (!widget.isGuest) {
-        await Future.wait([
-          EntitlementService.instance.recordGeneration(),
-          _firestore.saveRecipe(newRecipe),
-        ]);
+      // Count the regen — best-effort. A Firestore failure here (e.g. the
+      // rules denying a write) must NEVER block showing the recipe, which is
+      // already generated and saved locally just below. Recipes persist via
+      // HistoryService; there is no Firestore recipe mirror in v1 (nothing
+      // reads users/{uid}/recipes), so the old `_firestore.saveRecipe` write
+      // was dead and, post rules-hardening, was being denied — that denial is
+      // what surfaced as the raw `[cloud_firestore/permission-denied]` toast
+      // on "Generate another" for signed-in free users (Rob 29 May). Dropped.
+      try {
+        if (_isGuest) {
+          // Count the regen against the guest's 3/week cap (previously only
+          // first-generation incremented, so guests could regen unbounded).
+          await EntitlementService.recordGuestGeneration();
+        } else {
+          await EntitlementService.instance.recordGeneration();
+        }
+      } catch (e, st) {
+        ErrorService.log('regen_record_generation', e, st);
       }
 
       await HistoryService.saveRecipe(SavedRecipe(
@@ -1599,7 +1668,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
             builder: (_) => RecipeScreen(
               recipe: newRecipe,
               originalRequest: newRequest,
-              isGuest: widget.isGuest,
+              isGuest: _isGuest,
               regenCount: _regenCount,
             ),
           ),
@@ -1618,6 +1687,20 @@ class _RecipeScreenState extends State<RecipeScreen> {
         );
       }
     }
+  }
+
+  /// Pushes the standard cap-reached paywall. Mirrors
+  /// HomeScreen._showUpgradeDialog so the regen path and the
+  /// first-generation path lead users to the same screen.
+  void _showUpgradeDialog() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const PaywallScreen(
+          triggerContext: 'weekly_limit',
+          trigger: PaywallTrigger.capReached,
+        ),
+      ),
+    );
   }
 
   // ── Side dish generation ────────────────────────────────────────────────────
@@ -1675,7 +1758,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
         final route = MaterialPageRoute(
           builder: (_) => RecipeScreen(
             recipe: sideDish,
-            isGuest: widget.isGuest,
+            isGuest: _isGuest,
             isSideDish: true,
             sideDishMainTitle: mainTitle,
             sideDishMainIngredientNames: ingredientNames,
@@ -1930,7 +2013,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
   }
 
   Future<void> _rateRecipe(bool liked) async {
-    if (_isRating || widget.isGuest) return;
+    if (_isRating || _isGuest) return;
     setState(() {
       _isRating = true;
     });
@@ -2318,7 +2401,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
   // ─── Add ingredients to shopping list (via confirmation dialog) ─────────────
   Future<void> _addToShoppingList() async {
-    if (widget.isGuest) {
+    if (_isGuest) {
       // Sprint 16.1: explicit duration + hide-current.
       final messenger = ScaffoldMessenger.of(context);
       messenger.hideCurrentSnackBar();
@@ -2574,7 +2657,14 @@ class _RecipeScreenState extends State<RecipeScreen> {
               // 113-121), the list now reliably contains every active
               // constraint (e.g. ["Gluten-Free", "Dairy-Free"]), so
               // we iterate. Wrap handles overflow to a second row.
-              for (final tag in r.dietaryTags)
+              //
+              // 28 May 2026 (Rob screenshot, S17--27may-a): the merge
+              // can emit the same tag twice with different cases (e.g.
+              // "Pescatarian" from user-request + "pescatarian" from
+              // Gemini's response). Dedup case-insensitively before
+              // rendering. First-seen label wins to preserve the
+              // user-facing capitalisation from the request side.
+              for (final tag in _dedupTagsCaseInsensitive(r.dietaryTags))
                 ElioStatBadge(
                   icon: Icons.local_dining_outlined,
                   value: tag,
@@ -2636,7 +2726,7 @@ class _RecipeScreenState extends State<RecipeScreen> {
           const SizedBox(height: ElioSpacing.xl),
 
           // ── Feedback bar (thumbs up/down → existing rating handler) ─
-          if (!widget.isGuest)
+          if (!_isGuest)
             ElioFeedbackBar(onRated: _rateRecipe)
           else
             Container(

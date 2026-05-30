@@ -155,12 +155,13 @@ void main() {
       expect(prompt.toLowerCase(), isNot(contains('dinner recipe')));
     });
 
-    test('emits the meal-type hint for Breakfast', () {
-      // 13 May 2026 (deliberation-bleed plan Step 1.2): downgraded
-      // from `You MUST make a Breakfast recipe` to a soft
-      // `Meal type: Breakfast` hint to lower constraint stack on
-      // a thinkingBudget:0 model. Still position-sensitive inside
-      // HARD CONSTRAINTS so Gemini sees it early.
+    test('emits the meal-type hard requirement for Breakfast', () {
+      // 13 May 2026 (deliberation-bleed Step 1.2) downgraded meal-type to a
+      // soft `Meal type: Breakfast` hint. RE-PROMOTED to a hard requirement
+      // in 8aa8b42 (`fix(gemini): mealType promoted back to HARD constraint
+      // on flash-lite`) after an on-device finding that meal-type still
+      // dropped on regen — flash-lite lacks the reasoning headroom the soft
+      // hint relied on. Still position-sensitive inside HARD CONSTRAINTS.
       final prompt = GeminiService.buildPromptForTest(
         const RecipeGenerationRequest(
           perishables: [],
@@ -171,7 +172,8 @@ void main() {
         ),
       );
       expect(prompt, contains('Meal type: Breakfast'));
-      expect(prompt, contains('Tailor the dish to that meal occasion'));
+      expect(prompt,
+          contains('The recipe MUST be appropriate to serve as breakfast'));
       // Still lives inside the HARD CONSTRAINTS block (position
       // matters for LLM attention even when wording is softened).
       final hardIdx = prompt.indexOf('## HARD CONSTRAINTS');
@@ -206,10 +208,13 @@ void main() {
       expect(prompt, contains('Meal type: Dinner'));
     });
 
-    test('does NOT stack a third MUST (downgraded 13 May)', () {
-      // Regression guard: don't accidentally add another HARD MUST
-      // for meal-type. Phase 1.2 of the deliberation-bleed plan
-      // explicitly removes the third MUST from the stack.
+    test('meal-type carries the anti-drift hard requirement (8aa8b42)', () {
+      // Supersedes the old "does NOT stack a third MUST (downgraded 13 May)"
+      // guard. 8aa8b42 re-promoted meal-type to a hard requirement on
+      // flash-lite specifically to stop regen drift, so the prompt now
+      // carries the "hard requirement" + anti-drift wording. We still avoid
+      // the over-blunt `You MUST make a Dinner` phrasing — the constraint is
+      // "the recipe MUST be appropriate to serve as <meal>", not a command.
       final prompt = GeminiService.buildPromptForTest(
         const RecipeGenerationRequest(
           perishables: [],
@@ -220,7 +225,9 @@ void main() {
         ),
       );
       expect(prompt, isNot(contains('You MUST make a Dinner')));
-      expect(prompt, isNot(contains('hard requirement')));
+      expect(prompt, contains('this is a hard requirement, not a preference'));
+      expect(prompt,
+          contains('Do not drift to a different meal occasion on regeneration'));
     });
 
     test('no positive example list (no anchoring on specific dishes)', () {

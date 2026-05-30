@@ -1,9 +1,11 @@
 # Elio Roadmap
 
-**Last updated:** 26 May 2026 (Sprint 16.8 row 7 flipped to ⚠️ Infrastructure shipped — generic `FeatureTipService` landed on `main` via PRs #8 + #9 with 2 pilot tips; email-import-specific tip catalogue entry deferred until that vendor work lands. Added P2 v1.1 row: feature-tip polish + Style B spotlight + catalogue expansion.)
+**Last updated:** 29 May 2026 (Added row 18 — guest pantry parity + builder tap-cycle UI; part-b encoding = tier fill-style (outline/solid/green), not freshness. Sprint 17 status reconciled against current `main` + open PRs + deployed-infra state ahead of Sprint 17 launch-prep work.)
 
-**Active branch:** `sprint/16-integration` — main integration line. Topic branch `fix/flash-lite-streaming` (1 commit ahead) ready to merge.
-**Pushed to origin:** through `041a915` on `sprint/16-integration`; `c58c924` pushed on `fix/flash-lite-streaming` after on-device sign-off.
+**Active branch:** `main` @ `dc1131c`. Sprint 16 + 16.8 squash-merged. Latest APK: `releases/elio-sprint-26may-b.apk`, tag `build/sprint-26may-b`.
+**Open PRs vs `main`:** #13 `fix/pantry-dedup-and-builder-failures` (pantry write + Builder error surfacing) · #14 `fix/guest-regen-paywall-and-error-toasts` (recipe-screen regen gate + friendly toasts) · #7 `claude/ios-dev-setup-prompt-MNul1` (iOS docs). Test rows on the Test Hub.
+**Sprint 17 launch-prep:** cut `sprint/17-integration` fresh off `main` whenever ready — no Sprint 16 wait remaining. `origin/sprint-17` stale (rules + entitlement content already on `main` via parallel commits, except `proOverride` client-code removal — tracked as Sprint 17 #14).
+**Deployed Cloud Functions (`elio-prototype`):** `generateImportAddress`, `postmarkInbound` (us-central1) · `crashlyticsFatal` / `Nonfatal` / `Velocity` / `Regression` → Notion Crashes DB (us-east1). All nodejs22.
 
 **Recent (1–15 May 2026):**
 - Sprint 15.9.2 — Gemini warmup (cold-start reliability)
@@ -554,25 +556,139 @@ Capture here so they don't keep resurfacing in planning.
 
 **Goal:** Everything that must be true before either store accepts a submission.
 
+**Branch convention:** new `sprint/17-integration` cut **fresh** from `main`. Fix branches off it, no fold-back (per integration-branch scope-freeze rule). `origin/sprint-17` stale — delete after Sprint 17 lands.
+
+**APK convention:** `S17--<DDmmm>-<letter>` (e.g. `S17--28may-a`). Filename `elio-S17--<DDmmm>-<letter>.apk`, label `0.S17--<DDmmm>-<letter>+<hash>`, tag `build/S17--<DDmmm>-<letter>`. Sub-sprints use `S17.<sub>--…`.
+
+### Already shipped (counted under Sprint 17 umbrella)
+
+| Area | What landed | Where |
+|---|---|---|
+| Performance audit | DevTools profiling, list optimisation, cold start parallelised | Sprint 15.3 |
+| ErrorService coverage | ~15 call sites across 6 services | Sprint 15.5 |
+| Firestore rules + entitlement hardening | `firestore.rules` default-deny, owner-only, protected sub-keys locked. `EntitlementService.refresh()` reads from RevenueCat at runtime. Dev Pro via `config/proTesters`. | On `main` via parallel commits (`5d26454` etc.) |
+| Firestore rules deploy | Production deploy 16 May (unblocked `customItems`). Dry-run still passes. | `5d26454` |
+| Crashlytics → Notion pipe (Tier 2) | 4 Cloud Functions idempotent-upsert into Operations → Crashes DB. **Supersedes the original Slack/Discord webhook plan.** | `functions/src/index.ts`, deployed us-east1 |
+| GDPR — code services | `AccountService.deleteAccount()`, `DataExportService`, `LegalLinks` scaffolding | Wired into AccountScreen |
+| Privacy / ToS — content + in-app screens | `assets/legal/privacy-policy.md` + `terms-of-service.md` + `wa-consumer-health-data-notice.md` (US/UK dual-regime); in-app `LegalDocScreen` reachable from AccountScreen About | Content authored, hosted URLs pending |
+| `REVENUECAT_API_KEY` build wiring | `build.ps1` `--dart-define` pass-through (dry mode falls back) | Sprint 15.5 |
+
+### Outstanding
+
 | # | Task | Est. Hours | Status |
 |---|------|-----------|--------|
-| 1 | Performance audit (DevTools profiling, list optimisation, cold start time) | 3–4 | ✅ Done |
-| 2 | **Firestore security rules audit** — rules are currently permissive (dev mode); must be locked down before public launch. Firebase console already flagging this. Also: data retention policy, input sanitisation | 2–3 | ⚠️ Partially done — rules + entitlement hardening landed on `sprint-17` branch (commits `8a17e8c`, `8c9e318`). Still to do: `firebase deploy --only firestore:rules`, emulator rule test suite, Cloud Functions backend so `weeklyGenerations` can be locked too, GCP budget caps |
-| 3 | GDPR compliance (data export, account deletion, consent tracking) | 2–3 | Not started |
-| 4 | Privacy policy + Terms of Service (in-app screens + hosted URLs — shared across both stores) | 2–3 | Not started |
-| 5 | Remove temporary debug messages from home_screen.dart | 0.5 | Not started |
-| 6 | Crashlytics → Slack/Discord webhook (real-time error alerts via Cloud Function) | 1–2 | Not started |
-| 7 | Wire `REVENUECAT_API_KEY` through build.ps1 / `.env.local` + configure live Play Store + App Store SKUs with 7-day free trial | 2–3 | Partially done (build.ps1 wired, key not yet in .env.local) |
-| 8 | Expand `ErrorService` coverage to GeminiService, FirestoreService, VoiceControlService, PurchaseService (currently only 4 call sites) | 1–2 | ✅ Done (Sprint 15.5 — ~15 call sites across 6 services) |
-| 9 | **Email re-auth path for Delete Account.** `AccountScreen._reauthForDelete` currently only supports the Google provider — Email/password users get a snackbar pointing them at the support email. **Launch blocker** per Play Store + GDPR requirement for in-app account deletion across all auth methods. Wire `EmailAuthProvider.credential(...)` into the existing reauth callback, mirroring the Google branch. Added 11 May 2026 after discovering it during the Sprint 16.6 device-test pass. | 1–2 | Not started |
-| 10 | **Forgot Password flow on-device verification.** `AuthService.sendPasswordReset` + `EmailLoginScreen` "Forgot password?" link are already wired. Verify end-to-end: enter email → tap link → email arrives → reset flow works → can sign in with the new password. Added 11 May 2026 — code in place since Sprint 15.x, never on-device confirmed. | 0.25 | Not started |
-| 11 | **Onboarding hero imagery — confirm final art shipped.** Two onboarding image assets currently in the repo are interim, not Kate's finals: `assets/images/onboarding/welcome_hero.png` (screen 01 marketing hero) and `assets/images/onboarding/pantry_intro_hero.jpg` (screen 10 illustrated pantry shelf). Before submission, **diff both files against the final Kate-delivered art** and replace if different. Tell-tales the current ones are interim: (a) `welcome_hero.png` is the 19 May resized version of the original placeholder; (b) `pantry_intro_hero.jpg` has visible AI-generation typos (`GRAAIN RICE`, `FANIFER`). Also re-confirm: no other onboarding screen still renders a placeholder emoji or amber-tinted block where a real illustration should be. Added 19 May 2026. | 0.5 | Not started |
-| 13 | **Cook Mode — keep screen on for the duration of hands-free.** `wakelock_plus` is currently held only while a recipe TIMER is active (Sprint 16.6 `_onTimerStateChange` logic). Cook Mode without a running timer hits the OS screen timeout (Rob's 2-minute setting caught this 21 May). 21may-a shipped an attempted fix (`_updateWakelock()` helper that OR-combined `_handsFreeMode || _timerService.hasActiveTimers`, wired into `_startHandsFree` / `_exitHandsFreeMode` / inline Done button) — that shipped a white-screen-on-Cook-Mode-entry regression that we couldn't root-cause inline, so it was reverted on 21may-b. Re-approach: try gating the platform call on `_handsFreeMode` via `initState` + dispose pair instead of the inline timer-callback path. Or use `WidgetsBindingObserver.didChangeAppLifecycleState` so we can defensively re-assert the wakelock on resume. Build 21may-a tag preserves the failed-attempt code for reference. Added 21 May 2026. | 1–2 | Reverted on 21may-b, needs fresh attempt |
-| ~~12~~ | ~~Cook Mode voice — resume on identified failure mode.~~ | — | ✅ **Closed.** All four leads from this row shipped to `main` between 19–21 May (RECORD_AUDIO permission gate, stale `_isListening` flag fix, `error_busy` backoff, forked `speech_to_text` with 15s silence window, plus voice heartbeat + continuous-listening refactor — ~10 fix branches across ~12 builds). Notion test list bottom block records "Cook Mode voice arc closed. End-to-end working as of 21may-b." Row was added 20 May before the fixes landed and never flipped. |
+| 1 | **Email re-auth for Delete Account** — `account_screen.dart:570` `_reauthForDelete` only handles Google; email/password users get the support-email snackbar (line 588-599). Wire `EmailAuthProvider.credential(...)` mirroring Google branch. **Launch blocker** (Play Store + GDPR — in-app deletion across all auth methods). | 1–2 | Not started |
+| 2 | **GDPR consent tracking** — sign-up checkbox + Settings withdrawal toggles (granular: analytics / crash reporting / marketing). Writes to `users/{uid}/consent` with timestamp. Satisfies GDPR Art. 7(3) withdrawal requirement. | 5–6 | Not started |
+| 3 | **Privacy / ToS hosted URLs** — blocked on domain purchase (in flight). Once domain lands, Firebase Hosting on `elio-prototype`. Update `LegalLinks` to point at hosted URLs alongside in-app render. | 1 | Blocked on domain |
+| 4 | **Server-side `weeklyGenerations` counter** — Cloud Fn proxies `generateRecipeStream` (HTTP SSE w/ manual ID-token verify), increments counter in Firestore transaction, enforces tier cap. Hides Gemini key from APK decompilation. Rules then lock `weeklyGenerations` + `weekStartedAt`. **★ PRIORITY: first task after #28 → main (Rob 30 May).** Closes the API-cost-exploit vector — the only reliable cap (client-side count is bypassable + the key currently ships in the APK). Interim mitigation: row 6 billing cap + the 30 May rules redeploy (makes the client count persist for honest users). | 8–10 | Not started |
+| 5 | **Emulator rule test suite** — `firebase emulators` + `@firebase/rules-unit-testing` proving default-deny / owner-only / protected-sub-keys-locked / pending_imports invariants. ~20 tests. | 3 | Not started |
+| 6 | **GCP budget caps** — billing alert + hard-cap on `elio-prototype` project. Cloud Console only. | 0.5 | Not started |
+| 7 | **RC live SKUs + key in `.env.local`** — create Play Store + App Store SKUs (7-day free trial), wire to RC dashboard, paste key into `.env.local`. | 2–3 | Partial (build.ps1 wired) |
+| 8 | **Forgot Password on-device verification** — code wired since Sprint 15.x, never end-to-end confirmed. | 0.25 | Not verified |
+| 9 | **Strip debug from `home_screen.dart`** — re-verify grep pre-build (no matches currently). | 0.25 | Likely done, verify pre-build |
+| 10 | **Onboarding hero imagery — Kate finals** — replace `welcome_hero.png` (19 May interim resize) + `pantry_intro_hero.jpg` (visible AI typos `GRAAIN RICE`, `FANIFER`). Re-confirm no other placeholder. | 0.5 | Blocked on Kate art |
+| 11 | **Cook Mode — wakelock for hands-free duration** — `wakelock_plus` currently held only while a timer is active. 21may-a `_updateWakelock()` attempt shipped a white-screen regression, reverted on 21may-b. Re-try via `initState`/`dispose` pair on `_handsFreeMode`, or `WidgetsBindingObserver.didChangeAppLifecycleState` resume re-assert. | 1–2 | Reverted, needs fresh attempt |
+| 12 | **`functions/README.md`** — operator notes: deploy, `NOTION_TOKEN` rotation, schema-drift caveat (`index.ts:78-118`), regions split (us-central1 vs us-east1). | 0.5 | Not started |
+| 13 | **Delete `proOverride` dead code** — `FirestoreService.grantProAccess()` + `revokeProAccess()` (`firestore_service.dart:597-606`) write `subscription.proOverride: true/false`. Rules already reject these writes (silent fail). Zero callers in `lib/`. Pure delete. (`proOverrideForTest` in `recipe_preferences_screen.dart` is a renamed test seam — keep.) | 0.25 | Not started |
+| 14 | **Delete obsolete `origin/sprint-17` branch** — after Sprint 17 lands. | 0.1 | Not started |
+| 15 | **Educational-tips batch** (three Style A `FeatureTipService` tips — kid-friendly chip, ingredient-substitute, Go Wild → add-to-shopping; one branch / one APK / one test pass, build after the next device-test pass clears). See the **Educational-tips batch spec** below this table. 15c carries a pending shopping-list gating decision. | 2 | Not started |
+| 16 | **Recipe screen back nav → Set-the-mood, not Home** — currently back button from RecipeScreen (after generation) lands on Home, losing the user's craving / mode / saver / mealType selections. Should pop to `RecipePreferencesScreen` ("set the mood") so the user can tweak one thing and regen without re-entering everything. Likely a `Navigator.push` → `pushReplacement` swap on the prefs → recipe transition, or a custom `PopScope` on RecipeScreen intercepting the back gesture. Pair with row 15 batch — same testing pass. | 0.5 | Not started |
+| 17 | **Guest → sign-in conversion** — make sign-in the prominent path for signed-out launches (Rob 28 May), with guest as an explicit option, plus contextual "sign in to keep this" nudges at guest value-moments. Replaces the current silent 16.1.x "signed-out lands on AppShell as guest" default. See the **Guest → sign-in conversion spec** below. Product decision logged; needs build. | 1–1.5d | Not started |
+| 18 | **Guest pantry parity + builder tap-cycle UI** (Rob 28 May). Two coupled parts: (a) **guest pantry parity** — the in-app Pantry tab is guest-blind (display/add/remove all skip `GuestPantryService`; builder shows "Sign in to save", nothing persists) even though onboarding builds a guest pantry; wire read+add+remove to `GuestPantryService` for guests. (b) **builder tap-cycle UI** — replace long-press tier-picker with single-tap-cycle encoding the storage tier: `almostAlwaysHave` = outline, `alwaysHave` = solid fill, `perishable` = solid green. Staple lane cycles off→outline→solid; perishable lane is on/off green. Category fixes the lane. **(a) requires guest→sign-in pantry migration** (the parked `MigrationService` Task 6.4 only runs on the onboarding screen-15 path, not a later AccountScreen sign-in) — shipping (a) without it = guest builds pantry → signs in → pantry lost. See the **Guest pantry parity + builder UI spec** below. Pairs with row 17 (same guest-mode surface). | 1.5–2d | Not started |
 
-**Estimate:** 16.75–28.75 hours
+**Estimate outstanding:** ~27–34 hours total (Claude code + Rob external + on-device verify). Of that, ~25–28h Claude-code work; ~5–6h Rob external (RC dashboard, GCP, hosting, Kate art when delivered).
 
-**Sprint 17 progress note (16 April 2026):** Firestore rules + entitlement hardening were committed on the `sprint-17` branch (currently unmerged). The old hard-coded dev-email allowlist and `proOverride` flag have been removed entirely; dev/tester Pro now comes from the Firestore doc `config/proTesters` (emails array). RevenueCat is the single source of truth for paying users. Branch needs `flutter analyze` + a PR to `main`.
+### Educational-tips batch spec (roadmap row 15)
+
+Two one-time tips on the existing Sprint 16.8 `FeatureTipService` (Style A bottom-sheet — `elio_feature_tip_sheet.dart`; no Style B spotlight needed/built). Both ship in one branch, one APK, one test pass. **Build trigger:** after the next on-device test pass clears (per Rob, not before). Design signed off 28 May 2026.
+
+**Tip 15a — Kid-friendly chip nudge (NEW, household-gated).**
+- **Trigger:** household audience signal = `household == 'family'` OR `householdCount > 2`, AND it's the user's **2nd** recipe-gen-screen visit (`sessionThreshold: 2`), AND they haven't already tapped the Kid-friendly chip (`markFeatureUsed` auto-suppresses). Audience gate lives at the `shouldShow` call site on the recipe-prefs screen — no `FeatureTipService` change (the service stays a generic usage-gap engine).
+- **Host screen:** `recipe_preferences_screen.dart` ("set the mood"). Kid-friendly is a Mood chip (`_moodOptions[2]`, `:146`); it already drives a real Gemini branch (`gemini_service.dart:1623` → "recognisable to kids, not adventurous").
+- **UI:** Style A bottom sheet. CTA **auto-selects** the chip (`_mood = 'Kid-friendly'`) rather than spotlighting it — cleaner than pointing at an on-screen chip the sheet covers.
+- **Copy (signed off — variant A):** Title `Cooking for kids?` · Body `Tap Kid-friendly under Mood and we'll keep recipes simple, mild, and recognisable — food the little ones will actually eat.` · CTA `Use it`.
+- **Catalog entry:** `id: kid_friendly_mood`, `requiredFeatureEvent: kid_friendly_mood_used` (fire `markFeatureUsed` from the chip's tap handler), `sessionThreshold: 2`.
+- **Wiring to verify when building:** household signal availability at gen time for (a) signed-in users — `householdCount` from user doc, same source `home_screen.dart:250` reads; (b) guests mid-onboarding — `OnboardingController` / `GuestPantryService`. Confirm both before relying on the gate.
+
+**Tip 15b — First-gen ingredient-substitute tip (teaches a gesture).**
+- **Trigger:** lands on the recipe screen; `sessionThreshold` TBD at build (likely 1–2). Suppressed once the user long-presses an ingredient (`markFeatureUsed`).
+- **Host screen:** recipe screen (`recipe_screen.dart`).
+- **UI:** Style A "did-you-know" sheet. No auto-select CTA — it teaches the hidden long-press gesture (long-press ingredient → Substitute / Regen / Add-to-shopping). **Copy (signed off):** `Tip: long-press any ingredient to swap it.`
+- **Catalog entry:** `id: ingredient_substitute`, `requiredFeatureEvent: ingredient_longpress_used`.
+
+**Tip 15c — Go Wild → add-to-shopping tip (NEW, Rob 29 May).**
+- **Trigger:** the user's **first Go Wild generation**. Go Wild zeroes pantry-sourced fields, so the recipe will likely use ingredients they don't have — the moment to surface the "add to shopping list" button.
+- **Host screen:** recipe screen (where the Go Wild recipe lands + where the add-to-shopping cart button lives, `recipe_screen.dart:2933`).
+- **UI:** Style A bottom sheet. CTA points at / triggers the add-to-shopping action.
+- **Copy (draft, confirm at build):** Title `Don't have it all?` · Body `Go Wild recipes look beyond your pantry — so you might be missing a few things. Tap the cart to send what you need to your shopping list.` · CTA `Add to shopping list`.
+- **Catalog entry:** `id: gowild_add_to_shopping`, `requiredFeatureEvent: recipe_add_to_shopping_used`, fired on first Go Wild recipe view (gate the `shouldShow` call on "this generation was Go Wild").
+- **⚠️ GATING DECISION PENDING (Rob, 29 May).** Rob assumed shopping list is Pro and the tip would need gating. **Code reality differs:** the shopping-list tab + the recipe-screen `_addToShoppingList` are gated on **guest only** (signed-in free users can use them); only the meal-plan→shopping path is Pro (`canUseShoppingList`). EntitlementService's intent ("Free tier: no shopping list") is NOT enforced on these paths. So before building 15c, decide:
+  - **(a) Shopping list = Pro** → close the gating gap on recipe add-to-shopping + the shopping tab; 15c then upsells free users (CTA → paywall). Also a monetisation-leak fix.
+  - **(b) Shopping list = free** → no gating; 15c just educates everyone; **correct the free-vs-Pro HTML** (`docs/strategy/2026-05-28-free-vs-pro-features.html`) which currently lists shopping list as Pro.
+
+**Shared build notes:** each tip = one `FeatureTipCatalog` entry + one `markFeatureUsed` call at the feature's tap/long-press site + one `shouldShow` call on the host screen (15a's gated behind the household check). No new dependency. Pairs naturally with row 16 (recipe back-nav) for the same testing pass.
+
+### Guest → sign-in conversion spec (roadmap row 17)
+
+**Decision (Rob, 28 May 2026):** stop letting signed-out users land silently in guest mode. Sign-in should be the prominent surface; guest stays available but as an explicit choice. Plus nudge guests to sign in at the moment they create something worth keeping. Direction set; copy + final UX to confirm at build.
+
+**Current behaviour (the problem).** `AuthGate` (`main.dart`) routes on the `onboardingComplete` SharedPreferences flag only: `true` → `AppShell`, which runs in guest mode whenever `FirebaseAuth.instance.currentUser == null` (HomeScreen computes `isGuest = currentUser == null`). So a signed-out user — whether a deliberate guest or someone who just signed out — silently gets the guest AppShell. There is **no flag distinguishing a deliberate guest from a signed-out returner**, and guest state is device-local (the cross-account / count bugs fixed in S17--28may-d were downstream of this).
+
+**Part A — signed-out entry routing.** Add a persistent `hasAccount` SharedPreferences bool: set `true` on the first successful sign-in (any provider), cleared only by Delete Account + Restart Onboarding (NOT by sign-out). Then `AuthGate` branches the signed-out case:
+- `onboardingComplete && currentUser != null` → `AppShell` (signed in). *Unchanged.*
+- `onboardingComplete && currentUser == null && hasAccount` → **returner**: route to the **sign-in screen** (reuse `EmailLoginScreen` / a sign-in landing) with a prominent **"Continue as guest"** escape. They had an account — bring them back.
+- `onboardingComplete && currentUser == null && !hasAccount` → **deliberate guest**: `AppShell` as today, BUT show a one-time-per-launch **Home sign-in sheet** — "Sign in to save your pantry, recipes & plans" with primary **Sign in** + secondary **Continue as guest** (dismiss → stays guest). Not a wall.
+- `!onboardingComplete` → `OnboardingFlow`. *Unchanged.*
+
+(This maps Rob's two options onto the two cases: returner gets the sign-in screen; fresh guest gets the home pop-up with guest as an option.)
+
+**Part B — contextual "sign in to keep" nudge.** At guest value-moments, surface a lightweight sheet whose CTA goes to sign-in:
+- After a guest generates / saves a recipe → "Sign in to keep this recipe."
+- After a guest adds pantry items → "Sign in to save your pantry."
+One nudge per moment-type per session; suppressed once signed in. Dedicated auth sheet (not `FeatureTipService` — this is conversion, not feature-discovery), brand-styled.
+
+### Guest pantry parity + builder UI spec (roadmap row 18)
+
+**Decision (Rob, 28 May 2026):** guest should have a fully functional local pantry (build → edit → generate), with the "sign in to keep" nudge (row 17) as the conversion lever — not a wall. Confirmed worth doing; flagged as a 2-part job because (a) without (b) is a regression trap.
+
+**The bug (part a — guest pantry parity).** The in-app Pantry tab is guest-blind:
+- **Display** — `pantry_screen.dart:162` `_subscribeInventory` returns early when `currentUser == null`; never reads `GuestPantryService`. Guest pantry shows empty even though onboarding populated it.
+- **Add** — builder `onAddItem` (`:752`) calls `_firestore.addInventoryItem` → `InventoryWriter` returns "" for guests → "Sign in to save items to your pantry." snackbar, nothing persists.
+- **Remove** — Firestore-only.
+
+`GuestPantryService` already has the storage: `saveStaples(Map<String,String>)` / `savePerishables(Map<String,String>)` / `loadAll() → GuestPantrySnapshot` / `clear`, keyed `guest_staples` + `guest_perishables`. **Fix:** branch all three pantry-tab operations on `currentUser == null`:
+- guest read → `loadAll()` → map staples (always/usually) + perishables (fresh/this-week/today) into the `_items` shape the tab renders. SharedPrefs is not a stream — load once + listen on a guest pantry change-notifier (mirror the existing `householdCountChanges` `ValueNotifier` pattern) instead of `query.snapshots()`.
+- guest add → mutate the right map (staple tier → `saveStaples`; perishable → `savePerishables`) + save + reload.
+- guest remove → drop from the right map + save + reload.
+
+**Migration dependency (part a's blocker).** `MigrationService` runs guest→Firestore only on the **onboarding screen-15 sign-in** path. A guest who edits the pantry in-app *after* onboarding, then signs in later via AccountScreen → `EmailLoginScreen`, does **not** get those edits migrated. Shipping guest pantry parity without closing this = guest builds a pantry → signs in → it vanishes (worse than the current "sign in to save" dead-end). So row 18 must also run `MigrationService` (or an equivalent guest-pantry adopt) on **any** sign-in where a guest pantry exists, merging into Firestore inventory (dedup against existing — `inventory_deduped_v1` logic already exists).
+
+**The UI change (part b — builder tap-cycle).** Replace the pantry-builder long-press tier-picker dialog with a single-tap-cycle whose visual encodes the **storage tier** (Rob 29 May — the axis is restock-habit, not freshness). Two independent cues: fill *style* encodes the staple sub-tier, fill *colour* (green) flags perishable.
+
+**Visual language (one state per tier):**
+- `almostAlwaysHave` → **outline** (brand colour)
+- `alwaysHave` → **solid fill** (brand colour)
+- `perishable` → **solid fill, green**
+
+**Tap behaviour — cycle length depends on the item's lane:**
+- **Staple item** → `off → outline → solid → off` (cycles the 2 staple tiers, like onboarding screen 11).
+- **Perishable item** → `off → green solid → off` (on/off only — no sub-tier).
+
+**Lane is category-fixed** (already mapped — same logic as the order-import `_tierFor`): perishable categories (produce/dairy/meat/bakery) → perishable lane; the rest → staple lane. The builder picks the cycle per tile without asking. No cross-lane re-tiering (a perishable tile can't become "always have") — matches onboarding's split-screen model; revisit only if a long-press escape hatch is wanted later.
+
+**Legend:** `elio_pantry_tier_legend.dart` (shared with onboarding) must be updated to show outline / solid / green-solid, not the freshness legend. Drop the long-press `RawGestureDetector` tier-picker.
+
+**Rejected:** mapping onboarding's green/orange/red freshness ramp onto the 3 storage tiers — freshness (how soon it expires) and restock-tier (how often you keep it stocked) are different axes; conflating them mislabels "always-have soy sauce" as "fresh/green."
+
+**Critical dependency — the "keep" promise must be real.** `MigrationService.migrateGuestToFirestore(uid, …)` already carries guest pantry + state into Firestore on sign-in, but today it runs from the **onboarding screen-15** path. The in-app sign-in paths (Settings → Sign In tile → `EmailLoginScreen`, and the new entry/keep sheets) MUST also run migration so a guest's recipes/pantry actually transfer on sign-in — otherwise "sign in to keep this" loses the very thing it promised. **Verify + wire migration on every sign-in entry point** as part of this work.
+
+**Surfaces:** `main.dart` AuthGate branch · new `hasAccount` flag (set in `AuthService` / `MigrationService` sign-in success path) · sign-in landing (new or `EmailLoginScreen` + "Continue as guest" CTA) · Home one-time guest sheet · keep-nudge sheet at recipe-save + pantry-add guest paths · migration wired on in-app sign-in.
+
+**Edge cases:** don't wall deliberate guests every launch (the one-time sheet, not a hard gate); don't lose guest work on sign-in (migration); account-switch merges guest→signing-in account (pre-launch acceptable, revisit with 16.7b household sharing).
+
+**Estimate:** 1–1.5 days. Confirm copy for the entry sheet + both keep-nudges before building.
+
+**Items punted from Sprint 17 → see Notion Launch Checklist** for the wider pre-launch backlog (referral loop, push campaigns, in-app review, analytics → BigQuery, a11y audit, app icon ratify, first-run coach marks, Gemini model audit, regional ingredient vocabulary, etc). Those are not store-submission blockers — they land in v1.1 or as pre-launch polish only if Sprint 17 outstanding closes early.
 
 ---
 
@@ -674,4 +790,4 @@ Capture here so they don't keep resurfacing in planning.
 - Dev flavor broken — always use `--flavor prod`
 - iOS URL scheme placeholder needs filling before any iOS build
 - APK size 72.9 MB (mobile_scanner ML Kit) — may need app bundles for Play Store
-- `REVENUECAT_API_KEY` wired in build.ps1 but actual key not yet in `.env.local` (need RC project setup)
+- `REVENUECAT_API_KEY` not in `.env.local` (tracked under Sprint 17 outstanding #7)

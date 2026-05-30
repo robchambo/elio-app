@@ -16,6 +16,9 @@
 // can swipe horizontally between Home / Pantry / Recipes / Shopping list.
 // Tap on the bottom-nav and swipe both feed through `_selectTab` which
 // keeps `_tab`, the controller, and the back-history in sync.
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../../services/firestore_service.dart';
 import '../../utils/region_utils.dart';
@@ -39,6 +42,13 @@ class _AppShellState extends State<AppShell> {
   final List<ElioNavTab> _tabHistory = <ElioNavTab>[];
   late final PageController _pageController;
 
+  // Sprint 17 (28 May 2026) — auth-state subscription so AppShell + its
+  // children re-render when Firebase Auth restoration completes late
+  // (Rob's "signed out on cold restart" bug from S17--27may-a). Without
+  // this, the only path that flips `_isSignedIn` is a manual sign-out
+  // tile tap or a navigator pop back to AppShell after sign-in.
+  StreamSubscription<User?>? _authSub;
+
   // Order must match the PageView children below and the index/enum mapping.
   static const List<ElioNavTab> _tabOrder = <ElioNavTab>[
     ElioNavTab.home,
@@ -52,6 +62,24 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     _pageController = PageController(initialPage: _tabOrder.indexOf(_tab));
     _hydrateRegionUtils();
+
+    // Subscribe to auth-state changes. The stream emits the current
+    // user (or null) immediately, plus every subsequent restoration /
+    // sign-in / sign-out. setState reruns build → children that depend
+    // on FirebaseAuth.instance.currentUser (e.g. AccountScreen's
+    // _isSignedIn, the Pantry tab's Firestore reads) see the new
+    // state next frame. Cheap: rebuild is local, PageView children
+    // re-render lazily.
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (!mounted) return;
+      setState(() {});
+      // If a user has just been restored (was null at AppShell mount
+      // but is non-null now), re-hydrate RegionUtils from their
+      // Firestore settings now that we have a uid.
+      if (user != null) {
+        _hydrateRegionUtils();
+      }
+    });
   }
 
   /// Sprint 16.6.x — pull the user's measurement-units + region prefs
@@ -61,6 +89,14 @@ class _AppShellState extends State<AppShell> {
   /// meant a cold-started app stayed on the metric/US defaults until
   /// the user happened to visit Settings. Fire-and-forget.
   Future<void> _hydrateRegionUtils() async {
+    // Sprint 17 — sign-out preserves `onboardingComplete=true` (per the
+    // 16.1.x Auth UX fix), which means AuthGate can route a signed-out
+    // user straight to AppShell. `FirestoreService.getSettings()` reads
+    // `_uid` synchronously and throws StateError if no user is signed
+    // in. Guests keep the in-memory RegionUtils defaults (metric / US,
+    // overridable via Settings). See Crashes row
+    // `36c4718e-358a-81ea-9b18-c679ba28f7b7`.
+    if (FirebaseAuth.instance.currentUser == null) return;
     try {
       final settings = await FirestoreService().getSettings();
       final units = settings['measurementUnits'] as String?;
@@ -90,6 +126,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _pageController.dispose();
     super.dispose();
   }

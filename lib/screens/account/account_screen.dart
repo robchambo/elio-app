@@ -47,6 +47,7 @@ import '../../services/order_import_service.dart';
 import '../../services/purchase_service.dart';
 import '../../theme/elio_radii.dart';
 import '../../theme/elio_spacing.dart';
+import 'password_prompt.dart';
 import '../../theme/elio_text_styles.dart';
 import '../../theme/elio_theme.dart';
 import '../../widgets/elio/elio_segmented_row.dart';
@@ -554,16 +555,22 @@ class _AccountScreenState extends State<AccountScreen> {
       case DeleteAccountCancelled():
         // User backed out — silent.
         break;
-      case DeleteAccountFailed(:final stage, :final message):
-        messenger.showSnackBar(
-          SnackBar(content: Text('Delete failed at $stage: $message')),
-        );
+      case DeleteAccountFailed(:final stage):
+        // Friendly, stage-aware copy (Rob-approved 29 May). The raw error
+        // is never shown — it's already logged to Crashlytics inside
+        // AccountService. `reauth` is the wrong-password case (E2);
+        // anything later (firestore/auth) is a mid-delete failure.
+        final friendly = stage == 'reauth'
+            ? "That password didn't match. Your account's safe — try again."
+            : 'Couldn\'t delete your account just now. Please try again, '
+                'or email us at ${LegalLinks.supportEmail}.';
+        messenger.showSnackBar(SnackBar(content: Text(friendly)));
     }
   }
 
-  /// Sprint 16.1 V1 re-auth callback. Supports Google sign-in (Rob's
-  /// primary flow). Email/password and Apple are deferred — they show
-  /// a snackbar pointing the user at Google for now.
+  /// Re-auth callback for Delete Account. Supports Google + Email/password
+  /// providers. Apple is still deferred (Sprint 19 — Apple Sign-In lands
+  /// with the iOS track).
   ///
   /// Returns `null` to signal user-cancelled or unsupported provider →
   /// AccountService aborts the delete cleanly.
@@ -585,12 +592,25 @@ class _AccountScreenState extends State<AccountScreen> {
         return null;
       }
     }
-    // Email/password and Apple flows pending — show guidance.
+    // Sprint 17 — Email/password reauth (Play Store + GDPR launch
+    // blocker). Pulls the email from the currently signed-in user and
+    // prompts for the password via a modal dialog. Wrong-password errors
+    // surface in AccountService.deleteAccount's FirebaseAuthException
+    // catch (returns DeleteAccountFailed(stage: 'reauth')), which the
+    // caller maps to a snackbar.
+    if (providerId == AccountProviderIds.password) {
+      final email = FirebaseAuth.instance.currentUser?.email;
+      if (email == null) return null;
+      final password = await promptForPassword(context, email: email);
+      if (password == null || password.isEmpty) return null;
+      return EmailAuthProvider.credential(email: email, password: password);
+    }
+    // Apple deferred until Sprint 19.
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Account deletion currently requires Google sign-in. '
+            'Account deletion currently requires Google or Email sign-in. '
             'Email us at ${LegalLinks.supportEmail} for help.',
           ),
         ),
@@ -598,6 +618,7 @@ class _AccountScreenState extends State<AccountScreen> {
     }
     return null;
   }
+
 
   // ─── Order import (Pro-gated) ─────────────────────────────────────
 
@@ -929,7 +950,16 @@ class _Section extends StatelessWidget {
               borderRadius: BorderRadius.circular(ElioRadii.card),
               border: Border.all(color: ElioColors.rule, width: 1),
             ),
+            // Sprint 17 (27 May 2026) — stretch rows to fill card width so
+            // _ActionRow / _StaticRow content left-aligns like _PushRow /
+            // _PickerRow / _SwitchRow (which already use Row + Expanded
+            // and fill the width intrinsically). Without stretch, the
+            // default CrossAxisAlignment.center centred the chevronless
+            // rows mid-card while the chevron rows hugged the left edge,
+            // producing the misaligned Account + About sections Rob
+            // screenshot'd 27 May.
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (var i = 0; i < rows.length; i++) ...[
                   rows[i],

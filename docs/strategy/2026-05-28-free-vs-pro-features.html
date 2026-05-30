@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elio — Free vs Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FAF3E8; --cream-deep:#EFE0CC; --rule:#E2D2BB;
+    --terracotta:#C76B43; --terracotta-soft:#F2D9C9;
+    --espresso:#33241A; --mocha:#8A6F5C;
+    --green:#5E7C53;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--cream); color:var(--espresso);
+    font-family:'DM Sans',system-ui,sans-serif; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:48px 24px 96px;}
+  h1,h2,h3{font-family:'Bricolage Grotesque',sans-serif;color:var(--espresso);margin:0;}
+  h1{font-size:46px;font-weight:800;letter-spacing:-1px;line-height:1.02;}
+  .sub{color:var(--mocha);font-size:18px;margin-top:14px;max-width:620px;}
+  .meta{color:var(--mocha);font-size:13px;margin-top:18px;}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;margin:32px 0 8px;}
+  .legend span{display:inline-flex;align-items:center;gap:8px;font-size:14px;font-weight:600;}
+  .dot{width:12px;height:12px;border-radius:50%;}
+  .dot.free{background:var(--green);}
+  .dot.pro{background:var(--terracotta);}
+  section.area{margin-top:40px;}
+  .area-head{display:flex;align-items:baseline;gap:12px;border-bottom:2px solid var(--rule);padding-bottom:10px;margin-bottom:18px;}
+  .area-head h2{font-size:24px;font-weight:700;}
+  .area-head .n{font-family:'Bricolage Grotesque';font-weight:800;color:var(--terracotta);font-size:20px;}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:640px){.cols{grid-template-columns:1fr;} h1{font-size:34px;}}
+  .card{border-radius:16px;padding:18px 20px;border:1px solid var(--rule);background:#fff;}
+  .card.free{background:#F4F6EF;border-color:#DDE6D2;}
+  .card.pro{background:var(--terracotta-soft);border-color:#EBC3AD;}
+  .card .tag{font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;display:inline-block;margin-bottom:8px;}
+  .card.free .tag{color:var(--green);}
+  .card.pro  .tag{color:var(--terracotta);}
+  ul{margin:0;padding-left:18px;}
+  li{margin:5px 0;font-size:15px;}
+  li.none{list-style:none;margin-left:-18px;color:var(--mocha);font-style:italic;}
+  .summary{margin-top:44px;border-radius:20px;overflow:hidden;border:1px solid var(--rule);}
+  table{border-collapse:collapse;width:100%;font-size:15px;background:#fff;}
+  th,td{text-align:left;padding:13px 18px;border-bottom:1px solid var(--rule);}
+  th{font-family:'Bricolage Grotesque';font-weight:700;background:var(--cream-deep);}
+  th.free{color:var(--green);} th.pro{color:var(--terracotta);}
+  td.c{text-align:center;font-weight:600;}
+  td .yes{color:var(--green);} td .no{color:var(--mocha);}
+  .note{margin-top:40px;background:var(--cream-deep);border-radius:16px;padding:20px 24px;font-size:15px;color:var(--espresso);}
+  .note b{font-family:'Bricolage Grotesque';}
+  .pill{display:inline-block;background:var(--terracotta);color:#fff;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;vertical-align:middle;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Elio — Free vs&nbsp;Pro</h1>
+  <p class="sub">What every cook gets for free, and what unlocks with Pro. Ordered the way you move through the app — from your first recipe to feeding the whole household.</p>
+  <p class="meta">Reflects shipped behaviour as of build S17--28may-c (28 May 2026). Source of truth: <code>EntitlementService</code>. Free generation cap = 7/week; saved-recipe history cap = 20.</p>
+
+  <div class="legend">
+    <span><span class="dot free"></span>Free</span>
+    <span><span class="dot pro"></span>Pro unlocks</span>
+  </div>
+
+  <!-- 1 -->
+  <section class="area">
+    <div class="area-head"><span class="n">01</span><h2>Generate recipes</h2></div>
+    <div class="cols">
+      <div class="card free"><span class="tag">Free</span>
+        <ul>
+          <li><b>7 AI recipes a week</b>, built around what's actually in your pantry</li>
+          <li>Allergen- &amp; dietary-safe (hard constraints honoured)</li>
+          <li>Pantry mode &amp; Go&nbsp;Wild mode</li>
+          <li>Craving, mood, style, time &amp; meal-type controls</li>
+          <li>Regenerate / "Generate another" (counts toward the weekly 7)</li>
+          <li>Ingredient swap — long-press any ingredient to substitute</li>
+        </ul>
+      </div>
+      <div class="card pro"><span class="tag">Pro unlocks</span>
+        <ul>
+          <li><b>Unlimited recipe generation</b> — no weekly cap</li>
+          <li><b>Suggest a Side Dish</b> — complementary dish for any recipe</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="area">
+    <div class="area-head"><span class="n">02</span><h2>Your pantry</h2></div>
+    <div class="cols">
+      <div class="card free"><span class="tag">Free — full feature</span>
+        <ul>
+          <li>3-tier pantry (always have / almost always / perishable)</li>
+          <li>Pantry Builder, custom items, "your usuals"</li>
+          <li>Expiry tracking with colour-coded freshness</li>
+          <li>Running-low flags + Restock bridge to shopping</li>
+          <li><b>Barcode &amp; receipt scanning</b> straight into the pantry</li>
+        </ul>
+      </div>
+      <div class="card pro"><span class="tag">Pro unlocks</span>
+        <ul><li class="none">Nothing held back — the pantry is fully free.</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="area">
+    <div class="area-head"><span class="n">03</span><h2>Cook</h2></div>
+    <div class="cols">
+      <div class="card free"><span class="tag">Free — full feature</span>
+        <ul>
+          <li>Hands-free Cook Mode with voice control</li>
+          <li>Inline cooking timers + screen-stays-on</li>
+          <li>Step-by-step method view, serving scaler</li>
+        </ul>
+      </div>
+      <div class="card pro"><span class="tag">Pro unlocks</span>
+        <ul><li class="none">Cooking is fully free.</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="area">
+    <div class="area-head"><span class="n">04</span><h2>Save &amp; organise recipes</h2></div>
+    <div class="cols">
+      <div class="card free"><span class="tag">Free</span>
+        <ul>
+          <li>Save &amp; bookmark recipes</li>
+          <li>Collections / tags, "makeable now" filter</li>
+          <li>Recipe library up to <b>20 saved recipes</b></li>
+        </ul>
+      </div>
+      <div class="card pro"><span class="tag">Pro unlocks</span>
+        <ul><li><b>Unlimited saved-recipe library</b> — no 20-recipe ceiling</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="area">
+    <div class="area-head"><span class="n">05</span><h2>Bring your own recipes</h2></div>
+    <div class="cols">
+      <div class="card free"><span class="tag">Free</span>
+        <ul><li class="none">Importing external recipes is a Pro feature.</li></ul>
+      </div>
+      <div class="card pro"><span class="tag">Pro unlocks</span>
+        <ul>
+          <li><b>Recipe Import</b> — photo scan, paste a URL, or type one in</li>
+          <li><b>Email-forward order import</b> — forward a grocery order, items land in your pantry</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section class="area">
+    <div class="area-head"><span class="n">06</span><h2>Plan your week</h2></div>
+    <div class="cols">
+      <div class="card free"><span class="tag">Free</span>
+        <ul><li class="none">The weekly meal planner is a Pro feature.</li></ul>
+      </div>
+      <div class="card pro"><span class="tag">Pro unlocks</span>
+        <ul>
+          <li><b>7-day meal planner</b> — breakfast / lunch / dinner generation</li>
+          <li>Per-slot regenerate, swipe between days</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section class="area">
+    <div class="area-head"><span class="n">07</span><h2>Shopping list</h2></div>
+    <div class="cols">
+      <div class="card free"><span class="tag">Free</span>
+        <ul><li class="none">The shopping list is a Pro feature.</li></ul>
+      </div>
+      <div class="card pro"><span class="tag">Pro unlocks</span>
+        <ul>
+          <li><b>Auto shopping list</b> from any recipe or the whole meal plan</li>
+          <li>Pantry-aware (skips what you already have)</li>
+          <li>Aisle grouping, quantity consolidation, share sheet</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section class="area">
+    <div class="area-head"><span class="n">08</span><h2>Batch &amp; bulk</h2></div>
+    <div class="cols">
+      <div class="card free"><span class="tag">Free</span>
+        <ul><li class="none">Bulk Prep is a Pro feature.</li></ul>
+      </div>
+      <div class="card pro"><span class="tag">Pro unlocks</span>
+        <ul>
+          <li><b>Bulk Prep mode</b> — batch-cook multiple meals × portions</li>
+          <li>Freezing / reheating / storage guidance per recipe</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 -->
+  <section class="area">
+    <div class="area-head"><span class="n">09</span><h2>Household</h2></div>
+    <div class="cols">
+      <div class="card free"><span class="tag">Free</span>
+        <ul>
+          <li>Your own profile — dietary needs &amp; allergens</li>
+          <li>Owner only (1 person)</li>
+        </ul>
+      </div>
+      <div class="card pro"><span class="tag">Pro unlocks</span>
+        <ul>
+          <li><b>Up to 6 household members</b></li>
+          <li>Combined dietary &amp; allergen union across everyone</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Summary table -->
+  <div class="summary">
+    <table>
+      <thead><tr><th>Feature</th><th class="free c" style="text-align:center">Free</th><th class="pro c" style="text-align:center">Pro</th></tr></thead>
+      <tbody>
+        <tr><td>AI recipe generation</td><td class="c"><span class="yes">7&nbsp;/&nbsp;week</span></td><td class="c"><span class="yes">Unlimited</span></td></tr>
+        <tr><td>Pantry, scanning, expiry tracking</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        <tr><td>Cook Mode, voice, timers</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        <tr><td>Ingredient substitution</td><td class="c"><span class="yes">✓</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        <tr><td>Saved-recipe library</td><td class="c"><span class="yes">20 max</span></td><td class="c"><span class="yes">Unlimited</span></td></tr>
+        <tr><td>Suggest a Side Dish</td><td class="c"><span class="no">—</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        <tr><td>Recipe Import (photo / URL / manual)</td><td class="c"><span class="no">—</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        <tr><td>Email-forward order import</td><td class="c"><span class="no">—</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        <tr><td>Weekly meal planner</td><td class="c"><span class="no">—</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        <tr><td>Shopping list</td><td class="c"><span class="no">—</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        <tr><td>Bulk Prep mode</td><td class="c"><span class="no">—</span></td><td class="c"><span class="yes">✓</span></td></tr>
+        <tr><td>Household members</td><td class="c"><span class="yes">1 (you)</span></td><td class="c"><span class="yes">Up to 6</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="note">
+    <b>Not signed in? (Guest mode)</b><br>
+    You can try Elio without an account — <b>3 recipes a week</b>, device-local. Sign in to lift it to the free <b>7 a week</b>, sync your profile, and keep your recipes. <span class="pill">Pro</span> removes the cap entirely and unlocks everything above.
+  </div>
+
+</div>
+</body>
+</html>

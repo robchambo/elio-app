@@ -6,6 +6,8 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../utils/pantry_string_match.dart';
+
 // ─── Dietary requirements ─────────────────────────────────────────────────────
 
 enum DietaryRequirement {
@@ -121,10 +123,21 @@ class InventoryItem {
   }
 
   Map<String, dynamic> toFirestore() {
+    // Sprint 17 — write the dedup keys + lifecycle timestamps that
+    // InventoryWriter expects. Previously this method emitted only
+    // name/tier/runningLow/expiryDate/category, so rows landed in
+    // Firestore via the onboarding MigrationService batch *without*
+    // matchKey or nameLower. Subsequent PantryBuilder adds couldn't
+    // find those rows via InventoryWriter.findExistingByKey (both
+    // queries returned empty) and silently created duplicates.
     final map = <String, dynamic>{
       'name': name,
       'tier': tier,
       'runningLow': isRunningLow,
+      'nameLower': PantryStringMatch.nameLower(name),
+      'matchKey': PantryStringMatch.matchKey(name),
+      'firstAddedAt': FieldValue.serverTimestamp(),
+      'lastPurchasedAt': FieldValue.serverTimestamp(),
     };
     if (expiryDate != null) {
       // Sprint 15.9.3: write as Firestore Timestamp, not ISO 8601
