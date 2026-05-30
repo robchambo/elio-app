@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'error_service.dart';
 import 'purchase_service.dart';
 
 // ──────────────────────────────────────────────
@@ -126,10 +127,19 @@ class EntitlementService extends ChangeNotifier {
     if (_needsWeekReset()) {
       _weeklyGenerations = 0;
       _weekStartedAt = DateTime.now().toUtc();
-      await _db.collection('users').doc(user.uid).update({
-        'subscription.weeklyGenerations': 0,
-        'subscription.weekStartedAt': FieldValue.serverTimestamp(),
-      });
+      try {
+        await _db.collection('users').doc(user.uid).set(
+          {
+            'subscription': {
+              'weeklyGenerations': 0,
+              'weekStartedAt': FieldValue.serverTimestamp(),
+            },
+          },
+          SetOptions(merge: true),
+        );
+      } on FirebaseException catch (e, st) {
+        ErrorService.log('weekly_reset_write:${e.code}', e, st);
+      }
     }
   }
 
@@ -156,14 +166,31 @@ class EntitlementService extends ChangeNotifier {
     // counter resets to 0 each time → the user always sees the full 7
     // free recipes and the used-count never sticks. Rob's 28 May report:
     // "signed out and back in, gave me my full 7 free recipes not the 6".
-    final updates = <String, Object>{
-      'subscription.weeklyGenerations': FieldValue.increment(1),
+    final subUpdate = <String, Object>{
+      'weeklyGenerations': FieldValue.increment(1),
     };
     if (_weekStartedAt == null) {
       _weekStartedAt = DateTime.now().toUtc();
-      updates['subscription.weekStartedAt'] = FieldValue.serverTimestamp();
+      subUpdate['weekStartedAt'] = FieldValue.serverTimestamp();
     }
-    await _db.collection('users').doc(user.uid).update(updates);
+    try {
+      // set+merge (not update): `update()` rejects a missing/incomplete user
+      // doc, which is the most likely cause of the persisted count never
+      // sticking (deployed rules were confirmed current — not a rules issue).
+      // set+merge creates the doc/subscription map if absent (hits the
+      // `create` rule — no tier written, so initialSubscriptionSafe passes)
+      // and merges the nested subscription map otherwise.
+      await _db.collection('users').doc(user.uid).set(
+        {'subscription': subUpdate},
+        SetOptions(merge: true),
+      );
+    } on FirebaseException catch (e, st) {
+      // Diagnostic: capture the exact code (permission-denied / not-found /
+      // unavailable…) so a recurrence is traceable. The count still shows
+      // via the in-memory value; persistence is best-effort until row 4
+      // (server-side counter) lands.
+      ErrorService.log('record_generation_write:${e.code}', e, st);
+    }
   }
 
   // ── Reset cached per-user state (call on sign-out) ─────────
