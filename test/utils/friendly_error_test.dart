@@ -119,6 +119,14 @@ void main() {
       expect(friendlyError(e), 'Something went wrong. Please try again.');
     });
 
+    test('StateError "Bad state: FirestoreService…" → generic friendly copy', () {
+      // Rob 30 May — non-Pro-at-cap regen surfaced this raw StateError.
+      final e = StateError(
+          'Bad state: FirestoreService called without a signed-in user. '
+          'Guard `FirebaseAuth.instance.currentUser` upstream.');
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
     test('still falls through clean for non-error Exception text', () {
       final e = Exception('Some other domain message');
       expect(friendlyError(e), 'Some other domain message');

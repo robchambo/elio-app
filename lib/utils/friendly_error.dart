@@ -64,12 +64,20 @@ String friendlyError(Object e) {
   // than raw `_TypeError` text. The underlying error is still logged
   // via the caller's ErrorService.log — only the user-visible string
   // is sanitised.
+  //   (c) Rob non-Pro-at-cap regen surfaced the raw "Bad state:
+  //       FirestoreService called without a signed-in user…" StateError
+  //       in a snackbar when a signed-out session reached a Firestore
+  //       write (30 May 2026). The guest-path guard now routes those
+  //       cases correctly, but a StateError must never reach the user as
+  //       raw text either — so `bad state` / `StateError` is sanitised too.
   final isDartTypeError = lower.contains('null check operator') ||
       lower.contains('_typeerror') ||
       lower.contains('is not a subtype of') ||
       lower.contains('in type cast') ||
       lower.contains('rangeerror') ||
-      lower.contains('nosuchmethoderror');
+      lower.contains('nosuchmethoderror') ||
+      lower.contains('bad state') ||
+      lower.contains('stateerror');
   if (isDartTypeError) {
     return 'Something went wrong. Please try again.';
   }
