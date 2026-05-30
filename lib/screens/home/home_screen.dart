@@ -322,7 +322,7 @@ class _HomeScreenState extends State<HomeScreen> {
     FocusScope.of(context).unfocus();
 
     // Free-tier cap check up front
-    if (widget.isGuest) {
+    if (_isGuest) {
       final canGenerate = await EntitlementService.canGuestGenerate();
       if (!mounted) return;
       if (!canGenerate) {
@@ -484,7 +484,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     _analytics.logEvent('recipe_generated', {
       'perishable_count': request.perishables.length,
-      'is_guest': widget.isGuest,
+      'is_guest': _isGuest,
     });
 
     // Background saves (Firestore, entitlements) — non-blocking
@@ -521,7 +521,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _performBackgroundSaves(GeneratedRecipe recipe) async {
     try {
-      if (widget.isGuest) {
+      if (_isGuest) {
         await EntitlementService.recordGuestGeneration();
       } else {
         await Future.wait([
@@ -602,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final firstName = _extractFirstName();
-    final canGenerate = widget.isGuest || _entitlements.canGenerate;
+    final canGenerate = _isGuest || _entitlements.canGenerate;
     final proUnlocked = _entitlements.isPro;
 
     // Sprint 16.4 (Bug 5): the home body is now scrollable. The
@@ -639,7 +639,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Pro and on the guest pre-signin path (the latter
                       // has its own paywall trigger when the guest cap is
                       // hit during recipe-prefs flow).
-                      if (!widget.isGuest && _entitlements.isFree) ...[
+                      if (!_isGuest && _entitlements.isFree) ...[
                         const SizedBox(height: ElioSpacing.sm),
                         _FreeTierMeter(
                           remaining: _entitlements.remainingGenerations,

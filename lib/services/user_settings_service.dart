@@ -285,6 +285,17 @@ class UserSettingsService extends ChangeNotifier {
       _hydrated = true;
       notifyListeners();
     } catch (e, st) {
+      // Crashes DB f0e63da… (P3, non-fatal): `cloud_firestore/unavailable`
+      // (and the related `deadline-exceeded`) are transient gRPC/connectivity
+      // conditions, not code defects — Firestore itself advises retrying with
+      // backoff. settings refresh re-fires on many triggers (sign-in, dietary
+      // edits, auth change), so the next call recovers naturally; no data is
+      // lost. Swallow these silently instead of spamming Crashlytics; only
+      // genuine errors get logged.
+      if (e is FirebaseException &&
+          (e.code == 'unavailable' || e.code == 'deadline-exceeded')) {
+        return;
+      }
       ErrorService.log('user_settings_refresh', e, st);
     }
   }
