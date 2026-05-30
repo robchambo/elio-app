@@ -127,6 +127,14 @@ void main() {
       expect(friendlyError(e), 'Something went wrong. Please try again.');
     });
 
+    test('cloud_firestore permission-denied → generic friendly copy', () {
+      // Rob 30 May — non-Pro regen surfaced this raw plugin error from a
+      // now-removed dead Firestore write.
+      final e = Exception('[cloud_firestore/permission-denied] '
+          'The caller does not have permission to execute the specified operation.');
+      expect(friendlyError(e), 'Something went wrong. Please try again.');
+    });
+
     test('still falls through clean for non-error Exception text', () {
       final e = Exception('Some other domain message');
       expect(friendlyError(e), 'Some other domain message');

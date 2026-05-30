@@ -70,6 +70,11 @@ String friendlyError(Object e) {
   //       write (30 May 2026). The guest-path guard now routes those
   //       cases correctly, but a StateError must never reach the user as
   //       raw text either — so `bad state` / `StateError` is sanitised too.
+  //   (d) Rob non-Pro regen surfaced raw "[cloud_firestore/permission-denied]
+  //       The caller does not have permission…" (30 May) when a now-removed
+  //       dead Firestore write was denied. Background Firestore errors must
+  //       never reach the user as raw text either — sanitise any
+  //       cloud_firestore plugin error / permission-denied too.
   final isDartTypeError = lower.contains('null check operator') ||
       lower.contains('_typeerror') ||
       lower.contains('is not a subtype of') ||
@@ -77,7 +82,9 @@ String friendlyError(Object e) {
       lower.contains('rangeerror') ||
       lower.contains('nosuchmethoderror') ||
       lower.contains('bad state') ||
-      lower.contains('stateerror');
+      lower.contains('stateerror') ||
+      lower.contains('permission-denied') ||
+      lower.contains('cloud_firestore/');
   if (isDartTypeError) {
     return 'Something went wrong. Please try again.';
   }

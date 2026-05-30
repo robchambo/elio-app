@@ -1636,17 +1636,24 @@ class _RecipeScreenState extends State<RecipeScreen> {
 
       final newRecipe = await GeminiService.generateRecipe(newRequest);
 
-      if (_isGuest) {
-        // Sprint 17 — count the regen against the guest's 3/week cap.
-        // Previously only first-generation incremented (via
-        // HomeScreen), so guests could regen unbounded after the
-        // first recipe of the week.
-        await EntitlementService.recordGuestGeneration();
-      } else {
-        await Future.wait([
-          EntitlementService.instance.recordGeneration(),
-          _firestore.saveRecipe(newRecipe),
-        ]);
+      // Count the regen — best-effort. A Firestore failure here (e.g. the
+      // rules denying a write) must NEVER block showing the recipe, which is
+      // already generated and saved locally just below. Recipes persist via
+      // HistoryService; there is no Firestore recipe mirror in v1 (nothing
+      // reads users/{uid}/recipes), so the old `_firestore.saveRecipe` write
+      // was dead and, post rules-hardening, was being denied — that denial is
+      // what surfaced as the raw `[cloud_firestore/permission-denied]` toast
+      // on "Generate another" for signed-in free users (Rob 29 May). Dropped.
+      try {
+        if (_isGuest) {
+          // Count the regen against the guest's 3/week cap (previously only
+          // first-generation incremented, so guests could regen unbounded).
+          await EntitlementService.recordGuestGeneration();
+        } else {
+          await EntitlementService.instance.recordGeneration();
+        }
+      } catch (e, st) {
+        ErrorService.log('regen_record_generation', e, st);
       }
 
       await HistoryService.saveRecipe(SavedRecipe(
