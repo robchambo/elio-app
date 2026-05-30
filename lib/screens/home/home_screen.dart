@@ -524,10 +524,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_isGuest) {
         await EntitlementService.recordGuestGeneration();
       } else {
-        await Future.wait([
-          _entitlements.recordGeneration(),
-          _firestore.saveRecipe(recipe),
-        ]);
+        // Recipes persist locally via HistoryService — there is no Firestore
+        // recipe mirror in v1 (nothing reads users/{uid}/recipes), so the old
+        // _firestore.saveRecipe write was dead and, post rules-hardening, was
+        // being denied. Dropped. Only the entitlement count is recorded here.
+        await _entitlements.recordGeneration();
       }
     } catch (_) {
       // Firestore save failure is non-critical — recipe is already shown
